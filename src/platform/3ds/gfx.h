@@ -75,8 +75,11 @@ class SpriteBank {
 // ---------------- chunks del suelo ----------------
 class ChunkCache {
  public:
-  static constexpr int kSlots = 16;
+  static constexpr int kSlots = 24;
+  // El pintado va en un hilo en otro núcleo (el 2 en la New 3DS, el 1 en la
+  // vieja); si no se puede crear, se pinta a trozos en el hilo principal.
   void init();
+  void shutdown();
   void clear();          // al cambiar de mundo o de bioma
   // Textura del chunk si ya está pintado (si no, lo pide y devuelve null).
   C2D_Image* get(World& w, int32_t cx, int32_t cy, int biome);
@@ -89,11 +92,20 @@ class ChunkCache {
     int32_t cx, cy; int biome; uint32_t gen; bool used, ready, painting; int row; uint32_t stamp;
     C3D_Tex tex; Tex3DS_SubTexture sub; C2D_Image img;
   };
+  static void worker(void* arg);
   Slot slots_[kSlots];
   uint32_t stamp_ = 0;
   uint32_t* buf_ = nullptr;     // RGBA8 de un chunk (256×256)
   ChunkPainter painter_;
   int painting_ = -1;
+  // hilo
+  Thread thr_ = nullptr;
+  LightEvent ev_;
+  volatile int job_ = -1;       // hueco que pinta el hilo
+  volatile bool job_done_ = false, quit_ = false;
+  uint32_t job_gen_ = 0;
+public:
+  bool threaded() const { return thr_ != nullptr; }
 };
 
 // Copia una imagen RGBA8 lineal (de arriba abajo) a una textura de la GPU

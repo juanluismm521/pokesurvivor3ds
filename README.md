@@ -27,6 +27,23 @@ En desarrollo. Mira [`PLAN.md`](PLAN.md) (qué se hace y en qué orden) y
 Los archivos generados (`build/`, `romfs/`, `dist/`...) no se suben: se
 regeneran con los scripts de `tools/`.
 
+## Instalar en la consola
+1. Hace falta una 3DS con *custom firmware* y el Homebrew Launcher.
+2. Copia `pokesurvivor-3ds.3dsx` a `sd:/3ds/` y ábrelo desde el Homebrew Launcher.
+3. Para el sonido hace falta `sd:/3ds/dspfirm.cdc` (se saca una vez con DSP1).
+4. La partida se guarda en `sd:/3ds/pokesurvivor-3ds/save.json` (con copia en
+   `save.bak`) y los ajustes en `settings.json`.
+
+## Controles
+| Botón | Acción |
+|---|---|
+| Circle Pad / cruceta | Moverse |
+| L / R (o X) | Cambiar de movimiento (o tocar el hueco abajo) |
+| START | Pausa (SELECT en la pausa: abandonar la partida) |
+| Arriba/abajo + A, o tocar | Elegir carta de nivel, objeto o vínculo |
+| Y | Cambiar las cartas de nivel |
+| START + SELECT | Salir del juego |
+
 ## Compilar
 Ver `las normas del proyecto` > *Comandos* (instalación de devkitPro, generación de recursos,
 compilación de la 3DS y pruebas en PC).

@@ -208,6 +208,12 @@ void Renderer::draw_ground(World& w, const Camera& cam, float vl, float vt, floa
   // --- suelo ---
   const int32_t c0x = int32_t(std::floor(v.l / kCW)), c1x = int32_t(std::floor((v.l + cam.w) / kCW));
   const int32_t c0y = int32_t(std::floor(v.t / kCW)), c1y = int32_t(std::floor((v.t + cam.h) / kCW));
+  // Precarga: pide antes los chunks del anillo de alrededor (se pintan en el
+  // otro hilo) y luego los visibles, que así quedan los más recientes.
+  if (chunks.threaded())
+    for (int32_t cy = c0y - 1; cy <= c1y + 1; ++cy)
+      for (int32_t cx = c0x - 1; cx <= c1x + 1; ++cx)
+        if (cx < c0x || cx > c1x || cy < c0y || cy > c1y) chunks.get(w, cx, cy, biome);
   for (int32_t cy = c0y; cy <= c1y; ++cy)
     for (int32_t cx = c0x; cx <= c1x; ++cx) {
       const float x = v.sx(cx * kCW), y = v.sy(cy * kCW);

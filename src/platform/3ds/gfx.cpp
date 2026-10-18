@@ -180,8 +180,38 @@ void upload_rgb565(C3D_Tex& tex, const uint32_t* rgba, int w, int h) {
   C3D_TexFlush(&tex);
 }
 
+void ChunkCache::worker(void* arg) {
+  ChunkCache& c = *static_cast<ChunkCache*>(arg);
+  while (!c.quit_) {
+    LightEvent_Wait(&c.ev_);
+    if (c.quit_) break;
+    const int j = c.job_;
+    if (j >= 0 && !c.job_done_) {
+      c.painter_.paint_all(c.buf_);
+      upload_rgb565(c.slots_[j].tex, c.buf_, kChunkPx, kChunkPx);
+      c.job_done_ = true;
+    }
+  }
+}
+
+void ChunkCache::shutdown() {
+  if (!thr_) return;
+  quit_ = true;
+  LightEvent_Signal(&ev_);
+  threadJoin(thr_, U64_MAX);
+  threadFree(thr_);
+  thr_ = nullptr;
+}
+
 void ChunkCache::init() {
   buf_ = static_cast<uint32_t*>(std::malloc(kChunkPx * kChunkPx * 4));
+  LightEvent_Init(&ev_, RESET_ONESHOT);
+  bool n3ds = false;
+  APT_CheckNew3DS(&n3ds);
+  if (!n3ds) APT_SetAppCpuTimeLimit(30);   // la vieja: el núcleo 1 se comparte con el sistema
+  s32 prio = 0x30;
+  svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+  thr_ = threadCreate(worker, this, 32 * 1024, prio + 1, n3ds ? 2 : 1, false);
   for (auto& s : slots_) {
     s.used = s.ready = s.painting = false;
     C3D_TexInit(&s.tex, kChunkPx, kChunkPx, GPU_RGB565);
@@ -192,7 +222,8 @@ void ChunkCache::init() {
 }
 
 void ChunkCache::clear() {
-  for (auto& s : slots_) s.used = s.ready = s.painting = false;
+  // (si el hilo está pintando uno, termina y se descarta: cambia la generación)
+  for (int i = 0; i < kSlots; ++i) { Slot& s = slots_[i]; if (i == job_) { s.gen++; s.used = false; s.ready = false; continue; } s.used = s.ready = s.painting = false; s.gen++; }
   painting_ = -1;
 }
 
@@ -216,6 +247,29 @@ C2D_Image* ChunkCache::get(World& w, int32_t cx, int32_t cy, int biome) {
 }
 
 void ChunkCache::work(World& w, int rows) {
+  if (thr_) {
+    if (job_ >= 0 && job_done_) {
+      Slot& s = slots_[job_];
+      if (s.gen == job_gen_) s.ready = true;
+      s.painting = false;
+      job_ = -1;
+      job_done_ = false;
+    }
+    if (job_ < 0) {
+      int best = -1;
+      for (int i = 0; i < kSlots; ++i)
+        if (slots_[i].used && !slots_[i].ready && (best < 0 || slots_[i].stamp > slots_[best].stamp)) best = i;
+      if (best < 0) return;
+      Slot& s = slots_[best];
+      s.painting = true;
+      painter_.begin(w, s.cx, s.cy, s.biome);   // (lee el terreno aquí, en el hilo principal)
+      job_gen_ = s.gen;
+      job_done_ = false;
+      job_ = best;
+      LightEvent_Signal(&ev_);
+    }
+    return;
+  }
   while (rows > 0) {
     if (painting_ < 0) {
       // El pedido más reciente primero (el que se está viendo).
