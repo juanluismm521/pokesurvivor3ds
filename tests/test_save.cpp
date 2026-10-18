@@ -207,3 +207,21 @@ TEST_CASE("gacha: probabilidades, garantías y repetidos") {
   CHECK(gacha_pull(*e, 10, 1, true, rng, 1, out) == 10);
   CHECK(e->t10 == 0);
 }
+
+#include "core/i18n.h"
+
+TEST_CASE("idioma: las traducciones al inglés dan lo mismo que la web") {
+  Json g;
+  REQUIRE(g.parse(read_file(std::string(PS_GOLDEN_DIR) + "/golden.json")));
+  const Json& t = g["i18n"];
+  REQUIRE(t.size() > 100);
+  i18n_set(LANG_EN);
+  int bad = 0;
+  for (size_t i = 0; i < t.size(); ++i) {
+    const std::string got = tr(t[i][0].as_str().c_str());
+    if (got != t[i][1].as_str()) { bad++; MESSAGE(t[i][0].as_str() << " → " << got << " (web: " << t[i][1].as_str() << ")"); }
+  }
+  CHECK(bad == 0);
+  i18n_set(LANG_ES);
+  CHECK(std::string(tr("Volver")) == "Volver");
+}

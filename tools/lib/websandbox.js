@@ -16,7 +16,7 @@ function fakeCanvas() {
   return cv;
 }
 
-function create(seed) {
+function create(lang) {
   const noop = () => {};
   const G = {};
   const sandbox = {
@@ -24,7 +24,7 @@ function create(seed) {
     Uint8Array, Uint32Array, Int16Array, Int32Array, Float32Array, Uint8ClampedArray,
     Infinity, NaN, isFinite, parseInt, parseFloat,
     location: { pathname: '/', protocol: 'file:' }, navigator: { language: 'es', languages: ['es'] },
-    localStorage: { getItem: () => 'es', setItem: noop, removeItem: noop },
+    localStorage: { getItem: () => lang || 'es', setItem: noop, removeItem: noop },
     document: {
       documentElement: {}, createElement: () => fakeCanvas(), addEventListener: noop,
       querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, body: {}

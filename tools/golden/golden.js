@@ -160,5 +160,32 @@ for (const [d, w, created] of [['d20261018', 'w2026-42', 1760000000000], ['d2027
 }
 out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
 
+// ---------------- traducciones (i18n.js en inglés) ----------------
+{
+  const sb = require('../lib/websandbox').create('en');
+  const GE = sb.G;
+  const ld = f => vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n'), sb, { filename: f });
+  ld('js/core/util.js'); ld('js/core/i18n.js'); ld('js/data/lang-en.js');
+  const samples = [
+    '¡Un Pikachu shiny anda cerca!', '¡Horda de tipo Fuego!', 'HORDA FUEGO · 23 s', '¡Hora dorada! Doble de experiencia',
+    '¡Has conseguido a Pikachu shiny!', '¡Otro Eevee shiny! (+300 monedas)', '¡Marea de Pokémon!', '— Bosque Umbrío —',
+    '¡Snorlax salvaje apareció!', '¡Garchomp se ha enfurecido!', 'Has entrado en la grieta…', '¡Huye de Arceus! Es invencible',
+    'Bosque Umbrío · 5 derrotados · 1 monedas', 'Nv. 3', 'Pausa', 'Volver', 'LA SENTENCIA', 'DE ARCEUS', 'El tiempo se ha agotado…',
+    '¡ARCEUS HA DESCENDIDO!', 'Es invencible: huye y aguanta todo lo que puedas', '¡SE HA ABIERTO UNA GRIETA!',
+    'Sigue la flecha morada: dentro te espera un legendario', '¡Nivel 7! Elige una mejora', 'Sólo puedes llevar un objeto',
+    '¡Llevas Restos!', 'Ya llevas Vidasfera', '¡Banda Focus!', '¡Pegajoso!', '¡Vínculo!', '+1 ticket', '¡Ticket ×10!',
+    'El manantial se ha secado (se recarga solo)', '¡Poder Furia! daño ×2 durante 25 s', 'Te has debilitado', 'Fin de la partida',
+    'GRIETA · 12 m · 30 s', 'SENTENCIA · 1:05 · JEFES 2', '¡Mewtwo te esperaba en la grieta!', '¡Has vencido a Lugia! Recoge el premio…',
+    'La grieta os ha expulsado…', '¡Un Meowth cargado de monedas! ¡Atrápalo antes de que huya!', '¡Meowth se ha escapado!',
+    '¡Un Bulbasaur se ha perdido! Búscalo y llévalo a la marca', '¡Bulbasaur te sigue! Llévalo a la marca verde',
+    'Misión completada: Derrota a 300 Pokémon', '¡Logro: Coleccionista!', 'Nuevo título: Coleccionista'];
+  for (const m of GE.MissionDefs ? [] : []) samples.push(m);
+  out.i18n = samples.map(s => [s, GE.I18n.t(s)]);
+  for (const m of G.Moves.ALL) { out.i18n.push([m.name, GE.I18n.t(m.name)]); out.i18n.push([m.desc, GE.I18n.t(m.desc)]); }
+  for (const it of G.Items.LIST) { out.i18n.push([it.name, GE.I18n.t(it.name)]); out.i18n.push([it.desc, GE.I18n.t(it.desc)]); }
+  for (const a of G.AchDefs.LIST.slice(0, 60)) { out.i18n.push([a.name, GE.I18n.t(a.name)]); out.i18n.push([a.desc, GE.I18n.t(a.desc)]); }
+  for (const m of out.missions) for (const t of m.texts) out.i18n.push([t, GE.I18n.t(t)]);
+}
+
 fs.writeFileSync(path.join(OUT, 'golden.json'), JSON.stringify(out));
 console.log('golden: ' + Object.keys(out).map(k => k + (Array.isArray(out[k]) ? ' ' + out[k].length : '')).join(', '));
