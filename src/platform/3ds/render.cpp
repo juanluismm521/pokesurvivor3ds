@@ -68,6 +68,10 @@ void triangle_arrow(float x, float y, float a, float len, float half, u32 c) {
 
 bool Renderer::init() {
   tbuf = C2D_TextBufNew(8192);
+  // Fuente propia (Pixelify Sans, tools/gen_font.py); si falta, la del sistema.
+  font = C2D_FontLoad("romfs:/gfx/font.bcfnt");
+  if (font) C2D_FontSetFilter(font, GPU_NEAREST, GPU_NEAREST);
+  font_k = font ? 1.2f : 1.0f;
   if (!props.load("romfs:/gfx/props.t3x", "romfs:/gfx/props.idx")) return false;
   if (!vfx.load("romfs:/gfx/vfx.t3x", "romfs:/gfx/vfx.idx")) return false;
   if (!icons.load("romfs:/gfx/icons.t3x", "romfs:/gfx/icons.idx")) return false;
@@ -114,6 +118,7 @@ void Renderer::text(const char* s, float x, float y, float size, u32 color, int 
   C2D_TextFontParse(&t, font, tbuf, s);
   C2D_TextOptimize(&t);
   float w = 0, h = 0;
+  size *= font_k;
   C2D_TextGetDimensions(&t, size, size, &w, &h);
   if (align == 1) x -= w / 2;
   else if (align == 2) x -= w;

@@ -14,6 +14,7 @@ struct Renderer {
   ChunkCache chunks;
   C2D_TextBuf tbuf = nullptr;
   C2D_Font font = nullptr;
+  float font_k = 1;              // escala de la fuente propia frente a la del sistema
   int fps = 60;
   int card_cursor = 0;
   uint32_t world_seed = 0;
