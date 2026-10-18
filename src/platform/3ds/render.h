@@ -16,6 +16,7 @@ struct Renderer {
   C2D_Font font = nullptr;
   float font_k = 1;              // escala de la fuente propia frente a la del sistema
   int fps = 60;
+  bool show_fps = false;
   int card_cursor = 0;
   uint32_t world_seed = 0;
   // Índices de imágenes de los atlas (buscados al cargar).
@@ -31,9 +32,13 @@ struct Renderer {
   void begin_frame(Game& g);        // reparte el pintado del suelo
   void draw_top(Game& g);
   void draw_bottom(Game& g, bool autotest);
+  void draw_ground(World& w, const Camera& cam, float vl, float vt, float now);
+  void draw_prop(const Prop& p, World& w, float vl, float vt, float now);
 
   // utilidades
   void text(const char* s, float x, float y, float size, u32 color, int align = 0, bool shadow = true);
+  float text_wrap(const char* s, float x, float y, float size, u32 color, float width, int align = 0);
+  float text_width(const char* s, float size);
   void draw_sprite(const Animator& a, float sx, float sy, u32 flash_mode, float alpha);
   void draw_shape(int shape, int pal, int frame, float sx, float sy, float angle, float scale, float alpha);
 };

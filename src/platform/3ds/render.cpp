@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "core/i18n.h"
 #include "core/util.h"
 
 namespace ps {
@@ -114,6 +115,7 @@ void Renderer::begin_frame(Game& g) {
 // ---------------- utilidades ----------------
 
 void Renderer::text(const char* s, float x, float y, float size, u32 color, int align, bool shadow) {
+  if (i18n_lang() != LANG_ES) s = tr(s);
   C2D_Text t;
   C2D_TextFontParse(&t, font, tbuf, s);
   C2D_TextOptimize(&t);
@@ -127,6 +129,32 @@ void Renderer::text(const char* s, float x, float y, float size, u32 color, int 
     C2D_DrawText(&t, C2D_WithColor, x - 1, y, 0, size, size, C2D_Color32(0, 0, 0, (color >> 24) / 2));
   }
   C2D_DrawText(&t, C2D_WithColor, x, y, 0, size, size, color);
+}
+
+// Texto con salto de línea automático (ancho `width`); align 1 = centrado en x.
+float Renderer::text_wrap(const char* s, float x, float y, float size, u32 color, float width, int align) {
+  if (i18n_lang() != LANG_ES) s = tr(s);
+  C2D_Text t;
+  C2D_TextFontParse(&t, font, tbuf, s);
+  C2D_TextOptimize(&t);
+  size *= font_k;
+  float w = 0, h = 0;
+  C2D_TextGetDimensions(&t, size, size, &w, &h);
+  const u32 flags = C2D_WithColor | C2D_WordWrap | (align == 1 ? C2D_AlignCenter : 0);
+  C2D_DrawText(&t, flags, x + 1, y + 1, 0, size, size, C2D_Color32(0, 0, 0, (color >> 24) * 3 / 4), width);
+  C2D_DrawText(&t, flags, x, y, 0, size, size, color, width);
+  // Alto aproximado: líneas según el ancho.
+  const int lines = int(w / width) + 1;
+  return h * lines;
+}
+
+float Renderer::text_width(const char* s, float size) {
+  if (i18n_lang() != LANG_ES) s = tr(s);
+  C2D_Text t;
+  C2D_TextFontParse(&t, font, tbuf, s);
+  float w = 0, h = 0;
+  C2D_TextGetDimensions(&t, size * font_k, size * font_k, &w, &h);
+  return w;
 }
 
 // flash_mode: 0 nada, 1 blanco entero (enemigos), 2 medio blanco (tu Pokémon)
@@ -166,21 +194,10 @@ void Renderer::draw_shape(int shape, int pal, int frame, float sx, float sy, flo
 
 // ---------------- pantalla de arriba ----------------
 
-namespace {
-enum DKind : int8_t { D_PROP, D_ENEMY, D_PLAYER, D_RIFT, D_ARCEUS, D_LOST, D_GOAL };
-struct DItem { float y; int8_t kind; const void* p; };
-DItem items[900];
-}  // namespace
-
-void Renderer::draw_top(Game& g) {
-  C2D_TextBufClear(tbuf);
-  const Camera& cam = g.camera;
-  View v{cam.left() - cam.sx, cam.top() - cam.sy};
-  const float now = float(g.time);
-  World& w = g.world;
+void Renderer::draw_ground(World& w, const Camera& cam, float vl, float vt, float now) {
+  View v{vl, vt};
   const int biome = w.biome();
   const float fk = w.fade_k();
-
   // --- suelo ---
   const int32_t c0x = int32_t(std::floor(v.l / kCW)), c1x = int32_t(std::floor((v.l + cam.w) / kCW));
   const int32_t c0y = int32_t(std::floor(v.t / kCW)), c1y = int32_t(std::floor((v.t + cam.h) / kCW));
@@ -216,6 +233,65 @@ void Renderer::draw_top(Game& g) {
         if (lava && k > 0.8f) C2D_DrawRectSolid(px - std::round(k * 2), py - 2, 0, 1, 1, rgbf(B.foam, a));
       }
   }
+
+}
+
+void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now) {
+  View v{vl, vt};
+  const int biome = w.biome();
+  const float fk = w.fade_k();
+  int variant = 0;
+  switch (p.type) {
+    case PR_GRASS: variant = std::sin(now * 2.4f + p.wiggle) > 0.55f ? 1 : 0; return;
+    case PR_ROCK: variant = p.hp < p.max_hp * 0.5f ? 1 : 0; return;
+    case PR_ALTAR: variant = p.kind * 2 + (p.used ? 1 : 0); return;
+    case PR_SPRING: variant = p.charge < 0.15f ? 1 : 0; return;
+    case PR_TRAP: variant = p.kind; return;
+    default: return;
+  }
+  const int idx = prop_idx[biome][p.type][variant];
+  if (idx < 0) return;
+  const Tex3DS_SubTexture& s = props.sub(idx);
+  const float x = v.sx(p.x), y = v.sy(p.y);
+  if (p.flat) { C2D_DrawImageAt(props.image(idx), std::floor(x - s.width / 2.0f), std::floor(y - 4 - s.height / 2.0f), 0); return; }
+  if (p.type == PR_ALTAR && !p.used) {
+    static const uint32_t AC[4] = {0xff5f6d, 0x5fd4ff, 0xff8ad8, 0xffd23f};
+    ellipse(x, y - s.height + 11, 6.5f, 6.5f, rgbf(AC[p.kind & 3], 0.22f + std::sin(now * 3 + p.wiggle) * 0.1f));
+  }
+  if (p.type == PR_BIGCHEST && p.open > 0)
+    dot_ring(x, y - s.height / 2.0f, 13, 13, 2, rgb(0xffd23f), -kPi / 2, -kPi / 2 + kTau * std::fmin(1.0f, p.open / 3.5f));
+  if (p.type != PR_GRASS) ellipse(x, y, p.r * 0.55f, p.r * 0.19f, C2D_Color32(0, 0, 0, 77));
+  const float px = std::floor(x - s.width / 2.0f), py = std::floor(y - s.height + (p.type == PR_GRASS ? 2 : 1));
+  if (fk >= 0) {
+    const int oi = prop_idx[w.fade_from()][p.type][variant];
+    if (oi >= 0) {
+      const Tex3DS_SubTexture& os = props.sub(oi);
+      C2D_ImageTint t; C2D_AlphaImageTint(&t, 1 - fk);
+      C2D_DrawImageAt(props.image(oi), std::floor(x - os.width / 2.0f), std::floor(y - os.height + (p.type == PR_GRASS ? 2 : 1)), 0, &t);
+    }
+    C2D_ImageTint t; C2D_AlphaImageTint(&t, fk);
+    C2D_DrawImageAt(props.image(idx), px, py, 0, &t);
+  } else {
+    C2D_DrawImageAt(props.image(idx), px, py, 0);
+  }
+  if (p.flash > 0) { C2D_ImageTint t; C2D_PlainImageTint(&t, C2D_Color32f(1, 1, 1, 0.6f), 1); C2D_DrawImageAt(props.image(idx), px, py, 0, &t); }
+  }
+
+
+namespace {
+enum DKind : int8_t { D_PROP, D_ENEMY, D_PLAYER, D_RIFT, D_ARCEUS, D_LOST, D_GOAL };
+struct DItem { float y; int8_t kind; const void* p; };
+DItem items[900];
+}  // namespace
+
+void Renderer::draw_top(Game& g) {
+  C2D_TextBufClear(tbuf);
+  const Camera& cam = g.camera;
+  View v{cam.left() - cam.sx, cam.top() - cam.sy};
+  const float now = float(g.time);
+  World& w = g.world;
+
+  draw_ground(w, cam, v.l, v.t, now);
 
   // --- avisos en el suelo ---
   const bool blink = std::sin(now * 1000 / 60) > 0;
@@ -318,45 +394,7 @@ void Renderer::draw_top(Game& g) {
   for (int i = 0; i < n; ++i) {
     const DItem& it = items[i];
     switch (it.kind) {
-      case D_PROP: {
-        const Prop& p = *static_cast<const Prop*>(it.p);
-        int variant = 0;
-        switch (p.type) {
-          case PR_GRASS: variant = std::sin(now * 2.4f + p.wiggle) > 0.55f ? 1 : 0; break;
-          case PR_ROCK: variant = p.hp < p.max_hp * 0.5f ? 1 : 0; break;
-          case PR_ALTAR: variant = p.kind * 2 + (p.used ? 1 : 0); break;
-          case PR_SPRING: variant = p.charge < 0.15f ? 1 : 0; break;
-          case PR_TRAP: variant = p.kind; break;
-          default: break;
-        }
-        const int idx = prop_idx[biome][p.type][variant];
-        if (idx < 0) break;
-        const Tex3DS_SubTexture& s = props.sub(idx);
-        const float x = v.sx(p.x), y = v.sy(p.y);
-        if (p.flat) { C2D_DrawImageAt(props.image(idx), std::floor(x - s.width / 2.0f), std::floor(y - 4 - s.height / 2.0f), 0); break; }
-        if (p.type == PR_ALTAR && !p.used) {
-          static const uint32_t AC[4] = {0xff5f6d, 0x5fd4ff, 0xff8ad8, 0xffd23f};
-          ellipse(x, y - s.height + 11, 6.5f, 6.5f, rgbf(AC[p.kind & 3], 0.22f + std::sin(now * 3 + p.wiggle) * 0.1f));
-        }
-        if (p.type == PR_BIGCHEST && p.open > 0)
-          dot_ring(x, y - s.height / 2.0f, 13, 13, 2, rgb(0xffd23f), -kPi / 2, -kPi / 2 + kTau * std::fmin(1.0f, p.open / 3.5f));
-        if (p.type != PR_GRASS) ellipse(x, y, p.r * 0.55f, p.r * 0.19f, C2D_Color32(0, 0, 0, 77));
-        const float px = std::floor(x - s.width / 2.0f), py = std::floor(y - s.height + (p.type == PR_GRASS ? 2 : 1));
-        if (fk >= 0) {
-          const int oi = prop_idx[w.fade_from()][p.type][variant];
-          if (oi >= 0) {
-            const Tex3DS_SubTexture& os = props.sub(oi);
-            C2D_ImageTint t; C2D_AlphaImageTint(&t, 1 - fk);
-            C2D_DrawImageAt(props.image(oi), std::floor(x - os.width / 2.0f), std::floor(y - os.height + (p.type == PR_GRASS ? 2 : 1)), 0, &t);
-          }
-          C2D_ImageTint t; C2D_AlphaImageTint(&t, fk);
-          C2D_DrawImageAt(props.image(idx), px, py, 0, &t);
-        } else {
-          C2D_DrawImageAt(props.image(idx), px, py, 0);
-        }
-        if (p.flash > 0) { C2D_ImageTint t; C2D_PlainImageTint(&t, C2D_Color32f(1, 1, 1, 0.6f), 1); C2D_DrawImageAt(props.image(idx), px, py, 0, &t); }
-        break;
-      }
+      case D_PROP: draw_prop(*static_cast<const Prop*>(it.p), w, v.l, v.t, now); break;
       case D_ENEMY: {
         const Enemy& e = *static_cast<const Enemy*>(it.p);
         const float alpha = e.dead ? clamp(e.fade / 0.5f, 0.0f, 1.0f) : 1;
@@ -905,7 +943,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text("L/R: cambiar · START: pausa", 160, 226, 0.32f, rgb(0x5d6f8c), 1);
   }
   std::snprintf(b, sizeof(b), "%d FPS%s", fps, autotest ? " · AUTOTEST" : "");
-  text(b, 316, 214, 0.32f, fps >= 50 ? rgb(0x5fe08a) : fps >= 30 ? rgb(0xffd23f) : rgb(0xff5f6d), 2, false);
+  if (show_fps || autotest) text(b, 316, 214, 0.32f, fps >= 50 ? rgb(0x5fe08a) : fps >= 30 ? rgb(0xffd23f) : rgb(0xff5f6d), 2, false);
 }
 
 }  // namespace ps

@@ -21,6 +21,8 @@ def main():
     for f in files:
         with open(f, encoding='utf-8') as fh:
             chars.update(ch for ch in fh.read() if ord(ch) > 0x7f)
+    with open(os.path.join(ROOT, 'CREDITS.md'), encoding='utf-8') as fh:
+        chars.update(ch for ch in fh.read() if ord(ch) > 0x7f)
     # Textos de la web (nombres, descripciones, traducciones...)
     for f in glob.glob(os.path.join(ROOT, 'reference', 'web', 'js', '**', '*.js'), recursive=True):
         with open(f, encoding='utf-8') as fh:
