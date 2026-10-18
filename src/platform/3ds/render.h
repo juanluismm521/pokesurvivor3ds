@@ -17,6 +17,7 @@ struct Renderer {
   float font_k = 1;              // escala de la fuente propia frente a la del sistema
   int fps = 60;
   bool show_fps = false;
+  bool old_3ds = false;          // pinta el suelo más despacio (menos filas por fotograma)
   int card_cursor = 0;
   uint32_t world_seed = 0;
   // Índices de imágenes de los atlas (buscados al cargar).

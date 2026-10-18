@@ -80,7 +80,11 @@ void App::start_tour() {
 
 void App::apply_settings() {
   i18n_set(st_->lang == 1 ? LANG_EN : LANG_ES);
-  g_->fx.quality = st_->quality < 0 ? 2 : st_->quality;
+  // Calidad automática según el modelo: alta en la New 3DS, media en la vieja.
+  bool n3ds = false;
+  APT_CheckNew3DS(&n3ds);
+  g_->fx.quality = st_->quality < 0 ? (n3ds ? 2 : 1) : st_->quality;
+  r_->old_3ds = !n3ds;
   g_->fx.dmg_numbers = st_->dmg_numbers;
   g_->camera.calm = st_->calm;
   r_->show_fps = st_->fps;

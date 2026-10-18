@@ -115,7 +115,8 @@ void Renderer::begin_frame(Game& g) {
   if (world_seed != uint32_t(g.world.seed())) { chunks.clear(); world_seed = uint32_t(g.world.seed()); }
   // Pinta 3 filas de casillas por fotograma (un chunk en ~6 fotogramas); más si
   // lo que se ve está sin pintar.
-  chunks.work(g.world, chunks.pending() > 2 ? 6 : 3);
+  const int base = old_3ds ? 1 : 3;
+  chunks.work(g.world, chunks.pending() > 2 ? base * 2 : base);
 }
 
 // ---------------- utilidades ----------------
@@ -949,7 +950,27 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 8, 104, 0, nullptr, 1.5f, 1.5f);
       text(kItems[p.item].name, 30, 106, 0.34f, rgb(0xeaf2ff), 0);
     }
-    if (p.bonds > 0) { std::snprintf(b, sizeof(b), "Vínculos: %d", p.bonds); text(b, 312, 106, 0.34f, rgb(0xff8ad8), 2); }
+    if (p.bonds > 0) { std::snprintf(b, sizeof(b), "Vínculos: %d", p.bonds); text(b, 8, 90, 0.34f, rgb(0xff8ad8), 0); }
+    // --- minimapa: enemigos, jefes, cofres, altares, grieta y Pokémon perdido ---
+    {
+      const float mx = 208, my = 62, mw = 104, mh = 62, R = 1400;   // unidades de mundo de borde a borde (la mitad)
+      C2D_DrawRectSolid(mx, my, 0, mw, mh, C2D_Color32(8, 12, 22, 220));
+      auto dot = [&](float wx, float wy, float sz, u32 c) {
+        const float dx = (wx - p.x) / R, dy = (wy - p.y) / R;
+        if (std::fabs(dx) > 1 || std::fabs(dy) > 1) return;
+        C2D_DrawRectSolid(std::floor(mx + mw / 2 + dx * mw / 2 - sz / 2), std::floor(my + mh / 2 + dy * mh / 2 - sz / 2), 0, sz, sz, c);
+      };
+      g.world.for_props_in_rect(p.x - R, p.y - R, p.x + R, p.y + R, [&](Prop& pr) {
+        if (pr.type == PR_CHEST || pr.type == PR_BIGCHEST) dot(pr.x, pr.y, pr.type == PR_BIGCHEST ? 3 : 2, rgb(0xf2c443));
+        else if (pr.type == PR_ALTAR && !pr.used) dot(pr.x, pr.y, 2, rgb(0xff8ad8));
+        else if (pr.type == PR_SPRING) dot(pr.x, pr.y, 2, rgb(0x5fe8d8));
+      });
+      for (const Enemy& e : g.enemies) if (!e.dead) dot(e.x, e.y, e.boss ? 4 : 1, e.boss ? rgb(0xffcb3d) : e.shiny ? rgb(0x9ae6ff) : rgb(0xff5f6d));
+      if (g.rift.open) dot(g.rift.x, g.rift.y, 4, rgb(0xb48aff));
+      if (g.lost.on) { dot(g.lost.x, g.lost.y, 3, rgb(0x7dffb0)); dot(g.lost.tx, g.lost.ty, 3, rgb(0x5fe08a)); }
+      if (g.judg.a_on) dot(g.judg.ax, g.judg.ay, 4, rgb(0xffd25e));
+      C2D_DrawRectSolid(mx + mw / 2 - 1, my + mh / 2 - 1, 0, 3, 3, C2D_Color32(255, 255, 255, 255));
+    }
     text("L/R: cambiar · START: pausa", 160, 226, 0.32f, rgb(0x5d6f8c), 1);
   }
   std::snprintf(b, sizeof(b), "%d FPS%s", fps, autotest ? " · AUTOTEST" : "");
