@@ -917,7 +917,17 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       std::snprintf(b, sizeof(b), "Ante Arceus: %s · %d legendarios", t, s.judge_bosses);
       text(b, 160, 152, 0.36f, rgb(0xffd25e), 1);
     }
-    text("A: otra partida", 160, 200, 0.45f, rgb(0xeaf2ff), 1);
+    if (s.record) text("¡Nuevo récord de tiempo!", 160, 168, 0.42f, rgb(0x5fe08a), 1);
+    if (s.ncaught) {
+      char sh[96] = "Shinies:";
+      for (int i = 0; i < s.ncaught && i < 4; ++i) {
+        char one[40];
+        std::snprintf(one, sizeof(one), " %s%s", mon_by_dex(s.caught_dex[i])->name, s.caught_new[i] ? "" : " (+300)");
+        std::strncat(sh, one, sizeof(sh) - std::strlen(sh) - 1);
+      }
+      text(sh, 160, 184, 0.36f, rgb(0x9ae6ff), 1);
+    }
+    text("A: otra partida · B: menú", 160, 206, 0.45f, rgb(0xeaf2ff), 1);
   } else {
     // --- huecos de movimientos (tocar para cambiar) ---
     const float S = 66, GAP = 8;

@@ -339,8 +339,8 @@ void App::in_run(const UiIn& in) {
     const float m = std::hypot(ax, ay);
     if (m > 1) { ax /= m; ay /= m; }
     gi.ax = ax; gi.ay = ay;
-    if (in.down & KEY_L) gi.cycle = -1;
-    if (in.down & (KEY_R | KEY_X)) gi.cycle = 1;
+    if (in.down & (KEY_L | KEY_ZL)) gi.cycle = -1;
+    if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
     if (in.tap && in.ty >= 150 && in.ty < 216) {
       const Player& p = g.pl();
       const float S = 66, GAP = 8, x0 = (320 - (p.nslots * S + (p.nslots - 1) * GAP)) / 2;

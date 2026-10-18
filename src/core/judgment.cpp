@@ -277,7 +277,10 @@ void spawn_boss(Game& g) {
     for (int k = 0; k < g.nplayers; ++k) if (g.players[k].active && dist2(g.players[k].x, g.players[k].y, x, y) <= 280 * 280) far = false;
     if (far) break;
   }
-  const float k = std::pow(2.0f, float(j.boss_n));    // cada uno, el doble que el anterior
+  // Cada uno, el doble que el anterior. (Tope en 2^100 para que el float no
+  // llegue a infinito: en la web, con double, haría falta pasar de ~1000; en una
+  // partida de verdad nadie aguanta más de unos pocos.)
+  const float k = std::pow(2.0f, float(std::min(j.boss_n, 100)));
   EnemyDef def;
   def.dex = int16_t(dex);
   def.hp = float(jsround(j.base * k));
