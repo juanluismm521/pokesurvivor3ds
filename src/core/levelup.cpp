@@ -1,0 +1,167 @@
+// levelup.cpp — las tres cartas de subida de nivel (levelup.js de la web).
+//   new   aprender un movimiento nuevo (sólo si quedan huecos de los 4)
+//   up    mejorar un movimiento que ya tienes
+//   evo   evolucionar un movimiento al máximo con su condición cumplida (dorada)
+//   stat  mejora permanente de la run
+#include <cmath>
+
+#include "core/game.h"
+
+namespace ps {
+
+namespace {
+struct Cand { Card c; int key; };
+
+int card_key(const Card& c) {
+  // new:id · evo:id · up:id · stat:id (claves distintas por tipo)
+  switch (c.type) {
+    case CT_NEW: return 1000 + c.move;
+    case CT_EVO: return 2000 + c.move;
+    case CT_UP: return 3000 + c.move;
+    default: return 4000 + c.stat;
+  }
+}
+
+int candidates(Game& g, Player& p, Cand* out) {
+  int n = 0;
+  // --- movimientos nuevos ---
+  if (p.nslots < p.max_moves) {
+    // Con 2 potenciadores ya no se ofrecen más (no hacen daño).
+    int buffs = 0;
+    for (int i = 0; i < p.nmoves; ++i) if (p.moves[i].kind() == K_BUFF) buffs++;
+    int16_t all[64];
+    const int na = move_pool_for(p.mon->types, all, 64);
+    int16_t pool[64];
+    int np = 0;
+    for (int i = 0; i < na; ++i) {
+      const int id = all[i];
+      if (player_has_move(p, id)) continue;
+      if ((p.banned >> id) & 1ull) continue;
+      if (buffs >= 2 && kMoves[id].kind == K_BUFF) continue;
+      pool[np++] = int16_t(id);
+    }
+    // U.pickN(pool, 6)
+    for (int k = 0; k < 6 && np; ++k) {
+      const int j = int(g.rng.next() * np);
+      Cand& c = out[n++];
+      c.c = Card(); c.c.type = CT_NEW; c.c.move = pool[j]; c.c.w = 10;
+      for (int q = j; q < np - 1; ++q) pool[q] = pool[q + 1];
+      np--;
+    }
+  }
+
+  // --- evoluciones: movimiento al máximo + su condición cumplida ---
+  int8_t waiting[LS_COUNT];
+  for (auto& w : waiting) w = -1;
+  for (int i = 0; i < p.nmoves; ++i) {
+    EvoInfo ev;
+    if (!move_evo_info(p.moves[i], p.stats_taken, ev)) continue;
+    if (!ev.ready) { waiting[ev.need] = int8_t(i); continue; }
+    Cand& c = out[n++];
+    c.c = Card(); c.c.type = CT_EVO; c.c.move = int16_t(i); c.c.w = 40;
+  }
+
+  // --- mejoras de movimientos que ya tienes ---
+  for (int i = 0; i < p.nmoves; ++i) {
+    if (!move_next_up_text(p.moves[i])) continue;
+    Cand& c = out[n++];
+    c.c = Card(); c.c.type = CT_UP; c.c.move = int16_t(i); c.c.w = 8;
+  }
+
+  // --- stats ---
+  // Cada mejora tiene un tope de veces (`max`). Las que piden una evolución salen siempre.
+  int8_t avail[LS_COUNT];
+  int na = 0;
+  for (int s = 0; s < LS_COUNT; ++s) {
+    if (waiting[s] >= 0) continue;
+    if (kLevelStats[s].max && p.stats_taken[s] >= kLevelStats[s].max) continue;
+    avail[na++] = int8_t(s);
+  }
+  int8_t picks[LS_COUNT];
+  int npk = 0;
+  for (int k = 0; k < 5 && na; ++k) {
+    const int j = int(g.rng.next() * na);
+    picks[npk++] = avail[j];
+    for (int q = j; q < na - 1; ++q) avail[q] = avail[q + 1];
+    na--;
+  }
+  for (int s = 0; s < LS_COUNT; ++s) if (waiting[s] >= 0) picks[npk++] = int8_t(s);
+  for (int k = 0; k < npk; ++k) {
+    const int s = picks[k];
+    Cand& c = out[n++];
+    c.c = Card(); c.c.type = CT_STAT; c.c.stat = int8_t(s); c.c.evo_for = waiting[s];
+    c.c.w = waiting[s] >= 0 ? 14 : p.nslots < p.max_moves ? 4 : 7;
+  }
+  for (int i = 0; i < n; ++i) out[i].key = card_key(out[i].c);
+  return n;
+}
+}  // namespace
+
+// 3 cartas distintas, elegidas por peso. Si hay una evolución lista, sale siempre.
+void levelup_offer(Game& g, Player& p) {
+  Cand pool[64];
+  int n = candidates(g, p, pool);
+  g.ncards = 0;
+  int used[3], nu = 0;
+  for (int i = 0; i < n; ++i) {
+    if (pool[i].c.type != CT_EVO) continue;
+    g.cards[g.ncards++] = pool[i].c;
+    used[nu++] = pool[i].key;
+    for (int q = i; q < n - 1; ++q) pool[q] = pool[q + 1];
+    n--;
+    break;
+  }
+  while (g.ncards < 3 && n) {
+    float total = 0;
+    for (int i = 0; i < n; ++i) total += pool[i].c.w;
+    float r = g.rng.next() * total;
+    int idx = 0;
+    for (int i = 0; i < n; ++i) { r -= pool[i].c.w; if (r <= 0) { idx = i; break; } }
+    const Cand c = pool[idx];
+    for (int q = idx; q < n - 1; ++q) pool[q] = pool[q + 1];
+    n--;
+    bool dup = false;
+    for (int k = 0; k < nu; ++k) if (used[k] == c.key) dup = true;
+    if (dup) continue;
+    used[nu++] = c.key;
+    g.cards[g.ncards++] = c.c;
+  }
+}
+
+static void apply_stat(Game& g, Player& p, int s) {
+  switch (s) {
+    case LS_HP: player_add_max_hp(p, 20); break;
+    case LS_ATK: p.atk_mul *= 1.10f; break;
+    case LS_SPD: p.spd_mul *= 1.07f; break;
+    case LS_CD: p.cd_mul *= 0.92f; break;
+    case LS_DEF: p.dmg_reduce = std::fmin(0.7f, p.dmg_reduce + 0.06f); break;
+    case LS_RGN: p.regen_flat += 0.9f; break;
+    case LS_MAG: p.magnet *= 1.30f; break;
+    case LS_XP: p.xp_mul *= 1.12f; break;
+    case LS_HEAL: player_heal(g, p, p.max_hp * 0.45f); break;
+    default: break;
+  }
+}
+
+void levelup_apply(Game& g, Player& p, const Card& c) {
+  switch (c.type) {
+    case CT_NEW: player_add_move(g, p, c.move); break;
+    case CT_UP: move_level_up(p.moves[c.move]); break;
+    case CT_EVO: {
+      MoveInst& m = p.moves[c.move];
+      move_evolve(m);
+      g.fx.ring(p.x, p.y, 8, 120, 0xffd23f, 0.8f, 6);
+      g.fx.burst(p.x, p.y - p.body_h * 0.5f, 0xffe14d, 40, 240);
+      g.sfx(SFX_LEGEND);
+      progress_event(g, EV_EVOLVE, m.def);
+      break;
+    }
+    case CT_STAT:
+      apply_stat(g, p, c.stat);
+      if (p.stats_taken[c.stat] < 255) p.stats_taken[c.stat]++;
+      break;
+    default: break;
+  }
+}
+
+}  // namespace ps
