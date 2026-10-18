@@ -60,12 +60,13 @@ bool App::init(Renderer* r, Game* g, Save* s, Settings* st, const char* dir) {
   return true;
 }
 
-void App::set_autotest(int dex, bool immortal) {
+void App::set_autotest(int dex, bool immortal, float warp) {
   autotest = true;
   auto_dex_ = dex;
   auto_immortal_ = immortal;
   bot.init(12345);
   start_run();
+  if (warp > 0) g_->time = warp;
 }
 
 void App::start_tour() {
@@ -117,11 +118,15 @@ void App::start_run() {
   cfg.seed = autotest ? 12345u : uint32_t(osGetTime());
   cfg.judged = autotest ? 1 : s_->stats.judged;
   for (int d = 0; d <= kMaxDex; ++d) if (s_->legends[d]) cfg.legends_beaten[d >> 3] |= uint8_t(1 << (d & 7));
+  const u64 t0 = svcGetSystemTick();
   g_->now_ms = now_ms();
+  r_->sprites.async = false;   // precarga: todo en el momento
   g_->start_run(cfg, autotest ? nullptr : s_);
   g_->debug_immortal = autotest && auto_immortal_;
   apply_settings();
   r_->preload_run(*g_);
+  r_->sprites.async = true;
+  start_ms = uint32_t((svcGetSystemTick() - t0) * 1000ull / SYSCLOCK_ARM11);
   r_->card_cursor = 0;
   bond_first_ = -1;
   scene = SC_RUN;

@@ -83,6 +83,7 @@ bool Renderer::init() {
   if (!vfx.load("romfs:/gfx/vfx.t3x", "romfs:/gfx/vfx.idx")) return false;
   if (!icons.load("romfs:/gfx/icons.t3x", "romfs:/gfx/icons.idx")) return false;
   chunks.init();
+  sprites.init();
   static const char* const PT[PR_COUNT] = {"tree", "rock", "chest", "grass", "altar", "spring", "bigchest", "trap"};
   char name[48];
   for (int b = 0; b < kBiomeCount && b < 32; ++b)
@@ -112,6 +113,7 @@ void Renderer::preload_run(Game& g) {
 }
 
 void Renderer::begin_frame(Game& g) {
+  sprites.poll();
   if (world_seed != uint32_t(g.world.seed())) { chunks.clear(); world_seed = uint32_t(g.world.seed()); }
   // Pinta 3 filas de casillas por fotograma (un chunk en ~6 fotogramas); más si
   // lo que se ve está sin pintar.
@@ -173,6 +175,7 @@ void Renderer::draw_sprite(const Animator& a, float sx, float sy, u32 flash_mode
   int ox, oy, w, h;
   const int row = m ? std::min<int>(a.dir, m->r - 1) : 0;
   if (!m || !s || !sprites.frame(s, a.cur, row, std::min<int>(a.frame, m->n - 1), img, ox, oy, w, h)) {
+    if (!s && sprites.loading(a.dex, a.shiny)) return;   // llega en unos fotogramas
     // Respaldo: bolita.
     ellipse(sx, sy - 12 * a.scale, 8 * a.scale, 8 * a.scale, C2D_Color32(0x6b, 0x7a, 0x94, 255));
     return;

@@ -32,7 +32,7 @@ struct Wanderer { int16_t dex; Animator anim; float x, y, r, vx, vy, t; };
 class App {
  public:
   bool init(Renderer* r, Game* g, Save* s, Settings* st, const char* dir);
-  void set_autotest(int dex, bool immortal);
+  void set_autotest(int dex, bool immortal, float warp = 0);
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
   bool tour = false;
@@ -41,6 +41,7 @@ class App {
   void draw_bottom();
   bool quit = false;
   bool autotest = false;
+  uint32_t start_ms = 0;   // lo que tardó en empezar la última partida
   Scene scene = SC_MENU;
   Input pending_input;          // entrada de la partida de este fotograma
   Bot bot;

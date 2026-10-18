@@ -44,7 +44,6 @@ struct SpriteSet {
   uint32_t stamp = 0;
   int npages = 0;
   C3D_Tex tex[2];
-  Tex3DS_Texture t3x[2] = {nullptr, nullptr};
   int nimages = 0;
   Tex3DS_SubTexture* subs = nullptr;      // 2 por imagen: normal y en espejo
   uint8_t* page_of = nullptr;
@@ -56,20 +55,45 @@ struct SpriteSet {
 class SpriteBank {
  public:
   static constexpr int kSlots = 96;
-  // Devuelve el juego de sprites (lo carga si hace falta; null si falla).
+  // Hilo que lee de la SD los sprites que se piden durante la partida.
+  void init();
+  // Devuelve el juego de sprites. Si no está y `async` está activo, lo pide al
+  // hilo y devuelve null hasta que llega (unos fotogramas: el Pokémon no se ve
+  // mientras); sin `async` (precarga) lo carga en el momento.
   SpriteSet* get(int dex, bool shiny);
+  // ¿Se está leyendo en el hilo? (para no dibujar el respaldo mientras)
+  bool loading(int dex, bool shiny) const;
+  // Crea las texturas de lo que ya ha leído el hilo (una vez por fotograma).
+  void poll();
   // Imagen de un fotograma y su desplazamiento dentro del fotograma.
   bool frame(SpriteSet* s, int anim, int row, int f, C2D_Image& img, int& ox, int& oy, int& w, int& h);
   void touch_all_free();
   uint32_t bytes() const;
   int loaded() const;
   uint32_t loads = 0;
+  bool async = false;
+  // Tiempos de carga en segundo plano (para el autotest): cuántas, lo que
+  // tarda el hilo en leerlas y lo que cuesta al hilo principal crear la textura.
+  uint32_t late_loads = 0, late_max_us = 0, late_total_us = 0, read_max_us = 0;
 
  private:
-  bool load(SpriteSet& s, int dex, bool shiny);
+  // Archivos leídos: el .fr y cada página ya descomprimida (lista para la GPU).
+  struct Files { uint8_t* buf[3] = {}; uint32_t len[3] = {}; uint16_t w[3] = {}, h[3] = {}; uint8_t fmt[3] = {}; int n = 0; };
+  enum { RQ_FREE, RQ_QUEUED, RQ_READY, RQ_FAILED };
+  struct Req { int16_t dex = -1; bool shiny = false; int state = RQ_FREE; Files f; };
+  static constexpr int kReqs = 6;
+  static bool fetch(int dex, bool shiny, Files& f);
+  static void drop(Files& f);
+  bool build(SpriteSet& s, int dex, bool shiny, const Files& f);
+  SpriteSet* victim();
   void unload(SpriteSet& s);
+  static void worker(void* arg);
   SpriteSet slots_[kSlots];
   uint32_t stamp_ = 0;
+  Req reqs_[kReqs];
+  mutable LightLock lock_;
+  LightEvent ev_;
+  Thread thr_ = nullptr;
 };
 
 // ---------------- chunks del suelo ----------------

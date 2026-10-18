@@ -58,31 +58,91 @@ int Atlas::find(const char* name) const {
 // ---------------- sprites ----------------
 
 namespace {
-template <class T> bool rd(FILE* f, T& v) { return std::fread(&v, sizeof(T), 1, f) == 1; }
-}  // namespace
+// Lector sobre un búfer en memoria (los archivos se leen enteros de una vez).
+struct Mem {
+  const uint8_t* p;
+  const uint8_t* end;
+  template <class T> bool rd(T& v) {
+    if (p + sizeof(T) > end) return false;
+    std::memcpy(&v, p, sizeof(T));
+    p += sizeof(T);
+    return true;
+  }
+};
 
-bool SpriteBank::load(SpriteSet& s, int dex, bool shiny) {
-  char path[64];
-  std::snprintf(path, sizeof(path), "romfs:/spr/%d%s.fr", dex, shiny ? "s" : "");
+bool read_all(const char* path, uint8_t*& buf, uint32_t& len) {
   FILE* f = std::fopen(path, "rb");
   if (!f) return false;
+  std::fseek(f, 0, SEEK_END);
+  const long n = std::ftell(f);
+  std::fseek(f, 0, SEEK_SET);
+  buf = n > 0 ? static_cast<uint8_t*>(std::malloc(size_t(n))) : nullptr;
+  const bool ok = buf && std::fread(buf, 1, size_t(n), f) == size_t(n);
+  std::fclose(f);
+  if (!ok) { std::free(buf); buf = nullptr; return false; }
+  len = uint32_t(n);
+  return true;
+}
+}  // namespace
+
+// Lee de la SD el .fr y sus páginas (.t3x). Se puede llamar desde el hilo.
+bool SpriteBank::fetch(int dex, bool shiny, Files& f) {
+  char path[64];
+  std::snprintf(path, sizeof(path), "romfs:/spr/%d%s.fr", dex, shiny ? "s" : "");
+  f.n = 0;
+  if (!read_all(path, f.buf[0], f.len[0])) return false;
+  f.n = 1;
+  if (f.len[0] < 8 || std::memcmp(f.buf[0], "PSF1", 4) || f.buf[0][4] > 2) { drop(f); return false; }
+  const int npages = f.buf[0][4];
+  for (int p = 0; p < npages; ++p) {
+    std::snprintf(path, sizeof(path), "romfs:/spr/%d%s_%d.t3x", dex, shiny ? "s" : "", p);
+    uint8_t* raw = nullptr;
+    uint32_t rlen = 0;
+    if (!read_all(path, raw, rlen)) { drop(f); return false; }
+    // Cabecera de tex3ds: nº de subtexturas (u16), log2 de ancho y alto - 3
+    // (3 bits cada uno) y tipo, formato, mipmaps; luego 12 bytes por
+    // subtextura (no se usan: van en el .fr) y los datos comprimidos.
+    bool ok = rlen >= 5;
+    if (ok) {
+      const uint32_t nsub = raw[0] | (raw[1] << 8), off = 5 + nsub * 12;
+      const uint16_t w = uint16_t(8 << (raw[2] & 7)), h = uint16_t(8 << ((raw[2] >> 3) & 7));
+      const uint32_t size = uint32_t(w) * h * 2;   // (RGBA5551 / RGBA4: 16 bits)
+      ok = off < rlen && (raw[3] == GPU_RGBA5551 || raw[3] == GPU_RGBA4) && !(raw[2] & 0x40) && raw[4] == 0;
+      if (ok) {
+        f.buf[1 + p] = static_cast<uint8_t*>(std::malloc(size));
+        ok = f.buf[1 + p] && decompress(f.buf[1 + p], size, nullptr, raw + off, rlen - off);
+        f.len[1 + p] = size; f.w[1 + p] = w; f.h[1 + p] = h; f.fmt[1 + p] = raw[3];
+      }
+    }
+    std::free(raw);
+    f.n = 2 + p;
+    if (!ok) { drop(f); return false; }
+  }
+  return true;
+}
+
+void SpriteBank::drop(Files& f) {
+  for (auto& b : f.buf) { std::free(b); b = nullptr; }
+  f.n = 0;
+}
+
+bool SpriteBank::build(SpriteSet& s, int dex, bool shiny, const Files& fl) {
+  Mem f{fl.buf[0], fl.buf[0] + fl.len[0]};
   char magic[4];
   uint8_t npages = 0, pad = 0;
   uint16_t nimages = 0;
-  if (std::fread(magic, 1, 4, f) != 4 || std::memcmp(magic, "PSF1", 4) || !rd(f, npages) || !rd(f, pad) || !rd(f, nimages) || npages > 2) {
-    std::fclose(f);
-    return false;
-  }
+  if (!f.rd(magic) || std::memcmp(magic, "PSF1", 4) || !f.rd(npages) || !f.rd(pad) || !f.rd(nimages) || npages > 2 || fl.n < 1 + npages) return false;
   uint16_t pw[2] = {}, ph[2] = {};
-  for (int p = 0; p < npages; ++p) { rd(f, pw[p]); rd(f, ph[p]); }
+  for (int p = 0; p < npages; ++p) { f.rd(pw[p]); f.rd(ph[p]); }
   s.nimages = nimages;
   s.subs = static_cast<Tex3DS_SubTexture*>(std::malloc(sizeof(Tex3DS_SubTexture) * nimages * 2));
   s.page_of = static_cast<uint8_t*>(std::malloc(nimages));
   for (int i = 0; i < nimages; ++i) {
-    uint8_t page, z;
-    uint16_t x, y, w, h;
-    rd(f, page); rd(f, z); rd(f, x); rd(f, y); rd(f, w); rd(f, h);
-    const float W = pw[page], H = ph[page];
+    uint8_t page = 0, z;
+    uint16_t x = 0, y = 0, w = 0, h = 0;
+    f.rd(page); f.rd(z); f.rd(x); f.rd(y); f.rd(w); f.rd(h);
+    if (page >= npages) page = 0;
+    const float W = pw[page] ? pw[page] : 1, H = ph[page] ? ph[page] : 1;
     Tex3DS_SubTexture& a = s.subs[i * 2];
     a.width = w; a.height = h;
     a.left = x / W; a.right = (x + w) / W;
@@ -94,23 +154,20 @@ bool SpriteBank::load(SpriteSet& s, int dex, bool shiny) {
   }
   s.bytes = 0;
   for (int a = 0; a < A_COUNT; ++a) {
-    rd(f, s.an[a]); rd(f, s.ar[a]);
+    s.an[a] = s.ar[a] = 0;
+    f.rd(s.an[a]); f.rd(s.ar[a]);
     const int n = s.an[a] * s.ar[a];
     s.frames[a] = n ? static_cast<SpriteFrame*>(std::malloc(sizeof(SpriteFrame) * n)) : nullptr;
     for (int k = 0; k < n; ++k) {
-      uint16_t img; uint8_t flip, z; int16_t ox, oy;
-      rd(f, img); rd(f, flip); rd(f, z); rd(f, ox); rd(f, oy);
+      uint16_t img = 0xFFFF; uint8_t flip = 0, z; int16_t ox = 0, oy = 0;
+      f.rd(img); f.rd(flip); f.rd(z); f.rd(ox); f.rd(oy);
       s.frames[a][k] = {img, flip, ox, oy};
     }
   }
-  std::fclose(f);
   for (int p = 0; p < npages; ++p) {
-    std::snprintf(path, sizeof(path), "romfs:/spr/%d%s_%d.t3x", dex, shiny ? "s" : "", p);
-    FILE* t = std::fopen(path, "rb");
-    if (!t) { s.npages = p; unload(s); return false; }
-    s.t3x[p] = Tex3DS_TextureImportStdio(t, &s.tex[p], nullptr, false);
-    std::fclose(t);
-    if (!s.t3x[p]) { s.npages = p; unload(s); return false; }
+    if (!C3D_TexInit(&s.tex[p], fl.w[1 + p], fl.h[1 + p], GPU_TEXCOLOR(fl.fmt[1 + p]))) { s.npages = p; unload(s); return false; }
+    std::memcpy(s.tex[p].data, fl.buf[1 + p], fl.len[1 + p]);
+    C3D_TexFlush(&s.tex[p]);
     C3D_TexSetFilter(&s.tex[p], GPU_NEAREST, GPU_NEAREST);
     s.bytes += s.tex[p].size;
   }
@@ -121,25 +178,112 @@ bool SpriteBank::load(SpriteSet& s, int dex, bool shiny) {
   return true;
 }
 
+void SpriteBank::worker(void* arg) {
+  SpriteBank* b = static_cast<SpriteBank*>(arg);
+  for (;;) {
+    LightEvent_Wait(&b->ev_);
+    for (;;) {
+      int dex = -1; bool shiny = false; Req* r = nullptr;
+      LightLock_Lock(&b->lock_);
+      for (auto& q : b->reqs_) if (q.state == RQ_QUEUED) { r = &q; dex = q.dex; shiny = q.shiny; break; }
+      LightLock_Unlock(&b->lock_);
+      if (!r) break;
+      Files f;
+      const u64 t0 = svcGetSystemTick();
+      const bool ok = fetch(dex, shiny, f);
+      const uint32_t us = uint32_t((svcGetSystemTick() - t0) * 1000000ull / SYSCLOCK_ARM11);
+      LightLock_Lock(&b->lock_);
+      r->f = f;
+      r->state = ok ? RQ_READY : RQ_FAILED;
+      if (us > b->read_max_us) b->read_max_us = us;
+      LightLock_Unlock(&b->lock_);
+    }
+  }
+}
+
+void SpriteBank::init() {
+  LightLock_Init(&lock_);
+  LightEvent_Init(&ev_, RESET_ONESHOT);
+  // En el núcleo principal y con más prioridad: casi todo el rato espera a la
+  // SD, así que apenas quita tiempo a la partida.
+  s32 prio = 0x30;
+  svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+  thr_ = threadCreate(worker, this, 16 * 1024, prio - 1, -2, true);
+}
+
 void SpriteBank::unload(SpriteSet& s) {
-  for (int p = 0; p < s.npages; ++p) if (s.t3x[p]) { Tex3DS_TextureFree(s.t3x[p]); C3D_TexDelete(&s.tex[p]); s.t3x[p] = nullptr; }
+  for (int p = 0; p < s.npages; ++p) C3D_TexDelete(&s.tex[p]);
   for (auto& fr : s.frames) { std::free(fr); fr = nullptr; }
   std::free(s.subs); s.subs = nullptr;
   std::free(s.page_of); s.page_of = nullptr;
   s.dex = -1; s.npages = 0; s.bytes = 0;
 }
 
-SpriteSet* SpriteBank::get(int dex, bool shiny) {
-  SpriteSet* victim = nullptr;
+SpriteSet* SpriteBank::victim() {
+  SpriteSet* v = nullptr;
   for (auto& s : slots_) {
-    if (s.dex == dex && s.shiny == shiny) { s.stamp = ++stamp_; return &s; }
-    if (s.dex < 0) { if (!victim || victim->dex >= 0) victim = &s; }
-    else if (!victim || (victim->dex >= 0 && s.stamp < victim->stamp)) victim = &s;
+    if (s.dex < 0) { if (!v || v->dex >= 0) v = &s; }
+    else if (!v || (v->dex >= 0 && s.stamp < v->stamp)) v = &s;
   }
-  if (victim->dex >= 0) unload(*victim);
-  if (!load(*victim, dex, shiny)) return nullptr;
-  victim->stamp = ++stamp_;
-  return victim;
+  if (v->dex >= 0) unload(*v);
+  return v;
+}
+
+SpriteSet* SpriteBank::get(int dex, bool shiny) {
+  for (auto& s : slots_) if (s.dex == dex && s.shiny == shiny) { s.stamp = ++stamp_; return &s; }
+  if (async && thr_) {
+    LightLock_Lock(&lock_);
+    Req* free_rq = nullptr;
+    for (auto& q : reqs_) {
+      if (q.state != RQ_FREE && q.dex == dex && q.shiny == shiny) { LightLock_Unlock(&lock_); return nullptr; }
+      if (q.state == RQ_FREE && !free_rq) free_rq = &q;
+    }
+    if (free_rq) { free_rq->dex = int16_t(dex); free_rq->shiny = shiny; free_rq->state = RQ_QUEUED; }
+    LightLock_Unlock(&lock_);
+    if (free_rq) LightEvent_Signal(&ev_);
+    return nullptr;
+  }
+  Files f;
+  if (!fetch(dex, shiny, f)) return nullptr;
+  SpriteSet* v = victim();
+  const bool ok = build(*v, dex, shiny, f);
+  drop(f);
+  if (!ok) return nullptr;
+  v->stamp = ++stamp_;
+  return v;
+}
+
+bool SpriteBank::loading(int dex, bool shiny) const {
+  if (!thr_) return false;
+  LightLock_Lock(&lock_);
+  bool r = false;
+  for (const auto& q : reqs_) if (q.state == RQ_QUEUED || q.state == RQ_READY) r = r || (q.dex == dex && q.shiny == shiny);
+  LightLock_Unlock(&lock_);
+  return r;
+}
+
+void SpriteBank::poll() {
+  if (!thr_) return;
+  for (auto& q : reqs_) {
+    LightLock_Lock(&lock_);
+    const int st = q.state;
+    LightLock_Unlock(&lock_);
+    if (st != RQ_READY) continue;   // (los fallidos se quedan: no se reintenta)
+    bool have = false;
+    for (const auto& s : slots_) have = have || (s.dex == q.dex && s.shiny == q.shiny);
+    const u64 t0 = svcGetSystemTick();
+    if (!have) {   // (la precarga pudo cargarlo mientras tanto)
+      SpriteSet* v = victim();
+      if (build(*v, q.dex, q.shiny, q.f)) v->stamp = ++stamp_;
+    }
+    const uint32_t us = uint32_t((svcGetSystemTick() - t0) * 1000000ull / SYSCLOCK_ARM11);
+    late_loads++; late_total_us += us;
+    if (us > late_max_us) late_max_us = us;
+    drop(q.f);
+    LightLock_Lock(&lock_);
+    q.state = RQ_FREE; q.dex = -1;
+    LightLock_Unlock(&lock_);
+  }
 }
 
 bool SpriteBank::frame(SpriteSet* s, int anim, int row, int f, C2D_Image& img, int& ox, int& oy, int& w, int& h) {

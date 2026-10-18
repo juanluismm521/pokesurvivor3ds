@@ -33,6 +33,7 @@ struct Autotest {
   int dex = 25;
   bool immortal = true;
   bool tour = false;
+  float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
   FILE* log = nullptr;
   double next_log = 10;
   int min_fps = 999;
@@ -49,7 +50,7 @@ void read_autotest(Autotest& a) {
   int imm = 1;
   char first[8] = "";
   if (std::fscanf(f, "%7s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
-  else { std::rewind(f); if (std::fscanf(f, "%f %d %d", &a.seconds, &a.dex, &imm) >= 1) a.immortal = imm != 0; }
+  else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f", &a.seconds, &a.dex, &imm, &a.warp) >= 1) a.immortal = imm != 0; }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
   a.log = std::fopen(path, "w");
@@ -59,6 +60,7 @@ u32 mem_free() { return osGetMemRegionFree(MEMREGION_APPLICATION); }
 }  // namespace
 
 int main() {
+  const u64 boot_t0 = svcGetSystemTick();
   osSetSpeedupEnable(true);
   romfsInit();
   gfxInitDefault();
@@ -94,23 +96,25 @@ int main() {
   static App app;
   app.init(&r, g.get(), save.get(), &settings, kDir);
 
+  const unsigned long boot_ms = (unsigned long)((svcGetSystemTick() - boot_t0) * 1000ull / SYSCLOCK_ARM11);
   Autotest at;
   read_autotest(at);
   if (at.log) {
     bool n3ds = false;
     APT_CheckNew3DS(&n3ds);
-    std::fprintf(at.log, "%s %s · autotest %.0f s · dex %d · %s · %s\n", kGameTitle, kVersion, at.seconds, at.dex,
+    std::fprintf(at.log, "%s %s · autotest %.0f s (desde %.0f s) · dex %d · %s · %s\n", kGameTitle, kVersion, at.seconds, at.warp, at.dex,
                  at.immortal ? "inmortal" : "normal", n3ds ? "New 3DS" : "3DS");
-    std::fprintf(at.log, "memoria libre al arrancar: %lu KB · lineal %lu KB · partida guardada: %s\n", (unsigned long)(mem_free() / 1024),
-                 (unsigned long)(linearSpaceFree() / 1024), loaded == 1 ? "sí" : loaded == 2 ? "copia" : "nueva");
+    std::fprintf(at.log, "memoria libre al arrancar: %lu KB · lineal %lu KB · partida guardada: %s · arranque %lu ms\n", (unsigned long)(mem_free() / 1024),
+                 (unsigned long)(linearSpaceFree() / 1024), loaded == 1 ? "sí" : loaded == 2 ? "copia" : "nueva", boot_ms);
     std::fflush(at.log);
   }
   if (at.tour) { app.start_tour(); at.on = false; }
   if (at.on) {
-    app.set_autotest(at.dex, at.immortal);
+    app.set_autotest(at.dex, at.immortal, at.warp);
+    at.next_log = at.warp + 10;
     if (at.log) {
-      std::fprintf(at.log, "precargados %d Pokémon · %lu KB de sprites · memoria libre %lu KB\n", r.sprites.loaded(),
-                   (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024));
+      std::fprintf(at.log, "precargados %d Pokémon · %lu KB de sprites · memoria libre %lu KB · partida lista en %lu ms\n", r.sprites.loaded(),
+                   (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024), (unsigned long)app.start_ms);
       std::fflush(at.log);
     }
   }
@@ -204,6 +208,10 @@ int main() {
   }
 
   if (at.log) {
+    std::fprintf(at.log, "cargas de sprites durante la partida: %lu · hilo principal media %lu us, máx %lu us · lectura en el hilo máx %lu ms\n",
+                 (unsigned long)r.sprites.late_loads,
+                 (unsigned long)(r.sprites.late_loads ? r.sprites.late_total_us / r.sprites.late_loads : 0),
+                 (unsigned long)r.sprites.late_max_us, (unsigned long)(r.sprites.read_max_us / 1000));
     std::fprintf(at.log, "FIN · %.0f s de partida · FPS media %.1f · mín %d · nivel %d · derrotados %d · libre %lu KB\n", g->time,
                  at.fps_n ? at.fps_sum / at.fps_n : 0.0, at.min_fps == 999 ? 0 : at.min_fps, g->pl().level, g->pl().kills,
                  (unsigned long)(mem_free() / 1024));
