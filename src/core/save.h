@@ -9,7 +9,7 @@
 namespace ps {
 
 constexpr int kSaveVersion = 3;
-constexpr int kStartCoins = 200;   // START_COINS de db.js
+constexpr int kStartCoins = 500;   // START_COINS de db.js
 
 enum From : int8_t { FROM_NONE = 0, FROM_STARTER, FROM_GACHA, FROM_WILD, FROM_RESCUE, FROM_OTHER };
 
@@ -62,6 +62,7 @@ struct Save {
   SaveStats stats;
 
   Save();
+  void reset();   // vuelve a una partida vacía (sin crear otra en la pila: ocupa ~50 KB)
   bool owns(int dex) const { return dex >= 0 && dex <= kMaxDex && owned_at[dex] != 0; }
   bool owns_shiny(int dex) const { return dex >= 0 && dex <= kMaxDex && shiny_at[dex] != 0; }
   int owned_count() const;

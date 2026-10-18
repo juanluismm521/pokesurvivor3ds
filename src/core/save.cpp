@@ -4,12 +4,23 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 
 #include "core/game.h"
 
 namespace ps {
 
-Save::Save() {
+Save::Save() { reset(); }
+
+void Save::reset() {
+  std::memset(static_cast<void*>(this), 0, sizeof(*this));
+  v = kSaveVersion;
+  std::snprintf(name, sizeof(name), "Jugador");
+  coins = kStartCoins;
+  for (auto& m : daily) m = Mission();
+  for (auto& m : weekly) m = Mission();
+  stats = SaveStats();
   for (auto& b : pbind) for (auto& x : b) x = -1;
   for (auto& b : pban) for (auto& x : b) x = -1;
 }

@@ -33,6 +33,11 @@ load('js/world/world.js', [['function arenaDist', 'G.__W = { fbm: (x, y, s) => f
 load('js/entities/player.js');
 load('js/systems/spawner.js');
 load('js/systems/gacha.js');
+load('js/data/missions.js');
+load('js/data/achievements.js');
+sandbox.G.Ranking = { periodIds: () => G.__periods };
+sandbox.G.DB = { save: null, commit() {} };
+load('js/systems/progress.js');
 
 const out = {};
 const r6 = x => Math.round(x * 1e6) / 1e6;
@@ -142,6 +147,18 @@ for (const lv of [{}, { hp: 3, atk: 10, spd: 99, cd: 4, def: 8, regen: 5, magnet
 // ---------------- gacha ----------------
 out.gachaPools = [];
 for (let gen = 1; gen <= 9; gen++) for (let r = 1; r <= 5; r++) out.gachaPools.push([gen, r, G.Gacha.pool(r, gen).length]);
+
+// ---------------- misiones (sorteo con semilla de fecha + partida) ----------------
+out.missions = [];
+for (const [d, w, created] of [['d20261018', 'w2026-42', 1760000000000], ['d20270101', 'w2026-53', 0], ['d20250315', 'w2025-11', 1234567]]) {
+  G.__periods = { d, w };
+  const sv = { created, missions: {}, stats: {} };
+  G.Progress.ensure(sv);
+  const m = sv.missions;
+  out.missions.push({ d, w, created, daily: m.daily.map(x => [x.id, x.goal, x.param]), weekly: m.weekly.map(x => [x.id, x.goal, x.param]),
+                      texts: m.daily.concat(m.weekly).map(x => G.Progress.text(x)) });
+}
+out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
 
 fs.writeFileSync(path.join(OUT, 'golden.json'), JSON.stringify(out));
 console.log('golden: ' + Object.keys(out).map(k => k + (Array.isArray(out[k]) ? ' ' + out[k].length : '')).join(', '));
