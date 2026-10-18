@@ -19,6 +19,7 @@
 #include "core/settings.h"
 #include "core/version.h"
 #include "platform/3ds/app.h"
+#include "platform/3ds/audio3ds.h"
 #include "platform/3ds/render.h"
 
 using namespace ps;
@@ -69,8 +70,10 @@ int main() {
   hidSetRepeatParameters(18, 5);
 
   C3D_RenderTarget* top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+  C3D_RenderTarget* top_r = C2D_CreateScreenTarget(GFX_TOP, GFX_RIGHT);
   C3D_RenderTarget* bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
+  audio::init();   // (si no hay dspfirm.cdc, sin sonido)
   static Renderer r;
   if (!r.init()) {
     consoleInit(GFX_BOTTOM, nullptr);
@@ -146,6 +149,7 @@ int main() {
       int steps = 0;
       while (acc >= 1000.0 / 60 && steps < 3) {
         g->step(&gi);
+        for (const SfxEvent& e : g->sfx_queue) audio::play_game(e);
         gi.select = -1; gi.cycle = 0;
         acc -= 1000.0 / 60;
         steps++;
@@ -154,12 +158,24 @@ int main() {
       acc = 0;
     }
 
+    audio::music(app.scene == SC_RUN ? g->music : int(MU_VILLAGE));
+    audio::set_volume(settings.music, settings.sfx);
+    audio::update(float(std::fmin(frame_ms, 100.0) / 1000.0));
+
     // --- dibujo ---
     r.begin_frame(*g);
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+    // 3D: con el deslizador subido (y el ajuste activado), una imagen por ojo.
+    const float slider = settings.stereo ? osGet3DSliderState() : 0;
+    gfxSet3D(slider > 0.01f);
     C2D_TargetClear(top, C2D_Color32(0, 0, 0, 255));
     C2D_SceneBegin(top);
-    app.draw_top();
+    app.draw_top(slider > 0.01f ? -slider : 0);
+    if (slider > 0.01f) {
+      C2D_TargetClear(top_r, C2D_Color32(0, 0, 0, 255));
+      C2D_SceneBegin(top_r);
+      app.draw_top(slider);
+    }
     C2D_TargetClear(bottom, C2D_Color32(16, 22, 34, 255));
     C2D_SceneBegin(bottom);
     app.draw_bottom();
@@ -194,6 +210,7 @@ int main() {
     std::fclose(at.log);
   }
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
+  audio::exit();
   C2D_Fini();
   C3D_Fini();
   gfxExit();

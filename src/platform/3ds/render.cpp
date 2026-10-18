@@ -19,9 +19,13 @@ namespace {
 constexpr float TOP_W = 400, TOP_H = 240, BOT_W = 320, BOT_H = 240;
 const u32 BLACK = C2D_Color32(0, 0, 0, 255);
 
+// 3D: desplazamiento horizontal de la capa que se está dibujando (cada ojo
+// ve las capas desplazadas al revés; 0 = en el plano de la pantalla).
+float g_par = 0;
+
 struct View {
   float l, t;
-  float sx(float wx) const { return std::floor((wx - l) * 0.5f + 0.5f); }
+  float sx(float wx) const { return std::floor((wx - l) * 0.5f + 0.5f) + g_par; }
   float sy(float wy) const { return std::floor((wy - t) * 0.5f + 0.5f); }
 };
 
@@ -64,6 +68,8 @@ void triangle_arrow(float x, float y, float a, float len, float half, u32 c) {
                    x + std::cos(a - 2.45f) * half, y + std::sin(a - 2.45f) * half, c, 0);
 }
 }  // namespace
+
+void Renderer::set_parallax(float p) { g_par = p; }
 
 // ---------------- carga ----------------
 
@@ -284,13 +290,15 @@ struct DItem { float y; int8_t kind; const void* p; };
 DItem items[900];
 }  // namespace
 
-void Renderer::draw_top(Game& g) {
-  C2D_TextBufClear(tbuf);
+void Renderer::draw_top(Game& g, float eye) {
+  if (eye <= 0) C2D_TextBufClear(tbuf);
+  const float far = eye * 3.0f, mid = eye * 1.5f;
   const Camera& cam = g.camera;
   View v{cam.left() - cam.sx, cam.top() - cam.sy};
   const float now = float(g.time);
   World& w = g.world;
 
+  g_par = far;
   draw_ground(w, cam, v.l, v.t, now);
 
   // --- avisos en el suelo ---
@@ -378,6 +386,7 @@ void Renderer::draw_top(Game& g) {
   }
 
   // --- lo que tiene "pies", ordenado por Y ---
+  g_par = mid;
   int n = 0;
   const float pad = 70;
   w.for_props_in_rect(v.l - pad, v.t - pad, v.l + cam.w + pad, v.t + cam.h + pad, [&](Prop& p) {
@@ -613,6 +622,7 @@ void Renderer::draw_top(Game& g) {
     text(t.s, v.sx(t.x), v.sy(t.y) - 8, t.big ? 0.48f : 0.36f, rgbf(t.color, std::fmin(1.0f, k * 2.2f)), 1);
   }
 
+  g_par = 0;
   // --- el pilar de luz de Arceus ---
   if (g.judg.a_on && g.judg.ported && g.judg.phase == 1) {
     const auto& J = g.judg;

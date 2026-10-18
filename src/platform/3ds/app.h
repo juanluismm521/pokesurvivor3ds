@@ -37,7 +37,7 @@ class App {
   void start_tour();
   bool tour = false;
   void update(const UiIn& in, float dt);
-  void draw_top();
+  void draw_top(float eye = 0);
   void draw_bottom();
   bool quit = false;
   bool autotest = false;
@@ -53,7 +53,7 @@ class App {
   // Fondo del menú
   void backdrop_init();
   void backdrop_step(float dt);
-  void draw_backdrop(float dim);
+  void draw_backdrop(float dim, float eye = 0);
   // Entrada de cada pantalla
   void in_run(const UiIn& in);
   void in_test(const UiIn& in);

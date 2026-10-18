@@ -30,7 +30,9 @@ struct Renderer {
   bool init();
   void preload_run(Game& g);
   void begin_frame(Game& g);        // reparte el pintado del suelo
-  void draw_top(Game& g);
+  // eye: 0 sin 3D; con 3D, -k para el ojo izquierdo y +k para el derecho.
+  void draw_top(Game& g, float eye = 0);
+  void set_parallax(float p);
   void draw_bottom(Game& g, bool autotest);
   void draw_ground(World& w, const Camera& cam, float vl, float vt, float now);
   void draw_prop(const Prop& p, World& w, float vl, float vt, float now);

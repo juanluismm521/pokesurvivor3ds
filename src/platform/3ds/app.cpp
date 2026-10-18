@@ -13,6 +13,7 @@
 #include "core/save_io.h"
 #include "core/upgrades.h"
 #include "core/util.h"
+#include "platform/3ds/audio3ds.h"
 
 namespace ps {
 
@@ -179,10 +180,12 @@ void App::backdrop_step(float dt) {
   }
 }
 
-void App::draw_backdrop(float dim) {
+void App::draw_backdrop(float dim, float eye) {
   World& w = g_->world;
   const float vl = bcam_.left(), vt = bcam_.top();
+  r_->set_parallax(eye * 3);
   r_->draw_ground(w, bcam_, vl, vt, bt_);
+  r_->set_parallax(eye * 1.5f);
   struct It { float y; const Prop* p; const Wanderer* d; };
   static It items[700];
   int n = 0;
@@ -197,6 +200,7 @@ void App::draw_backdrop(float dim) {
     C2D_DrawEllipseSolid(x - sr, y - sr * 0.42f, 0, sr * 2, sr * 0.84f, C2D_Color32(0, 0, 0, 87));
     r_->draw_sprite(d.anim, x, y, 0, 1);
   }
+  r_->set_parallax(0);
   const u32 e0 = C2D_Color32(0, 0, 0, 0), e1 = C2D_Color32(0, 0, 0, 110);
   C2D_DrawRectangle(0, 0, 0, TW, 36, e1, e1, e0, e0);
   C2D_DrawRectangle(0, TH - 36, 0, TW, 36, e0, e0, e1, e1);
@@ -286,7 +290,14 @@ void App::update(const UiIn& in0, float dt) {
   }
   g_->now_ms = now_ms();
   notices(dt);
-  if (scene != SC_RUN) backdrop_step(dt);
+  if (scene != SC_RUN) {
+    backdrop_step(dt);
+    // Sonidos de la interfaz (los mismos de la web).
+    if (in.rep & (KEY_DUP | KEY_DDOWN | KEY_DLEFT | KEY_DRIGHT)) audio::play("select");
+    if (in.down & (KEY_A | KEY_TOUCH)) audio::play("click");
+    if (in.down & KEY_B) audio::play("back");
+    if (in.down & (KEY_L | KEY_R)) audio::play("select");
+  }
   switch (scene) {
     case SC_RUN: in_run(in); break;
     case SC_TEST: case SC_RESULT: case SC_STARTERS: in_test(in); break;
@@ -709,6 +720,8 @@ void App::in_upgrades(const UiIn& in) {
       if (s_->coins >= price) {
         s_->coins -= price;
         lv++;
+        audio::play("coin");
+        audio::play("buy");
         save_now();
         char b[96];
         std::snprintf(b, sizeof(b), "%s · %s: nivel %d", mon_by_dex(up_dex_)->name, kUpgrades[cur_].name, lv);
@@ -799,7 +812,7 @@ void App::in_gacha(const UiIn& in) {
   const int n = pick == 0 ? 1 : 10;
   Rng rr(uint32_t(osGetTime()) ^ 0x9e3779b9u);
   npulls_ = gacha_pull(*s_, n, gen_, pick == 2, rr, now_ms(), pulls_);
-  if (!npulls_) { g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
+  if (!npulls_) { audio::play("error"); g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
   progress_check_ach(*s_, now_ms());
   save_now();
   pull_i_ = 0; pull_t_ = 0; pull_fast_ = false; pull_done_ = false;
@@ -807,7 +820,28 @@ void App::in_gacha(const UiIn& in) {
 }
 
 void App::in_pull(const UiIn& in, float dt) {
+  const float prev = pull_t_;
   pull_t_ += dt * (pull_fast_ ? 4 : 1);
+  if (!pull_done_) {
+    // Sonidos de la tragaperras (slots.js): palanca, cada rodillo y el premio.
+    const PullResult& pr = pulls_[pull_i_];
+    const bool ten = npulls_ == 10, big = pr.rarity >= 4 || pr.shiny;
+    auto at = [&](float x) { return prev < x && pull_t_ >= x; };
+    if (at(0.001f)) audio::play("ball");
+    const float spin_end = ten ? 0.25f : 0.6f;
+    for (int k = 0; k < 3; ++k) {
+      const float stop = spin_end + k * (ten ? 0.08f : 0.32f) + (k == 2 && big ? (ten ? 0.5f : 1.1f) : 0);
+      if (at(stop)) {
+        audio::play("shake");
+        if (k == 2) {
+          char b[16]; std::snprintf(b, sizeof(b), "reveal_%d", pr.rarity);
+          audio::play(b);
+          if (pr.rarity == 5) audio::play("legend");
+          if (pr.shiny) audio::play("shiny");
+        }
+      }
+    }
+  }
   if (in.down & (KEY_A | KEY_B) || in.tap) {
     if (pull_done_) { scene = SC_GACHA; return; }
     pull_fast_ = true;
@@ -1007,14 +1041,14 @@ void App::bottom_goals() {
 // ---------------- ajustes ----------------
 
 void App::in_settings(const UiIn& in) {
-  const int n = 7;
+  const int n = 8;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
-  for (int i = 0; i < n; ++i) if (in_rect(&in, 6, 30 + i * 26, 308, 24)) cur_ = i;
+  for (int i = 0; i < n; ++i) if (in_rect(&in, 6, 28 + i * 24, 308, 22)) cur_ = i;
   int d = 0;
   if (in.rep & KEY_DLEFT) d = -1;
   if (in.rep & (KEY_DRIGHT | KEY_A)) d = 1;
-  if (in.tap && in_rect(&in, 6, 30 + cur_ * 26, 308, 24)) d = 1;
+  if (in.tap && in_rect(&in, 6, 28 + cur_ * 24, 308, 22)) d = 1;
   if (d) {
     switch (cur_) {
       case 0: st_->lang ^= 1; break;
@@ -1024,6 +1058,7 @@ void App::in_settings(const UiIn& in) {
       case 4: st_->fps = !st_->fps; break;
       case 5: st_->music = clamp(st_->music + d * 10, 0, 100); break;
       case 6: st_->sfx = clamp(st_->sfx + d * 10, 0, 100); break;
+      case 7: st_->stereo = !st_->stereo; break;
     }
     apply_settings();
   }
@@ -1032,8 +1067,8 @@ void App::in_settings(const UiIn& in) {
 
 void App::bottom_settings() {
   header("Ajustes");
-  static const char* const L[7] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos"};
-  char v[7][24];
+  static const char* const L[8] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D"};
+  char v[8][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
   std::snprintf(v[1], 24, "%s", tr(Q[st_->quality + 1]));
@@ -1042,11 +1077,12 @@ void App::bottom_settings() {
   std::snprintf(v[4], 24, "%s", tr(st_->fps ? "Sí" : "No"));
   std::snprintf(v[5], 24, "%d %%", st_->music);
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
-  for (int i = 0; i < 7; ++i) {
-    const float y = 30 + i * 26;
-    C2D_DrawRectSolid(6, y, 0, 308, 24, i == cur_ ? C_SEL : C_PANEL);
-    r_->text(L[i], 14, y + 5, 0.38f, C_TEXT);
-    r_->text(v[i], 306, y + 5, 0.38f, C_GOLD, 2, false);
+  std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
+  for (int i = 0; i < 8; ++i) {
+    const float y = 28 + i * 24;
+    C2D_DrawRectSolid(6, y, 0, 308, 22, i == cur_ ? C_SEL : C_PANEL);
+    r_->text(L[i], 14, y + 4, 0.38f, C_TEXT);
+    r_->text(v[i], 306, y + 4, 0.38f, C_GOLD, 2, false);
   }
   r_->text("Izquierda/derecha: cambiar · B: guardar y volver", 160, 226, 0.32f, C_MUTED, 1);
 }
@@ -1070,11 +1106,11 @@ void App::bottom_credits() {
 
 // ---------------- dibujo ----------------
 
-void App::draw_top() {
-  if (scene == SC_RUN) { r_->draw_top(*g_); }
+void App::draw_top(float eye) {
+  if (scene == SC_RUN) { r_->draw_top(*g_, eye); }
   else {
-    C2D_TextBufClear(r_->tbuf);
-    draw_backdrop(scene == SC_MENU ? 0.15f : 0.45f);
+    if (eye <= 0) C2D_TextBufClear(r_->tbuf);
+    draw_backdrop(scene == SC_MENU ? 0.15f : 0.45f, eye);
     switch (scene) {
       case SC_TEST:
         r_->text_wrap(kTest[q_].q, 200, 80, 0.6f, C_TEXT, 360, 1);
