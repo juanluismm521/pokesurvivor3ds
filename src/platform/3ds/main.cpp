@@ -7,6 +7,7 @@
 #include <3ds.h>
 #include <citro2d.h>
 
+#include <malloc.h>
 #include <sys/stat.h>
 
 #include <cmath>
@@ -57,6 +58,8 @@ void read_autotest(Autotest& a) {
 }
 
 u32 mem_free() { return osGetMemRegionFree(MEMREGION_APPLICATION); }
+// Heap en uso (malloc): para ver fugas (el emulador no da bien la memoria libre).
+unsigned long heap_kb() { return (unsigned long)(mallinfo().uordblks / 1024); }
 }  // namespace
 
 int main() {
@@ -198,10 +201,10 @@ int main() {
     }
     if (at.on && at.log && g->time >= at.next_log) {
       at.next_log += 10;
-      std::fprintf(at.log, "t=%4.0f s · %2d FPS (media %.1f, mín %d) · enemigos %d · proyectiles %d · partículas %d · Pokémon cargados %d (%lu KB) · libre %lu KB · lineal %lu KB\n",
+      std::fprintf(at.log, "t=%4.0f s · %2d FPS (media %.1f, mín %d) · enemigos %d · proyectiles %d · partículas %d · Pokémon cargados %d (%lu KB) · libre %lu KB · lineal %lu KB · heap %lu KB\n",
                    g->time, r.fps, at.fps_n ? at.fps_sum / at.fps_n : 0.0, at.min_fps == 999 ? 0 : at.min_fps, g->enemies.n, g->projectiles.n,
                    g->fx.parts.n, r.sprites.loaded(), (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024),
-                   (unsigned long)(linearSpaceFree() / 1024));
+                   (unsigned long)(linearSpaceFree() / 1024), heap_kb());
       std::fflush(at.log);
     }
     if (at.on && g->time >= at.seconds) break;
