@@ -254,3 +254,41 @@ TEST_CASE("dorado: mejoras permanentes") {
     CHECK(k.bans == e[12].as_int());
   }
 }
+
+TEST_CASE("dorado: huecos con atajos y fusiones de vínculos") {
+  const Json& cs = golden()["slots"];
+  REQUIRE(cs.size() > 0);
+  static Game g;   // (grande: estático)
+  for (size_t c = 0; c < cs.size(); ++c) {
+    const Json& C = cs[c];
+    Player& p = g.players[0];
+    RunConfig cfg;
+    player_init(g, p, int(C["dex"].as_int()), false, cfg);
+    for (const auto& kv : C["bind"].items()) p.bind[move_index(kv.first.c_str())] = int8_t(kv.second.as_int());
+    size_t step = 0;
+    auto check = [&](const Json& want) {
+      if (want.has("none")) return;
+      REQUIRE(int(want["slots"].size()) == p.nslots);
+      for (int s = 0; s < p.nslots; ++s) {
+        REQUIRE(int(want["slots"][s].size()) == p.slot_n[s]);
+        for (int j = 0; j < p.slot_n[s]; ++j)
+          CHECK_MESSAGE(std::string(p.moves[p.slots[s][j]].d().id) == want["slots"][s][j].as_str(), "caso " << c << " paso " << step);
+      }
+      CHECK_MESSAGE(p.active_slot == want["active"].as_int(), "caso " << c << " paso " << step);
+    };
+    for (size_t m = 0; m < C["moves"].size(); ++m) {
+      player_add_move(g, p, move_index(C["moves"][m].as_str().c_str()));
+      check(C["steps"][step++]);
+    }
+    for (size_t f = 0; f < C["fuse"].size(); ++f) {
+      p.bonds = 1;
+      int8_t loose[4]; int nl, grow;
+      const int mode = player_bond_options(p, loose, nl, grow);
+      if (!mode) { step++; continue; }
+      int idx[4], n = 0;
+      for (size_t k = 0; k < C["fuse"][f].size(); ++k) idx[n++] = int(C["fuse"][f][k].as_int());
+      player_fuse(g, p, idx, n, mode == 1 ? grow : -1);
+      check(C["steps"][step++]);
+    }
+  }
+}

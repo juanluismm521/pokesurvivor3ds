@@ -148,6 +148,36 @@ for (const lv of [{}, { hp: 3, atk: 10, spd: 99, cd: 4, def: 8, regen: 5, magnet
 out.gachaPools = [];
 for (let gen = 1; gen <= 9; gen++) for (let r = 1; r <= 5; r++) out.gachaPools.push([gen, r, G.Gacha.pool(r, gen).length]);
 
+// ---------------- huecos con atajos y vínculos (player.js) ----------------
+{
+  const noop = () => {};
+  Object.assign(G, { FX: new Proxy({}, { get: () => noop }), Projectiles: { clearOrbs: noop }, Audio: { sfx: noop },
+                     Weather: { speedFor: () => 1, mult: () => 1 }, World: G.World });
+  const cases = [
+    { dex: 25, bind: {}, moves: ['thunder-shock', 'tackle', 'discharge', 'quick-attack'], fuse: [[1, 2], [0]] },
+    { dex: 6, bind: { 'ember': 3, 'wing-attack': 0 }, moves: ['ember', 'tackle', 'wing-attack', 'flamethrower'], fuse: [[0, 1], [3]] },
+    { dex: 150, bind: { 'psychic': 1, 'tackle': 1, 'confusion': 2 }, moves: ['confusion', 'tackle', 'psychic', 'psybeam'], fuse: [[2, 3]] },
+    { dex: 1, bind: { 'vine-whip': 0, 'tackle': 0 }, moves: ['tackle', 'vine-whip'], fuse: [] }
+  ];
+  out.slots = [];
+  for (const c of cases) {
+    const pl = new G.Player(G.DEX_BY[c.dex], {}, false);
+    for (const [id, i] of Object.entries(c.bind)) pl.bind[id] = i;
+    const steps = [];
+    const snap = () => ({ slots: pl.slots.map(g => g.map(m => m.id)), active: pl.active });
+    for (const id of c.moves) { pl.addMove(id); steps.push(snap()); }
+    for (const f of c.fuse) {
+      // Fusión: índices en pl.moves de los movimientos que se unen.
+      pl.bonds = 1;
+      const opt = pl.bondOptions();
+      if (!opt) { steps.push({ none: true }); continue; }
+      pl.fuse(f.map(i => pl.moves[i]), opt.group);
+      steps.push(snap());
+    }
+    out.slots.push({ dex: c.dex, bind: c.bind, moves: c.moves, fuse: c.fuse, steps });
+  }
+}
+
 // ---------------- misiones (sorteo con semilla de fecha + partida) ----------------
 out.missions = [];
 for (const [d, w, created] of [['d20261018', 'w2026-42', 1760000000000], ['d20270101', 'w2026-53', 0], ['d20250315', 'w2025-11', 1234567]]) {
