@@ -1,0 +1,29 @@
+# Generados (se rehacen con tools/)
+build/
+build-pc/
+romfs/
+gfx/
+dist/
+*.3dsx
+*.cia
+*.smdh
+*.elf
+*.t3x
+*.bcfnt
+
+# Pruebas y capturas
+captures/
+screenshots/
+tests/out/
+*.log
+
+# Cachés y dependencias
+tools/cache/
+tools/.venv/
+node_modules/
+__pycache__/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
