@@ -1,0 +1,8 @@
+{
+  "name": "pokesurvivor-3ds-tools",
+  "private": true,
+  "description": "Generadores de recursos de la web a formatos de la 3DS",
+  "dependencies": {
+    "playwright": "^1.64.1"
+  }
+}
