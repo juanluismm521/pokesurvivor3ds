@@ -190,12 +190,13 @@ void App::draw_backdrop(float dim, float eye) {
   r_->set_parallax(eye * 3);
   r_->draw_ground(w, bcam_, vl, vt, bt_);
   r_->set_parallax(eye * 1.5f);
-  struct It { float y; const Prop* p; const Wanderer* d; };
+  struct It { float y; const Prop* p; const Wanderer* d; int i; };
   static It items[700];
   int n = 0;
-  w.for_props_in_rect(vl - 70, vt - 70, vl + bcam_.w + 70, vt + bcam_.h + 70, [&](Prop& p) { if (n < 680) items[n++] = {p.flat ? p.y - 4000 : p.y, &p, nullptr}; });
-  for (const Wanderer& d : wd_) items[n++] = {d.y, nullptr, &d};
-  std::stable_sort(items, items + n, [](const It& a, const It& b) { return a.y < b.y; });
+  w.for_props_in_rect(vl - 70, vt - 70, vl + bcam_.w + 70, vt + bcam_.h + 70, [&](Prop& p) { if (n < 680) items[n++] = {p.flat ? p.y - 4000 : p.y, &p, nullptr, 0}; });
+  for (const Wanderer& d : wd_) items[n++] = {d.y, nullptr, &d, 0};
+  for (int k = 0; k < n; ++k) items[k].i = k;
+  std::sort(items, items + n, [](const It& a, const It& b) { return a.y < b.y || (a.y == b.y && a.i < b.i); });
   for (int i = 0; i < n; ++i) {
     if (items[i].p) { r_->draw_prop(*items[i].p, w, vl, vt, bt_); continue; }
     const Wanderer& d = *items[i].d;

@@ -293,7 +293,7 @@ void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now)
 
 namespace {
 enum DKind : int8_t { D_PROP, D_ENEMY, D_PLAYER, D_RIFT, D_ARCEUS, D_LOST, D_GOAL };
-struct DItem { float y; int8_t kind; const void* p; };
+struct DItem { float y; int8_t kind; const void* p; int16_t i = 0; };
 DItem items[900];
 }  // namespace
 
@@ -405,7 +405,9 @@ void Renderer::draw_top(Game& g, float eye) {
   if (g.rift.open) items[n++] = {g.rift.y, D_RIFT, nullptr};
   if (g.judg.a_on && g.judg.ported) items[n++] = {g.judg.ay, D_ARCEUS, nullptr};
   if (g.lost.on) { items[n++] = {g.lost.ty - 4000, D_GOAL, nullptr}; items[n++] = {g.lost.y, D_LOST, nullptr}; }
-  std::stable_sort(items, items + n, [](const DItem& a, const DItem& b) { return a.y < b.y; });
+  // Orden por Y (a igualdad, el orden de llegada; sort sin memoria extra).
+  for (int k = 0; k < n; ++k) items[k].i = int16_t(k);
+  std::sort(items, items + n, [](const DItem& a, const DItem& b) { return a.y < b.y || (a.y == b.y && a.i < b.i); });
 
   for (int i = 0; i < n; ++i) {
     const DItem& it = items[i];
