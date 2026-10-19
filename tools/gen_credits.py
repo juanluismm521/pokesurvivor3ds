@@ -18,14 +18,21 @@ def plain(s):
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'romfs', 'credits.txt')
-    lines = ['# PokéSurvivor 3DS', 'Port para Nintendo 3DS de PokéSurvivor (pokesurvivor.com).',
+    lines = ['# Gracias', 'Ante todo, a JPTER78, creador de PokéSurvivor:',
+             'github.com/JPTER78/pokesurvivor', '',
+             'Y a juanluismm521, que ha traído el juego a la 3DS:',
+             'github.com/juanluismm521/pokesurvivor3ds', '',
+             '# PokéSurvivor 3DS', 'Port para Nintendo 3DS de PokéSurvivor (pokesurvivor.com).',
              'Proyecto de fans sin ánimo de lucro, sin relación con',
              'Nintendo, Game Freak ni The Pokémon Company. Gratis siempre.',
              'Código: PolyForm Noncommercial 1.0.0 (© 2026 JPTER78).', '']
     para = []
+    skip = False   # (la sección «Gracias» de CREDITS.md ya va arriba)
     with open(os.path.join(ROOT, 'CREDITS.md'), encoding='utf-8') as f:
         for raw in f:
             l = raw.rstrip('\n')
+            if l.startswith('## '): skip = l.strip() == '## Gracias'
+            if skip: continue
             if l.startswith('|'):
                 cells = [c.strip() for c in l.strip('|').split('|')]
                 if len(cells) < 3 or cells[0] in ('Artista', '---') or set(cells[0]) <= set('-'):

@@ -1,5 +1,12 @@
 # Créditos
 
+## Gracias
+
+- Ante todo, a **JPTER78**, creador de PokéSurvivor:
+  [github.com/JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
+- Y a **juanluismm521**, que ha traído el juego a la 3DS:
+  [github.com/juanluismm521/pokesurvivor3ds](https://github.com/juanluismm521/pokesurvivor3ds)
+
 ## Sprites
 
 Los sprites estilo *Pokémon Mundo Misterioso* vienen de

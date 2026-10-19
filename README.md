@@ -154,6 +154,10 @@ Documentos: [`PLAN.md`](PLAN.md) (fases y decisiones),
 [`GDD.md`](GDD.md) (diseño del juego).
 
 ## Licencias y créditos
+- Gracias ante todo a **JPTER78**, creador de PokéSurvivor
+  ([github.com/JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)),
+  y a **juanluismm521**, que lo ha traído a la 3DS
+  ([github.com/juanluismm521/pokesurvivor3ds](https://github.com/juanluismm521/pokesurvivor3ds)).
 - Código: PolyForm Noncommercial 1.0.0 (`LICENSE`, `LICENSE-NONCOMMERCIAL.md`).
 - Sprites: PMD Sprite Collab, CC BY-NC 4.0. Todos los artistas en
   [`CREDITS.md`](CREDITS.md); también salen en el juego.

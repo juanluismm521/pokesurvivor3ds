@@ -109,6 +109,10 @@ end-to-end with the **original web code** in Chromium against the Firebase
 emulator.
 
 ## Licenses and credits
+- Thanks above all to **JPTER78**, creator of PokéSurvivor
+  ([github.com/JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)),
+  and to **juanluismm521**, who brought it to the 3DS
+  ([github.com/juanluismm521/pokesurvivor3ds](https://github.com/juanluismm521/pokesurvivor3ds)).
 - Code: PolyForm Noncommercial 1.0.0 (`LICENSE`, `LICENSE-NONCOMMERCIAL.md`).
 - Sprites: PMD Sprite Collab, CC BY-NC 4.0. All artists in
   [`CREDITS.md`](CREDITS.md); they are also shown in the game.
