@@ -152,12 +152,12 @@ int main() {
 
     // --- paso fijo de la partida ---
     if (app.scene == SC_RUN) {
-      Input gi = app.pending_input;
       int steps = 0;
       while (acc >= 1000.0 / 60 && steps < 3) {
-        g->step(&gi);
+        g->step(&app.pending_input);
         for (const SfxEvent& e : g->sfx_queue) audio::play_game(e);
-        gi.select = -1; gi.cycle = 0;
+        // La orden, el hueco y el cambio se usan una sola vez.
+        app.pending_input.select = -1; app.pending_input.cycle = 0; app.pending_input.cmd = CMD_NONE;
         acc -= 1000.0 / 60;
         steps++;
       }

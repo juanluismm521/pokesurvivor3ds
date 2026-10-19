@@ -66,7 +66,7 @@ Enemy* spawn_one(Game& g, Player& p, float t, float angle, bool has_angle) {
   if (!free_point(g, p, has_angle ? angle : g.rng.next() * kTau, hovers(def.dex), x, y)) return nullptr;
   const bool shiny = roll_shiny(g, def.dex);
   Scale3 sc = enemies_scale(t);
-  sc.hp *= 1 * hp_k(t);   // (Coop.scaleHp = 1 en solitario)
+  sc.hp *= coop_scale_hp(g.team_size()) * hp_k(t);
   Enemy* e = enemy_spawn(g, def, x, y, sc);
   if (!e) return nullptr;
   e->dmg *= DMG_K;
@@ -91,7 +91,7 @@ void spawn_boss(Game& g, Player& p, float t, const EnemyDef& b) {
   float x, y;
   ring_point(g, p, g.rng.next() * kTau, x, y);
   Scale3 sc = enemies_boss_scale(t);
-  sc.hp *= 1 * (g.nplayers > 1 ? 1.4f : 1);
+  sc.hp *= coop_scale_hp(g.team_size()) * (g.team_size() > 1 ? 1.4f : 1);
   Enemy* e = enemy_spawn(g, b, x, y, sc, true);
   if (!e) return;
   if (roll_shiny(g, b.dex)) enemy_make_shiny(g, *e);
@@ -127,7 +127,7 @@ void spawner_update(Game& g, float dt) {
 
   // --- goteo normal ---
   if (g.enemies.n < kEnemyCap) {
-    g.spawner.acc += spawner_rate(t) * 1 * (boss_fight ? 0.25f : 1) * dt;
+    g.spawner.acc += spawner_rate(t) * coop_scale_rate(g.team_size()) * (boss_fight ? 0.25f : 1) * dt;
     int n = int(std::floor(g.spawner.acc));
     g.spawner.acc -= n;
     while (n-- > 0 && g.enemies.n < kEnemyCap) spawn_one(g, anchor(g), t, 0, false);
@@ -139,7 +139,7 @@ void spawner_update(Game& g, float dt) {
     g.spawner.surge_t = g.rng.range(38, 56);
     const float base = g.rng.next() * kTau;
     Player& target = anchor(g);
-    const int n = std::min(kEnemyCap - g.enemies.n, int(jsround((14 + std::floor(t / 22)) * 1 * 0.4f)));
+    const int n = std::min(kEnemyCap - g.enemies.n, int(jsround((14 + std::floor(t / 22)) * coop_scale_rate(g.team_size()) * 0.4f)));
     for (int i = 0; i < n; ++i) spawn_one(g, target, t, base + g.rng.range(-0.55f, 0.55f), true);
     g.say("¡Marea de Pokémon!", 2.2f);
     g.sfx(SFX_SURGE);

@@ -73,11 +73,37 @@ bool Game::seen_by_any(float x, float y, float pad) const {
 float Game::level_xp() {
   const Player& p = pl();
   if (!p.active) return 20;
-  const float k = 1 * (p.xp_mul > 0 ? p.xp_mul : 1);
+  const float k = game_xp_factor(*this) * (p.xp_mul > 0 ? p.xp_mul : 1);
   return std::ceil((p.xp_next - p.xp + 1) / k);
 }
 
 // ---------------- partida ----------------
+
+// Un jugador al empezar: Pokémon, atajos, vetos y mejora "Repertorio".
+static void init_player(Game& g, Player& p, const RunConfig& c) {
+  player_init(g, p, c.dex, c.shiny, c);
+  // Atajos: movimientos con hueco fijo, antes de aprender nada.
+  for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < 64) p.bind[c.pbind[i]] = int8_t(i);
+  player_add_move(g, p, move_start_for(c.dex));
+  // Mejora "Veto": movimientos que no quieres que te salgan.
+  const Perks perks = upgrade_perks(c.upgrades);
+  for (int i = 0; i < 3 && i < perks.bans; ++i) if (c.pban[i] >= 0) p.banned |= 1ull << c.pban[i];
+  // Mejora "Repertorio": un segundo movimiento de ataque al azar.
+  if (perks.start_moves >= 2) {
+    int16_t all[64], pool[64];
+    const int na = move_pool_for(p.mon->types, all, 64);
+    int np = 0;
+    for (int i = 0; i < na; ++i) {
+      const int id = all[i];
+      if (player_has_move(p, id) || ((p.banned >> id) & 1ull) || kMoves[id].kind == K_BUFF) continue;
+      pool[np++] = int16_t(id);
+    }
+    if (np) player_add_move(g, p, pool[int(g.rng.next() * np)]);
+    player_set_active(g, p, 0);
+  }
+  p.ncards = 0; p.picked = true;
+  p.choice = CH_NONE; p.nlater = 0; p.paused = false;
+}
 
 void Game::start_run(const RunConfig& c, Save* s) {
   cfg = c;
@@ -107,33 +133,26 @@ void Game::start_run(const RunConfig& c, Save* s) {
   death_t = 0; flash_t = 0;
   banner[0] = 0; banner_t = 0;
   sfx_queue.clear();
-  ncaught = 0; nlater = 0;
-  choice = CH_NONE;
+  ncaught = 0;
   over_ready = false;
   heal_shown = heal_acc = 0;
 
-  nplayers = 1;
   for (auto& p : players) p.active = false;
-  Player& p = pl();
-  player_init(*this, p, c.dex, c.shiny, c);
-  // Atajos: movimientos con hueco fijo, antes de aprender nada.
-  for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < 64) p.bind[c.pbind[i]] = int8_t(i);
-  player_add_move(*this, p, move_start_for(c.dex));
-  // Mejora "Veto": movimientos que no quieres que te salgan.
-  const Perks perks = upgrade_perks(c.upgrades);
-  for (int i = 0; i < 3 && i < perks.bans; ++i) if (c.pban[i] >= 0) p.banned |= 1ull << c.pban[i];
-  // Mejora "Repertorio": un segundo movimiento de ataque al azar.
-  if (perks.start_moves >= 2) {
-    int16_t all[64], pool[64];
-    const int na = move_pool_for(p.mon->types, all, 64);
-    int np = 0;
-    for (int i = 0; i < na; ++i) {
-      const int id = all[i];
-      if (player_has_move(p, id) || ((p.banned >> id) & 1ull) || kMoves[id].kind == K_BUFF) continue;
-      pool[np++] = int16_t(id);
+  nplayers = c.nplayers > 1 ? std::min(c.nplayers, kMaxPlayers) : 1;
+  local = std::min(local, nplayers - 1);
+  for (int i = 0; i < nplayers; ++i) {
+    // Cada uno con su Pokémon y sus mejoras (en solitario, los de cfg).
+    RunConfig pc = c;
+    if (nplayers > 1) {
+      const RunConfig::Member& m = c.members[i];
+      pc.dex = m.dex; pc.shiny = m.shiny;
+      std::memcpy(pc.upgrades, m.upgrades, sizeof(pc.upgrades));
+      std::memcpy(pc.pbind, m.pbind, sizeof(pc.pbind));
+      std::memcpy(pc.pban, m.pban, sizeof(pc.pban));
     }
-    if (np) player_add_move(*this, p, pool[int(rng.next() * np)]);
-    player_set_active(*this, p, 0);
+    init_player(*this, players[i], pc);
+    // En grupo, en fila (coop.js begin).
+    if (nplayers > 1) { players[i].x = (i - (nplayers - 1) / 2.0f) * 34; players[i].y = 0; }
   }
   views_snap(); camera.shake = 0;
   music = MU_FOREST;
@@ -235,75 +254,118 @@ void Game::on_prop_destroyed(const Prop& p) {
 
 // ---------------- objetos equipables ----------------
 
-static void after_choice(Game& g);
+static void after_choice(Game& g, Player& p);
+
+namespace {
+struct Fnv {
+  uint32_t h = 2166136261u;
+  void bytes(const void* p, size_t n) { const uint8_t* b = static_cast<const uint8_t*>(p); for (size_t i = 0; i < n; ++i) { h ^= b[i]; h *= 16777619u; } }
+  template <class T> void v(const T& x) { bytes(&x, sizeof(x)); }
+};
+}  // namespace
+
+uint32_t Game::state_hash() const {
+  Fnv f;
+  f.bytes(rng.state(), 16);
+  f.v(time); f.v(state); f.v(pending_levels); f.v(biome);
+  f.v(next_enemy_id); f.v(next_proj_id); f.v(next_pickup_id);
+  for (int i = 0; i < nplayers; ++i) {
+    const Player& p = players[i];
+    f.v(p.active); f.v(p.dead); f.v(p.x); f.v(p.y); f.v(p.hp); f.v(p.max_hp);
+    f.v(p.level); f.v(p.xp); f.v(p.kills); f.v(p.coins); f.v(p.nmoves); f.v(p.active_slot);
+    f.v(p.choice); f.v(p.picked); f.v(p.item); f.v(p.bonds);
+  }
+  f.v(enemies.n);
+  for (const Enemy& e : enemies) { f.v(e.id); f.v(e.x); f.v(e.y); f.v(e.hp); }
+  f.v(projectiles.n);
+  for (const Projectile& q : projectiles) { f.v(q.x); f.v(q.y); }
+  f.v(pickups.n);
+  for (const Pickup& q : pickups) { f.v(q.x); f.v(q.y); f.v(q.kind); }
+  f.v(fields.n); f.v(hazards.n);
+  f.v(rift.open); f.v(rift.arena); f.v(judg.phase);
+  return f.h;
+}
+
+int Game::team_size() const {
+  int n = 0;
+  for (int i = 0; i < nplayers; ++i) if (players[i].active) n++;
+  return n;
+}
+
+bool Game::anyone_choosing() const {
+  for (int i = 0; i < nplayers; ++i) if (players[i].active && players[i].choice != CH_NONE) return true;
+  return false;
+}
+
+// Un aviso que sólo es para un jugador sale sólo en su consola.
+static void say_to(Game& g, const Player& p, const char* text, float secs) {
+  if (&p == &g.players[g.local]) g.say(text, secs);
+}
 
 // Has cogido un objeto: si no llevas ninguno te lo pones; si no, eliges.
-static void offer_item(Game& g, int id) {
-  Player& p = g.pl();
+static void offer_item(Game& g, Player& p, int id) {
   if (id < 0 || id >= IT_COUNT) return;
-  if (g.state == ST_LEVELUP || g.choice != CH_NONE) { if (g.nlater < 8) g.later_items[g.nlater++] = int8_t(id); return; }
+  if (g.state == ST_LEVELUP || p.choice != CH_NONE) { if (p.nlater < 8) p.later_items[p.nlater++] = int8_t(id); return; }
   char b[96];
   if (p.item < 0) {
     player_equip(g, p, id);
     std::snprintf(b, sizeof(b), "¡Llevas %s!", kItems[id].name);
-    g.say(b, 2.6f);
-    progress_event(g, EV_ITEM, id);
+    say_to(g, p, b, 2.6f);
+    if (&p == &g.players[g.local]) progress_event(g, EV_ITEM, id);
     return;
   }
-  if (p.item == id) { std::snprintf(b, sizeof(b), "Ya llevas %s", kItems[id].name); g.say(b, 2); return; }
-  // Se para el juego mientras eliges.
-  g.item_cur = p.item; g.item_next = int8_t(id);
-  g.choice = CH_ITEM;
+  if (p.item == id) { std::snprintf(b, sizeof(b), "Ya llevas %s", kItems[id].name); say_to(g, p, b, 2); return; }
+  // Se para el juego (para todos) mientras eliges.
+  p.item_cur = p.item; p.item_next = int8_t(id);
+  p.choice = CH_ITEM;
   if (g.state == ST_PLAYING) g.state = ST_CHOICE;
 }
 
-void Game::pick_item(bool take_new) {
-  if (choice != CH_ITEM) return;
-  Player& p = pl();
-  const int got = take_new ? item_next : item_cur;
+void Game::pick_item(Player& p, bool take_new) {
+  if (p.choice != CH_ITEM) return;
+  const int got = take_new ? p.item_next : p.item_cur;
   if (got != p.item) {
     player_equip(*this, p, got);
     char b[96];
     std::snprintf(b, sizeof(b), "¡Llevas %s!", kItems[got].name);
-    say(b, 2.6f);
-    progress_event(*this, EV_ITEM, got);
+    say_to(*this, p, b, 2.6f);
+    if (&p == &players[local]) progress_event(*this, EV_ITEM, got);
   }
-  choice = CH_NONE;
-  if (state == ST_CHOICE) state = ST_PLAYING;
-  after_choice(*this);
+  p.choice = CH_NONE;
+  if (state == ST_CHOICE && !anyone_choosing()) state = ST_PLAYING;
+  after_choice(*this, p);
 }
 
-static void after_choice(Game& g) {
-  if (g.state != ST_PLAYING) return;
-  if (g.nlater) {
-    const int id = g.later_items[0];
-    for (int i = 0; i < g.nlater - 1; ++i) g.later_items[i] = g.later_items[i + 1];
-    g.nlater--;
-    offer_item(g, id);
+static void after_choice(Game& g, Player& p) {
+  if (g.state != ST_PLAYING && g.state != ST_CHOICE) return;
+  if (p.nlater && p.choice == CH_NONE) {
+    const int id = p.later_items[0];
+    for (int i = 0; i < p.nlater - 1; ++i) p.later_items[i] = p.later_items[i + 1];
+    p.nlater--;
+    offer_item(g, p, id);
   }
 }
 
 // ---------------- vínculos ----------------
 // Vínculo de un legendario: eliges qué movimientos se fusionan. Si ahora no se
 // puede (no hay dos sueltos), se guarda hasta que aprendas otro movimiento.
-static void offer_bond(Game& g) {
-  Player& p = g.pl();
-  if (p.bonds <= 0 || p.dead || g.state != ST_PLAYING || g.rift.arena || g.choice != CH_NONE) return;
+static void offer_bond(Game& g, Player& p) {
+  if (p.bonds <= 0 || p.dead || (g.state != ST_PLAYING && g.state != ST_CHOICE) || g.rift.arena || p.choice != CH_NONE) return;
   int8_t loose[4];
   int nl, grow;
   if (!player_bond_options(p, loose, nl, grow)) return;
-  g.choice = CH_BOND;
+  p.choice = CH_BOND;
   g.state = ST_CHOICE;
-  g.sfx(SFX_LEVELUP);
+  if (&p == &g.players[g.local]) g.sfx(SFX_LEVELUP);
 }
 
-void Game::pick_bond(const int* move_idx, int n) {
-  if (choice != CH_BOND) return;
-  Player& p = pl();
+void Game::pick_bond(Player& p, const int* move_idx, int n) {
+  if (p.choice != CH_BOND) return;
   int8_t loose[4];
   int nl, grow;
   const int mode = player_bond_options(p, loose, nl, grow);
   if (!mode || n <= 0) return;
+  for (int i = 0; i < n; ++i) if (move_idx[i] < 0 || move_idx[i] >= p.nmoves) return;
   player_fuse(*this, p, move_idx, n, mode == 1 ? grow : -1);
   sfx(SFX_LEGEND);
   fx.ring(p.x, p.y, 8, 130, 0xff8ad8, 0.8f, 6);
@@ -312,53 +374,107 @@ void Game::pick_bond(const int* move_idx, int n) {
   for (int s = 0; s < p.nslots; ++s) if (p.slot_n[s] > size) size = p.slot_n[s];
   char b[64];
   std::snprintf(b, sizeof(b), "¡Vínculo! %d movimientos a la vez", size);
-  say(b, 2.6f);
-  choice = CH_NONE;
-  if (state == ST_CHOICE) state = ST_PLAYING;
-  after_choice(*this);
+  say_to(*this, p, b, 2.6f);
+  p.choice = CH_NONE;
+  if (state == ST_CHOICE && !anyone_choosing()) state = ST_PLAYING;
+  after_choice(*this, p);
 }
 
 // ---------------- subida de nivel ----------------
+// En grupo, las cartas salen a la vez para todos y se espera a que elijan.
 static void maybe_level_up(Game& g) {
   if (g.pending_levels <= 0 || g.state != ST_PLAYING) return;
-  Player& p = g.pl();
-  // Nunca abras cartas con el Pokémon caído.
-  if (p.dead) return;
+  // Nunca abras cartas con el Pokémon caído (en grupo: con todos caídos).
+  bool alive = false;
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && !g.players[i].dead) alive = true;
+  if (!alive) return;
   g.pending_levels--;
   g.state = ST_LEVELUP;
   g.sfx(SFX_LEVELUP);
-  levelup_offer(g, p);
+  for (int i = 0; i < g.nplayers; ++i) {
+    Player& p = g.players[i];
+    if (!p.active) continue;
+    p.picked = false;
+    levelup_offer(g, p);
+  }
 }
 
-void Game::pick_card(int i) {
-  if (state != ST_LEVELUP || i < 0 || i >= ncards) return;
-  sfx(SFX_CONFIRM);
-  levelup_apply(*this, pl(), cards[i]);
+void Game::pick_card(Player& p, int i) {
+  if (state != ST_LEVELUP || p.picked || i < 0 || i >= p.ncards) return;
+  if (&p == &players[local]) sfx(SFX_CONFIRM);
+  levelup_apply(*this, p, p.cards[i]);
+  p.picked = true;
+  for (int k = 0; k < nplayers; ++k) if (players[k].active && !players[k].picked) return;
   state = ST_PLAYING;
-  after_choice(*this);
+  for (int k = 0; k < nplayers; ++k) if (players[k].active) after_choice(*this, players[k]);
 }
 
 // Cambiar las cartas: 1 gratis por run más los comprados en Mejoras.
-bool Game::reroll_cards() {
-  Player& p = pl();
-  if (state != ST_LEVELUP || p.rerolls >= 1 + p.reroll_bonus) return false;
+bool Game::reroll_cards(Player& p) {
+  if (state != ST_LEVELUP || p.picked || p.rerolls >= 1 + p.reroll_bonus) return false;
   p.rerolls++;
   levelup_offer(*this, p);
-  sfx(SFX_SELECT);
+  if (&p == &players[local]) sfx(SFX_SELECT);
   return true;
+}
+
+// ---------------- jugadores que se van ----------------
+
+void Game::leave(int who) {
+  if (who < 0 || who >= nplayers || !players[who].active) return;
+  if (nplayers == 1 || who == 0) { quit_run(); return; }   // (si se va el anfitrión, se acaba)
+  Player& p = players[who];
+  p.active = false;
+  p.choice = CH_NONE; p.picked = true;
+  // Sus órbitas desaparecen (Projectiles.clearOrbs).
+  for (int i = projectiles.n - 1; i >= 0; --i) if (projectiles[i].orb && projectiles[i].owner == who) projectiles.remove_ordered(i);
+  char b[64];
+  std::snprintf(b, sizeof(b), "%s ha dejado la partida", cfg.members[who].name[0] ? cfg.members[who].name : "Un compañero");
+  say(b, 2.6f);
+  if (state == ST_CHOICE && !anyone_choosing()) state = ST_PLAYING;
+  if (state == ST_LEVELUP) {
+    bool all = true;
+    for (int k = 0; k < nplayers; ++k) if (players[k].active && !players[k].picked) all = false;
+    if (all) state = ST_PLAYING;
+  }
+}
+
+// ---------------- experiencia del equipo ----------------
+// coop.js xpFactor: la media de los bonus de cada uno, repartida entre los que
+// sois (en grupo se sube más despacio; si no, el triple de rápido).
+static float xp_factor(const Game& g) {
+  if (g.nplayers <= 1) return 1;
+  const Player& p0 = g.players[0];
+  float s = 0;
+  int n = 0;
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) { s += g.players[i].xp_mul > 0 ? g.players[i].xp_mul : 1; n++; }
+  const float own = p0.xp_mul > 0 ? p0.xp_mul : 1;
+  return (s / n) / own / (1 + 0.6f * (n - 1));
+}
+
+float game_xp_factor(const Game& g) { return xp_factor(g); }
+
+// Nivel, experiencia y contadores son del equipo (los lleva el jugador 0).
+static void sync_team(Game& g) {
+  const Player& t = g.players[0];
+  for (int i = 1; i < g.nplayers; ++i) {
+    Player& p = g.players[i];
+    p.level = t.level; p.xp = t.xp; p.xp_next = t.xp_next;
+    p.kills = t.kills; p.bosses = t.bosses; p.coins = t.coins; p.t1 = t.t1; p.t10 = t.t10;
+  }
 }
 
 // ---------------- recogida ----------------
 
 void game_on_collect(Game& g, const Pickup& p, Player& who) {
-  Player& pl = g.pl();
-  const bool mine = &who == &pl;
+  Player& pl = g.pl();   // el equipo
+  const bool mine = &who == &g.players[g.local];
   static const int8_t SND[PK_COUNT] = {SFX_XP, SFX_XP, SFX_HEAL, SFX_CONFIRM, SFX_BREAK, SFX_COIN, SFX_SHINY, SFX_LEGEND, SFX_LEGEND};
-  if (mine || p.kind == PK_BOMB) g.sfx(SND[p.kind]);
+  if (mine || p.kind == PK_BOMB || p.kind == PK_XP || p.kind == PK_XPBIG) g.sfx(SND[p.kind]);
   char b[32];
   switch (p.kind) {
     case PK_XP: case PK_XPBIG:
-      g.pending_levels += player_gain_xp(pl, p.value * 1);
+      g.pending_levels += player_gain_xp(pl, p.value * xp_factor(g));
       break;
     case PK_COIN:
       pl.coins += int(p.value);
@@ -366,17 +482,17 @@ void game_on_collect(Game& g, const Pickup& p, Player& who) {
       g.fx.dmg_text(who.x, who.y - who.body_h - 6, b, 0xffd23f);
       break;
     case PK_ITEM:
-      if (mine) offer_item(g, int(p.value));
+      offer_item(g, who, int(p.value));
       break;
     case PK_TICKET: case PK_TICKET10:
       if (p.kind == PK_TICKET) pl.t1++; else pl.t10++;
-      // Los tickets se guardan en cuanto los coges (como los shinies).
+      // Los tickets se guardan en cuanto los coges (como los shinies; en grupo, todos).
       if (g.save) { if (p.kind == PK_TICKET) g.save->t1++; else g.save->t10++; g.dirty = true; }
       g.fx.dmg_text(who.x, who.y - who.body_h - 8, p.kind == PK_TICKET ? "+1 ticket" : "¡Ticket ×10!", p.kind == PK_TICKET ? 0xffd23f : 0xd9a6ff, true);
       g.fx.ring(who.x, who.y, 6, 50, p.kind == PK_TICKET ? 0xffd23f : 0xc47bff, 0.4f, 3);
       break;
     case PK_HEAL:
-      if (mine) player_heal(g, pl, pl.max_hp * 0.3f);
+      player_heal(g, who, who.max_hp * 0.3f);
       g.fx.ring(who.x, who.y, 6, 60, 0x5fe08a, 0.4f, 3);
       break;
     case PK_MAGNET:
@@ -384,7 +500,8 @@ void game_on_collect(Game& g, const Pickup& p, Player& who) {
       g.fx.ring(who.x, who.y, 10, 420, 0xff9ed8, 0.6f, 4);
       break;
     case PK_BOMB: {
-      if (dist2(who.x, who.y, pl.x, pl.y) < 500 * 500) g.camera.kick(0.8f);
+      const Player& me = g.players[g.local];
+      if (dist2(who.x, who.y, me.x, me.y) < 500 * 500) g.camera.kick(0.8f);
       const float R = g.camera.outer_radius();
       g.fx.ring(who.x, who.y, 20, R, 0xff7b3d, 0.5f, 6);
       int32_t ids[kMaxEnemies];
@@ -405,7 +522,8 @@ void game_on_collect(Game& g, const Pickup& p, Player& who) {
 
 void game_end_run(Game& g, bool dead) {
   if (g.state == ST_OVER) return;
-  Player& pl = g.pl();
+  Player& pl = g.pl();                       // el equipo
+  const Player& me = g.players[g.local];     // las mejoras de esta consola
   g.state = ST_OVER;
   g.music = MU_NONE;
   g.sfx(dead ? SFX_GAMEOVER : SFX_BACK);
@@ -417,8 +535,8 @@ void game_end_run(Game& g, bool dead) {
   s.parts[1] = int(std::floor(pl.kills * 0.25));
   s.parts[2] = pl.bosses * 80;
   s.parts[3] = pl.coins;
-  s.coin_mul = pl.coin_mul;
-  s.coins = int(jsround((s.parts[0] + s.parts[1] + s.parts[2] + s.parts[3]) * pl.coin_mul));
+  s.coin_mul = me.coin_mul;
+  s.coins = int(jsround((s.parts[0] + s.parts[1] + s.parts[2] + s.parts[3]) * me.coin_mul));
   s.level = pl.level; s.kills = pl.kills; s.bosses = pl.bosses; s.t1 = pl.t1; s.t10 = pl.t10;
   if (g.judg.phase == 2) { s.judge_time = g.judg.arena_t; s.judge_bosses = g.judg.downs; }
   s.ncaught = g.ncaught;
@@ -428,37 +546,99 @@ void game_end_run(Game& g, bool dead) {
   g.over_ready = true;
 }
 
+// ---------------- órdenes de cada jugador ----------------
+
+static void apply_cmd(Game& g, int i, const Input& in) {
+  Player& p = g.players[i];
+  if (!p.active) return;
+  switch (in.cmd) {
+    case CMD_CARD: g.pick_card(p, in.arg); break;
+    case CMD_REROLL: g.reroll_cards(p); break;
+    case CMD_ITEM: g.pick_item(p, in.arg != 0); break;
+    case CMD_BOND: {
+      int idx[4], n = 0;
+      for (int k = 0; k < 4 && k < in.arg; ++k) if (in.moves[k] >= 0) idx[n++] = in.moves[k];
+      g.pick_bond(p, idx, n);
+      break;
+    }
+    case CMD_PAUSE:
+      // Solo: se para la partida. En grupo no: sólo te quedas quieto.
+      if (g.nplayers == 1) g.toggle_pause();
+      else p.paused = !p.paused;
+      break;
+    case CMD_SKIP: if (i == 0) g.skip_judgment(); break;   // (en grupo, el anfitrión)
+    case CMD_QUIT: g.leave(i); break;
+    default: break;
+  }
+}
+
+// ---------------- en grupo: levantar al caído y fin ----------------
+
+static void coop_tick(Game& g, float dt) {
+  // Caído: un compañero a su lado le va levantando (game.js reviveTick).
+  bool all_down = true;
+  for (int i = 0; i < g.nplayers; ++i) {
+    Player& p = g.players[i];
+    if (!p.active) continue;
+    if (!p.dead) { all_down = false; continue; }
+    bool helper = false;
+    for (int k = 0; k < g.nplayers; ++k) {
+      const Player& o = g.players[k];
+      if (k != i && o.active && !o.dead && dist2(o.x, o.y, p.x, p.y) < 56 * 56) helper = true;
+    }
+    p.revive_t = helper ? p.revive_t + dt : std::fmax(0.0f, p.revive_t - dt * 0.5f);
+    if (p.revive_t >= 3) player_revive(g, p, 0.5f);
+  }
+  // Si caéis todos, se acaba (tras ver caer al último). En la arena no.
+  if (g.rift.arena || !all_down) { g.death_t = 0; return; }
+  g.death_t += dt;
+  if (g.death_t > 1.6f) { g.death_t = 0; game_end_run(g, true); }
+}
+
 // ---------------- paso ----------------
 
 void Game::step(const Input* inputs) {
   const float dt = kDt;
+  static const Input none;
+  auto in_of = [&](int i) -> const Input& { return inputs ? inputs[i] : none; };
   sfx_queue.clear();
   if (banner_t > 0) banner_t -= dt;
+  if (state == ST_UI || state == ST_OVER) return;
+  // Órdenes (cartas, objeto, vínculo, pausa...), siempre en el mismo orden.
+  for (int i = 0; i < nplayers; ++i) if (in_of(i).cmd != CMD_NONE) apply_cmd(*this, i, in_of(i));
+  if (state == ST_UI || state == ST_OVER) return;
   if (state != ST_PLAYING) {
     // Con las cartas abiertas o en pausa, los efectos van a cámara lenta.
-    if (state != ST_UI && state != ST_OVER) { fx.update(dt * 0.25f); pl().anim.update(dt * 0.25f); }
+    fx.update(dt * 0.25f);
+    for (int i = 0; i < nplayers; ++i) if (players[i].active) players[i].anim.update(dt * 0.25f);
     return;
   }
+  const bool coop = nplayers > 1;
   Player& p = pl();
-  const Input& in = inputs ? inputs[0] : Input();
-  if (in.select >= 0) player_set_active(*this, p, in.select);
-  if (in.cycle) player_cycle(*this, p, in.cycle);
+  for (int i = 0; i < nplayers; ++i) {
+    Player& q = players[i];
+    if (!q.active) continue;
+    const Input& in = in_of(i);
+    if (in.select >= 0) player_set_active(*this, q, in.select);
+    if (in.cycle) player_cycle(*this, q, in.cycle);
+  }
 
   if (flash_t > 0) flash_t -= dt;
   // La Sentencia de Arceus: mientras dura la animación, todo lo demás se para.
   if (judgment_cinematic(*this)) {
     judgment_cine_tick(*this, dt);
-    p.anim.update(dt);
+    for (int i = 0; i < nplayers; ++i) if (players[i].active) players[i].anim.update(dt);
     world.update(dt, camera.left(), camera.top(), camera.w, camera.h);
     fx.update(dt);
     music = (judg.phase == 1 && judg.ct < 7.9f) ? MU_NONE : MU_JUDGMENT;
     return;
   }
   // Tras caer, deja que se vea la animación de Faint antes del resumen.
-  // (En la arena de la grieta no: allí caer sólo te echa de vuelta.)
-  if (p.dead && !rift.arena) {
+  // (En la arena de la grieta no: allí caer sólo te echa de vuelta. En grupo
+  // tampoco: un compañero te puede levantar.)
+  if (!coop && p.dead && !rift.arena) {
     death_t += dt;
-    player_update(*this, p, in, dt);
+    player_update(*this, p, in_of(0), dt);
     enemies_update(*this, dt * 0.3f);
     fx.update(dt);
     views_follow(dt);
@@ -475,11 +655,15 @@ void Game::step(const Input* inputs) {
     char s[96];
     std::snprintf(s, sizeof(s), "— %s —", world.biome_name());
     say(s, 3);
-    fx.ring(p.x, p.y, 10, camera.outer_radius(), 0xffffff, 0.7f, 6);
+    fx.ring(me().x, me().y, 10, camera.outer_radius(), 0xffffff, 0.7f, 6);
   }
 
-  p.frozen = false;
-  player_update(*this, p, in, dt);
+  for (int i = 0; i < nplayers; ++i) {
+    Player& q = players[i];
+    if (!q.active) continue;
+    q.frozen = coop && q.paused;
+    player_update(*this, q, in_of(i), dt);
+  }
   views_follow(dt);
   world.update(dt, camera.left(), camera.top(), camera.w, camera.h);
 
@@ -487,23 +671,24 @@ void Game::step(const Input* inputs) {
   spawner_update(*this, dt);
   enemies_update(*this, dt);
   rebuild_grid();
-  combat_tick(*this, p, dt);
+  for (int i = 0; i < nplayers; ++i) if (players[i].active) combat_tick(*this, players[i], dt);
   projectiles_update(*this, dt);
-  combat_resolve(*this, p, dt);
+  combat_resolve(*this, dt);
   combat_update_fields(*this, dt);
   pickups_update(*this, dt);
   hazards_update(*this, dt);
-  interact_update(*this, p, dt);
+  for (int i = 0; i < nplayers; ++i) if (players[i].active) interact_update(*this, players[i], dt);
   rift_update(*this, dt);
   judgment_update(*this, dt);
   events_update(*this, dt);
   weather_update(*this, dt);
   fx.update(dt);
+  if (coop) { coop_tick(*this, dt); sync_team(*this); }
 
   if (state != ST_PLAYING && state != ST_CHOICE) return;
   music = int8_t(judgment_active(*this) ? int(MU_JUDGMENT) : rift.arena ? int(MU_RIFT) : boss_alive() ? int(MU_BOSS) : int(MU_FOREST) + biome % 3);
   maybe_level_up(*this);
-  if (p.bonds > 0) offer_bond(*this);
+  for (int i = 0; i < nplayers; ++i) if (players[i].active && players[i].bonds > 0) offer_bond(*this, players[i]);
 }
 
 }  // namespace ps

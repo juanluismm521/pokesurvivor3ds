@@ -101,17 +101,17 @@ int candidates(Game& g, Player& p, Cand* out) {
 void levelup_offer(Game& g, Player& p) {
   Cand pool[64];
   int n = candidates(g, p, pool);
-  g.ncards = 0;
+  p.ncards = 0;
   int used[3], nu = 0;
   for (int i = 0; i < n; ++i) {
     if (pool[i].c.type != CT_EVO) continue;
-    g.cards[g.ncards++] = pool[i].c;
+    p.cards[p.ncards++] = pool[i].c;
     used[nu++] = pool[i].key;
     for (int q = i; q < n - 1; ++q) pool[q] = pool[q + 1];
     n--;
     break;
   }
-  while (g.ncards < 3 && n) {
+  while (p.ncards < 3 && n) {
     float total = 0;
     for (int i = 0; i < n; ++i) total += pool[i].c.w;
     float r = g.rng.next() * total;
@@ -124,7 +124,7 @@ void levelup_offer(Game& g, Player& p) {
     for (int k = 0; k < nu; ++k) if (used[k] == c.key) dup = true;
     if (dup) continue;
     used[nu++] = c.key;
-    g.cards[g.ncards++] = c.c;
+    p.cards[p.ncards++] = c.c;
   }
 }
 

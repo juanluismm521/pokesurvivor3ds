@@ -113,6 +113,7 @@ class App {
   // avisos (misiones y logros)
   float notice_t_ = 0;
   int bond_first_ = -1;
+  bool paused_ = false;         // en grupo: la pausa es sólo de esta consola
   // créditos
   char* credits_ = nullptr;
   int credit_lines_ = 0;

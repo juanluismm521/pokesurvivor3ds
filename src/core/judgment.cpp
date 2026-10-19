@@ -127,7 +127,7 @@ void fight(Game& g) {
   progress_event(g, EV_JUDGE);
   // Vida del primer legendario: unos 3 s de vuestro daño a un enemigo (y un mínimo).
   const float t = float(g.time);
-  const float floor_ = (3200 + t * 9) * 0.35f * 1;
+  const float floor_ = (3200 + t * 9) * 0.35f * coop_scale_hp(g.team_size());
   j.base = std::fmax(floor_, single_dps(g) * 3);
   g.say("¡Huye de Arceus! Es invencible", 3);
 }
@@ -372,7 +372,7 @@ void judgment_update(Game& g, float dt) {
   j.boss_t -= dt;
   if (j.boss_t <= 0) { j.boss_t = BOSS_EVERY; spawn_boss(g); }
   j.aanim.update(dt);
-  touch(g, g.pl());
+  for (int i = 0; i < g.nplayers; ++i) touch(g, g.players[i]);
 }
 
 }  // namespace ps

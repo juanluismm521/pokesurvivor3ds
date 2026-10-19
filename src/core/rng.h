@@ -18,6 +18,7 @@ class Rng {
   // U.randInt(a, b): entero en [a, b] incluidos.
   int range_int(int a, int b) { return a + int(next() * float(b - a + 1)); }
   bool chance(float p) { return next() < p; }
+  const uint32_t* state() const { return s_; }   // (huella del estado)
 
  private:
   uint32_t s_[4];

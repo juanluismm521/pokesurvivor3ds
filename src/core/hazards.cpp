@@ -47,16 +47,18 @@ static void detonate(Game& g, const Hazard& h) {
 }
 
 void hazards_update(Game& g, float dt) {
-  Player& pl = g.pl();
   for (int i = g.hazards.n - 1; i >= 0; --i) {
     Hazard& h = g.hazards[i];
     h.t += dt;
     if (!h.hit && h.t >= h.delay) {
       h.hit = true;
       detonate(g, h);
-      if (pl.active && !pl.dead && hazard_inside(h, pl.x, pl.y, pl.r)) {
-        pl.invuln = 0;
-        player_hurt(g, pl, h.pct > 0 ? std::fmax(h.dmg, pl.max_hp * h.pct) : h.dmg, h.type, h.pure);
+      for (int k = 0; k < g.nplayers; ++k) {   // (cada consola, al suyo: aquí, a todos)
+        Player& q = g.players[k];
+        if (q.active && !q.dead && hazard_inside(h, q.x, q.y, q.r)) {
+          q.invuln = 0;
+          player_hurt(g, q, h.pct > 0 ? std::fmax(h.dmg, q.max_hp * h.pct) : h.dmg, h.type, h.pure);
+        }
       }
     }
     if (h.hit && h.t >= h.delay + h.end) g.hazards.remove_ordered(i);

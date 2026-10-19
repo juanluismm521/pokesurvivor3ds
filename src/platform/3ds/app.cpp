@@ -331,12 +331,13 @@ void App::update(const UiIn& in0, float dt) {
 
 void App::in_run(const UiIn& in) {
   Game& g = *g_;
+  const Player& me = g.me();
   Input gi;
   if (autotest) {
-    Input bi;
-    if (bot.decide(g, bi)) gi = bi;
+    bot.decide(g, gi, g.local);
     if (g.state == ST_OVER) start_run();
-  } else if (g.state == ST_PLAYING) {
+  } else if (g.state == ST_PLAYING || (g.state == ST_CHOICE && me.choice == CH_NONE) || (g.state == ST_LEVELUP && me.picked)) {
+    // (en grupo: mientras otro elige, tú sigues moviendo el cursor de huecos)
     float ax = std::fabs(in.cx) > 0.12f ? in.cx : 0, ay = std::fabs(in.cy) > 0.12f ? in.cy : 0;
     if (in.held & KEY_DLEFT) ax = -1;
     if (in.held & KEY_DRIGHT) ax = 1;
@@ -348,28 +349,34 @@ void App::in_run(const UiIn& in) {
     if (in.down & (KEY_L | KEY_ZL)) gi.cycle = -1;
     if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
     if (in.tap && in.ty >= 150 && in.ty < 216) {
-      const Player& p = g.pl();
-      const float S = 66, GAP = 8, x0 = (320 - (p.nslots * S + (p.nslots - 1) * GAP)) / 2;
-      for (int i = 0; i < p.nslots; ++i) if (in.tx >= x0 + i * (S + GAP) && in.tx < x0 + i * (S + GAP) + S) gi.select = int8_t(i);
+      const float S = 66, GAP = 8, x0 = (320 - (me.nslots * S + (me.nslots - 1) * GAP)) / 2;
+      for (int i = 0; i < me.nslots; ++i) if (in.tx >= x0 + i * (S + GAP) && in.tx < x0 + i * (S + GAP) + S) gi.select = int8_t(i);
     }
-    if (g.judg.phase == 1 && (in.down & (KEY_A | KEY_B) || in.tap)) g.skip_judgment();
-    if (in.down & KEY_START) { g.toggle_pause(); if (g.save && g.dirty) save_now(); }
+    if (g.judg.phase == 1 && (in.down & (KEY_A | KEY_B) || in.tap)) gi.cmd = CMD_SKIP;
+    if (in.down & KEY_START) {
+      gi.cmd = CMD_PAUSE;
+      paused_ = !paused_;
+      if (g.save && g.dirty) save_now();
+    }
+    // En grupo la pausa no para la partida: SELECT en la pausa también abandona.
+    if (paused_ && g.nplayers > 1 && (in.down & KEY_SELECT)) gi.cmd = CMD_QUIT;
   } else if (g.state == ST_PAUSED) {
-    if (in.down & (KEY_START | KEY_B)) g.toggle_pause();
-    if (in.down & KEY_SELECT) g.quit_run();
+    if (in.down & (KEY_START | KEY_B)) { gi.cmd = CMD_PAUSE; paused_ = false; }
+    if (in.down & KEY_SELECT) gi.cmd = CMD_QUIT;
   } else if (g.state == ST_LEVELUP) {
-    if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + g.ncards - 1) % g.ncards;
-    if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % g.ncards;
-    if (in.tap && in.ty >= 92 && in.ty < 92 + 44 * g.ncards) { r_->card_cursor = (in.ty - 92) / 44; g.pick_card(r_->card_cursor); r_->card_cursor = 0; }
-    else if (in.down & KEY_A) { g.pick_card(r_->card_cursor); r_->card_cursor = 0; }
-    else if (in.down & KEY_Y) g.reroll_cards();
-  } else if (g.state == ST_CHOICE && g.choice == CH_ITEM) {
+    const int nc = me.ncards > 0 ? me.ncards : 1;
+    if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + nc - 1) % nc;
+    if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % nc;
+    if (in.tap && in.ty >= 92 && in.ty < 92 + 44 * me.ncards) { r_->card_cursor = (in.ty - 92) / 44; gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); r_->card_cursor = 0; }
+    else if (in.down & KEY_A) { gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); r_->card_cursor = 0; }
+    else if (in.down & KEY_Y) gi.cmd = CMD_REROLL;
+  } else if (g.state == ST_CHOICE && me.choice == CH_ITEM) {
     if (in.rep & (KEY_DUP | KEY_DDOWN)) r_->card_cursor ^= 1;
-    if (in.tap && in.ty >= 96 && in.ty < 204) { r_->card_cursor = (in.ty - 96) / 54; g.pick_item(r_->card_cursor == 1); r_->card_cursor = 0; }
-    else if (in.down & KEY_A) { g.pick_item(r_->card_cursor == 1); r_->card_cursor = 0; }
-  } else if (g.state == ST_CHOICE && g.choice == CH_BOND) {
+    if (in.tap && in.ty >= 96 && in.ty < 204) { r_->card_cursor = (in.ty - 96) / 54; gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; r_->card_cursor = 0; }
+    else if (in.down & KEY_A) { gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; r_->card_cursor = 0; }
+  } else if (g.state == ST_CHOICE && me.choice == CH_BOND) {
     int8_t loose[4]; int nl, grow;
-    const int mode = player_bond_options(g.pl(), loose, nl, grow);
+    const int mode = player_bond_options(me, loose, nl, grow);
     if (nl > 0) {
       if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + nl - 1) % nl;
       if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % nl;
@@ -377,18 +384,27 @@ void App::in_run(const UiIn& in) {
       if (touched) r_->card_cursor = (in.ty - 92) / 32;
       if ((in.down & KEY_A) || touched) {
         const int pick = loose[clamp(r_->card_cursor, 0, nl - 1)];
-        if (mode == 1) { int one[1] = {pick}; g.pick_bond(one, 1); bond_first_ = -1; r_->card_cursor = 0; }
+        if (mode == 1) { gi.cmd = CMD_BOND; gi.arg = 1; gi.moves[0] = int8_t(pick); bond_first_ = -1; r_->card_cursor = 0; }
         else if (bond_first_ < 0) bond_first_ = pick;
-        else if (pick != bond_first_) { int two[2] = {bond_first_, pick}; g.pick_bond(two, 2); bond_first_ = -1; r_->card_cursor = 0; }
+        else if (pick != bond_first_) { gi.cmd = CMD_BOND; gi.arg = 2; gi.moves[0] = int8_t(bond_first_); gi.moves[1] = int8_t(pick); bond_first_ = -1; r_->card_cursor = 0; }
       }
     }
   } else if (g.state == ST_OVER) {
+    paused_ = false;
     if (g.dirty) save_now();
     if (in.down & KEY_A) start_run();
     if (in.down & KEY_B) go(SC_MENU);
   }
-  // (el paso de la partida lo da main con el reloj; aquí sólo la entrada)
+  // (el paso de la partida lo da main con el reloj; aquí sólo la entrada.
+  // Las órdenes y la elección de hueco esperan a que un paso las use.)
+  const Input prev = pending_input;
   pending_input = gi;
+  if (gi.cmd == CMD_NONE && prev.cmd != CMD_NONE) {
+    pending_input.cmd = prev.cmd; pending_input.arg = prev.arg;
+    for (int k = 0; k < 4; ++k) pending_input.moves[k] = prev.moves[k];
+  }
+  if (gi.select < 0) pending_input.select = prev.select;
+  if (!gi.cycle) pending_input.cycle = prev.cycle;
 }
 
 // ---------------- test de personalidad y compañero ----------------

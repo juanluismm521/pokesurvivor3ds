@@ -603,7 +603,11 @@ static bool has_id(const int32_t* a, int n, int32_t id) {
   return false;
 }
 
-void combat_resolve(Game& g, Player& pl, float dt) {
+// Una vez por paso para todos: disparos enemigos contra cualquier jugador,
+// disparos de cada jugador (el mérito es del dueño) y contacto con enemigos.
+static void contact(Game& g, Player& pl);
+
+void combat_resolve(Game& g, float dt) {
   (void)dt;
   const float now = float(g.time);
   for (int i = g.projectiles.n - 1; i >= 0; --i) {
@@ -616,10 +620,15 @@ void combat_resolve(Game& g, Player& pl, float dt) {
         g.projectiles.remove_ordered(i);
         continue;
       }
-      if (dist2(p->x, p->y, pl.x, pl.y) < (p->r + pl.r) * (p->r + pl.r)) {
-        player_hurt(g, pl, p->dmg, p->mtype);
-        g.fx.burst(p->x, p->y - kLift, p->color, 7, 110);
-        g.projectiles.remove_ordered(i);
+      for (int k = 0; k < g.nplayers; ++k) {
+        Player& pl = g.players[k];
+        if (!pl.active || pl.dead) continue;
+        if (dist2(p->x, p->y, pl.x, pl.y) < (p->r + pl.r) * (p->r + pl.r)) {
+          player_hurt(g, pl, p->dmg, p->mtype);
+          g.fx.burst(p->x, p->y - kLift, p->color, 7, 110);
+          g.projectiles.remove_ordered(i);
+          break;
+        }
       }
       continue;
     }
@@ -720,6 +729,7 @@ void combat_resolve(Game& g, Player& pl, float dt) {
         break;
       }
 
+      Player& pl = g.players[p->owner];
       const bool crit = is_crit(g, pl);
       const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * (crit ? CRIT_MUL : 1);
       const float dvx = p->vx != 0 ? p->vx : (e->x - pl.x), dvy = p->vy != 0 ? p->vy : (e->y - pl.y);
@@ -755,6 +765,10 @@ void combat_resolve(Game& g, Player& pl, float dt) {
   }
 
   // --- contacto enemigo ↔ jugador ---
+  for (int k = 0; k < g.nplayers; ++k) if (g.players[k].active) contact(g, g.players[k]);
+}
+
+static void contact(Game& g, Player& pl) {
   if (pl.dead) return;
   Enemy* list[kMaxEnemies];
   const int n = g.query_circle(pl.x, pl.y, pl.r + 40, list, kMaxEnemies);

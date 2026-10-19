@@ -28,6 +28,9 @@ namespace ps {
 
 constexpr float kDt = 1.0f / 60.0f;
 constexpr int kMaxPlayers = 4;
+// Escalado de dificultad del cooperativo (coop.js): n = jugadores en la partida.
+inline float coop_scale_rate(int n) { return 1 + 0.75f * float(n > 1 ? n - 1 : 0); }
+inline float coop_scale_hp(int n) { return 1 + 0.3f * float(n > 1 ? n - 1 : 0); }
 constexpr int kEnemyCap = 64;          // Spawner.CAP
 constexpr int kMaxEnemies = 112;       // vivos (tope + invocaciones + margen)
 constexpr int kMaxCorpses = 120;
@@ -37,10 +40,18 @@ constexpr int kMaxFields = 96;
 constexpr int kMaxHazards = 160;
 
 // ---------------- entradas ----------------
+// Órdenes de la interfaz. Todo lo que cambia la partida entra como orden en
+// la entrada del jugador (y no llamando al juego desde la interfaz): así, en
+// el cooperativo, basta con mandar las entradas de cada paso.
+enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT };
+
 struct Input {
   float ax = 0, ay = 0;     // movimiento (-1..1), ya normalizado si hace falta
   int8_t select = -1;       // elegir hueco 0..3
   int8_t cycle = 0;         // -1 / +1
+  int8_t cmd = CMD_NONE;
+  int8_t arg = 0;           // CARD: carta · ITEM: 1 = el nuevo, 0 = el que llevas · BOND: nº de movimientos
+  int8_t moves[4] = {-1, -1, -1, -1};   // BOND: índices en p.moves
 };
 
 // ---------------- sonidos y avisos (para la plataforma) ----------------
@@ -56,6 +67,19 @@ enum Music : int8_t { MU_NONE = -1, MU_FOREST, MU_CAVE, MU_VOLCANO, MU_BOSS, MU_
 // ---------------- jugador ----------------
 struct PowerState { int8_t def = -1; float t = 0, dur = 0; };
 struct Buff { int n = 0; float t = 0, amount = 0; };
+
+// ---------------- cartas de subir de nivel ----------------
+enum CardType : int8_t { CT_NEW, CT_UP, CT_EVO, CT_STAT };
+struct Card {
+  int8_t type = CT_NEW;
+  int16_t move = -1;            // CT_NEW: kMoves · CT_UP/CT_EVO: índice en pl.moves
+  int8_t stat = -1;             // CT_STAT
+  int8_t evo_for = -1;          // CT_STAT: movimiento que espera esta mejora (índice en pl.moves)
+  float w = 0;
+};
+
+// Elección que tiene abierta un jugador (la partida se para para todos).
+enum Choice : int8_t { CH_NONE, CH_ITEM, CH_BOND };
 
 struct Player {
   bool active = false;
@@ -109,6 +133,18 @@ struct Player {
   // comprobaciones de juego («fuera de la vista») usan las vistas de todos,
   // nunca la cámara de la consola: en el cooperativo cada una sigue a uno.
   float view_x = 0, view_y = 0;
+  // Cartas de subir de nivel ofrecidas a este jugador (state == ST_LEVELUP) y
+  // si ya ha elegido (en grupo, la partida sigue cuando han elegido todos).
+  Card cards[3];
+  int ncards = 0;
+  bool picked = true;
+  // Elección de objeto (choice == CH_ITEM): el que llevas y el nuevo; los que
+  // llegan mientras eliges esperan su turno.
+  Choice choice = CH_NONE;
+  int8_t item_cur = -1, item_next = -1;
+  int8_t later_items[8];
+  int nlater = 0;
+  bool paused = false;          // en grupo, la pausa no para la partida: te quedas quieto
   // velocidad suavizada (EnemyMgr.update: p._vx)
   bool has_v = false;
   float px_ = 0, py_ = 0, vx_ = 0, vy_ = 0;
@@ -275,16 +311,6 @@ struct Hazard {
   uint32_t color = 0;
 };
 
-// ---------------- cartas de subir de nivel ----------------
-enum CardType : int8_t { CT_NEW, CT_UP, CT_EVO, CT_STAT };
-struct Card {
-  int8_t type = CT_NEW;
-  int16_t move = -1;            // CT_NEW: kMoves · CT_UP/CT_EVO: índice en pl.moves
-  int8_t stat = -1;             // CT_STAT
-  int8_t evo_for = -1;          // CT_STAT: movimiento que espera esta mejora (índice en pl.moves)
-  float w = 0;
-};
-
 // ---------------- eventos de partida ----------------
 enum EventId : int8_t { EVN_NONE = -1, EVN_HORDE, EVN_GOLD, EVN_LOST };
 struct Lost {
@@ -299,7 +325,6 @@ struct Lost {
 };
 
 enum State : int8_t { ST_UI, ST_PLAYING, ST_LEVELUP, ST_PAUSED, ST_CHOICE, ST_OVER };
-enum Choice : int8_t { CH_NONE, CH_ITEM, CH_BOND };
 
 // Resumen al acabar (pantalla de fin de partida).
 struct RunSummary {
@@ -328,6 +353,18 @@ struct RunConfig {
   uint32_t seed = 1;
   int judged = 0;                        // veces que ha visto la Sentencia (saltar animación)
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
+  // Cooperativo: cada jugador con su Pokémon y sus mejoras (el 0 es el
+  // anfitrión). Con nplayers == 1 se usan los campos de arriba.
+  struct Member {
+    int dex = 1;
+    bool shiny = false;
+    uint8_t upgrades[UP_COUNT] = {};
+    int8_t pbind[4] = {-1, -1, -1, -1};
+    int8_t pban[3] = {-1, -1, -1};
+    char name[16] = {};
+  };
+  int nplayers = 1;
+  Member members[4];
 };
 
 struct Game {
@@ -337,16 +374,21 @@ struct Game {
   void step(const Input* inputs);        // un paso de 1/60 s
   void toggle_pause();
   void quit_run();
-  // Elecciones de la interfaz.
-  void pick_card(int i);
-  bool reroll_cards();
-  void pick_item(bool take_new);
-  void pick_bond(const int* move_idx, int n);
+  // Elecciones (las aplica step() al leer las órdenes de cada jugador).
+  void pick_card(Player& p, int i);
+  bool reroll_cards(Player& p);
+  void pick_item(Player& p, bool take_new);
+  void pick_bond(Player& p, const int* move_idx, int n);
   void skip_judgment();
+  void leave(int who);          // un jugador se va (el 0, el anfitrión: se acaba para todos)
+  bool anyone_choosing() const;
+  int team_size() const;        // jugadores que siguen en la partida
+  // Huella de lo que es de juego (no de lo que sólo se ve): en el cooperativo,
+  // si dos consolas dan una distinta en el mismo paso, se han desincronizado.
+  uint32_t state_hash() const;
 
   // --- estado ---
   State state = ST_UI;
-  Choice choice = CH_NONE;
   double time = 0;
   int biome = 0;
   int pending_levels = 0;
@@ -379,13 +421,6 @@ struct Game {
   FixedList<Hazard, kMaxHazards> hazards;
   int32_t next_enemy_id = 1, next_proj_id = 1, next_pickup_id = 1;
 
-  // Cartas de subir de nivel ofrecidas (state == ST_LEVELUP).
-  Card cards[3];
-  int ncards = 0;
-  // Elección de objeto (choice == CH_ITEM): el que llevas y el nuevo.
-  int8_t item_cur = IT_NONE, item_next = IT_NONE;
-  int8_t later_items[8];
-  int nlater = 0;
 
   RunSummary summary;
   bool over_ready = false;      // el resumen está listo para enseñarse
@@ -526,7 +561,7 @@ void projectiles_update(Game& g, float dt);
 Enemy* nearest_enemy(Game& g, float x, float y, float max_dist);
 // combat.cpp
 void combat_tick(Game& g, Player& p, float dt);
-void combat_resolve(Game& g, Player& p, float dt);
+void combat_resolve(Game& g, float dt);
 void combat_update_fields(Game& g, float dt);
 void combat_clear_fields(Game& g, int owner = -1);
 // pickup.cpp
@@ -554,6 +589,8 @@ Hazard* hazard_add(Game& g);
 void hazards_update(Game& g, float dt);
 bool hazard_inside(const Hazard& h, float x, float y, float r);
 // levelup.cpp
+// Multiplicador de la experiencia del equipo (coop.js xpFactor; 1 en solitario).
+float game_xp_factor(const Game& g);
 void levelup_offer(Game& g, Player& p);
 void levelup_apply(Game& g, Player& p, const Card& c);
 // interact.cpp

@@ -103,7 +103,7 @@ void start(Game& g, int id) {
     const int type = types[int(g.rng.next() * nt)];
     g.events.nhorde = enemies_horde_defs(g, type, float(g.time), g.events.horde);
     g.events.cur = EVN_HORDE; g.events.cur_t = 0; g.events.cur_dur = DUR; g.events.horde_type = int8_t(type);
-    spawner_burst(g, int(jsround(6 * 1)));
+    spawner_burst(g, int(jsround(6 * coop_scale_rate(g.team_size()))));
   } else if (id == EVN_GOLD) {
     g.events.cur = EVN_GOLD; g.events.cur_t = 0; g.events.cur_dur = DUR;
     for (Enemy& e : g.enemies) enemy_make_golden(e);
@@ -116,7 +116,11 @@ void start(Game& g, int id) {
 
 void reward(Game& g, int dex, bool grant) {
   Player& pl = g.pl();
-  if (pl.active && !pl.dead) { player_heal(g, pl, pl.max_hp * 0.5f); g.fx.ring(pl.x, pl.y, 6, 70, 0x5fe08a, 0.5f, 3); }
+  // (en la web, cada consola cura al suyo: aquí, a todos)
+  for (int i = 0; i < g.nplayers; ++i) {
+    Player& q = g.players[i];
+    if (q.active && !q.dead) { player_heal(g, q, q.max_hp * 0.5f); g.fx.ring(q.x, q.y, 6, 70, 0x5fe08a, 0.5f, 3); }
+  }
   g.fx.burst(g.lost.on ? g.lost.tx : pl.x, g.lost.on ? g.lost.ty - 10 : pl.y, 0x7dffb0, 24, 180);
   g.sfx(SFX_LEGEND);
   if (grant) g.on_rescue(dex);

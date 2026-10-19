@@ -96,7 +96,7 @@ void spawn_legend(Game& g) {
   const float t = float(g.time);
   EnemyDef def;
   def.dex = mon.dex;
-  def.hp = float(jsround((3200 + t * 9) * 1 * (g.nplayers > 1 ? 1.4f : 1)));
+  def.hp = float(jsround((3200 + t * 9) * coop_scale_hp(g.team_size()) * (g.team_size() > 1 ? 1.4f : 1)));
   def.spd = float(jsround(clamp(48 + (mon.spd - 78) * 0.6f, 48.0f, 105.0f)));
   def.dmg = float(jsround(36 + t / 20));
   def.xp = float(jsround(500 + t * 1.2f));
@@ -171,10 +171,14 @@ void won(Game& g) {
   std::snprintf(b, sizeof(b), "¡Has vencido a %s! Recoge el premio…", mon_by_dex(r.dex)->name);
   g.say(b, 3.4f);
   g.sfx(SFX_LEGEND);
-  Player& pl = g.pl();
-  pl.bonds++;
-  g.fx.dmg_text(pl.x, pl.y - pl.body_h - 10, "¡Vínculo!", 0xff8ad8, true);
-  g.fx.ring(pl.x, pl.y, 8, 90, 0xff8ad8, 0.7f, 5);
+  // Un vínculo para cada uno (en la web, cada consola al suyo).
+  for (int i = 0; i < g.nplayers; ++i) {
+    Player& pl = g.players[i];
+    if (!pl.active) continue;
+    pl.bonds++;
+    g.fx.dmg_text(pl.x, pl.y - pl.body_h - 10, "¡Vínculo!", 0xff8ad8, true);
+    g.fx.ring(pl.x, pl.y, 8, 90, 0xff8ad8, 0.7f, 5);
+  }
 }
 
 void lost(Game& g) {
@@ -197,7 +201,8 @@ void finish(Game& g) {
   combat_clear_fields(g);
   g.hazards.clear();
   for (int i = 0; i < g.nplayers; ++i) { g.players[i].x = r.back_x; g.players[i].y = r.back_y; }
-  if (pl.dead) player_revive(g, pl, 0.3f);
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && g.players[i].dead) player_revive(g, g.players[i], 0.3f);
+  (void)pl;
   g.views_snap();
   g.flash(0xc9a6ff, 0.8f);
   // (Si hay vínculos, game.cpp ofrece la fusión en el siguiente paso.)
@@ -232,7 +237,12 @@ void rift_update(Game& g, float dt) {
     r.t += dt;
     r.ttl -= dt;
     if (r.ttl <= 0) { r.open = false; return; }
-    if (!r.arena && !pl.dead && dist2(pl.x, pl.y, r.x, r.y - 10) < 30 * 30) enter(g);
+    // Entra cualquiera que la toque (en grupo, se van todos).
+    for (int i = 0; i < g.nplayers && !r.arena; ++i) {
+      const Player& q = g.players[i];
+      if (q.active && !q.dead && dist2(q.x, q.y, r.x, r.y - 10) < 30 * 30) enter(g);
+    }
+    (void)pl;
   } else if (!r.arena && g.time > FROM && g.time < kJudgmentAt - 120) {
     r.check_t -= dt;
     if (r.check_t <= 0) {

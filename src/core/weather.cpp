@@ -93,15 +93,18 @@ void weather_update(Game& g, float dt) {
   w.chip_t -= dt;
   if (w.chip_t <= 0) {
     w.chip_t = 2;
-    if (pl.active && !pl.dead && hurts(g, pl.mon->types) && weather_level(g) > 0.5f) {
-      const float d = std::fmax(1.0f, pl.max_hp * 0.012f);
-      if (pl.hp > d + 1) {
-        pl.hp -= d;
+    for (int i = 0; i < g.nplayers; ++i) {   // (cada consola, al suyo: aquí, a todos)
+      Player& q = g.players[i];
+      if (!q.active || q.dead || !hurts(g, q.mon->types) || weather_level(g) <= 0.5f) continue;
+      const float d = std::fmax(1.0f, q.max_hp * 0.012f);
+      if (q.hp > d + 1) {
+        q.hp -= d;
         char b[16];
         std::snprintf(b, sizeof(b), "-%d", int(jsround(d)));
-        g.fx.dmg_text(pl.x, pl.y - pl.body_h - 4, b, kWeather[w.kind].color, false, true);
+        g.fx.dmg_text(q.x, q.y - q.body_h - 4, b, kWeather[w.kind].color, false, true);
       }
     }
+    (void)pl;
     if (w.kind >= 0 && kWeather[w.kind].safe && weather_level(g) > 0.5f) {
       for (Enemy& e : g.enemies) {
         if (e.dead || e.boss) continue;

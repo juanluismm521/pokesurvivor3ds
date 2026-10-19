@@ -15,6 +15,9 @@
 
 namespace ps {
 
+// Colores de cada jugador en el cooperativo (coop.js COLORS).
+static const uint32_t kCoopColor[4] = {0xffcb3d, 0x5fc8ff, 0x7ee07a, 0xff8ad8};
+
 namespace {
 constexpr float TOP_W = 400, TOP_H = 240, BOT_W = 320, BOT_H = 240;
 const u32 BLACK = C2D_Color32(0, 0, 0, 255);
@@ -107,7 +110,7 @@ bool Renderer::init() {
 
 // Precarga los Pokémon de la partida (el tuyo, el elenco y los jefes).
 void Renderer::preload_run(Game& g) {
-  sprites.get(g.pl().dex, g.pl().shiny);
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) sprites.get(g.players[i].dex, g.players[i].shiny);
   for (int t = 0; t < g.ncast; ++t)
     for (int i = 0; i < g.cast[t].n; ++i) sprites.get(g.cast[t].list[i].dex, false);
   for (int b = 0; b < g.nbosses; ++b) sprites.get(g.bosses[b].dex, false);
@@ -430,7 +433,7 @@ void Renderer::draw_top(Game& g, float eye) {
   });
   for (const Enemy& e : g.corpses) if (n < 880 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
   for (const Enemy& e : g.enemies) if (n < 880 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
-  items[n++] = {g.pl().y, D_PLAYER, &g.pl()};
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) items[n++] = {g.players[i].y, D_PLAYER, &g.players[i]};
   if (g.rift.open) items[n++] = {g.rift.y, D_RIFT, nullptr};
   if (g.judg.a_on && g.judg.ported) items[n++] = {g.judg.ay, D_ARCEUS, nullptr};
   if (g.lost.on) { items[n++] = {g.lost.ty - 4000, D_GOAL, nullptr}; items[n++] = {g.lost.y, D_LOST, nullptr}; }
@@ -492,6 +495,16 @@ void Renderer::draw_top(Game& g, float eye) {
           const float rr = r * 1.8f + bi * 2.5f;
           dot_ring(x, y, rr, rr * 0.42f, 1, rgbf(BC[b], 0.6f), 0, kTau * (p.buffs[b].n / 5.0f));
           bi++;
+        }
+        // Cooperativo: anillo de "levantando" y, sobre los compañeros, su nombre.
+        if (g.nplayers > 1) {
+          const int who = int(&p - g.players);
+          if (p.dead && p.revive_t > 0) dot_ring(x, y, r * 2.4f, r * 1.0f, 2, rgb(0x5fe08a), -kPi / 2, -kPi / 2 + kTau * std::fmin(1.0f, p.revive_t / 3));
+          if (who != g.local) {
+            const float ty = y - p.body_h * 0.5f - 14;
+            text(g.cfg.members[who].name, x, ty, 0.3f, rgb(p.dead ? 0xff8a96 : kCoopColor[who & 3]), 1);
+            if (p.dead) text("Quédate a su lado", x, ty - 9, 0.3f, rgb(0xff8a96), 1);
+          }
         }
         break;
       }
@@ -756,6 +769,12 @@ void Renderer::draw_top(Game& g, float eye) {
       const float ca = std::cos(a);
       text(label, ex - ca * 14, ey - std::sin(a) * 12 - 5, 0.34f, rgb(col), ca > 0.3f ? 2 : ca < -0.3f ? 0 : 1);
     };
+    if (g.nplayers > 1)
+      for (int i = 0; i < g.nplayers; ++i) {
+        const Player& o = g.players[i];
+        if (i == g.local || !o.active) continue;
+        edge(o.x, o.y - 10, o.dead ? 0xff8a96 : kCoopColor[i & 3], g.cfg.members[i].name);
+      }
     if (g.rift.open) {
       std::snprintf(b, sizeof(b), "GRIETA · %d m · %d s", int(dist(pl.x, pl.y, g.rift.x, g.rift.y) / 32), int(std::ceil(g.rift.ttl)));
       edge(g.rift.x, g.rift.y - 40, 0xb48aff, b);
@@ -829,7 +848,7 @@ void Renderer::draw_top(Game& g, float eye) {
 
 void Renderer::draw_bottom(Game& g, bool autotest) {
   C2D_TextBufClear(tbuf);
-  const Player& p = g.pl();
+  const Player& p = g.me();
   C2D_DrawRectSolid(0, 0, 0, BOT_W, BOT_H, C2D_Color32(16, 22, 34, 255));
   char b[128];
 
@@ -867,11 +886,24 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
   }
 
   // --- elecciones ---
-  if (g.state == ST_LEVELUP) {
+  if ((g.state == ST_LEVELUP && p.picked) || (g.state == ST_CHOICE && p.choice == CH_NONE)) {
+    // En grupo: has elegido (o eliges otro) y se espera a los demás.
+    char names[64] = "";
+    for (int i = 0; i < g.nplayers; ++i) {
+      const Player& o = g.players[i];
+      if (!o.active || i == g.local) continue;
+      if ((g.state == ST_LEVELUP && !o.picked) || (g.state == ST_CHOICE && o.choice != CH_NONE)) {
+        if (names[0]) std::strncat(names, ", ", sizeof(names) - std::strlen(names) - 1);
+        std::strncat(names, g.cfg.members[i].name, sizeof(names) - std::strlen(names) - 1);
+      }
+    }
+    text(g.state == ST_LEVELUP ? "Esperando a que elijan carta…" : "Un compañero está eligiendo…", 160, 96, 0.45f, rgb(0xffcb3d), 1);
+    text(names, 160, 116, 0.4f, rgb(0xeaf2ff), 1);
+  } else if (g.state == ST_LEVELUP) {
     std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora", p.level);
     text(b, 160, 74, 0.5f, rgb(0xffcb3d), 1);
-    for (int i = 0; i < g.ncards; ++i) {
-      const Card& c = g.cards[i];
+    for (int i = 0; i < p.ncards; ++i) {
+      const Card& c = p.cards[i];
       const float y = 92 + i * 44;
       const bool sel = i == card_cursor;
       C2D_DrawRectSolid(10, y, 0, 300, 40, sel ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(30, 40, 62, 255));
@@ -902,10 +934,10 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     const int left = 1 + p.reroll_bonus - p.rerolls;
     std::snprintf(b, sizeof(b), "A: elegir · Y: cambiar cartas (%d)", left > 0 ? left : 0);
     text(b, 160, 226, 0.34f, rgb(0x8fa3c4), 1);
-  } else if (g.state == ST_CHOICE && g.choice == CH_ITEM) {
+  } else if (g.state == ST_CHOICE && p.choice == CH_ITEM) {
     text("Sólo puedes llevar un objeto", 160, 74, 0.48f, rgb(0xffcb3d), 1);
     for (int i = 0; i < 2; ++i) {
-      const int it = i == 0 ? g.item_cur : g.item_next;
+      const int it = i == 0 ? p.item_cur : p.item_next;
       const float y = 96 + i * 54;
       const bool sel = i == card_cursor;
       C2D_DrawRectSolid(10, y, 0, 300, 48, sel ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(30, 40, 62, 255));
@@ -916,7 +948,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       text(kItems[it].desc, 54, y + 24, 0.32f, rgb(0xb7c4dc), 0, false);
     }
     text("A: quedarte con el elegido", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
-  } else if (g.state == ST_CHOICE && g.choice == CH_BOND) {
+  } else if (g.state == ST_CHOICE && p.choice == CH_BOND) {
     int8_t loose[4]; int nl, grow;
     const int mode = player_bond_options(p, loose, nl, grow);
     text(mode == 1 ? "¡Vínculo! Elige qué movimiento se une" : "¡Vínculo! Elige dos movimientos para unir", 160, 74, 0.44f, rgb(0xff8ad8), 1);
