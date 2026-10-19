@@ -9,15 +9,17 @@
 #include "core/bot.h"
 #include "core/gacha.h"
 #include "core/game.h"
+#include "core/lockstep.h"
 #include "core/save.h"
 #include "core/settings.h"
+#include "platform/3ds/net3ds.h"
 #include "platform/3ds/render.h"
 
 namespace ps {
 
 enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_GACHA, SC_PULL,
-  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN
+  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY
 };
 
 struct UiIn {
@@ -33,6 +35,9 @@ class App {
  public:
   bool init(Renderer* r, Game* g, Save* s, Settings* st, const char* dir);
   void set_autotest(int dex, bool immortal, float warp = 0);
+  // Autotest del cooperativo: crea la sala (o se une a la primera que vea),
+  // empieza con 2 y el bot juega (para dos emuladores en la misma sala).
+  void set_coop_autotest(bool host, int dex, bool immortal);
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
   bool tour = false;
@@ -44,6 +49,12 @@ class App {
   uint32_t start_ms = 0;   // lo que tardó en empezar la última partida
   Scene scene = SC_MENU;
   Input pending_input;          // entrada de la partida de este fotograma
+  // Da los pasos de la partida que tocan (solo o en grupo, con el lockstep)
+  // y toca sus sonidos. `acc`: milisegundos acumulados.
+  void advance(double& acc, float dt);
+  // Cooperativo (para el log del autotest y la pantalla).
+  bool coop() const { return coop_; }
+  const net::Lockstep& lockstep() const { return ls_; }
   Bot bot;
 
  private:
@@ -65,6 +76,8 @@ class App {
   void in_pull(const UiIn& in, float dt);
   void in_goals(const UiIn& in);
   void in_settings(const UiIn& in);
+  void in_coop(const UiIn& in);
+  void in_lobby(const UiIn& in, float dt);
   // Dibujo
   void bottom_test();
   void bottom_menu();
@@ -75,6 +88,9 @@ class App {
   void bottom_goals();
   void bottom_settings();
   void bottom_credits();
+  void bottom_coop();
+  void bottom_lobby();
+  void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
   void top_pull();
   void draw_mon(int dex, bool shiny, float x, float y, float scale, int mode = 0, int dir = 0);
@@ -121,6 +137,30 @@ class App {
   int tour_i_ = 0;
   int auto_dex_ = 25;
   bool auto_immortal_ = true;
+  // cooperativo
+  RunConfig::Member my_member() const;
+  void lobby_net(float dt);
+  void lobby_send_roster();
+  void coop_host_start();
+  void coop_begin(const RunConfig& cfg, int idx);
+  void coop_end(const char* msg);
+  void coop_net();               // paquetes de la partida en grupo
+  void coop_leave();             // sale de la sala y apaga la radio
+  bool coop_ = false;
+  net::Lockstep ls_;
+  RunConfig coop_cfg_;
+  uint16_t coop_nodes_[kMaxPlayers] = {};
+  bool start_acked_[kMaxPlayers] = {};
+  struct LobbyMate { uint16_t node = 0; RunConfig::Member m; };
+  LobbyMate lobby_[kMaxPlayers];
+  int nlobby_ = 0;
+  net3ds::Room rooms_[8];
+  int nrooms_ = 0;
+  bool scanned_ = false;
+  float lobby_t_ = 0, coop_over_t_ = 0, quit_t_ = -1;
+  char coop_msg_[96] = {};
+  bool auto_coop_ = false, auto_host_ = false;
+  float auto_t_ = 0;
 };
 
 }  // namespace ps

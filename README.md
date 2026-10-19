@@ -44,6 +44,15 @@ regeneran con los scripts de `tools/`.
 | Y | Cambiar las cartas de nivel |
 | START + SELECT | Salir del juego |
 
+## Jugar en grupo (hasta 4 consolas)
+Cada consola necesita el juego. Una entra en **En grupo → Crear sala**; las
+demás, en **En grupo → Buscar salas** y eligen esa sala. Cuando estéis, el
+anfitrión pulsa **¡Empezar!**. Cada uno lleva su Pokémon (el compañero que
+tenga elegido, con sus mejoras); el nivel, la experiencia y las monedas son
+del equipo; las cartas salen a la vez y se espera a que todos elijan; si
+alguien cae, quédate a su lado 3 s para levantarle. En grupo, START no para
+la partida (te quedas quieto); SELECT en la pausa te saca de la partida.
+
 ## Compilar
 Ver `las normas del proyecto` > *Comandos* (instalación de devkitPro, generación de recursos,
 compilación de la 3DS y pruebas en PC).

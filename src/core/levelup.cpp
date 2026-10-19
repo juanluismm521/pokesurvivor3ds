@@ -153,7 +153,7 @@ void levelup_apply(Game& g, Player& p, const Card& c) {
       g.fx.ring(p.x, p.y, 8, 120, 0xffd23f, 0.8f, 6);
       g.fx.burst(p.x, p.y - p.body_h * 0.5f, 0xffe14d, 40, 240);
       g.sfx(SFX_LEGEND);
-      progress_event(g, EV_EVOLVE, m.def);
+      if (&p == &g.me()) progress_event(g, EV_EVOLVE, m.def);   // (sólo las tuyas)
       break;
     }
     case CT_STAT:

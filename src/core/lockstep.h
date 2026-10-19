@@ -88,6 +88,10 @@ class Lockstep {
   void on_packet(const uint8_t* data, int len, int from);
   int outbox(Packet* out, int max);
   void tick_frame();                 // cuenta fotogramas (tiempos de espera)
+  // Anfitrión: la radio dice que se ha desconectado: se le quita ya (sin
+  // esperar kTimeoutFrames).
+  void drop(int p) { if (host() && p > 0 && p < n_ && !gone_[p]) { heard_[p] = kTimeoutFrames + 1; host_collect(); } }
+  bool gone(int p) const { return gone_[p]; }
 
   // Estado para la pantalla.
   int64_t tick() const { return sim_; }

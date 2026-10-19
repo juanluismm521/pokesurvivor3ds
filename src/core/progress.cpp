@@ -325,7 +325,7 @@ void progress_event(Game& g, int ev, int a, int b, float f) {
   if (!g.save) return;
   ProgEvent e;
   e.ev = ev;
-  const Player& p = g.pl();
+  const Player& p = g.me();   // (en grupo, los tipos de tu Pokémon)
   switch (ev) {
     case EV_EVOLVE: case EV_ITEM: case EV_RIFT: e.id = a; break;
     case EV_JUDGEEND: e.bosses = a; e.time = f; break;

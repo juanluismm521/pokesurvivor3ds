@@ -183,7 +183,9 @@ void Game::on_shiny_caught(int dex) {
   if (fresh) std::snprintf(b, sizeof(b), "¡Has conseguido a %s shiny!", m ? m->name : "");
   else std::snprintf(b, sizeof(b), "¡Otro %s shiny! (+300 monedas)", m ? m->name : "");
   say(b, 4);
-  if (!fresh) p.coins += 300;
+  // En grupo las monedas de la partida son del equipo (iguales en todas las
+  // consolas): lo que depende de TU colección va directo a tu partida guardada.
+  if (!fresh) { if (nplayers > 1) { if (save) { save->coins += 300; dirty = true; } } else p.coins += 300; }
   sfx(SFX_SHINYGET);
 }
 
@@ -192,7 +194,7 @@ void Game::on_rescue(int dex) {
   Player& p = pl();
   extern bool save_grant(Game & g, int dex);
   const bool fresh = save ? save_grant(*this, dex) : true;
-  if (!fresh) p.coins += 150;
+  if (!fresh) { if (nplayers > 1) { if (save) { save->coins += 150; dirty = true; } } else p.coins += 150; }
   const Mon* m = mon_by_dex(dex);
   char b[96];
   if (fresh) std::snprintf(b, sizeof(b), "¡%s se une a tu equipo!", m ? m->name : "");

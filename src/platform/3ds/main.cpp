@@ -35,6 +35,8 @@ struct Autotest {
   bool immortal = true;
   bool tour = false;
   float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
+  bool coop = false, host = false;
+  long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
   FILE* log = nullptr;
   double next_log = 10;
   int min_fps = 999;
@@ -50,7 +52,11 @@ void read_autotest(Autotest& a) {
   a.on = true;
   int imm = 1;
   char first[8] = "";
+  char role[8] = "";
   if (std::fscanf(f, "%7s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
+  else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
+    a.coop = true; a.host = !std::strcmp(role, "host"); a.immortal = imm != 0;
+  }
   else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f", &a.seconds, &a.dex, &imm, &a.warp) >= 1) a.immortal = imm != 0; }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
@@ -112,7 +118,10 @@ int main() {
     std::fflush(at.log);
   }
   if (at.tour) { app.start_tour(); at.on = false; }
-  if (at.on) {
+  if (at.on && at.coop) {
+    app.set_coop_autotest(at.host, at.dex, at.immortal);
+    if (at.log) { std::fprintf(at.log, "cooperativo: %s\n", at.host ? "anfitrión" : "invitado"); std::fflush(at.log); }
+  } else if (at.on) {
     app.set_autotest(at.dex, at.immortal, at.warp);
     at.next_log = at.warp + 10;
     if (at.log) {
@@ -152,15 +161,7 @@ int main() {
 
     // --- paso fijo de la partida ---
     if (app.scene == SC_RUN) {
-      int steps = 0;
-      while (acc >= 1000.0 / 60 && steps < 3) {
-        g->step(&app.pending_input);
-        for (const SfxEvent& e : g->sfx_queue) audio::play_game(e);
-        // La orden, el hueco y el cambio se usan una sola vez.
-        app.pending_input.select = -1; app.pending_input.cycle = 0; app.pending_input.cmd = CMD_NONE;
-        acc -= 1000.0 / 60;
-        steps++;
-      }
+      app.advance(acc, float(std::fmin(frame_ms, 100.0) / 1000.0));
     } else {
       acc = 0;
     }
@@ -207,7 +208,18 @@ int main() {
                    (unsigned long)(linearSpaceFree() / 1024), heap_kb());
       std::fflush(at.log);
     }
+    // Cooperativo: la huella cada 10 s (para comparar los logs de las consolas).
+    if (at.on && at.log && app.coop()) {
+      const net::Lockstep& ls = app.lockstep();
+      if (ls.last_hash_tick() > 0 && ls.last_hash_tick() % 600 == 0 && ls.last_hash_tick() != at.hash_logged) {
+        at.hash_logged = ls.last_hash_tick();
+        std::fprintf(at.log, "huella paso %lld = %08lx · jugadores %d · esperando %d fotogramas · desincronizado %s\n", at.hash_logged,
+                     (unsigned long)ls.last_hash(), g->team_size(), ls.stall_frames(), ls.desync() ? "SÍ" : "no");
+        std::fflush(at.log);
+      }
+    }
     if (at.on && g->time >= at.seconds) break;
+    if (at.on && at.coop && g->state == ST_OVER && app.scene == SC_RUN) break;
   }
 
   if (at.log) {

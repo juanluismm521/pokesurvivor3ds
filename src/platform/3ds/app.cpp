@@ -13,28 +13,11 @@
 #include "core/save_io.h"
 #include "core/upgrades.h"
 #include "core/util.h"
+#include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
 
 namespace ps {
 
-namespace {
-constexpr float BW = 320, BH = 240, TW = 400, TH = 240;
-const u32 C_BG = C2D_Color32(16, 22, 34, 255);
-const u32 C_PANEL = C2D_Color32(30, 40, 62, 255);
-const u32 C_SEL = C2D_Color32(52, 70, 110, 255);
-const u32 C_TEXT = C2D_Color32(234, 242, 255, 255);
-const u32 C_MUTED = C2D_Color32(0x8f, 0xa3, 0xc4, 255);
-const u32 C_GOLD = C2D_Color32(0xff, 0xcb, 0x3d, 255);
-const char* const GEN_NAMES[9] = {"Kanto", "Johto", "Hoenn", "Sinnoh", "Teselia", "Kalos", "Alola", "Galar", "Paldea"};
-// Pokémon que pasean por el menú (CAST de game.js).
-const int16_t CAST[20] = {1, 4, 7, 25, 133, 52, 39, 35, 16, 43, 60, 69, 74, 92, 129, 147, 113, 143, 54, 79};
-
-int64_t now_ms() { return int64_t(osGetTime()) - 2208988800000LL; }   // (osGetTime cuenta desde 1900)
-
-bool in_rect(const UiIn* in, float x, float y, float w, float h) {
-  return in && in->tap && in->tx >= x && in->tx < x + w && in->ty >= y && in->ty < y + h;
-}
-}  // namespace
 
 // ---------------- arranque ----------------
 
@@ -318,6 +301,8 @@ void App::update(const UiIn& in0, float dt) {
     case SC_PULL: in_pull(in, dt); break;
     case SC_GOALS: in_goals(in); break;
     case SC_SETTINGS: in_settings(in); break;
+    case SC_COOP: in_coop(in); break;
+    case SC_LOBBY: in_lobby(in, dt); break;
     case SC_CREDITS:
       if (in.rep & KEY_DDOWN) scroll_ = std::min(scroll_ + 1, std::max(0, credit_lines_ - 10));
       if (in.rep & KEY_DUP) scroll_ = std::max(0, scroll_ - 1);
@@ -335,7 +320,7 @@ void App::in_run(const UiIn& in) {
   Input gi;
   if (autotest) {
     bot.decide(g, gi, g.local);
-    if (g.state == ST_OVER) start_run();
+    if (g.state == ST_OVER && !coop_) start_run();
   } else if (g.state == ST_PLAYING || (g.state == ST_CHOICE && me.choice == CH_NONE) || (g.state == ST_LEVELUP && me.picked)) {
     // (en grupo: mientras otro elige, tú sigues moviendo el cursor de huecos)
     float ax = std::fabs(in.cx) > 0.12f ? in.cx : 0, ay = std::fabs(in.cy) > 0.12f ? in.cy : 0;
@@ -392,8 +377,13 @@ void App::in_run(const UiIn& in) {
   } else if (g.state == ST_OVER) {
     paused_ = false;
     if (g.dirty) save_now();
-    if (in.down & KEY_A) start_run();
-    if (in.down & KEY_B) go(SC_MENU);
+    if (coop_) {
+      // En grupo: un momento para que los demás reciban lo último; luego, al menú.
+      if (coop_over_t_ > 1.5f && (in.down & (KEY_A | KEY_B))) { coop_leave(); go(SC_MENU); }
+    } else {
+      if (in.down & KEY_A) start_run();
+      if (in.down & KEY_B) go(SC_MENU);
+    }
   }
   // (el paso de la partida lo da main con el reloj; aquí sólo la entrada.
   // Las órdenes y la elección de hueco esperan a que un paso las use.)
@@ -501,13 +491,18 @@ void App::bottom_test() {
 
 // ---------------- menú principal ----------------
 
+// Botones del menú: 3 × 3.
+static float menu_x(int i) { return 8 + (i % 3) * 104.0f; }
+static float menu_y(int i) { return 66 + (i / 3) * 52.0f; }
+
 void App::in_menu(const UiIn& in) {
-  const int n = 8;
-  if (in.rep & KEY_DUP) cur_ = (cur_ + n - 2) % n;
-  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 2) % n;
-  if (in.rep & (KEY_DLEFT | KEY_DRIGHT)) cur_ ^= 1;
+  const int n = 9;
+  if (in.rep & KEY_DUP) cur_ = (cur_ + n - 3) % n;
+  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 3) % n;
+  if (in.rep & KEY_DLEFT) cur_ = cur_ / 3 * 3 + (cur_ % 3 + 2) % 3;
+  if (in.rep & KEY_DRIGHT) cur_ = cur_ / 3 * 3 + (cur_ % 3 + 1) % 3;
   int pick = -1;
-  for (int i = 0; i < n; ++i) if (in_rect(&in, 8 + (i % 2) * 156, 70 + (i / 2) * 40, 148, 36)) pick = i;
+  for (int i = 0; i < n; ++i) if (in_rect(&in, menu_x(i), menu_y(i), 96, 46)) pick = i;
   if (in.down & KEY_A) pick = cur_;
   // Y: alterna normal / shiny del compañero (si tienes su shiny).
   if ((in.down & KEY_Y) && s_->owns_shiny(s_->partner)) { s_->partner_shiny = !s_->partner_shiny; save_now(); }
@@ -515,13 +510,14 @@ void App::in_menu(const UiIn& in) {
   cur_ = pick;
   switch (pick) {
     case 0: start_run(); break;
-    case 1: go(SC_DEX); break;
-    case 2: go(SC_UPGRADES); break;
-    case 3: go(SC_GACHA); break;
-    case 4: go(SC_GOALS); break;
-    case 5: go(SC_SETTINGS); break;
-    case 6: go(SC_CREDITS); break;
-    case 7: quit = true; break;
+    case 1: cur_ = 0; coop_msg_[0] = 0; go(SC_COOP); break;
+    case 2: go(SC_DEX); break;
+    case 3: go(SC_UPGRADES); break;
+    case 4: go(SC_GACHA); break;
+    case 5: go(SC_GOALS); break;
+    case 6: go(SC_SETTINGS); break;
+    case 7: go(SC_CREDITS); break;
+    case 8: quit = true; break;
   }
 }
 
@@ -541,11 +537,11 @@ void App::bottom_menu() {
   std::snprintf(b, sizeof(b), "Runs %d · Mejor tiempo %s · Mejor nivel %d", int(s_->stats.runs), tt, int(s_->stats.best_level));
   r_->text(b, 160, 46, 0.34f, C_MUTED, 1);
   const int pend = progress_pending(*s_, now_ms());
-  static const char* const L[8] = {"Jugar", "Pokémon", "Mejoras", "Gacha", "Misiones", "Ajustes", "Créditos", "Salir"};
-  for (int i = 0; i < 8; ++i) {
-    const float x = 8 + (i % 2) * 156, y = 70 + (i / 2) * 40;
-    button(x, y, 148, 36, L[i], i == cur_);
-    if (i == 4 && pend) { std::snprintf(b, sizeof(b), "%d", pend); C2D_DrawCircleSolid(x + 138, y + 8, 0, 7, C2D_Color32(255, 95, 109, 255)); r_->text(b, x + 138, y + 1, 0.34f, C_TEXT, 1, false); }
+  static const char* const L[9] = {"Jugar", "En grupo", "Pokémon", "Mejoras", "Gacha", "Misiones", "Ajustes", "Créditos", "Salir"};
+  for (int i = 0; i < 9; ++i) {
+    const float x = menu_x(i), y = menu_y(i);
+    button(x, y, 96, 46, L[i], i == cur_);
+    if (i == 5 && pend) { std::snprintf(b, sizeof(b), "%d", pend); C2D_DrawCircleSolid(x + 86, y + 8, 0, 7, C2D_Color32(255, 95, 109, 255)); r_->text(b, x + 86, y + 1, 0.34f, C_TEXT, 1, false); }
   }
   r_->text(s_->owns_shiny(s_->partner) ? "Y: normal / shiny" : "", 160, 228, 0.32f, C_MUTED, 1);
 }
@@ -1159,7 +1155,7 @@ void App::bottom_credits() {
 // ---------------- dibujo ----------------
 
 void App::draw_top(float eye) {
-  if (scene == SC_RUN) { r_->draw_top(*g_, eye); }
+  if (scene == SC_RUN) { r_->draw_top(*g_, eye); coop_overlay(); }
   else {
     if (eye <= 0) C2D_TextBufClear(r_->tbuf);
     draw_backdrop(scene == SC_MENU ? 0.15f : 0.45f, eye);
@@ -1269,6 +1265,8 @@ void App::draw_bottom() {
     case SC_GOALS: bottom_goals(); break;
     case SC_SETTINGS: bottom_settings(); break;
     case SC_CREDITS: bottom_credits(); break;
+    case SC_COOP: bottom_coop(); break;
+    case SC_LOBBY: bottom_lobby(); break;
     default: break;
   }
 }
