@@ -74,7 +74,6 @@ void start(Game& g) {
 void port(Game& g) {
   Game::JudgmentState& j = g.judg;
   j.ported = true;
-  Player& pl = g.pl();
   rift_reset(g);
   // Los del mapa se guardan (como en una grieta); no vuelven.
   g.stashed.clear();
@@ -94,7 +93,7 @@ void port(Game& g) {
     Player& p = g.players[i];
     p.x = j.cx + (i - (g.nplayers - 1) / 2.0f) * 34; p.y = j.cy + TS * 3;
   }
-  g.camera.x = pl.x; g.camera.y = pl.y;
+  g.views_snap();
   j.a_on = true;
   j.ax = j.cx; j.ay = j.cy - TS * 5; j.lift = 900;
   j.aanim.init(ARCEUS, SCALE);
@@ -352,9 +351,9 @@ void judgment_cine_tick(Game& g, float dt) {
   // Cámara: tu Pokémon; sube despacio hacia Arceus mientras baja y vuelve.
   float tx = pl.x, ty = pl.y;
   if (j.ported && j.a_on && j.ct < T_BACK) { tx = j.ax; ty = j.ay - 60; }
-  if (!j.cam_on || at(T_PORT) || (j.ported && !j.cam_ported)) { j.cam_on = true; j.cam_x = g.camera.x; j.cam_y = g.camera.y; j.cam_ported = j.ported; }
+  if (!j.cam_on || at(T_PORT) || (j.ported && !j.cam_ported)) { j.cam_on = true; j.cam_x = g.pl().view_x; j.cam_y = g.pl().view_y; j.cam_ported = j.ported; }
   j.cam_x = damp(j.cam_x, tx, 2.2f, dt); j.cam_y = damp(j.cam_y, ty, 2.2f, dt);
-  g.camera.follow(j.cam_x, j.cam_y, dt, g.vrng);
+  g.views_follow_point(j.cam_x, j.cam_y, dt);
   if (j.ct >= T_END) { j.cam_on = false; fight(g); }
 }
 

@@ -140,6 +140,7 @@ class World {
   double arena_dist(int32_t tx, int32_t ty) const;
   float arena_outer() const { return arena_.on ? arena_.r + 7 : 0; }
   void make_prop(Chunk& c, int type, int32_t tx, int32_t ty, int kind = 0);
+  static bool chunk_modified(const Chunk& c);
   void destroy_prop(Prop* p);
   bool is_broken(int32_t tx, int32_t ty) const;
   void mark_broken(int32_t tx, int32_t ty);
@@ -151,7 +152,6 @@ class World {
   float fade_t_ = -1;
   int fade_from_ = 0;
   uint32_t biome_gen_ = 0;
-  int32_t next_prop_id_ = 1;
   uint32_t stamp_ = 0;
   int generated_ = 0;
   Chunk* last_ = nullptr;

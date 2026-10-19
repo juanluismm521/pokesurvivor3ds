@@ -94,7 +94,7 @@ void projectiles_update(Game& g, float dt) {
     p.y += p.vy * dt;
 
     // Fuera de la vista con margen generoso → se descarta.
-    if (!g.camera.sees(p.x, p.y, 260)) { g.projectiles.remove_ordered(i); continue; }
+    if (!g.seen_by_any(p.x, p.y, 260)) { g.projectiles.remove_ordered(i); continue; }
   }
 }
 

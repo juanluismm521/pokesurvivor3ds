@@ -812,8 +812,10 @@ void App::bottom_upgrades() {
 // ---------------- gacha ----------------
 
 void App::in_gacha(const UiIn& in) {
-  if (in.down & KEY_L) gen_ = gen_ == 1 ? 9 : gen_ - 1;
-  if (in.down & KEY_R) gen_ = gen_ == 9 ? 1 : gen_ + 1;
+  // L/R (o tocar las flechas del selector): región anterior / siguiente.
+  // (L/R ya suenan en update(); al tocar suena el clic)
+  if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) gen_ = gen_ == 1 ? 9 : gen_ - 1;
+  if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) gen_ = gen_ == 9 ? 1 : gen_ + 1;
   if (in.rep & KEY_DUP) cur_ = (cur_ + 2) % 3;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 3;
   int pick = -1;
@@ -879,12 +881,27 @@ void App::bottom_gacha() {
   header(b);
   int all = 0, own = 0;
   for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { all++; if (s_->owns(kDex[i].dex)) own++; }
-  std::snprintf(b, sizeof(b), "Tienes %d de %d · L/R otro banner", own, all);
+  std::snprintf(b, sizeof(b), "Tienes %d de %d · Tiradas sin legendaria: %d / %d", own, all, int(s_->pity[gen_]), kPity5);
   r_->text(b, 160, 26, 0.36f, C_MUTED, 1);
-  std::snprintf(b, sizeof(b), "Tiradas sin legendaria: %d / %d", int(s_->pity[gen_]), kPity5);
-  r_->text(b, 160, 44, 0.36f, C_TEXT, 1);
   std::snprintf(b, sizeof(b), "Tickets: %d · Tickets ×10: %d", int(s_->t1), int(s_->t10));
-  r_->text(b, 160, 62, 0.38f, C_GOLD, 1);
+  r_->text(b, 160, 40, 0.38f, C_GOLD, 1);
+  // Selector de región: anterior · ACTUAL · siguiente (L/R o tocar a los lados)
+  // y un punto por región con la actual marcada.
+  const int prev = gen_ == 1 ? 9 : gen_ - 1, next = gen_ == 9 ? 1 : gen_ + 1;
+  C2D_DrawRectSolid(10, 58, 0, 300, 54, C_PANEL);
+  const u32 arrow = C2D_Color32(255, 210, 63, 255);
+  C2D_DrawTriangle(16, 75, arrow, 24, 69, arrow, 24, 81, arrow, 0);
+  C2D_DrawTriangle(304, 75, arrow, 296, 69, arrow, 296, 81, arrow, 0);
+  r_->text("L", 30, 69, 0.36f, C_GOLD, 0);
+  r_->text("R", 290, 69, 0.36f, C_GOLD, 2);
+  r_->text(kBanners[prev - 1].name, 44, 69, 0.36f, C_MUTED, 0);
+  r_->text(kBanners[next - 1].name, 276, 69, 0.36f, C_MUTED, 2);
+  r_->text(bn.name, 160, 65, 0.5f, C_GOLD, 1);
+  for (int i = 1; i <= 9; ++i) {
+    const float x = 160 + (i - 5) * 14;
+    if (i == gen_) C2D_DrawRectSolid(x - 3, 95, 0, 7, 7, C_GOLD);
+    else C2D_DrawRectSolid(x - 2, 96, 0, 5, 5, C2D_Color32(90, 100, 125, 255));
+  }
   static const char* const L[3] = {"Tirar ×1 (1 ticket)", "Tirar ×10 (10 tickets)", "Tirar ×10 (1 ticket ×10)"};
   for (int i = 0; i < 3; ++i) {
     int c1, c10;
@@ -1183,6 +1200,20 @@ void App::draw_top(float eye) {
         char b[64];
         std::snprintf(b, sizeof(b), "%s Misterioso", bn.name);
         r_->text(b, 200, 12, 0.7f, C_GOLD, 1);
+        // Flechas a los lados: L / R cambian de región.
+        {
+          const int prev = gen_ == 1 ? 9 : gen_ - 1, next = gen_ == 9 ? 1 : gen_ + 1;
+          const u32 a = C2D_Color32(255, 255, 255, 200);
+          C2D_DrawTriangle(6, 15, a, 13, 9, a, 13, 21, a, 0);
+          C2D_DrawTriangle(394, 15, a, 387, 9, a, 387, 21, a, 0);
+          char nb[48];
+          std::snprintf(nb, sizeof(nb), "L · %s", kBanners[prev - 1].name);
+          r_->text(nb, 17, 10, 0.32f, C_TEXT, 0);
+          std::snprintf(nb, sizeof(nb), "%s · R", kBanners[next - 1].name);
+          r_->text(nb, 383, 10, 0.32f, C_TEXT, 2);
+          std::snprintf(nb, sizeof(nb), "%d / 9", gen_);
+          r_->text(nb, 200, 34, 0.32f, C_TEXT, 1);
+        }
         int16_t f[3];
         const int nf = gacha_featured(gen_, f);
         for (int i = 0; i < nf; ++i) draw_mon(f[i], false, 90 + i * 110, 170, 2, 0, 1);

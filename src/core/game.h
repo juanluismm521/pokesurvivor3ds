@@ -105,6 +105,10 @@ struct Player {
   float orb_cast_t = 0;
   bool frozen = false;
   float revive_t = 0;
+  // Vista de este jugador (la cámara que le seguiría, sin sacudidas). Las
+  // comprobaciones de juego («fuera de la vista») usan las vistas de todos,
+  // nunca la cámara de la consola: en el cooperativo cada una sigue a uno.
+  float view_x = 0, view_y = 0;
   // velocidad suavizada (EnemyMgr.update: p._vx)
   bool has_v = false;
   float px_ = 0, py_ = 0, vx_ = 0, vy_ = 0;
@@ -357,7 +361,15 @@ struct Game {
   Fx fx;
   Player players[kMaxPlayers];
   int nplayers = 1;
+  int local = 0;                // jugador de esta consola (sólo para la cámara, sonidos y dibujo)
   Player& pl() { return players[0]; }
+  Player& me() { return players[local]; }
+  // Vistas: siguen a cada jugador (o todas a un punto); la cámara copia la del local.
+  void views_follow(float dt);
+  void views_follow_point(float x, float y, float dt);
+  void views_set(float x, float y);
+  void views_snap();            // cada vista, encima de su jugador (al teletransportar)
+  bool seen_by_any(float x, float y, float pad) const;
 
   FixedList<Enemy, kMaxEnemies> enemies;
   FixedList<Enemy, kMaxCorpses> corpses;

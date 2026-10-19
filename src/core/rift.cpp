@@ -79,7 +79,7 @@ void begin(Game& g) {
     Player& p = g.players[i];
     p.x = r.ax + (i - (g.nplayers - 1) / 2.0f) * 34; p.y = r.ay + TS * 3;
   }
-  g.camera.x = pl.x; g.camera.y = pl.y;
+  g.views_snap();
   g.flash(0xc9a6ff, 0.9f);
   g.sfx(SFX_RIFT);
   g.say("Has entrado en la grieta…", 2.4f);
@@ -198,7 +198,7 @@ void finish(Game& g) {
   g.hazards.clear();
   for (int i = 0; i < g.nplayers; ++i) { g.players[i].x = r.back_x; g.players[i].y = r.back_y; }
   if (pl.dead) player_revive(g, pl, 0.3f);
-  g.camera.x = pl.x; g.camera.y = pl.y;
+  g.views_snap();
   g.flash(0xc9a6ff, 0.8f);
   // (Si hay vínculos, game.cpp ofrece la fusión en el siguiente paso.)
 }

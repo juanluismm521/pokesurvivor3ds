@@ -33,6 +33,43 @@ int Game::everyone(Player** out) {
   return n;
 }
 
+void Game::views_follow(float dt) {
+  for (int i = 0; i < nplayers; ++i) {
+    Player& p = players[i];
+    if (!p.active) continue;
+    p.view_x = damp(p.view_x, p.x, 9, dt);
+    p.view_y = damp(p.view_y, p.y, 9, dt);
+  }
+  camera.x = players[local].view_x; camera.y = players[local].view_y;
+  camera.update_shake(dt, vrng);
+}
+
+void Game::views_follow_point(float x, float y, float dt) {
+  for (int i = 0; i < nplayers; ++i) {
+    Player& p = players[i];
+    p.view_x = damp(p.view_x, x, 9, dt);
+    p.view_y = damp(p.view_y, y, 9, dt);
+  }
+  camera.x = players[local].view_x; camera.y = players[local].view_y;
+  camera.update_shake(dt, vrng);
+}
+
+void Game::views_set(float x, float y) {
+  for (int i = 0; i < nplayers; ++i) { players[i].view_x = x; players[i].view_y = y; }
+  camera.x = x; camera.y = y;
+}
+
+void Game::views_snap() {
+  for (int i = 0; i < nplayers; ++i) { players[i].view_x = players[i].x; players[i].view_y = players[i].y; }
+  camera.x = players[local].view_x; camera.y = players[local].view_y;
+}
+
+bool Game::seen_by_any(float x, float y, float pad) const {
+  for (int i = 0; i < nplayers; ++i)
+    if (players[i].active && camera.sees_from(players[i].view_x, players[i].view_y, x, y, pad)) return true;
+  return false;
+}
+
 float Game::level_xp() {
   const Player& p = pl();
   if (!p.active) return 20;
@@ -98,7 +135,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
     if (np) player_add_move(*this, p, pool[int(rng.next() * np)]);
     player_set_active(*this, p, 0);
   }
-  camera.x = p.x; camera.y = p.y; camera.shake = 0;
+  views_snap(); camera.shake = 0;
   music = MU_FOREST;
   state = ST_PLAYING;
 }
@@ -352,7 +389,8 @@ void game_on_collect(Game& g, const Pickup& p, Player& who) {
       g.fx.ring(who.x, who.y, 20, R, 0xff7b3d, 0.5f, 6);
       int32_t ids[kMaxEnemies];
       int n = 0;
-      for (const Enemy& e : g.enemies) if (!e.dead && g.camera.sees(e.x, e.y, 0)) ids[n++] = e.id;
+      // (lo que ve quien la coge; en solitario, la cámara)
+      for (const Enemy& e : g.enemies) if (!e.dead && g.camera.sees_from(who.view_x, who.view_y, e.x, e.y, 0)) ids[n++] = e.id;
       for (int i = 0; i < n; ++i) {
         Enemy* e = g.enemy_by_id(ids[i]);
         if (e) enemy_hurt(g, *e, 60 + pl.level * 14.0f, 0xff7b3d, e->x - who.x, e->y - who.y, 160);
@@ -423,7 +461,7 @@ void Game::step(const Input* inputs) {
     player_update(*this, p, in, dt);
     enemies_update(*this, dt * 0.3f);
     fx.update(dt);
-    camera.follow(p.x, p.y, dt, vrng);
+    views_follow(dt);
     if (death_t > 1.3f) { death_t = 0; game_end_run(*this, true); }
     return;
   }
@@ -442,7 +480,7 @@ void Game::step(const Input* inputs) {
 
   p.frozen = false;
   player_update(*this, p, in, dt);
-  camera.follow(p.x, p.y, dt, vrng);
+  views_follow(dt);
   world.update(dt, camera.left(), camera.top(), camera.w, camera.h);
 
   path_update(*this, dt);

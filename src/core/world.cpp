@@ -121,11 +121,22 @@ uint8_t World::terrain_raw(int32_t tx, int32_t ty) const {
 Chunk& World::chunk(int32_t cx, int32_t cy) {
   if (last_ && last_->cx == cx && last_->cy == cy && last_->valid) return *last_;
   Chunk* victim = nullptr;
-  for (auto& c : cache_) {
+  for (auto& c : cache_)
     if (c.valid && c.cx == cx && c.cy == cy) { c.stamp = ++stamp_; last_ = &c; return c; }
-    if (!c.valid) { if (!victim || victim->valid) victim = &c; }
-    else if (!victim || (victim->valid && c.stamp < victim->stamp)) victim = &c;
+  // No está: se genera en el hueco libre o en el más viejo que no tenga cambios.
+  Chunk* oldest = nullptr;
+  for (auto& c : cache_) {
+    if (!c.valid) { victim = &c; break; }
+    if (!oldest || c.stamp < oldest->stamp) oldest = &c;
+    // Un chunk con algo cambiado (roca tocada, altar usado, manantial gastado,
+    // cofre a medio abrir) no se descarta: al regenerarlo volvería como nuevo.
+    // Así el estado del mundo no depende de qué chunks se han mirado (cada
+    // consola del cooperativo dibuja una zona distinta).
+    if (victim && c.stamp >= victim->stamp) continue;
+    if (chunk_modified(c)) continue;
+    victim = &c;
   }
+  if (!victim) victim = oldest;   // (todos cambiados: no pasa con 160 chunks en caché)
   Chunk& c = *victim;
   c.valid = true;
   c.cx = cx; c.cy = cy;
@@ -142,6 +153,14 @@ Chunk& World::chunk(int32_t cx, int32_t cy) {
   return c;
 }
 
+bool World::chunk_modified(const Chunk& c) {
+  for (int i = 0; i < c.nprops; ++i) {
+    const Prop& p = c.props[i];
+    if (p.used || p.charge < 1 || p.open > 0 || (p.destructible && p.hp < p.max_hp)) return true;
+  }
+  return false;
+}
+
 uint8_t World::terrain_at(int32_t tx, int32_t ty) {
   const int32_t cx = int32_t(std::floor(tx / double(kChunkTiles))), cy = int32_t(std::floor(ty / double(kChunkTiles)));
   Chunk& c = chunk(cx, cy);
@@ -152,7 +171,8 @@ void World::make_prop(Chunk& c, int type, int32_t tx, int32_t ty, int kind) {
   if (c.nprops >= kMaxPropsPerChunk) return;   // (no pasa con los datos de la web; ver pruebas)
   const PropDef& d = kPropDef[type];
   Prop& p = c.props[c.nprops];
-  p.id = next_prop_id_++;
+  // Id fijo según el sitio (no según el orden en que se generan los chunks).
+  p.id = int32_t(((uint32_t(c.cx) & 0x7FF) << 19 | (uint32_t(c.cy) & 0x7FF) << 8 | uint32_t(c.nprops)) & 0x3FFFFFFF) + 1;
   p.type = int8_t(type); p.kind = int8_t(kind);
   p.tx = tx; p.ty = ty;
   p.x = tx * kTS + kTS / 2; p.y = ty * kTS + kTS - 4;

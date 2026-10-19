@@ -21,6 +21,10 @@ struct Camera {
   void follow(float tx, float ty, float dt, Rng& vr) {
     x = damp(x, tx, 9, dt);
     y = damp(y, ty, 9, dt);
+    update_shake(dt, vr);
+  }
+  // Sacudida (sólo se ve: usa la aleatoriedad visual).
+  void update_shake(float dt, Rng& vr) {
     if (shake > 0) {
       shake = std::fmax(0.0f, shake - dt * 2.4f);
       const float a = shake * 7;
@@ -34,8 +38,11 @@ struct Camera {
   }
   float left() const { return x - w / 2; }
   float top() const { return y - h / 2; }
-  bool sees(float px, float py, float pad = 60) const {
-    return px > left() - pad && px < left() + w + pad && py > top() - pad && py < top() + h + pad;
+  bool sees(float px, float py, float pad = 60) const { return sees_from(x, y, px, py, pad); }
+  // ¿Se ve (px, py) desde una vista centrada en (cx, cy)? (vistas de cada jugador)
+  bool sees_from(float cx, float cy, float px, float py, float pad = 60) const {
+    const float l = cx - w / 2, t = cy - h / 2;
+    return px > l - pad && px < l + w + pad && py > t - pad && py < t + h + pad;
   }
   float outer_radius() const { return std::hypot(w, h) / 2 + 40; }
 };

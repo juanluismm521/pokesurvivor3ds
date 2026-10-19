@@ -500,7 +500,7 @@ void enemy_strike(Enemy& e, const Player& pl) {
 
 static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
   // Fuera de pantalla no hace falta animar (sí moverse y pensar).
-  const bool seen = g.camera.sees(e.x, e.y, 120);
+  const bool seen = g.seen_by_any(e.x, e.y, 120);
   if (seen || e.dead) e.anim.update(dt);
   if (e.flash > 0) e.flash -= dt;
   if (e.dead) { e.fade -= dt; return; }
@@ -810,7 +810,7 @@ void enemies_update(Game& g, float dt) {
     // DE LA VISTA vuelven a salir por delante de ti.
     const float d2 = dist2(e.x, e.y, near.x, near.y);
     const float R = g.camera.outer_radius() + 40;
-    const bool unseen = d2 > R * R && !g.camera.sees(e.x, e.y, 60);
+    const bool unseen = d2 > R * R && !g.seen_by_any(e.x, e.y, 60);
     const float sp = std::hypot(near.vx_, near.vy_);
     const bool behind = sp > 40 && ((e.x - near.x) * near.vx_ + (e.y - near.y) * near.vy_) < -0.2f * std::sqrt(d2) * sp;
     if (unseen && behind) e.lag_t += dt;
