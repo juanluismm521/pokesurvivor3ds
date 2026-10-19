@@ -320,6 +320,7 @@ void App::in_run(const UiIn& in) {
   Input gi;
   if (autotest) {
     bot.decide(g, gi, g.local);
+    if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
     if (g.state == ST_OVER && !coop_) start_run();
   } else if (g.state == ST_PLAYING || (g.state == ST_CHOICE && me.choice == CH_NONE) || (g.state == ST_LEVELUP && me.picked)) {
     // (en grupo: mientras otro elige, tú sigues moviendo el cursor de huecos)
@@ -333,8 +334,10 @@ void App::in_run(const UiIn& in) {
     gi.ax = ax; gi.ay = ay;
     if (in.down & (KEY_L | KEY_ZL)) gi.cycle = -1;
     if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
-    if (in.tap && in.ty >= 150 && in.ty < 216) {
-      const float S = 66, GAP = 8, x0 = (320 - (me.nslots * S + (me.nslots - 1) * GAP)) / 2;
+    // Tocar el minimapa: la leyenda (otra vez: se quita).
+    if (in.tap && in.ty >= 44 && in.ty < 44 + Renderer::kMapH) r_->legend_t = r_->legend_t > 0 ? 0 : 5;
+    if (in.tap && in.ty >= Renderer::kSlotY && in.ty < Renderer::kSlotY + Renderer::kSlotS) {
+      const float S = Renderer::kSlotS, GAP = Renderer::kSlotGap, x0 = (320 - (me.nslots * S + (me.nslots - 1) * GAP)) / 2;
       for (int i = 0; i < me.nslots; ++i) if (in.tx >= x0 + i * (S + GAP) && in.tx < x0 + i * (S + GAP) + S) gi.select = int8_t(i);
     }
     if (g.judg.phase == 1 && (in.down & (KEY_A | KEY_B) || in.tap)) gi.cmd = CMD_SKIP;

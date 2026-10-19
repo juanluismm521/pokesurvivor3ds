@@ -89,6 +89,7 @@ bool Renderer::init() {
   if (!icons.load("romfs:/gfx/icons.t3x", "romfs:/gfx/icons.idx")) return false;
   chunks.init();
   sprites.init();
+  minimap.init();
   static const char* const PT[PR_COUNT] = {"tree", "rock", "chest", "grass", "altar", "spring", "bigchest", "trap"};
   char name[48];
   for (int b = 0; b < kBiomeCount && b < 32; ++b)
@@ -124,6 +125,7 @@ void Renderer::begin_frame(Game& g) {
   // lo que se ve está sin pintar.
   const int base = old_3ds ? 1 : 3;
   chunks.work(g.world, chunks.pending() > 2 ? base * 2 : base);
+  if (g.state != ST_UI && g.state != ST_OVER) minimap.work(g, old_3ds ? 4 : 8);
 }
 
 // ---------------- utilidades ----------------
@@ -862,9 +864,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
   text(b, 146, 29, 0.36f, C2D_Color32(255, 255, 255, 240), 1);
   char t[16]; mmss(float(g.time), t, sizeof(t));
   text(t, 312, 6, 0.7f, C2D_Color32(255, 255, 255, 240), 2);
-  std::snprintf(b, sizeof(b), "%s · %d derrotados · %d monedas", g.world.biome_name(), p.kills, p.coins);
-  text(b, 160, 46, 0.36f, rgb(0x8fa3c4), 1);
-  // Buffs y poder de altar.
+  // Potenciadores (al lado de la vida).
   {
     static const char* const LBL[BS_COUNT] = {"ATK", "VEL", "DEF", "REG"};
     static const uint32_t COL[BS_COUNT] = {0xff6b4d, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
@@ -874,14 +874,6 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       std::snprintf(b, sizeof(b), "%s×%d", LBL[k], p.buffs[k].n);
       text(b, bx, 28, 0.34f, rgb(COL[k]), 0);
       bx += 26;
-    }
-    if (p.power.def >= 0) {
-      std::snprintf(b, sizeof(b), "%s %ds", kPowers[p.power.def].name, int(std::ceil(p.power.t)));
-      text(b, 160, 60, 0.36f, rgb(kPowers[p.power.def].color), 1);
-    }
-    if (g.weather.kind >= 0 && weather_level(g) > 0) {
-      std::snprintf(b, sizeof(b), "%s · %ds", kWeather[g.weather.kind].name, int(std::ceil(g.weather.dur - g.weather.t)));
-      text(b, 8, 60, 0.34f, rgb(kWeather[g.weather.kind].color), 0);
     }
   }
 
@@ -992,12 +984,55 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     }
     text("A: otra partida · B: menú", 160, 206, 0.45f, rgb(0xeaf2ff), 1);
   } else {
+    // --- minimapa (con franjas de información encima) ---
+    const float MX = 8, MY = 44, MW = 304, MH = kMapH;
+    minimap.draw(g, *this, MX, MY, MW, MH, float(g.time));
+    const u32 strip = C2D_Color32(8, 12, 22, 170);
+    C2D_DrawRectSolid(MX, MY, 0, MW, 11, strip);
+    text(g.world.biome_name(), MX + 3, MY + 1, 0.32f, rgb(0xb7c4dc), 0, false);
+    if (g.time < 8 && legend_t <= 0) text("Toca el mapa: qué es cada cosa", MX + MW - 3, MY + 1, 0.32f, rgb(0x9ae6ff), 2, false);
+    else {
+      std::snprintf(b, sizeof(b), "%d derrotados · %d monedas", p.kills, p.coins);
+      text(b, MX + MW - 3, MY + 1, 0.32f, rgb(0xffd23f), 2, false);
+    }
+    {
+      // Abajo a la izquierda: clima y poder de altar; a la derecha: objeto y vínculos.
+      float ly = MY + MH - 11;
+      if (g.weather.kind >= 0 && weather_level(g) > 0) {
+        std::snprintf(b, sizeof(b), "%s · %ds", kWeather[g.weather.kind].name, int(std::ceil(g.weather.dur - g.weather.t)));
+        C2D_DrawRectSolid(MX, ly, 0, text_width(b, 0.32f) + 6, 11, strip);
+        text(b, MX + 3, ly + 1, 0.32f, rgb(kWeather[g.weather.kind].color), 0, false);
+        ly -= 11;
+      }
+      if (p.power.def >= 0) {
+        std::snprintf(b, sizeof(b), "%s %ds", kPowers[p.power.def].name, int(std::ceil(p.power.t)));
+        C2D_DrawRectSolid(MX, ly, 0, text_width(b, 0.32f) + 6, 11, strip);
+        text(b, MX + 3, ly + 1, 0.32f, rgb(kPowers[p.power.def].color), 0, false);
+      }
+      float ry = MY + MH - 11;
+      if (p.item >= 0) {
+        const float tw = text_width(kItems[p.item].name, 0.32f);
+        C2D_DrawRectSolid(MX + MW - tw - 18, ry, 0, tw + 18, 11, strip);
+        const int ic = icons.find(kItems[p.item].id);
+        if (ic >= 0) C2D_DrawImageAt(icons.image(ic), MX + MW - tw - 16, ry - 2, 0, nullptr, 0.8f, 0.8f);
+        text(kItems[p.item].name, MX + MW - 3, ry + 1, 0.32f, rgb(0xeaf2ff), 2, false);
+        ry -= 11;
+      }
+      if (p.bonds > 0) {
+        std::snprintf(b, sizeof(b), "Vínculos: %d", p.bonds);
+        C2D_DrawRectSolid(MX + MW - text_width(b, 0.32f) - 6, ry, 0, text_width(b, 0.32f) + 6, 11, strip);
+        text(b, MX + MW - 3, ry + 1, 0.32f, rgb(0xff8ad8), 2, false);
+      }
+    }
+
+    if (legend_t > 0) { minimap.legend(*this, MX, MY + 11, MW, MH - 11); legend_t -= 1.0f / 60; }
+
     // --- huecos de movimientos (tocar para cambiar) ---
-    const float S = 66, GAP = 8;
+    const float S = kSlotS, GAP = kSlotGap;
     const int n = std::max(1, p.nslots);
     const float x0 = (BOT_W - (n * S + (n - 1) * GAP)) / 2;
     for (int i = 0; i < p.nslots; ++i) {
-      const float x = x0 + i * (S + GAP), y = 150;
+      const float x = x0 + i * (S + GAP), y = kSlotY;
       const bool act = i == p.active_slot;
       const bool bond = p.slot_n[i] > 1;
       C2D_DrawRectSolid(x, y, 0, S, S, act ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(28, 36, 56, 255));
@@ -1005,8 +1040,8 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       for (int j = 0; j < p.slot_n[i]; ++j) {
         const MoveInst& m = p.moves[p.slots[i][j]];
         const int ic = move_icon[m.def];
-        const float sz = p.slot_n[i] > 1 ? 1.4f : 2.5f;
-        const float ix = p.slot_n[i] > 1 ? x + 6 + (j % 2) * 28 : x + 13, iy = p.slot_n[i] > 1 ? y + 6 + (j / 2) * 28 : y + 6;
+        const float sz = p.slot_n[i] > 1 ? 1.0f : 1.75f;
+        const float ix = p.slot_n[i] > 1 ? x + 5 + (j % 2) * 18 : x + 8, iy = p.slot_n[i] > 1 ? y + 3 + (j / 2) * 15 : y + 3;
         if (ic >= 0) C2D_DrawImageAt(icons.image(ic), ix, iy, 0, nullptr, sz, sz);
         // Recarga.
         if (m.kind() != K_ORBIT && act) {
@@ -1016,41 +1051,14 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       }
       const MoveInst& m0 = p.moves[p.slots[i][0]];
       std::snprintf(b, sizeof(b), "%d", i + 1);
-      text(b, x + 3, y + 1, 0.34f, C2D_Color32(255, 255, 255, 180), 0);
+      text(b, x + 2, y + 1, 0.3f, C2D_Color32(255, 255, 255, 170), 0);
       std::snprintf(b, sizeof(b), "%sNv%d", m0.evolved ? "★" : "", m0.lvl);
-      text(b, x + S / 2, y + S - 14, 0.32f, rgb(m0.evolved ? 0xffd23f : 0xeaf2ff), 1);
+      text(b, x + S / 2, y + S - 12, 0.3f, rgb(m0.evolved ? 0xffd23f : 0xeaf2ff), 1);
     }
     if (p.nslots) {
       const MoveInst& m = p.moves[p.slots[p.active_slot][0]];
-      text(m.name(), 160, 128, 0.44f, rgb(kTypeColor[m.type()]), 1);
+      text(m.name(), 160, kSlotY + S + 3, 0.36f, rgb(kTypeColor[m.type()]), 1);
     }
-    if (p.item >= 0) {
-      const int ic = icons.find(kItems[p.item].id);
-      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 8, 104, 0, nullptr, 1.5f, 1.5f);
-      text(kItems[p.item].name, 30, 106, 0.34f, rgb(0xeaf2ff), 0);
-    }
-    if (p.bonds > 0) { std::snprintf(b, sizeof(b), "Vínculos: %d", p.bonds); text(b, 8, 90, 0.34f, rgb(0xff8ad8), 0); }
-    // --- minimapa: enemigos, jefes, cofres, altares, grieta y Pokémon perdido ---
-    {
-      const float mx = 208, my = 62, mw = 104, mh = 62, R = 1400;   // unidades de mundo de borde a borde (la mitad)
-      C2D_DrawRectSolid(mx, my, 0, mw, mh, C2D_Color32(8, 12, 22, 220));
-      auto dot = [&](float wx, float wy, float sz, u32 c) {
-        const float dx = (wx - p.x) / R, dy = (wy - p.y) / R;
-        if (std::fabs(dx) > 1 || std::fabs(dy) > 1) return;
-        C2D_DrawRectSolid(std::floor(mx + mw / 2 + dx * mw / 2 - sz / 2), std::floor(my + mh / 2 + dy * mh / 2 - sz / 2), 0, sz, sz, c);
-      };
-      g.world.for_props_in_rect(p.x - R, p.y - R, p.x + R, p.y + R, [&](Prop& pr) {
-        if (pr.type == PR_CHEST || pr.type == PR_BIGCHEST) dot(pr.x, pr.y, pr.type == PR_BIGCHEST ? 3 : 2, rgb(0xf2c443));
-        else if (pr.type == PR_ALTAR && !pr.used) dot(pr.x, pr.y, 2, rgb(0xff8ad8));
-        else if (pr.type == PR_SPRING) dot(pr.x, pr.y, 2, rgb(0x5fe8d8));
-      });
-      for (const Enemy& e : g.enemies) if (!e.dead) dot(e.x, e.y, e.boss ? 4 : 1, e.boss ? rgb(0xffcb3d) : e.shiny ? rgb(0x9ae6ff) : rgb(0xff5f6d));
-      if (g.rift.open) dot(g.rift.x, g.rift.y, 4, rgb(0xb48aff));
-      if (g.lost.on) { dot(g.lost.x, g.lost.y, 3, rgb(0x7dffb0)); dot(g.lost.tx, g.lost.ty, 3, rgb(0x5fe08a)); }
-      if (g.judg.a_on) dot(g.judg.ax, g.judg.ay, 4, rgb(0xffd25e));
-      C2D_DrawRectSolid(mx + mw / 2 - 1, my + mh / 2 - 1, 0, 3, 3, C2D_Color32(255, 255, 255, 255));
-    }
-    text("L/R: cambiar · START: pausa", 160, 226, 0.32f, rgb(0x5d6f8c), 1);
   }
   std::snprintf(b, sizeof(b), "%d FPS%s", fps, autotest ? " · AUTOTEST" : "");
   if (show_fps || autotest) text(b, 316, 214, 0.32f, fps >= 50 ? rgb(0x5fe08a) : fps >= 30 ? rgb(0xffd23f) : rgb(0xff5f6d), 2, false);
