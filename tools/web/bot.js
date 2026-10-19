@@ -46,7 +46,7 @@ function __bench(seconds, report, clock) {
     total += dt; acc += dt; accN++; if (dt > worst) worst = dt;
     if ((i + 1) % (60 * report) === 0) {
       var pl = G.Game.player;
-      print('t=' + ((i + 1) / 60).toFixed(0) + 's  ms/fotograma=' + (acc / accN).toFixed(2) + ' (lógica ' + (__tu / accN).toFixed(2) + ', dibujo ' + (__tr / accN).toFixed(2) + ')  proyectiles=' + (G.Projectiles.all ? G.Projectiles.all().length : '?') + '  enemigos=' + G.EnemyMgr.all().length + '  nivel=' + pl.level + '  vida=' + Math.round(pl.hp) + '  estado=' + G.Game.state + (pl.dead ? ' (caído)' : ''));
+      print('t=' + ((i + 1) / 60).toFixed(0) + 's  ms/fotograma=' + (acc / accN).toFixed(2) + ' (lógica ' + (__tu / accN).toFixed(2) + ', dibujo ' + (__tr / accN).toFixed(2) + ')  proyectiles=' + (G.Projectiles.all ? G.Projectiles.all().length : '?') + '  enemigos=' + G.EnemyMgr.all().length + '  derrotados=' + pl.kills + '  nivel=' + pl.level + '  vida=' + Math.round(pl.hp) + '  estado=' + G.Game.state + (pl.dead ? ' (caído)' : ''));
       acc = 0; accN = 0; __tu = 0; __tr = 0;
     }
     if (G.Game.state === 'over' || G.Game.state === 'ui') { print('fin de la partida en t=' + (i / 60).toFixed(1)); break; }

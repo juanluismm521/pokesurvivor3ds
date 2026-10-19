@@ -18,7 +18,7 @@
 namespace ps {
 
 enum Scene : int8_t {
-  SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_GACHA, SC_PULL,
+  SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_START, SC_GACHA, SC_PULL,
   SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK
 };
 
@@ -34,7 +34,7 @@ struct Wanderer { int16_t dex; Animator anim; float x, y, r, vx, vy, t; };
 class App {
  public:
   bool init(Renderer* r, Game* g, Save* s, Settings* st, const char* dir);
-  void set_autotest(int dex, bool immortal, float warp = 0);
+  void set_autotest(int dex, bool immortal, float warp = 0, int move = -1);
   // Autotest del cooperativo: crea la sala (o se une a la primera que vea),
   // empieza con 2 y el bot juega (para dos emuladores en la misma sala).
   void set_coop_autotest(bool host, int dex, bool immortal, bool online = false, bool suicidal = false);
@@ -140,6 +140,9 @@ class App {
   float tour_t_ = 0;
   int tour_i_ = 0;
   int auto_dex_ = 25;
+  int auto_move_ = -1;
+  float auto_pause_ = -1;        // autotest con movimiento: pausa un rato (resumen en las capturas)
+  bool auto_paused_ = false;
   bool auto_immortal_ = true;
   // cooperativo
   RunConfig::Member my_member() const;

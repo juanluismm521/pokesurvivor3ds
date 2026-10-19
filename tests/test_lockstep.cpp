@@ -189,7 +189,9 @@ TEST_CASE("lockstep: una consola que se separa se detecta") {
   std::vector<Console> cs;
   bool touched = false;
   const Result r = play(2, 5, 60 * 30, net, cs, [&](int f) {
-    if (f == 60 * 10 && !touched) { cs[1].g->players[0].x += 0.01f; touched = true; }   // (sólo en una)
+    // (sólo en una; algo que no se borra solo: un empujón de la posición
+    // desaparece si en ese momento el Pokémon está pegado a una pared)
+    if (f == 60 * 10 && !touched) { cs[1].g->players[0].kills++; touched = true; }
   });
   CHECK(!r.same);
   CHECK(cs[0].ls.desync());

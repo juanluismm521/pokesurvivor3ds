@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/stats.h"
 #include "core/upgrades.h"
 
 namespace ps {
@@ -22,9 +23,11 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
   p.dex = int16_t(dex);
   p.mon = mon_by_dex(dex);
   p.shiny = shiny && has_shiny(dex);
-  p.anim.init(dex, 1, p.shiny);
-  p.r = body_radius(dex);
-  p.body_h = body_height(dex);
+  // Los grandes, algo más pequeños y con el choque de uno normal (anim.h).
+  p.scale = player_scale(dex);
+  p.anim.init(dex, p.scale, p.shiny);
+  p.r = player_radius(dex);
+  p.body_h = body_height(dex, p.scale);
   const Perks k = upgrade_perks(cfg.upgrades);
   p.atk_mul = k.atk_mul; p.spd_mul = k.spd_mul; p.cd_mul = k.cd_mul;
   p.dmg_reduce = k.dmg_reduce; p.regen_flat = k.regen;
@@ -43,12 +46,25 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
 // ---------------- stats efectivos ----------------
 float player_atk(const Player& p) { return p.base_atk * p.atk_mul * (1 + p.buffs[BS_ATK].n * p.buffs[BS_ATK].amount); }
 
+// Monotipo (19-10-2026): los de un solo tipo pegan un +20 % con los ataques de su tipo.
+constexpr float kMonoK = 1.2f;
+bool player_mono_type(const Player& p, int type) { return p.mon->types[1] < 0 && type == p.mon->types[0]; }
+
+// Ataque con un movimiento (atkFor): el físico o el especial de tu Pokémon
+// (stats.h), con las danzas que sean de su lado.
+float player_atk_for(const Player& p, const MoveInst& m) {
+  const int cat = m.cat();
+  const Buff* b = cat == CAT_PHYSICAL ? &p.buffs[BS_PATK] : cat == CAT_SPECIAL ? &p.buffs[BS_SATK] : nullptr;
+  return player_atk(p) * stats_fit(p.mon, cat) * (b ? 1 + b->n * b->amount : 1) * (player_mono_type(p, m.type()) ? kMonoK : 1);
+}
+
 float player_spd(Game& g, const Player& p) {
   const float s = p.base_spd * p.spd_mul * (1 + p.buffs[BS_SPD].n * p.buffs[BS_SPD].amount) * (p.slow_t > 0 ? 0.5f : 1);
   const float w = weather_speed_for(g, p.mon->types);
   float slow = 1;
   if (p.in_liquid) { const LiquidFx le = g.world.liquid_effect(p.mon->types); if (le.slow > 0) slow = le.slow; }
-  return s * slow * w;
+  // En la Sentencia, la velocidad tiene tope suave (contra la huida sin fin).
+  return judgment_active(g) ? judgment_cap_spd(s * slow * w) : s * slow * w;
 }
 
 float player_reduction(const Player& p) { return std::fmin(0.8f, p.dmg_reduce + p.buffs[BS_DEF].n * p.buffs[BS_DEF].amount); }
@@ -118,11 +134,13 @@ bool player_add_move(Game& g, Player& p, int def) {
   const int s = p.nslots++;
   p.slots[s][0] = int8_t(mi);
   p.slot_n[s] = 1;
+  p.moves[mi].since = float(g.time);   // desde cuándo lo tienes (resumen de la pausa)
   arrange(p);
-  // Se cambia al nuevo, salvo si estás usando un vínculo (no te quita el grupo).
-  if (!(p.slot_n[p.active_slot] > 1)) {
+  // Te quedas con el que llevabas (18-10-2026: antes se cambiaba solo al
+  // nuevo). Sólo si no tenías ninguno, el nuevo.
+  if (p.active_slot >= p.nslots || !p.slot_n[p.active_slot]) {
     for (int k = 0; k < p.nslots; ++k)
-      if (p.slot_n[k] == 1 && p.slots[k][0] == mi) { player_set_active(g, p, k); break; }
+      if (p.slot_n[k] == 1 && p.slots[k][0] == mi) { p.active_slot = k; break; }
   }
   return true;
 }
@@ -245,8 +263,10 @@ void player_cast(Game& g, Player& p, const MoveInst* m, int kind, float cd) {
 }
 
 // ---------------- daño y curación ----------------
-void player_hurt(Game& g, Player& p, float amount, int type, bool pure) {
+// cat: 'physical' | 'special', con qué defensa tuya se para (la del enemigo que pega).
+void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat) {
   if (p.invuln > 0 || p.dead) return;
+  if (!pure) amount *= stats_taken(p.mon, cat);
   int eff = EFF_NONE;
   if (type >= 0) {
     const float k = type_mult(type, p.mon->types);

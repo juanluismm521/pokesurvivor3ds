@@ -64,6 +64,7 @@ void begin(Game& g) {
   r.back_x = pl.x; r.back_y = pl.y; r.back_biome = g.world.biome();
   r.at = 0; r.phase = 0; r.end_t = 0; r.boss_id = 0;
   r.arena = true;
+  r.zone = true; r.zone_x = r.ax; r.zone_y = r.ay; r.zone_r = (ARENA_R + 10) * TS;
   r.open = false; r.asked = false; r.down_t = 0;
   stash(g);
   g.projectiles.clear();

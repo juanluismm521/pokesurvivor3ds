@@ -233,7 +233,9 @@ void play_game(const SfxEvent& e) {
     "levelup", "select", "pause", "back", "gameover", "biome", "surge", "boss", "shinyGet", "grass", "chest", "rift",
     "judge", "quake", "toll", "descend", "land"};
   if (e.id == SFX_SHOT) {
-    static const char* const K[K_COUNT] = {"pr", "me", "be", "or", "no", "au", "pr", "be", "no", "no", "bu", "me", "au", "pr", "bu"};
+    // (las familias nuevas sin sonido propio suenan como un proyectil, el caso por defecto de audio.js)
+    static const char* const K[K_COUNT] = {"pr", "me", "be", "or", "no", "au", "pr", "be", "no", "no", "bu", "me", "au", "pr",
+                                           "pr", "pr", "pr", "pr", "pr", "pr", "pr", "pr", "bu"};
     char b[24];
     std::snprintf(b, sizeof(b), "shot_%s_%s", K[e.kind >= 0 && e.kind < K_COUNT ? e.kind : 0], kTypeId[e.type >= 0 && e.type < T_COUNT ? e.type : 0]);
     play(b);

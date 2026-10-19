@@ -55,6 +55,8 @@ bool truthy(const Json& v) {
 double or0(const Json& v) { return truthy(v) ? plus(v) : 0; }
 double jsmax(double a, double b) { return std::isnan(a) || std::isnan(b) ? kNaN : (a > b ? a : b); }
 // num() de db.js: entero positivo o 0.
+// `+v || 0`
+double plus0(const Json& v) { const double x = plus(v); return std::isnan(x) || x == 0 ? 0 : x; }
 double num(const Json& v) { const double x = plus(v); return std::isfinite(x) && x > 0 ? std::floor(x) : 0; }
 Json pair(double a, double b) { Json p = Json::array(); p.push(Json::num(a)); p.push(Json::num(b)); return p; }
 
@@ -110,6 +112,9 @@ Json new_save(const std::string& name, int64_t now_ms) {
   s.set("personality", Json());
   s.set("upgrades", Json::object());
   s.set("pupg", Json::object());
+  s.set("dfav", Json::object());      // dex -> fecha: favorito de la colección (negativa = quitado entonces)
+  s.set("pused", Json::object());     // dex -> partidas jugadas con él
+  s.set("pstart", Json::object());    // dex -> movimiento inicial elegido (Mejoras → Movimiento inicial)
   Json tk = Json::object(); tk.set("t1", Json::num(0)); tk.set("t10", Json::num(0));
   s.set("tickets", tk);
   s.set("pity", Json::object());
@@ -150,11 +155,27 @@ void sanitize(Json& s, bool strict) {
   } else {
     s.remove("led");
   }
-  for (const char* coll : {"owned", "shiny"}) {
+  for (const char* coll : {"owned", "shiny", "dfav", "pused"}) {
     Json* c = s.get(coll);
     if (!strict || !c || !c->is_obj()) continue;
     auto& it = c->items_mut();
     for (size_t i = it.size(); i-- > 0;) if (!dex_ok(it[i].first)) it.erase(it.begin() + long(i));
+  }
+  // Favoritos y partidas por Pokémon: números (lo demás fuera).
+  for (const char* coll : {"dfav", "pused"}) {
+    Json* c = s.get(coll);
+    if (!c || !c->is_obj()) { s.set(coll, Json::object()); continue; }
+    auto& it = c->items_mut();
+    for (size_t i = it.size(); i-- > 0;) if (!std::isfinite(plus(it[i].second))) it.erase(it.begin() + long(i));
+  }
+  // Movimiento inicial: un movimiento que exista de un Pokémon que exista.
+  {
+    Json* ps = s.get("pstart");
+    if (!ps || !ps->is_obj()) { s.set("pstart", Json::object()); ps = s.get("pstart"); }
+    auto& it = ps->items_mut();
+    for (size_t i = it.size(); i-- > 0;)
+      if (!it[i].second.is_str() || (strict && (!dex_ok(it[i].first) || move_index(it[i].second.as_str().c_str()) < 0)))
+        it.erase(it.begin() + long(i));
   }
   // Atajos: 4 huecos con un movimiento que exista (o null), sin repetir.
   Json* pb = s.get("pbind");
@@ -312,6 +333,25 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
       }
   }
   r.set("pupgDone", truthy(r["pupgDone"]) ? r["pupgDone"] : older["pupgDone"]);
+  // Favoritos: gana lo último que se hizo con cada uno (poner o quitar), en
+  // cualquier aparato. Partidas con cada Pokémon: el mayor de los dos.
+  {
+    Json& rf = r.ref("dfav");
+    if (!truthy(rf)) rf = Json::object();
+    if (older["dfav"].is_obj() && rf.is_obj())
+      for (const auto& kv : older["dfav"].items())
+        if (std::fabs(plus0(kv.second)) > std::fabs(plus0(rf[kv.first.c_str()]))) rf.set(kv.first, kv.second);
+    Json& ru = r.ref("pused");
+    if (!truthy(ru)) ru = Json::object();
+    if (older["pused"].is_obj() && ru.is_obj())
+      for (const auto& kv : older["pused"].items())
+        ru.set(kv.first, Json::num(std::fmax(plus0(ru[kv.first.c_str()]), plus0(kv.second))));
+    // Movimiento inicial: el de la versión más reciente; si no lo tenía elegido, el de la otra.
+    Json& rs = r.ref("pstart");
+    if (!truthy(rs)) rs = Json::object();
+    if (older["pstart"].is_obj() && rs.is_obj())
+      for (const auto& kv : older["pstart"].items()) if (!rs.has(kv.first.c_str())) rs.set(kv.first, kv.second);
+  }
   // Lo conseguido nunca se pierde: unión.
   for (const char* coll : {"legends", "arenas", "itemsFound", "evoMoves", "ach"}) {
     Json& rc = r.ref(coll);
@@ -397,7 +437,7 @@ namespace {
 bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
-                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban"};
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }

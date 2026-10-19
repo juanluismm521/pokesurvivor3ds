@@ -6,11 +6,13 @@
 #include <cmath>
 
 #include "core/game.h"
+#include "core/stats.h"
 
 namespace ps {
 
 namespace {
 constexpr float CRIT_MUL = 1.5f;
+constexpr float QSTEP = 34;             // distancia entre ondas de un terremoto
 
 int pl_index(Game& g, const Player& p) { return int(&p - g.players); }
 
@@ -18,7 +20,8 @@ const MoveVis& vis_of(const MoveInst& m) { return kMoveVis[m.def]; }
 
 bool needs_target(int kind) {
   switch (kind) {
-    case K_MELEE: case K_BEAM: case K_PROJECTILE: case K_BOOMERANG: case K_CHAIN: case K_METEOR: case K_DASH: case K_CONE: return true;
+    case K_MELEE: case K_BEAM: case K_PROJECTILE: case K_BOOMERANG: case K_CHAIN: case K_METEOR: case K_DASH: case K_CONE:
+    case K_HOMING: case K_BOUNCE: case K_CHARGE: case K_SPIN: case K_QUAKE: case K_VORTEX: case K_SHOVE: case K_STUN: return true;
     default: return false;
   }
 }
@@ -32,6 +35,9 @@ float reach(const MoveInst& m) {
     case K_METEOR: return 340;
     case K_DASH: return m.get(MS_RADIUS) + 60;
     case K_CONE: return m.get(MS_SPEED) * m.get(MS_LIFE) + 30;
+    case K_SPIN: case K_SHOVE: case K_CHARGE: return m.get(MS_RADIUS) + 20;
+    case K_QUAKE: return m.geti(MS_COUNT) * QSTEP + m.get(MS_RADIUS);
+    case K_VORTEX: case K_STUN: return 300;
     default: return 520;
   }
 }
@@ -47,20 +53,26 @@ void on_dealt(Player& p, float dmg) {
 }
 
 void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float dy, float knock, const MoveInst& m) {
-  const float k = type_k(g, m.type(), e);
+  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat());
   const bool crit = is_crit(g, p);
   dmg *= k * (crit ? CRIT_MUL : 1);
   enemy_hurt(g, e, dmg, col, dx, dy, knock, crit ? EFF_CRIT : type_label(type_mult(m.type(), e.types)));
   on_dealt(p, dmg);
   p.dmg_dealt += dmg;
+  m.dealt += dmg;                               // por ataque, para el resumen de la pausa
   if (m.get(MS_BURN) > 0) enemy_apply_burn(e, m.get(MS_BURN));
   if (m.get(MS_POISON) > 0) enemy_apply_poison(e, m.get(MS_POISON));
   if (m.get(MS_SLOW) > 0) enemy_apply_slow(e, m.get(MS_SLOW));
 }
 
-void fill_payload(Projectile& pr, const MoveInst& m) {
+// (m es siempre uno de p.moves)
+void fill_payload(Projectile& pr, const Player& p, const MoveInst& m) {
   pr.burn = m.get(MS_BURN); pr.poison = m.get(MS_POISON); pr.slow = m.get(MS_SLOW); pr.knock = m.get(MS_KNOCK);
   pr.mtype = int8_t(m.type());
+  pr.mcat = int8_t(m.cat());
+  pr.bounce = int8_t(m.geti(MS_BOUNCE));
+  pr.drain = m.get(MS_DRAIN);
+  pr.src = int8_t(&m - p.moves);
   const MoveVis& v = vis_of(m);
   pr.has_vis = true; pr.vis_proj = v.proj; pr.vis_pal = v.pal; pr.vis_trail = v.trail;
 }
@@ -92,10 +104,10 @@ void fire_projectiles(Game& g, Player& p, const MoveInst& m) {
     if (!pr) break;
     pr->x = p.x + std::cos(a) * 3; pr->y = p.y + std::sin(a) * 3;
     pr->vx = std::cos(a) * m.get(MS_SPEED); pr->vy = std::sin(a) * m.get(MS_SPEED);
-    pr->dmg = m.get(MS_DMG) * player_atk(p); pr->r = m.get(MS_SIZE); pr->life = m.get(MS_LIFE);
+    pr->dmg = m.get(MS_DMG) * player_atk_for(p, m); pr->r = m.get(MS_SIZE); pr->life = m.get(MS_LIFE);
     pr->pierce = m.geti(MS_PIERCE); pr->color = col; pr->homing = m.get(MS_HOMING);
     pr->owner = int8_t(pl_index(g, p));
-    fill_payload(*pr, m);
+    fill_payload(*pr, p, m);
   }
   g.fx.spark(p.x + std::cos(p.aim) * p.r, p.y - kLift + std::sin(p.aim) * p.r, col, std::cos(p.aim), std::sin(p.aim), 3);
 }
@@ -109,10 +121,10 @@ void nova(Game& g, Player& p, const MoveInst& m) {
     if (!pr) break;
     pr->x = p.x + std::cos(a) * 3; pr->y = p.y + std::sin(a) * 3;
     pr->vx = std::cos(a) * m.get(MS_SPEED); pr->vy = std::sin(a) * m.get(MS_SPEED);
-    pr->dmg = m.get(MS_DMG) * player_atk(p); pr->r = m.get(MS_SIZE); pr->life = m.get(MS_LIFE);
+    pr->dmg = m.get(MS_DMG) * player_atk_for(p, m); pr->r = m.get(MS_SIZE); pr->life = m.get(MS_LIFE);
     pr->pierce = m.geti(MS_PIERCE); pr->color = col; pr->homing = m.get(MS_HOMING);
     pr->owner = int8_t(pl_index(g, p));
-    fill_payload(*pr, m);
+    fill_payload(*pr, p, m);
   }
   g.fx.ring(p.x, p.y, p.r, p.r * 4, col, 0.3f, 3);
 }
@@ -130,12 +142,12 @@ void melee(Game& g, Player& p, const MoveInst& m) {
   for (int i = 0; i < ids_n; ++i) {
     Enemy* e = g.enemy_by_id(ids[i]);
     if (!e || !in_arc(p.x, p.y, e->x, e->y, p.aim, half)) continue;
-    hit(g, p, *e, m.get(MS_DMG) * player_atk(p), col, e->x - p.x, e->y - p.y, m.get(MS_KNOCK), m);
+    hit(g, p, *e, m.get(MS_DMG) * player_atk_for(p, m), col, e->x - p.x, e->y - p.y, m.get(MS_KNOCK), m);
   }
   Prop* props[64];
   const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
   for (int i = 0; i < np; ++i)
-    if (!props[i]->gone && in_arc(p.x, p.y, props[i]->x, props[i]->y, p.aim, half)) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk(p), col);
+    if (!props[i]->gone && in_arc(p.x, p.y, props[i]->x, props[i]->y, p.aim, half)) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk_for(p, m), col);
 }
 
 void beam(Game& g, Player& p, const MoveInst& m) {
@@ -164,12 +176,12 @@ void beam(Game& g, Player& p, const MoveInst& m) {
   for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
   for (int i = 0; i < n; ++i) {
     Enemy* e = g.enemy_by_id(ids[i]);
-    if (e && on_beam(e->x, e->y, e->r)) hit(g, p, *e, m.get(MS_DMG) * player_atk(p), col, ca, sa, 0, m);
+    if (e && on_beam(e->x, e->y, e->r)) hit(g, p, *e, m.get(MS_DMG) * player_atk_for(p, m), col, ca, sa, 0, m);
   }
   Prop* props[64];
   const int np = g.world.props_in_circle(mx, my, len / 2 + w, props, 64);
   for (int i = 0; i < np; ++i)
-    if (!props[i]->gone && on_beam(props[i]->x, props[i]->y, props[i]->r)) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk(p), col);
+    if (!props[i]->gone && on_beam(props[i]->x, props[i]->y, props[i]->r)) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk_for(p, m), col);
 }
 
 void aura(Game& g, Player& p, const MoveInst& m) {
@@ -199,12 +211,12 @@ void aura(Game& g, Player& p, const MoveInst& m) {
   for (int i = 0; i < n; ++i) {
     Enemy* e = g.enemy_by_id(ids[i]);
     if (!e) continue;
-    hit(g, p, *e, m.get(MS_DMG) * player_atk(p), col, e->x - p.x, e->y - p.y, 0, m);
+    hit(g, p, *e, m.get(MS_DMG) * player_atk_for(p, m), col, e->x - p.x, e->y - p.y, 0, m);
     if (m.get(MS_DRAIN) > 0) healed += m.get(MS_DRAIN);
   }
   Prop* props[64];
   const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
-  for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk(p), col);
+  for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk_for(p, m), col);
   if (healed > 0) player_heal(g, p, std::fmin(healed, 6.0f));
 }
 
@@ -232,9 +244,9 @@ void boomerang(Game& g, Player& p, const MoveInst& m) {
     Projectile* pr = proj_spawn(g);
     if (!pr) break;
     pr->x = p.x; pr->y = p.y; pr->vx = std::cos(a) * m.get(MS_SPEED); pr->vy = std::sin(a) * m.get(MS_SPEED);
-    pr->dmg = m.get(MS_DMG) * player_atk(p); pr->r = m.get(MS_SIZE); pr->life = out * 4 + 1.5f; pr->pierce = 999; pr->color = col;
+    pr->dmg = m.get(MS_DMG) * player_atk_for(p, m); pr->r = m.get(MS_SIZE); pr->life = out * 4 + 1.5f; pr->pierce = 999; pr->color = col;
     pr->owner = int8_t(pl_index(g, p)); pr->boom = out; pr->bsp = m.get(MS_SPEED) * 1.1f;
-    fill_payload(*pr, m);
+    fill_payload(*pr, p, m);
   }
 }
 
@@ -258,7 +270,7 @@ void chain(Game& g, Player& p, const MoveInst& m) {
     // Infortunio: más daño a quien ya sufre un estado.
     const float hex = m.get(MS_HEX) > 0 && (cur->burn > 0 || cur->poison > 0 || cur->slow > 0) ? m.get(MS_HEX) : 1;
     const float cx = cur->x, cy = cur->y;
-    hit(g, p, *cur, m.get(MS_DMG) * player_atk(p) * k * hex, col, tx - fx, ty - fy, 0, m);
+    hit(g, p, *cur, m.get(MS_DMG) * player_atk_for(p, m) * k * hex, col, tx - fx, ty - fy, 0, m);
     k *= 0.85f;
     fx = tx; fy = ty;
     Enemy* best = nullptr;
@@ -302,7 +314,7 @@ Field* new_field(Game& g, int kind, Player& p, const MoveInst& m, int move_index
   f->col = kTypeColor[m.type()];
   const MoveVis& v = vis_of(m);
   f->vis_proj = v.proj; f->vis_pal = v.pal; f->vis_aura = v.aura;
-  f->dmg = m.get(MS_DMG) * player_atk(p);
+  f->dmg = m.get(MS_DMG) * player_atk_for(p, m);
   return f;
 }
 
@@ -378,13 +390,13 @@ void dash(Game& g, Player& p, const MoveInst& m) {
   for (int i = 0; i < n; ++i) {
     Enemy* e = g.enemy_by_id(ids[i]);
     if (e && seg_dist2(sx, sy, p.x, p.y, e->x, e->y) <= (w / 2 + e->r) * (w / 2 + e->r))
-      hit(g, p, *e, m.get(MS_DMG) * player_atk(p), col, ca, sa, m.get(MS_KNOCK), m);
+      hit(g, p, *e, m.get(MS_DMG) * player_atk_for(p, m), col, ca, sa, m.get(MS_KNOCK), m);
   }
   Prop* props[64];
   const int np = g.world.props_in_circle(mx, my, len / 2 + w, props, 64);
   for (int i = 0; i < np; ++i)
     if (!props[i]->gone && seg_dist2(sx, sy, p.x, p.y, props[i]->x, props[i]->y) <= (w / 2 + props[i]->r) * (w / 2 + props[i]->r))
-      g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk(p), col);
+      g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk_for(p, m), col);
   g.camera.kick(0.12f);
 }
 
@@ -419,10 +431,10 @@ void cone(Game& g, Player& p, const MoveInst& m) {
     Projectile* pr = proj_spawn(g);
     if (!pr) break;
     pr->x = p.x + std::cos(a) * 4; pr->y = p.y + std::sin(a) * 4; pr->vx = std::cos(a) * sp; pr->vy = std::sin(a) * sp;
-    pr->dmg = m.get(MS_DMG) * player_atk(p); pr->r = m.get(MS_SIZE); pr->life = m.get(MS_LIFE) * g.rng.range(0.85f, 1.05f);
+    pr->dmg = m.get(MS_DMG) * player_atk_for(p, m); pr->r = m.get(MS_SIZE); pr->life = m.get(MS_LIFE) * g.rng.range(0.85f, 1.05f);
     pr->pierce = m.geti(MS_PIERCE); pr->color = col;
     pr->owner = int8_t(pl_index(g, p));
-    fill_payload(*pr, m);
+    fill_payload(*pr, p, m);
   }
   g.fx.spark(p.x + std::cos(p.aim) * p.r, p.y - kLift + std::sin(p.aim) * p.r, col, std::cos(p.aim), std::sin(p.aim), 5);
 }
@@ -450,17 +462,17 @@ void orbit(Game& g, Player& p, MoveInst& m, float dt, float now) {
     if (!pr) break;
     pr->owner = int8_t(owner); pr->mid = m.def;
     pr->x = p.x; pr->y = p.y; pr->r = m.get(MS_SIZE); pr->color = col;
-    pr->dmg = m.get(MS_DMG) * player_atk(p);
+    pr->dmg = m.get(MS_DMG) * player_atk_for(p, m);
     pr->oa = (float(i) / want) * kTau; pr->orad = m.get(MS_RADIUS); pr->ospeed = m.get(MS_SPEED);
     pr->rehit = std::fmax(0.12f, m.get(MS_CD));
-    fill_payload(*pr, m);
+    fill_payload(*pr, p, m);
   }
   int live = 0;
   for (const Projectile& q : g.projectiles) if (mine(q)) live++;
   int k = 0;
   for (Projectile& q : g.projectiles) {
     if (!mine(q)) continue;
-    q.dmg = m.get(MS_DMG) * player_atk(p);
+    q.dmg = m.get(MS_DMG) * player_atk_for(p, m);
     q.orad = m.get(MS_RADIUS);
     q.ospeed = m.get(MS_SPEED);
     q.r = m.get(MS_SIZE);
@@ -470,6 +482,88 @@ void orbit(Game& g, Player& p, MoveInst& m, float dt, float now) {
   // Animación de concentración de vez en cuando, para que se note vivo.
   p.orb_cast_t -= dt;
   if (p.orb_cast_t <= 0) { p.orb_cast_t = 1.6f; player_cast(g, p, nullptr, K_ORBIT, 1.6f); }
+}
+
+// ---------------- familias nuevas (2026-10-19) ----------------
+
+// El blanco de un ataque que va a un sitio (remolino, zona): el de siempre si
+// llega; si no, el más cercano.
+Enemy* spot_for(Game& g, Player& p, const MoveInst& m) {
+  Enemy* t = p.target_enemy ? g.enemy_by_id(p.target_enemy) : nullptr;
+  if (t && !t->dead && dist(p.x, p.y, t->x, t->y) <= reach(m)) return t;
+  return nearest_enemy(g, p.x, p.y, reach(m));
+}
+
+// Carga: brilla un momento y sale un rayo enorme (el de beam, con su grosor).
+void charge_up(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_CHARGE, p, m, mi);
+  const float at = m.get(MS_CHARGE) > 0 ? m.get(MS_CHARGE) : 0.75f;
+  if (f) { f->x = p.x; f->y = p.y; f->at = at; }
+  g.fx.ring(p.x, p.y - kLift * 0.5f, p.r * 3.2f, p.r * 0.8f, kTypeColor[m.type()], at, 2);
+}
+
+// Giro: golpea todo alrededor `count` veces seguidas (lo hace tick_new_field).
+void spin(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_SPIN, p, m, mi);
+  if (f) { f->x = p.x; f->y = p.y; f->n = int8_t(std::max(1, m.geti(MS_COUNT))); f->next = 0; f->a = p.aim; }
+}
+
+// Terremoto: una onda avanza en línea delante de ti, explosión tras explosión.
+void quake(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_QUAKE, p, m, mi);
+  if (f) {
+    f->x = p.x; f->y = p.y; f->ca = std::cos(p.aim); f->sa = std::sin(p.aim);
+    f->i = 0; f->n = int8_t(std::max(1, m.geti(MS_COUNT))); f->next = 0;
+  }
+  g.camera.kick(0.1f);
+}
+
+// Remolino: sale donde está el enemigo, los atrae al centro y les va dañando.
+void vortex(Game& g, Player& p, const MoveInst& m, int mi) {
+  Enemy* tg = spot_for(g, p, m);
+  const float x = tg ? tg->x : p.x + std::cos(p.aim) * 120, y = tg ? tg->y : p.y + std::sin(p.aim) * 100;
+  Field* f = new_field(g, FK_VORTEX, p, m, mi);
+  if (f) {
+    f->x = x; f->y = y; f->life = m.get(MS_DUR) > 0 ? m.get(MS_DUR) : 2.6f; f->r = m.get(MS_RADIUS);
+    f->tick = 0.15f; f->pull = m.get(MS_PULL) > 0 ? m.get(MS_PULL) : 140;
+  }
+  g.fx.ring(x, y, m.get(MS_RADIUS), 6, kTypeColor[m.type()], 0.4f, 3);
+  // Como mucho dos a la vez por jugador.
+  trim_fields(g, FK_VORTEX, pl_index(g, p), 2, true);
+}
+
+// Empujón: onda alrededor que daña y aparta a los enemigos (no a los jefes).
+void shove(Game& g, Player& p, const MoveInst& m) {
+  const uint32_t col = kTypeColor[m.type()];
+  const MoveVis& v = vis_of(m);
+  const float radius = m.get(MS_RADIUS);
+  g.fx.ring(p.x, p.y, p.r, radius, col, 0.35f, 4);
+  for (int i = 0; i < 8; ++i) {
+    const float a = (i / 8.0f) * kTau;
+    SpOpts o; o.vx = std::cos(a) * radius * 3; o.vy = std::sin(a) * radius * 2.4f; o.life = 0.3f; o.angle = a;
+    g.fx.sp(v.proj, v.pal, p.x + std::cos(a) * p.r, p.y + std::sin(a) * p.r * 0.8f - kLift * 0.5f, o);
+  }
+  g.camera.kick(0.1f);
+  Enemy* list[kMaxEnemies];
+  const int n = g.query_circle(p.x, p.y, radius, list, kMaxEnemies);
+  int32_t ids[kMaxEnemies];
+  for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+  const float knock = m.get(MS_KNOCK) > 0 ? m.get(MS_KNOCK) : 300;
+  for (int i = 0; i < n; ++i) {
+    Enemy* e = g.enemy_by_id(ids[i]);
+    if (e) hit(g, p, *e, m.get(MS_DMG) * player_atk_for(p, m), col, e->x - p.x, e->y - p.y, knock, m);
+  }
+  Prop* props[64];
+  const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
+  for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], m.get(MS_DMG) * player_atk_for(p, m), col);
+}
+
+// Aturdir: una zona avisa en el suelo y al momento daña y deja quietos a los que pilla.
+void stun_zone(Game& g, Player& p, const MoveInst& m, int mi) {
+  Enemy* tg = spot_for(g, p, m);
+  if (!tg) return;
+  Field* f = new_field(g, FK_STUNZONE, p, m, mi);
+  if (f) { f->x = tg->x; f->y = tg->y; f->delay = 0.45f; f->r = m.get(MS_RADIUS); }
 }
 
 void run(Game& g, Player& p, MoveInst& m, int mi) {
@@ -488,6 +582,14 @@ void run(Game& g, Player& p, MoveInst& m, int mi) {
     case K_DASH: dash(g, p, m); break;
     case K_TRAIL: trail_patch(g, p, m, mi); break;
     case K_CONE: cone(g, p, m); break;
+    case K_HOMING: fire_projectiles(g, p, m); break;   // persiguen: MS_HOMING
+    case K_BOUNCE: fire_projectiles(g, p, m); break;   // rebotan: MS_BOUNCE (ver rebound)
+    case K_CHARGE: charge_up(g, p, m, mi); break;
+    case K_SPIN: spin(g, p, m, mi); break;
+    case K_QUAKE: quake(g, p, m, mi); break;
+    case K_VORTEX: vortex(g, p, m, mi); break;
+    case K_SHOVE: shove(g, p, m); break;
+    case K_STUN: stun_zone(g, p, m, mi); break;
     default: break;
   }
 }
@@ -534,11 +636,127 @@ static void blast(Game& g, Field& f, float r, float k = 1) {
   for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], f.dmg * k, f.col);
 }
 
+// Cada fotograma de los campos nuevos (tickNewField). → true si hay que quitarlo.
+static bool tick_new_field(Game& g, Field& f, float dt) {
+  Player& p = g.players[f.owner];
+  const MoveInst& m = p.moves[f.pl_move];
+  if (f.kind == FK_CHARGE) {
+    f.x = p.x; f.y = p.y;
+    // La energía se junta en ti mientras carga.
+    if (g.vrng.next() < dt * 30 && g.camera.sees(f.x, f.y, 40)) {
+      const float a = g.vrng.next() * kTau, r = g.vrng.range(30, 60);
+      SpOpts o; o.vx = -std::cos(a) * r * 3; o.vy = -std::sin(a) * r * 2.4f; o.life = 0.3f;
+      g.fx.sp(f.vis_proj, f.vis_pal, f.x + std::cos(a) * r, f.y + std::sin(a) * r * 0.8f - kLift, o);
+    }
+    if (f.t < f.at) return false;
+    if (p.dead) return true;
+    beam(g, p, m);
+    if (!f.ghost) g.camera.kick(0.25f);
+    return true;
+  }
+  if (f.kind == FK_SPIN) {
+    f.next -= dt;
+    if (f.next > 0) return false;
+    f.next = 0.13f;
+    g.fx.slash(p.x, p.y - kLift * 0.5f, f.a, m.get(MS_RADIUS), 3.6f, f.col, &vis_of(m));
+    f.a += 2.2f;
+    if (!f.ghost && !p.dead) {
+      const float d = m.get(MS_DMG) * player_atk_for(p, m), radius = m.get(MS_RADIUS);
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(p.x, p.y, radius, list, kMaxEnemies);
+      int32_t ids[kMaxEnemies];
+      for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+      for (int i = 0; i < n; ++i) {
+        Enemy* e = g.enemy_by_id(ids[i]);
+        if (e) hit(g, p, *e, d, f.col, e->x - p.x, e->y - p.y, 40, m);
+      }
+      Prop* props[64];
+      const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
+      for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], d, f.col);
+    }
+    return --f.n <= 0;
+  }
+  if (f.kind == FK_QUAKE) {
+    f.next -= dt;
+    while (f.next <= 0 && f.i < f.n) {
+      f.next += 0.07f; f.i++;
+      const float x = f.x + f.ca * f.i * QSTEP, y = f.y + f.sa * f.i * QSTEP, r = m.get(MS_RADIUS);
+      if (g.world.is_wall(x, y)) { f.i = f.n; break; }
+      if (g.camera.sees(x, y, 40)) {
+        g.fx.ring(x, y, 4, r, f.col, 0.3f, 3);
+        g.fx.burst(x, y - 4, f.col, 6, 120);
+        for (int k = 0; k < 2; ++k) {
+          SpOpts o; o.vy = -g.vrng.range(50, 90); o.vx = g.vrng.range(-30, 30); o.life = 0.35f;
+          g.fx.sp(f.vis_proj, f.vis_pal, x + g.vrng.range(-r, r) * 0.5f, y - 4, o);
+        }
+      }
+      Field b = f;
+      b.x = x; b.y = y;
+      blast(g, b, r);
+    }
+    return f.i >= f.n;
+  }
+  if (f.kind == FK_VORTEX) {
+    // Atrae a los enemigos al centro (a los jefes, un cuarto).
+    if (!f.ghost) {
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(f.x, f.y, f.r * 1.4f, list, kMaxEnemies);
+      for (int i = 0; i < n; ++i) {
+        Enemy& e = *list[i];
+        if (e.dead) continue;
+        const float dx = f.x - e.x, dy = f.y - e.y, d = std::hypot(dx, dy);
+        if (d < 4) continue;
+        const float k = std::fmin(d, f.pull * dt * (e.boss || e.judge ? 0.25f : 1));
+        e.x += dx / d * k; e.y += dy / d * k;
+      }
+    }
+    f.tick -= dt;
+    if (f.tick <= 0) { f.tick = 0.4f; Field b = f; blast(g, b, f.r); }
+    Field& ff = f;
+    if (g.vrng.next() < dt * 16 && g.camera.sees(ff.x, ff.y, 40)) {
+      const float a = g.vrng.next() * kTau, rr = ff.r * g.vrng.range(0.5f, 1);
+      SpOpts o; o.vx = -std::sin(a) * 110 - std::cos(a) * 60; o.vy = std::cos(a) * 66 - std::sin(a) * 36; o.life = 0.45f;
+      o.spin = ff.vis_proj >= 0 && kShapeInfo[ff.vis_proj].spin ? 8 : 0;
+      g.fx.sp(ff.vis_proj, ff.vis_pal, ff.x + std::cos(a) * rr, ff.y + std::sin(a) * rr * 0.6f - 4, o);
+    }
+    return false;
+  }
+  if (f.kind == FK_STUNZONE) {
+    if (f.t < f.delay) return false;
+    g.fx.ring(f.x, f.y, 4, f.r, f.col, 0.35f, 4);
+    g.fx.burst(f.x, f.y - 6, f.col, 12, 160);
+    if (g.camera.sees(f.x, f.y, 40)) g.sfx(SFX_BREAK);
+    if (!f.ghost) {
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(f.x, f.y, f.r, list, kMaxEnemies);
+      int32_t ids[kMaxEnemies];
+      for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+      const float stun = m.get(MS_STUN) > 0 ? m.get(MS_STUN) : 1;
+      for (int i = 0; i < n; ++i) {
+        Enemy* e = g.enemy_by_id(ids[i]);
+        if (!e) continue;
+        hit(g, p, *e, f.dmg, f.col, e->x - f.x, e->y - f.y, 0, m);
+        if (!e->dead) enemy_apply_stun(*e, stun * (e->boss || e->judge ? 0.35f : 1));
+      }
+      Prop* props[64];
+      const int np = g.world.props_in_circle(f.x, f.y, f.r, props, 64);
+      for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], f.dmg, f.col);
+    }
+    return true;
+  }
+  return false;
+}
+
 void combat_update_fields(Game& g, float dt) {
   for (int i = g.fields.n - 1; i >= 0; --i) {
     Field& f = g.fields[i];
     f.t += dt;
     if (f.gone || !g.players[f.owner].active || (f.life > 0 && f.t >= f.life && f.kind != FK_MINE)) { g.fields.remove_ordered(i); continue; }
+    if (f.kind >= FK_CHARGE) {
+      // (los golpes no añaden ni quitan campos: el índice sigue valiendo)
+      if (tick_new_field(g, g.fields[i], dt)) g.fields.remove_ordered(i);
+      continue;
+    }
     if (f.kind == FK_MINE) {
       const bool armed = f.t >= f.arm;
       Enemy* tmp[1];
@@ -575,7 +793,7 @@ void combat_update_fields(Game& g, float dt) {
             pr->x = f.x; pr->y = f.y; pr->vx = std::cos(a) * sp; pr->vy = std::sin(a) * sp;
             pr->dmg = f.dmg; pr->r = m.get(MS_SIZE) > 0 ? m.get(MS_SIZE) : 6; pr->life = 1.4f; pr->pierce = m.geti(MS_PIERCE);
             pr->color = f.col; pr->ghost = f.ghost; pr->owner = f.owner;
-            fill_payload(*pr, m);
+            fill_payload(*pr, p, m);
           }
           f.kick = 0.12f;
         }
@@ -603,6 +821,32 @@ static bool has_id(const int32_t* a, int n, int32_t id) {
   return false;
 }
 
+// Rebote: el proyectil sale hacia el enemigo más cercano que aún no ha tocado. → true si rebota.
+static bool rebound(Game& g, Projectile& p, float fx, float fy) {
+  if (!(p.bounce > 0)) return false;
+  Enemy* best = nullptr;
+  float bd = 220 * 220;
+  Enemy* list[kMaxEnemies];
+  const int n = g.query_circle(fx, fy, 220, list, kMaxEnemies);
+  for (int i = 0; i < n; ++i) {
+    Enemy* e = list[i];
+    if (e->dead || has_id(p.hits, p.nhits, e->id)) continue;
+    const float d = dist2(fx, fy, e->x, e->y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  if (!best) return false;
+  p.bounce--;
+  float sp = std::hypot(p.vx, p.vy);
+  if (!(sp > 0)) sp = 300;
+  float nx, ny;
+  norm(best->x - fx, best->y - fy, nx, ny);
+  p.vx = nx * sp; p.vy = ny * sp; p.x = fx; p.y = fy;
+  p.px = fx; p.py = fy;                         // (el barrido empieza aquí)
+  p.t = std::fmax(0.0f, p.t - 0.5f);           // un poco más de vida para llegar
+  if (g.vrng.next() < 0.6f) g.fx.spark(fx, fy - kLift, p.color, nx, ny, 3);
+  return true;
+}
+
 // Una vez por paso para todos: disparos enemigos contra cualquier jugador,
 // disparos de cada jugador (el mérito es del dueño) y contacto con enemigos.
 static void contact(Game& g, Player& pl);
@@ -624,7 +868,7 @@ void combat_resolve(Game& g, float dt) {
         Player& pl = g.players[k];
         if (!pl.active || pl.dead) continue;
         if (dist2(p->x, p->y, pl.x, pl.y) < (p->r + pl.r) * (p->r + pl.r)) {
-          player_hurt(g, pl, p->dmg, p->mtype);
+          player_hurt(g, pl, p->dmg, p->mtype, false, p->mcat);
           g.fx.burst(p->x, p->y - kLift, p->color, 7, 110);
           g.projectiles.remove_ordered(i);
           break;
@@ -722,6 +966,7 @@ void combat_resolve(Game& g, float dt) {
       if (p->ghost) {
         SpOpts o; o.life = 0.12f; o.scale = 1;
         g.fx.sp(SH_IMPACT, p->has_vis ? int(p->vis_pal) : int(T_NORMAL), e->x, e->y - e->body_h * 0.5f, o);
+        if (rebound(g, *p, e->x, e->y)) break;
         if (p->pierce > 0) { p->pierce--; continue; }
         g.fx.burst(p->x, p->y - kLift, p->color, 5, 80);
         g.projectiles.remove_ordered(i);
@@ -731,11 +976,12 @@ void combat_resolve(Game& g, float dt) {
 
       Player& pl = g.players[p->owner];
       const bool crit = is_crit(g, pl);
-      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * (crit ? CRIT_MUL : 1);
+      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? CRIT_MUL : 1);
       const float dvx = p->vx != 0 ? p->vx : (e->x - pl.x), dvy = p->vy != 0 ? p->vy : (e->y - pl.y);
       const int eff = crit ? EFF_CRIT : p->mtype >= 0 ? type_label(type_mult(p->mtype, e->types)) : EFF_NONE;
       const float dmg = p->dmg * kk;
-      const float burn = p->burn, poison = p->poison, slow = p->slow;
+      const float burn = p->burn, poison = p->poison, slow = p->slow, drain = p->drain;
+      const int8_t src = p->src;
       const float hx = p->x, hy = p->y;
       const int8_t pal = p->has_vis ? int(p->vis_pal) : int(T_NORMAL);
       const uint32_t pcol = p->color;
@@ -745,12 +991,15 @@ void combat_resolve(Game& g, float dt) {
         g.fx.sp(SH_IMPACT, pal, e->x, e->y - e->body_h * 0.5f, o);
       }
       pl.dmg_dealt += dmg;
+      if (src >= 0 && src < pl.nmoves) pl.moves[src].dealt += dmg;
       on_dealt(pl, dmg);
       if (burn > 0) enemy_apply_burn(*e, burn);
       if (poison > 0) enemy_apply_poison(*e, poison);
       if (slow > 0) enemy_apply_slow(*e, slow);
+      if (drain > 0) player_heal(g, pl, drain);         // Beso Drenaje
 
       p = &g.projectiles[i];
+      if (!p->orb && rebound(g, *p, e->x, e->y)) break;
       if (!p->orb) {
         if (p->pierce > 0) { p->pierce--; }
         else {
@@ -778,10 +1027,10 @@ static void contact(Game& g, Player& pl) {
     Enemy* e = g.enemy_by_id(ids[k]);
     if (!e || e->dead) continue;
     if (dist2(e->x, e->y, pl.x, pl.y) > (e->r + pl.r) * (e->r + pl.r)) continue;
-    if (e->touch_cd > 0 || e->behavior == BH_THIEF) continue;
+    if (e->touch_cd > 0 || e->behavior == BH_THIEF || e->stun_t > 0) continue;
     e->touch_cd = 0.55f;
     enemy_strike(*e, pl);
-    player_hurt(g, pl, e->dmg, e->atk_type);
+    player_hurt(g, pl, e->dmg, e->atk_type, false, e->cat);
     if (pl.item == IT_ROCKYHELMET) enemy_hurt(g, *e, 15 + pl.level * 4.0f, 0x9aa6b5, e->x - pl.x, e->y - pl.y, 80);
     float nx, ny;
     norm(e->x - pl.x, e->y - pl.y, nx, ny);

@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "core/game.h"
+#include "core/stats.h"
 
 namespace ps {
 
@@ -29,23 +30,30 @@ int candidates(Game& g, Player& p, Cand* out) {
     // Con 2 potenciadores ya no se ofrecen más (no hacen daño).
     int buffs = 0;
     for (int i = 0; i < p.nmoves; ++i) if (p.moves[i].kind() == K_BUFF) buffs++;
-    int16_t all[64];
-    const int na = move_pool_for(p.mon->types, all, 64);
-    int16_t pool[64];
+    int16_t all[kMaxMoves];
+    const int na = move_pool_for(p.mon->types, all, kMaxMoves);
+    int16_t pool[kMaxMoves];
     int np = 0;
     for (int i = 0; i < na; ++i) {
       const int id = all[i];
       if (player_has_move(p, id)) continue;
-      if ((p.banned >> id) & 1ull) continue;
+      if (p.banned.has(id)) continue;
       if (buffs >= 2 && kMoves[id].kind == K_BUFF) continue;
       pool[np++] = int16_t(id);
     }
-    // U.pickN(pool, 6)
+    // pickWeighted(pool, 6, weight): los de su lado bueno (y los empatados y
+    // los potenciadores) salen el doble.
+    float w[kMaxMoves];
+    for (int i = 0; i < np; ++i) w[i] = stats_fit(p.mon, kMoves[pool[i]].cat) >= 0.999f ? 2.0f : 1.0f;
     for (int k = 0; k < 6 && np; ++k) {
-      const int j = int(g.rng.next() * np);
+      float sum = 0;
+      for (int i = 0; i < np; ++i) sum += w[i];
+      float r = g.rng.next() * sum;
+      int j = 0;
+      while (j < np - 1 && (r -= w[j]) > 0) j++;
       Cand& c = out[n++];
       c.c = Card(); c.c.type = CT_NEW; c.c.move = pool[j]; c.c.w = 10;
-      for (int q = j; q < np - 1; ++q) pool[q] = pool[q + 1];
+      for (int q = j; q < np - 1; ++q) { pool[q] = pool[q + 1]; w[q] = w[q + 1]; }
       np--;
     }
   }
@@ -99,7 +107,7 @@ int candidates(Game& g, Player& p, Cand* out) {
 
 // 3 cartas distintas, elegidas por peso. Si hay una evolución lista, sale siempre.
 void levelup_offer(Game& g, Player& p) {
-  Cand pool[64];
+  Cand pool[kMaxMoves + 32];   // movimientos nuevos + mejoras + estadísticas
   int n = candidates(g, p, pool);
   p.ncards = 0;
   int used[3], nu = 0;

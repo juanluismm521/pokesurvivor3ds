@@ -47,7 +47,8 @@ bool free_point(Game& g, const Player& p, float angle, bool flying, float& ox, f
 Player& anchor(Game& g) {
   Player* alive[kMaxPlayers];
   int n = 0;
-  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && !g.players[i].dead) alive[n++] = &g.players[i];
+  // (nunca uno que aún vuelve de la grieta: rift_left_behind)
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && !g.players[i].dead && !rift_left_behind(g, g.players[i])) alive[n++] = &g.players[i];
   return n ? *alive[int(g.rng.next() * n)] : g.players[0];
 }
 
@@ -57,11 +58,35 @@ bool roll_shiny(Game& g, int dex) {
   return g.rng.next() < SHINY_RATE;
 }
 
+// Como mucho 3 curanderos, 3 escuderos y 3 invocadores vivos a la vez
+// (18-10-2026: juntos dejaban a la horda, y a los jefes, casi inmortales).
+// Si ya hay 3 de uno, sale otro del elenco.
+constexpr int SUPPORT_MAX = 3;
+bool is_support(int b) { return b == BH_HEALER || b == BH_SHIELDER || b == BH_SUMMONER; }
+// Tipos de apoyo que ya tienen 3 vivos (bit por Behavior).
+uint32_t support_full(Game& g) {
+  int n[BH_COUNT] = {};
+  uint32_t full = 0;
+  for (const Enemy& e : g.enemies)
+    if (!e.dead && is_support(e.behavior) && ++n[e.behavior] >= SUPPORT_MAX) full |= 1u << e.behavior;
+  return full;
+}
+
 Enemy* spawn_one(Game& g, Player& p, float t, float angle, bool has_angle) {
   static const EnemyDef* bag[512];
   const int nb = enemies_bag_at(g, t, bag, 512);
   if (!nb) return nullptr;
-  const EnemyDef def = *bag[int(g.rng.next() * nb)];
+  EnemyDef def = *bag[int(g.rng.next() * nb)];
+  if (is_support(def.behavior)) {
+    const uint32_t full = support_full(g);
+    if ((full >> def.behavior) & 1u) {
+      static const EnemyDef* rest[512];
+      int nr = 0;
+      for (int i = 0; i < nb; ++i) if (!((full >> bag[i]->behavior) & 1u)) rest[nr++] = bag[i];
+      if (!nr) return nullptr;
+      def = *rest[int(g.rng.next() * nr)];
+    }
+  }
   float x, y;
   if (!free_point(g, p, has_angle ? angle : g.rng.next() * kTau, hovers(def.dex), x, y)) return nullptr;
   const bool shiny = roll_shiny(g, def.dex);

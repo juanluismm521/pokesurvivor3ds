@@ -41,7 +41,7 @@
     { "patron": "js/entities/pickup.js", "tipo": "logica", "cpp": ["src/core/pickup.cpp"] },
     { "patron": "js/entities/fx.js", "tipo": "logica", "cpp": ["src/core/fx.cpp"] },
     { "patron": "js/systems/combat.js", "tipo": "logica", "cpp": ["src/core/combat.cpp"] },
-    { "patron": "js/systems/stats.js", "tipo": "logica", "cpp": ["src/core/combat.cpp", "src/core/enemy.cpp", "src/core/player.cpp"] },
+    { "patron": "js/systems/stats.js", "tipo": "logica", "cpp": ["src/core/stats.h"] },
     { "patron": "js/systems/spawner.js", "tipo": "logica", "cpp": ["src/core/spawner.cpp"] },
     { "patron": "js/systems/levelup.js", "tipo": "logica", "cpp": ["src/core/levelup.cpp"] },
     { "patron": "js/systems/gacha.js", "tipo": "logica", "cpp": ["src/core/gacha.cpp"] },

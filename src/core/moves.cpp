@@ -9,8 +9,10 @@ void apply_mods(MoveInst& s, const Ladder& L) {
     const int k = L.m[i].stat;
     const float val = L.m[i].val;
     switch (kMoveStatOp[k]) {
-      case 1:  // MULT: sólo si existe
-        if (s.has_(k)) s.v[k] *= val;
+      case 1:  // MULT: multiplica si existe; si no, se asigna (como el else de applyMods)
+        if (s.has_(k)) { s.v[k] *= val; break; }
+        s.v[k] = val;
+        s.has |= 1u << k;
         break;
       case 2:  // ADD: (s[k] || 0) + m
         s.v[k] = (s.has_(k) ? s.v[k] : 0.0f) + val;
@@ -82,12 +84,35 @@ int move_pool_for(const int8_t types[2], int16_t* out, int max) {
   return n;
 }
 
-int move_start_for(int dex) {
+int move_base_start_for(int dex) {
   for (int i = 0; i < kStarterCount; ++i) if (kStarters[i].dex == dex) return kStarters[i].start;
   const Mon* m = mon_by_dex(dex);
   if (!m) return kStartMove[T_NORMAL];
   for (int k = 0; k < 2; ++k) if (m->types[k] >= 0) return kStartMove[m->types[k]];
   return kStartMove[T_NORMAL];
+}
+
+int move_start_choices(int dex, int16_t* out, int max) {
+  const Mon* m = mon_by_dex(dex);
+  if (!m || max <= 0) return 0;
+  int16_t all[kMaxMoves];
+  const int na = move_pool_for(m->types, all, kMaxMoves);
+  int n = 0;
+  for (int i = 0; i < na && n < max; ++i) if (kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];
+  const int base = move_base_start_for(dex);
+  bool has = false;
+  for (int i = 0; i < n; ++i) if (out[i] == base) has = true;
+  if (!has && n < max) out[n++] = int16_t(base);
+  return n;
+}
+
+int move_start_for(int dex, int pick, bool bought) {
+  if (pick >= 0 && bought) {
+    int16_t ch[kMaxMoves];
+    const int n = move_start_choices(dex, ch, kMaxMoves);
+    for (int i = 0; i < n; ++i) if (ch[i] == pick) return pick;
+  }
+  return move_base_start_for(dex);
 }
 
 }  // namespace ps

@@ -26,7 +26,9 @@ struct Mon {
   const char* name;
   int8_t types[2];   // T_NONE si sólo tiene uno
   int16_t hp, spd;
-  float atk;
+  float atk;         // el mayor de pa y sa
+  float pa, sa;      // daño de sus ataques físicos / especiales (stats.js)
+  int16_t df, sd;    // Defensa y Defensa Especial base de los juegos
   int8_t rarity;
   int16_t bst;
   int8_t gen;
@@ -68,7 +70,10 @@ extern const ShinyAlt kShinyAlt[];
 // ---------------- movimientos ----------------
 enum Kind : int8_t {
   K_PROJECTILE, K_MELEE, K_BEAM, K_ORBIT, K_NOVA, K_AURA, K_BOOMERANG, K_CHAIN,
-  K_MINE, K_METEOR, K_TURRET, K_DASH, K_TRAIL, K_CONE, K_BUFF, K_COUNT
+  K_MINE, K_METEOR, K_TURRET, K_DASH, K_TRAIL, K_CONE,
+  // desde 2026-10-19 (moves.js)
+  K_HOMING, K_BOUNCE, K_CHARGE, K_SPIN, K_QUAKE, K_VORTEX, K_SHOVE, K_STUN,
+  K_BUFF, K_COUNT
 };
 extern const char* const kKindId[K_COUNT];
 
@@ -77,13 +82,17 @@ extern const char* const kKindId[K_COUNT];
 enum MoveStat : int8_t {
   MS_CD, MS_DMG, MS_SPEED, MS_COUNT, MS_SPREAD, MS_PIERCE, MS_LIFE, MS_SIZE,
   MS_RADIUS, MS_ARC, MS_WIDTH, MS_KNOCK, MS_BURN, MS_POISON, MS_SLOW, MS_HOMING,
-  MS_AMOUNT, MS_DUR, MS_STACKS, MS_RATE, MS_RANGE, MS_HEX, MS_DRAIN, MS_NUM
+  MS_AMOUNT, MS_DUR, MS_STACKS, MS_RATE, MS_RANGE, MS_HEX, MS_DRAIN,
+  MS_PULL, MS_BOUNCE, MS_STUN, MS_CHARGE, MS_NUM
 };
 extern const char* const kMoveStatId[MS_NUM];
 // Cómo se aplica cada número en las mejoras: 0 = se asigna, 1 = multiplica, 2 = suma.
 extern const uint8_t kMoveStatOp[MS_NUM];
 
-enum BuffStat : int8_t { BS_NONE = -1, BS_ATK, BS_SPD, BS_DEF, BS_REGEN, BS_COUNT };
+// patk / satk: Danza Espada y Danza Dragón (físico) y Maquinación (especial). atk ya no lo usa ninguno.
+enum BuffStat : int8_t { BS_NONE = -1, BS_ATK, BS_PATK, BS_SATK, BS_SPD, BS_DEF, BS_REGEN, BS_COUNT };
+// Físico o especial (G.Stats); los potenciadores no tienen.
+enum MoveCat : int8_t { CAT_NONE = -1, CAT_PHYSICAL, CAT_SPECIAL };
 
 struct MoveDef {
   const char* id;
@@ -92,6 +101,7 @@ struct MoveDef {
   int8_t type;
   int8_t kind;
   int8_t buff;               // BuffStat (sólo los potenciadores)
+  int8_t cat;                // MoveCat
   uint32_t has;              // bit i = MoveStat i existe
   float v[MS_NUM];
   int8_t evo_need;           // LevelStat que pide para evolucionar (-1 = no evoluciona)
@@ -99,6 +109,16 @@ struct MoveDef {
 };
 extern const MoveDef kMoves[];
 extern const int kMoveCount;
+// Tope de movimientos del port (los ids caben en int8_t). gen_data comprueba
+// al compilar que la web no lo pasa; si algún día lo pasa, hay que agrandar
+// los int8_t de los movimientos (atajos, vetos...).
+constexpr int kMaxMoves = 127;
+// Un conjunto de movimientos (bit por id): vetos...
+struct MoveBits {
+  uint64_t w[2] = {};
+  void set(int id) { if (id >= 0 && id < 128) w[id >> 6] |= 1ull << (id & 63); }
+  bool has(int id) const { return id >= 0 && id < 128 && ((w[id >> 6] >> (id & 63)) & 1ull); }
+};
 int move_index(const char* id);   // -1 si no existe
 
 struct Mod { int8_t stat; float val; };
@@ -145,7 +165,7 @@ extern const ItemDef kItems[IT_COUNT];
 // ---------------- mejoras permanentes ----------------
 enum UpgradeId : int8_t {
   UP_HP, UP_ATK, UP_SPD, UP_CD, UP_DEF, UP_REGEN, UP_MAGNET, UP_XP, UP_COINS, UP_MOVES,
-  UP_CRIT, UP_REROLL, UP_BAN, UP_COUNT
+  UP_CRIT, UP_REROLL, UP_BAN, UP_START, UP_COUNT
 };
 struct UpgradeDef { const char* id; const char* icon; const char* name; const char* unit; int8_t max; int16_t base; float grow; };
 extern const UpgradeDef kUpgrades[UP_COUNT];
@@ -246,6 +266,11 @@ extern const int kAchCount;
 struct AchCat { const char* id; const char* name; };
 extern const AchCat kAchCats[];
 extern const int kAchCatCount;
+
+// ---------------- versión de los datos ----------------
+extern const char* const kWebBase;       // commit de la web de reference/web (7 letras)
+extern const char* const kWebBaseDate;   // y su fecha (AAAA-MM-DD)
+extern const uint32_t kDataHash;         // huella de todas las tablas generadas
 
 // ---------------- idioma ----------------
 struct Tr { const char* es; const char* en; };

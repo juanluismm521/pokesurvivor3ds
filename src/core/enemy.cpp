@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/stats.h"
 
 namespace ps {
 
@@ -35,6 +36,22 @@ float shot_dmg(const Enemy& e) { return (e.def.shot_dmg > 0 ? e.def.shot_dmg : 1
 uint32_t type_col(int t) { return t >= 0 ? kTypeColor[t] : 0xff7a9e; }
 }  // namespace
 
+/*
+ * Curas y escudos sobre un jefe (18-10-2026): van con el daño que le estás
+ * haciendo, no con su vida. rd es el daño recibido con un olvido de RD_TAU s,
+ * así que rd / RD_TAU ≈ daño por segundo de ahora.
+ */
+constexpr float RD_TAU = 6, BOSS_HEAL_S = 0.4f, BOSS_SHIELD_S = 1.2f;
+static float boss_dps(const Enemy& e) { return e.rd / RD_TAU; }
+
+/*
+ * Veneno (18-10-2026): con muchísima vida (los legendarios de la Sentencia) el
+ * % se aplica a una vida "efectiva" que crece con la raíz: hasta 60.000 PV
+ * igual que antes; con 240.000, como si tuviera 120.000.
+ */
+constexpr float PCT_REF = 60000;
+static float pct_hp(const Enemy& e) { return e.max_hp <= PCT_REF ? e.max_hp : float(PCT_REF * std::sqrt(double(e.max_hp) / PCT_REF)); }
+
 Enemy* enemy_spawn(Game& g, const EnemyDef& def, float x, float y, Scale3 sc, bool boss) {
   Enemy* e = g.enemies.push();
   if (!e) return nullptr;
@@ -57,6 +74,8 @@ Enemy* enemy_spawn(Game& g, const EnemyDef& def, float x, float y, Scale3 sc, bo
   const Mon* mon = mon_by_dex(def.dex);
   if (mon && mon->types[0] >= 0) { e->types[0] = mon->types[0]; e->types[1] = mon->types[1]; }
   e->atk_type = e->types[0];
+  e->mon = mon;                        // sus Defensas (stats.h)
+  e->cat = int8_t(stats_side_of(mon)); // pega con su lado fuerte
   // Vuelan por encima de rocas y agua sólo los que FLOTAN en su sprite. Los jefes, también.
   e->flying = boss || hovers(def.dex);
   e->shot_cd = def.shot_cd > 0 ? g.rng.range(0.3f, def.shot_cd) : 0;
@@ -95,6 +114,7 @@ static void show_hurt(Game& g, Enemy& e, int d, uint32_t color, float dir_x, flo
 void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, float dir_y, float knock, int eff) {
   if (e.dead) return;
   const int d = std::max(1, int(jsround(amount)));
+  if (e.boss) e.rd += float(d);
   // Escudo: absorbe primero.
   if (e.shield > 0) {
     const float a = std::fmin(e.shield, float(d));
@@ -113,6 +133,9 @@ void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, fl
   }
   if (e.hp <= 0) enemy_die(g, e);
 }
+
+// Aturdido: se queda quieto y no ataca `dur` s (Onda Trueno, Tumba Rocas...).
+void enemy_apply_stun(Enemy& e, float dur) { e.stun_t = std::fmax(e.stun_t, dur); }
 
 void enemy_apply_slow(Enemy& e, float factor, float dur) {
   e.slow = std::fmax(e.slow, factor);
@@ -204,17 +227,20 @@ static void enrage(Game& g, Enemy& e) {
   g.sfx(SFX_BOSS);
 }
 
-static Hazard* zone(Game& g, float x, float y, float r, float delay, float dmg, int type, uint32_t color) {
+// Zona o rayo con aviso (hazard), con la categoría de sus golpes (tu defensa que la para).
+static Hazard* zone(Game& g, const Enemy& e, float x, float y, float r, float delay, float dmg, int type, uint32_t color) {
   Hazard* h = hazard_add(g);
   if (!h) return nullptr;
   h->beam = false; h->x = x; h->y = y; h->r = r; h->delay = delay; h->dmg = dmg; h->type = int8_t(type); h->color = color;
+  h->cat = e.cat;
   return h;
 }
-static Hazard* hbeam(Game& g, float x, float y, float angle, float len, float w, float delay, float dmg, int type, uint32_t color) {
+static Hazard* hbeam(Game& g, const Enemy& e, float x, float y, float angle, float len, float w, float delay, float dmg, int type, uint32_t color) {
   Hazard* h = hazard_add(g);
   if (!h) return nullptr;
   h->beam = true; h->x = x; h->y = y; h->angle = angle; h->len = len; h->w = w; h->delay = delay; h->dmg = dmg;
   h->type = int8_t(type); h->color = color;
+  h->cat = e.cat;
   return h;
 }
 
@@ -230,6 +256,7 @@ static void shoot(Game& g, Enemy& e, float ax, float ay, float spread = 0, int n
     s->x = e.x; s->y = e.y; s->vx = std::cos(a) * sp; s->vy = std::sin(a) * sp;
     s->dmg = shot_dmg(e) * k; s->r = 7; s->life = 2.4f; s->friendly = false; s->color = 0xff7a9e;
     s->mtype = int8_t(type);
+    s->mcat = e.cat;
     s->has_vis = true; s->vis_proj = kTypeShape[type >= 0 ? type : T_NORMAL]; s->vis_pal = int8_t(type >= 0 ? type : T_NORMAL);
   }
   e.anim.play(A_SHOOT);
@@ -246,17 +273,17 @@ static void boss_start(Game& g, Enemy& e, int id, const Player& pl) {
   switch (id) {
     case BA_SLAM:     // pisotón: onda alrededor
       ai.wind = 0.85f * f;
-      zone(g, e.x, e.y, 96 + e.r, ai.wind, e.dmg * 1.3f, type, col);
+      zone(g, e, e.x, e.y, 96 + e.r, ai.wind, e.dmg * 1.3f, type, col);
       e.anim.play(A_CHARGE, 1.2f);
       break;
     case BA_DASH:     // embestida en línea recta
       ai.wind = 0.75f * f; ai.len = 330; ai.dur = 0.32f;
-      hbeam(g, e.x, e.y, ang, ai.len + e.r, e.r * 2 + 16, ai.wind + ai.dur, e.dmg * 1.2f, type, col);
+      hbeam(g, e, e.x, e.y, ang, ai.len + e.r, e.r * 2 + 16, ai.wind + ai.dur, e.dmg * 1.2f, type, col);
       e.anim.play(A_CHARGE, 1.3f);
       break;
     case BA_LEAP:     // salto y caída sobre ti
       e.jump = {true, e.x, e.y, pl.x, pl.y, -0.5f * f, 0.65f};
-      zone(g, pl.x, pl.y, 82, 0.5f * f + 0.65f, e.dmg * 1.25f, type, col);
+      zone(g, e, pl.x, pl.y, 82, 0.5f * f + 0.65f, e.dmg * 1.25f, type, col);
       e.anim.play(A_CHARGE, 1.4f);
       ai.cast = BA_NONE; ai.cd = g.rng.range(1.4f, 2) + 0.6f;
       break;
@@ -264,7 +291,7 @@ static void boss_start(Game& g, Enemy& e, int id, const Player& pl) {
       const int n = ai.fury ? 6 : 4;
       for (int i = 0; i < n; ++i) {
         const float a = i ? g.rng.next() * kTau : 0, d = i ? g.rng.range(40, 120) : 0;
-        zone(g, pl.x + std::cos(a) * d, pl.y + std::sin(a) * d * 0.8f, 50, 1.05f + i * 0.12f, shot_dmg(e) * 1.15f, type, col);
+        zone(g, e, pl.x + std::cos(a) * d, pl.y + std::sin(a) * d * 0.8f, 50, 1.05f + i * 0.12f, shot_dmg(e) * 1.15f, type, col);
       }
       ai.wind = 0.5f; e.anim.play(A_SHOOT);
       break;
@@ -273,7 +300,7 @@ static void boss_start(Game& g, Enemy& e, int id, const Player& pl) {
       const int n = ai.fury ? 5 : 3;
       const float sp = ai.fury ? 0.42f : 0.5f;
       for (int i = 0; i < n; ++i)
-        hbeam(g, e.x, e.y, ang + (i - (n - 1) / 2.0f) * sp, 400, 26, 1.0f, shot_dmg(e) * 1.2f, type, col);
+        hbeam(g, e, e.x, e.y, ang + (i - (n - 1) / 2.0f) * sp, 400, 26, 1.0f, shot_dmg(e) * 1.2f, type, col);
       ai.wind = 1.0f; ai.after = 0.25f; e.anim.play(A_CHARGE, 1.1f);
       break;
     }
@@ -375,7 +402,9 @@ static void heal_around(Game& g, Enemy& e) {
   for (int i = 0; i < nn; ++i) {
     Enemy* o = near[i];
     if (o->dead || o->hp >= o->max_hp) continue;
-    o->hp = std::fmin(o->max_hp, o->hp + o->max_hp * k);
+    // A un jefe, como mucho lo que le quitas en 0,4 s: así nunca se vuelve inmatable.
+    const float heal = o->max_hp * k;
+    o->hp = std::fmin(o->max_hp, o->hp + (o->boss ? std::fmin(heal, boss_dps(*o) * BOSS_HEAL_S) : heal));
     g.fx.burst(o->x, o->y - o->body_h * 0.6f, 0x7dffb0, 5, 60);
     n++;
   }
@@ -396,9 +425,15 @@ static void cast_shields(Game& g, Enemy& e) {
     near[b + 1] = v;
   }
   if (nn > 6) nn = 6;
+  // A un jefe, el escudo es lo que le quitas en 1,2 s (no un 35 % de su vida
+  // enorme), y uno cada 6 s aunque haya varios escuderos (shield_t empieza en 8).
   for (int i = 0; i < nn; ++i) {
-    near[i]->shield = std::fmax(near[i]->shield, near[i]->max_hp * 0.35f);
-    near[i]->shield_t = 8;
+    Enemy& o = *near[i];
+    if (o.dead) continue;
+    if (o.boss && o.shield_t > 2) continue;
+    const float sh = o.boss ? std::fmin(o.max_hp * 0.35f, boss_dps(o) * BOSS_SHIELD_S) : o.max_hp * 0.35f;
+    o.shield = std::fmax(o.shield, sh);
+    o.shield_t = 8;
   }
   e.anim.play(A_CHARGE);
   g.fx.ring(e.x, e.y, 8, 160, 0x7fc8ff, 0.5f, 3);
@@ -443,7 +478,7 @@ static void special(Game& g, Enemy& e, const Player& pl, float dx, float dy) {
     case BH_FAN: { const int n = e.def.fan_n ? e.def.fan_n : 5; shoot(g, e, dx, dy, n == 3 ? 0.6f : 0.9f, n, 0.65f); break; }
     case BH_BEAMER:
       // Rayo con aviso: primero se ve la franja en el suelo.
-      hbeam(g, e.x, e.y, std::atan2(dy, dx), 360, 22, 1.0f, shot_dmg(e) * 1.05f, e.atk_type, col);
+      hbeam(g, e, e.x, e.y, std::atan2(dy, dx), 360, 22, 1.0f, shot_dmg(e) * 1.05f, e.atk_type, col);
       e.anim.play(A_CHARGE, 1.2f);
       break;
     case BH_ZONER: {
@@ -451,7 +486,7 @@ static void special(Game& g, Enemy& e, const Player& pl, float dx, float dy) {
       for (int i = 0; i < n; ++i) {
         const float ox = i ? g.rng.range(-70, 70) : 0;
         const float oy = i ? g.rng.range(-55, 55) : 0;
-        zone(g, pl.x + ox, pl.y + oy, 44, 1.2f, shot_dmg(e) * 0.95f, e.atk_type, col);
+        zone(g, e, pl.x + ox, pl.y + oy, 44, 1.2f, shot_dmg(e) * 0.95f, e.atk_type, col);
       }
       e.anim.play(A_SHOOT);
       break;
@@ -464,14 +499,14 @@ static void special(Game& g, Enemy& e, const Player& pl, float dx, float dy) {
 
 static void start_fuse(Game& g, Enemy& e) {
   e.phase = PH_FUSE; e.pt = 1.0f;
-  zone(g, e.x, e.y, 62, 1.0f, e.dmg * 1.4f, e.atk_type, 0xff7b3d);
+  zone(g, e, e.x, e.y, 62, 1.0f, e.dmg * 1.4f, e.atk_type, 0xff7b3d);
 }
 
 static void start_jump(Game& g, Enemy& e, const Player& pl) {
   const float tx = pl.x, ty = pl.y;
   e.jump = {true, e.x, e.y, tx, ty, -0.45f, 0.6f};
   e.anim.play(A_CHARGE, 1.4f);
-  zone(g, tx, ty, 50, 1.05f, e.dmg * 1.2f, e.atk_type, type_col(e.atk_type));
+  zone(g, e, tx, ty, 50, 1.05f, e.dmg * 1.2f, e.atk_type, type_col(e.atk_type));
 }
 
 // Salto: se agacha, vuela en arco y cae donde estabas.
@@ -512,6 +547,7 @@ static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
     }
   }
   if (e.touch_cd > 0) e.touch_cd -= dt;
+  if (e.rd > 0) e.rd *= float(std::exp(-double(dt) / RD_TAU));
   e.bob += dt * 6;
 
   // --- estados ---
@@ -523,7 +559,7 @@ static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
   }
   if (e.poison > 0) {
     e.poison_t -= dt; e.poison_tick -= dt;
-    if (e.poison_tick <= 0) { e.poison_tick = 0.6f; enemy_hurt(g, e, e.max_hp * 0.012f * e.poison + 1, 0xd47cf0); }
+    if (e.poison_tick <= 0) { e.poison_tick = 0.6f; enemy_hurt(g, e, pct_hp(e) * 0.012f * e.poison + 1, 0xd47cf0); }
     if (e.poison_t <= 0) e.poison = 0;
   }
   if (e.dead) return;
@@ -539,6 +575,8 @@ static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
       if (e.dead) return;
     } else if (le.slow > 0) terrain_mul = le.slow < 0.5f ? 0.45f : 0.55f;
   }
+
+  if (e.stun_t > 0) { e.stun_t -= dt; e.anim.loop(A_IDLE); return; }
 
   const float spd = e.spd * (1 - e.slow) * terrain_mul * weather_speed_for(g, e.types);
   float dx, dy;
@@ -763,6 +801,7 @@ static Player* nearest_player(Game& g, float x, float y) {
 
 // Segundos que un rezagado tiene que llevar fuera de la vista antes de volver por delante.
 static constexpr float LAG_T = 2.5f;
+static constexpr float BOSS_FAR = 2500;   // jefe más lejos que esto de todos: se ha perdido
 
 void enemies_update(Game& g, float dt) {
   Player& pl = g.pl();
@@ -804,6 +843,12 @@ void enemies_update(Game& g, float dt) {
       g.say(b, 2.4f);
       g.enemies.remove_ordered(i);
       continue;
+    }
+    // Jefe lejísimos de todos (salió junto a un compañero que aún volvía de la
+    // grieta, o se quedó atrás): a los 4 s vuelve a salir cerca, fuera de la vista.
+    if (e.boss && !e.judge && !g.rift.arena) {
+      e.lag_t = dist2(e.x, e.y, near.x, near.y) > BOSS_FAR * BOSS_FAR ? e.lag_t + dt : 0;
+      if (e.lag_t > 4) { e.lag_t = 0; spawner_ahead(g, e, near); }
     }
     if (e.boss || e.shiny || g.rift.arena) continue;
     // Rezagados: los que se quedan atrás mientras corres y llevan un rato FUERA

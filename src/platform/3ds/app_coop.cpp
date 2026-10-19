@@ -30,7 +30,7 @@ constexpr float kLobbyEvery = 0.3f;
 const uint32_t kMateColor[4] = {0xffcb3d, 0x5fc8ff, 0x7ee07a, 0xff8ad8};
 
 int put_header(uint8_t* b, uint8_t type) {
-  const uint32_t m = net::kMagic;
+  const uint32_t m = net::wire_magic();
   b[0] = uint8_t(m); b[1] = uint8_t(m >> 8); b[2] = uint8_t(m >> 16); b[3] = uint8_t(m >> 24);
   b[4] = type;
   return 5;
@@ -39,7 +39,7 @@ int put_header(uint8_t* b, uint8_t type) {
 bool get_header(const uint8_t* b, int len, uint8_t& type) {
   if (len < 5) return false;
   const uint32_t m = uint32_t(b[0]) | uint32_t(b[1]) << 8 | uint32_t(b[2]) << 16 | uint32_t(b[3]) << 24;
-  if (m != net::kMagic) return false;
+  if (m != net::wire_magic()) return false;
   type = b[4];
   return true;
 }
@@ -72,6 +72,7 @@ RunConfig::Member App::my_member() const {
   for (int k = 0; k < UP_COUNT; ++k) m.upgrades[k] = autotest ? 0 : s_->pupg[m.dex][k];
   for (int k = 0; k < 4; ++k) m.pbind[k] = autotest ? -1 : s_->pbind[m.dex][k];
   for (int k = 0; k < 3; ++k) m.pban[k] = autotest ? -1 : s_->pban[m.dex][k];
+  m.pstart = autotest ? -1 : s_->pstart[m.dex];
   if (std::strcmp(s_->name, "Jugador") != 0) { std::memcpy(m.name, s_->name, sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0; }
   else console_name(m.name, sizeof(m.name));
   return m;

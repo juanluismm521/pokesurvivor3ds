@@ -30,6 +30,7 @@ for (const f of ['js/core/util.js', 'js/core/i18n.js', 'js/data/pokedex.js', 'js
                  'js/world/tiles.js']) load(f);
 load('js/data/enemies.js', [['return {\n    TIERS', 'G.__EN2 = { behaviorOf, defFor, candidates };']]);
 load('js/world/world.js', [['function arenaDist', 'G.__W = { fbm: (x, y, s) => fbm(x, y, s), vnoise: (x, y, s) => vnoise(x, y, s), terrainAt: (x, y) => terrainAt(x, y), chunkData: (x, y) => chunkData(x, y), get seed() { return seed; } };']]);
+if (fs.existsSync(path.join(WEB, 'js/systems/stats.js'))) load('js/systems/stats.js');
 load('js/entities/player.js');
 load('js/systems/spawner.js');
 load('js/systems/gacha.js');
@@ -110,6 +111,14 @@ for (let a = -3.3; a <= 3.3; a += 0.137) out.dir.push([r6(a), G.Sprites.dirFromA
 
 // ---------------- Pokédex: comportamiento, cuerpo, movimiento inicial ----------------
 out.dex = G.DEX.map(p => [p.dex, G.__EN2.behaviorOf(p), r6(G.Sprites.bodyRadius(p.dex)), r6(G.Sprites.bodyHeight(p.dex)), G.Moves.ALL.findIndex(m => m.id === G.startMoveOf(p.dex))]);
+// Desde 2026-10-18/19: físico/especial (stats.js), tamaño de los grandes
+// (playerScale/playerRadius) y movimientos para empezar (startChoices).
+if (G.Stats) {
+  const mi = id => G.Moves.ALL.findIndex(m => m.id === id);
+  out.stats = G.DEX.map(p => [p.dex, r6(G.Stats.taken(p, 'physical')), r6(G.Stats.taken(p, 'special')), G.Stats.sideOf(p) === 'special' ? 1 : 0,
+                               r6(G.Stats.fit(p, 'physical')), r6(G.Stats.fit(p, 'special')),
+                               r6(G.Sprites.playerScale(p.dex)), r6(G.Sprites.playerRadius(p.dex)), G.startChoices(p.dex).map(mi)]);
+}
 out.defFor = [];
 G.Enemies.TIERS.forEach((tier, ti) => {
   for (const p of G.__EN2.candidates(tier).filter((_, i) => i % 7 === 0)) {
@@ -120,7 +129,9 @@ G.Enemies.TIERS.forEach((tier, ti) => {
 out.candidates = G.Enemies.TIERS.map(t => G.__EN2.candidates(t).length);
 
 // ---------------- movimientos ----------------
-const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain'];
+// (mismo orden que MoveStat en src/core/gamedata.h)
+const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain',
+                'pull', 'bounce', 'stun', 'charge'];
 out.moves = [];
 for (const m of G.Moves.ALL) {
   for (let lvl = 1; lvl <= 5; lvl++) {
@@ -152,7 +163,7 @@ for (let gen = 1; gen <= 9; gen++) for (let r = 1; r <= 5; r++) out.gachaPools.p
 {
   const noop = () => {};
   Object.assign(G, { FX: new Proxy({}, { get: () => noop }), Projectiles: { clearOrbs: noop }, Audio: { sfx: noop },
-                     Weather: { speedFor: () => 1, mult: () => 1 }, World: G.World });
+                     Weather: { speedFor: () => 1, mult: () => 1 }, World: G.World, Game: { st: { time: 0 } } });
   const cases = [
     { dex: 25, bind: {}, moves: ['thunder-shock', 'tackle', 'discharge', 'quick-attack'], fuse: [[1, 2], [0]] },
     { dex: 6, bind: { 'ember': 3, 'wing-attack': 0 }, moves: ['ember', 'tackle', 'wing-attack', 'flamethrower'], fuse: [[0, 1], [3]] },

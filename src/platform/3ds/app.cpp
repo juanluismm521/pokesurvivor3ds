@@ -11,6 +11,7 @@
 #include "core/i18n.h"
 #include "core/progress.h"
 #include "core/save_io.h"
+#include "core/version.h"
 #include "core/upgrades.h"
 #include "core/util.h"
 #include "platform/3ds/app_ui.h"
@@ -44,9 +45,10 @@ bool App::init(Renderer* r, Game* g, Save* s, Settings* st, const char* dir) {
   return true;
 }
 
-void App::set_autotest(int dex, bool immortal, float warp) {
+void App::set_autotest(int dex, bool immortal, float warp, int move) {
   autotest = true;
   auto_dex_ = dex;
+  auto_move_ = move;
   auto_immortal_ = immortal;
   bot.init(12345);
   start_run();
@@ -101,6 +103,8 @@ void App::start_run() {
   for (int k = 0; k < UP_COUNT; ++k) cfg.upgrades[k] = autotest ? 0 : s_->pupg[cfg.dex][k];
   for (int k = 0; k < 4; ++k) cfg.pbind[k] = autotest ? -1 : s_->pbind[cfg.dex][k];
   for (int k = 0; k < 3; ++k) cfg.pban[k] = autotest ? -1 : s_->pban[cfg.dex][k];
+  cfg.pstart = autotest ? int8_t(auto_move_) : s_->pstart[cfg.dex];
+  if (autotest && auto_move_ >= 0) cfg.upgrades[UP_START] = 1;
   cfg.seed = autotest ? 12345u : uint32_t(osGetTime());
   cfg.judged = autotest ? 1 : s_->stats.judged;
   for (int d = 0; d <= kMaxDex; ++d) if (s_->legends[d]) cfg.legends_beaten[d >> 3] |= uint8_t(1 << (d & 7));
@@ -269,7 +273,7 @@ void App::update(const UiIn& in0, float dt) {
       tour_t_ = 0;
       const int i = tour_i_++;
       static bool pulled = false;
-      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS};
+      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
@@ -278,8 +282,8 @@ void App::update(const UiIn& in0, float dt) {
       else if (scene == SC_PULL) { if (pull_done_) in.down |= KEY_A; else tour_i_--; }
       else {
         static int k = -1;
-        if (scene == SC_GOALS && k >= 3 && k <= 4) { in.down |= KEY_R; k++; }
-        else if (++k < 8) { if (ORDER[k] != scene) go(ORDER[k]); }
+        if (scene == SC_GOALS && k >= 4 && k <= 5) { in.down |= KEY_R; k++; }
+        else if (++k < 9) { if (ORDER[k] != scene) go(ORDER[k]); }
         else quit = true;
       }
     }
@@ -305,7 +309,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: in_test(in); break;
     case SC_MENU: in_menu(in); break;
     case SC_DEX: in_dex(in); break;
-    case SC_UPGRADES: case SC_BIND: case SC_BAN: in_upgrades(in); break;
+    case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: in_upgrades(in); break;
     case SC_GACHA: in_gacha(in); break;
     case SC_PULL: in_pull(in, dt); break;
     case SC_GOALS: in_goals(in); break;
@@ -332,6 +336,12 @@ void App::in_run(const UiIn& in) {
   if (autotest) {
     bot.decide(g, gi, g.local);
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
+    // Con un movimiento elegido: pausa 6 s (de verdad) para ver el resumen.
+    if (auto_move_ >= 0 && !auto_paused_ && g.state == ST_PLAYING && g.time > 95) { gi.cmd = CMD_PAUSE; auto_paused_ = true; auto_pause_ = float(osGetTime() % 100000000); }
+    else if (auto_pause_ >= 0 && g.state == ST_PAUSED) {
+      gi = Input();   // (el bot quitaría la pausa)
+      if (float(osGetTime() % 100000000) - auto_pause_ > 6000) { gi.cmd = CMD_PAUSE; auto_pause_ = -1; }
+    }
     if (g.state == ST_OVER && !coop_) start_run();
   } else if (g.state == ST_PLAYING || (g.state == ST_CHOICE && me.choice == CH_NONE) || (g.state == ST_LEVELUP && me.picked)) {
     // (en grupo: mientras otro elige, tú sigues moviendo el cursor de huecos)
@@ -676,10 +686,10 @@ void App::top_detail(int dex, bool shiny, bool own) {
   stat("Vida", float(p->hp), 183, t1, 98);
   stat("Ataque", p->atk, 1.55f, t2, 112);
   stat("Velocidad", float(p->spd), 137, t3, 126);
-  std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex)].name);
+  std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0)].name);
   r_->text(b, 300, 144, 0.36f, C_GOLD, 1);
-  int16_t pool[64];
-  const int np = move_pool_for(p->types, pool, 64);
+  int16_t pool[kMaxMoves];
+  const int np = move_pool_for(p->types, pool, kMaxMoves);
   for (int i = 0; i < np && i < 20; ++i) {
     const int ic = r_->move_icon[pool[i]];
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 214 + (i % 10) * 18, 162 + (i / 10) * 18, 0);
@@ -688,6 +698,44 @@ void App::top_detail(int dex, bool shiny, bool own) {
 }
 
 // ---------------- mejoras ----------------
+
+namespace {
+// Orden alfabético en español (sin acentos y la ñ tras la n, como localeCompare 'es').
+int es_key(const char*& p) {
+  const unsigned char c = static_cast<unsigned char>(*p);
+  if (c == 0xC3 && p[1]) {
+    const unsigned char d = static_cast<unsigned char>(p[1]);
+    p += 2;
+    switch (d | 0x20) {
+      case 0xA1: return 'a' * 2; case 0xA9: return 'e' * 2; case 0xAD: return 'i' * 2;
+      case 0xB3: return 'o' * 2; case 0xBA: case 0xBC: return 'u' * 2;
+      case 0xB1: return 'n' * 2 + 1;   // ñ
+      default: return 0x200 + d;
+    }
+  }
+  p++;
+  return (c >= 'A' && c <= 'Z' ? c + 32 : c) * 2;
+}
+int es_cmp(const char* a, const char* b) {
+  while (*a && *b) {
+    const int x = es_key(a), y = es_key(b);
+    if (x != y) return x < y ? -1 : 1;
+  }
+  return *a ? 1 : *b ? -1 : 0;
+}
+
+// Movimientos para empezar (G.startChoices), por nombre.
+int start_choices_sorted(int dex, int16_t* out) {
+  const int n = move_start_choices(dex, out, kMaxMoves);
+  for (int a = 1; a < n; ++a) {
+    const int16_t v = out[a];
+    int b = a - 1;
+    while (b >= 0 && es_cmp(kMoves[out[b]].name, kMoves[v].name) > 0) { out[b + 1] = out[b]; --b; }
+    out[b + 1] = v;
+  }
+  return n;
+}
+}  // namespace
 
 void App::in_upgrades(const UiIn& in) {
   if (!s_->owns(up_dex_)) up_dex_ = s_->partner;
@@ -700,9 +748,9 @@ void App::in_upgrades(const UiIn& in) {
   }
   if (scene == SC_BIND) {
     // Atajos: 4 huecos, izquierda/derecha cambia el movimiento.
-    int16_t pool[64];
-    int np = move_pool_for(mon_by_dex(up_dex_)->types, pool, 64);
-    const int st = move_start_for(up_dex_);
+    int16_t pool[kMaxMoves];
+    int np = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves);
+    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
     bool has = false;
     for (int i = 0; i < np; ++i) if (pool[i] == st) has = true;
     if (!has) pool[np++] = int16_t(st);
@@ -723,10 +771,35 @@ void App::in_upgrades(const UiIn& in) {
     if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_COUNT; }
     return;
   }
+  if (scene == SC_START) {
+    // Movimiento inicial (comprado una vez; se elige gratis cuando quieras).
+    int16_t ids[kMaxMoves];
+    const int n = start_choices_sorted(up_dex_, ids);
+    if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - 1);
+    if (in.rep & KEY_DDOWN) cur_ = std::min(n - 1, cur_ + 1);
+    if (cur_ < scroll_) scroll_ = cur_;
+    if (cur_ >= scroll_ + 9) scroll_ = cur_ - 8;
+    bool tap = false;
+    for (int i = 0; i < 9 && scroll_ + i < n; ++i) if (in_rect(&in, 10, 40 + i * 20, 300, 18)) { cur_ = scroll_ + i; tap = true; }
+    if (((in.down & KEY_A) || tap) && n) {
+      const int id = ids[cur_], base = move_base_start_for(up_dex_);
+      s_->pstart[up_dex_] = int8_t(id == base ? -1 : id);
+      // El inicial no puede estar vetado.
+      int8_t* l = s_->pban[up_dex_];
+      for (int k = 0; k < 3; ++k) if (l[k] == id) { for (int q = k; q < 2; ++q) l[q] = l[q + 1]; l[2] = -1; break; }
+      g_->dirty = true;
+      audio::play("select");
+      char b[96];
+      std::snprintf(b, sizeof(b), "%s empezará con %s", mon_by_dex(up_dex_)->name, kMoves[id].name);
+      g_notices.push(b, "", -1);
+    }
+    if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_START; }
+    return;
+  }
   if (scene == SC_BAN) {
-    int16_t pool[64];
-    int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, 64), np = 0;
-    const int st = move_start_for(up_dex_);
+    int16_t pool[kMaxMoves];
+    int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
+    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
     for (int i = 0; i < np0; ++i) if (pool[i] != st) pool[np++] = pool[i];   // el de inicio no se veta
     if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - 1);
     if (in.rep & KEY_DDOWN) cur_ = std::min(np - 1, cur_ + 1);
@@ -755,6 +828,8 @@ void App::in_upgrades(const UiIn& in) {
   if (in.down & KEY_A) {
     if (cur_ == UP_COUNT) { scene = SC_BIND; cur_ = 0; return; }
     uint8_t& lv = s_->pupg[up_dex_][cur_];
+    // Movimiento inicial ya comprado: A abre la lista para elegirlo.
+    if (cur_ == UP_START && lv >= kUpgrades[cur_].max) { scene = SC_START; cur_ = 0; scroll_ = 0; return; }
     if (lv < kUpgrades[cur_].max) {
       const int price = upgrade_cost(cur_, lv);
       if (s_->coins >= price) {
@@ -770,6 +845,7 @@ void App::in_upgrades(const UiIn& in) {
     }
   }
   if ((in.down & KEY_Y) && cur_ == UP_BAN && s_->pupg[up_dex_][UP_BAN] > 0) { scene = SC_BAN; cur_ = 0; scroll_ = 0; }
+  if ((in.down & KEY_Y) && cur_ == UP_START && s_->pupg[up_dex_][UP_START] > 0) { scene = SC_START; cur_ = 0; scroll_ = 0; }
   if (in.down & KEY_B) go(SC_MENU);
 }
 
@@ -791,10 +867,28 @@ void App::bottom_upgrades() {
     r_->text("Arriba/abajo: hueco · izquierda/derecha: movimiento · B: volver", 160, 226, 0.3f, C_MUTED, 1);
     return;
   }
+  if (scene == SC_START) {
+    int16_t ids[kMaxMoves];
+    const int n = start_choices_sorted(up_dex_, ids);
+    const int cur = move_start_for(up_dex_, s_->pstart[up_dex_], true), base = move_base_start_for(up_dex_);
+    r_->text("Elige con qué ataque empieza (gratis, cuando quieras)", 160, 25, 0.34f, C_MUTED, 1);
+    for (int i = 0; i < 9 && scroll_ + i < n; ++i) {
+      const int id = ids[scroll_ + i];
+      const float y = 40 + i * 20;
+      C2D_DrawRectSolid(10, y, 0, 300, 18, scroll_ + i == cur_ ? C_SEL : C_PANEL);
+      const int ic = r_->move_icon[id];
+      if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 14, y + 1, 0);
+      r_->text(kMoves[id].name, 36, y + 2, 0.36f, id == cur ? C_GOLD : C_TEXT);
+      if (id == base) r_->text("(de serie)", 250, y + 3, 0.3f, C_MUTED, 2);
+      if (id == cur) r_->text("ELEGIDO", 304, y + 2, 0.32f, C_GOLD, 2);
+    }
+    r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+    return;
+  }
   if (scene == SC_BAN) {
-    int16_t pool[64];
-    int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, 64), np = 0;
-    const int st = move_start_for(up_dex_);
+    int16_t pool[kMaxMoves];
+    int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
+    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
     for (int i = 0; i < np0; ++i) if (pool[i] != st) pool[np++] = pool[i];
     int cnt = 0;
     for (int k = 0; k < 3; ++k) if (s_->pban[up_dex_][k] >= 0) cnt++;
@@ -833,7 +927,10 @@ void App::bottom_upgrades() {
       r_->text(b, 308, y + 2, 0.38f, s_->coins >= upgrade_cost(k, lv) ? C_GOLD : C2D_Color32(140, 110, 70, 255), 2);
     }
   }
-  r_->text(cur_ == UP_BAN && s_->pupg[up_dex_][UP_BAN] ? "A: comprar · Y: elegir vetados · L/R: Pokémon" : "A: comprar · L/R: otro Pokémon · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  const char* hint = "A: comprar · L/R: otro Pokémon · B: volver";
+  if (cur_ == UP_BAN && s_->pupg[up_dex_][UP_BAN]) hint = "A: comprar · Y: elegir vetados · L/R: Pokémon";
+  if (cur_ == UP_START && s_->pupg[up_dex_][UP_START]) hint = "A o Y: elegir movimiento · L/R: otro Pokémon · B: volver";
+  r_->text(hint, 160, 226, 0.32f, C_MUTED, 1);
 }
 
 // ---------------- gacha ----------------
@@ -1149,6 +1246,10 @@ void App::bottom_settings() {
     r_->text(L[i], 14, y + 3, 0.38f, C_TEXT);
     r_->text(v[i], 306, y + 3, 0.38f, C_GOLD, 2, false);
   }
+  // De qué versión de la web son los datos (reference/web/UPSTREAM, por gen_data).
+  char ver[96];
+  std::snprintf(ver, sizeof(ver), "Versión %s · datos de pokesurvivor.com del %s (%s)", kVersion, kWebBaseDate, kWebBase);
+  r_->text(ver, 160, 215, 0.28f, C_MUTED, 1);
   r_->text("Izquierda/derecha: cambiar · B: guardar y volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
@@ -1216,7 +1317,7 @@ void App::draw_top(float eye) {
         if (n) top_detail(list[std::min(cur_, n - 1)], view_shiny_, s_->owns(list[std::min(cur_, n - 1)]));
         break;
       }
-      case SC_UPGRADES: case SC_BIND: case SC_BAN: {
+      case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: {
         const bool sh = up_dex_ == s_->partner && s_->partner_shiny && s_->owns_shiny(up_dex_);
         draw_mon(up_dex_, sh, 200, 200, 3);
         r_->text(mon_by_dex(up_dex_)->name, 200, 14, 0.6f, C_TEXT, 1);
@@ -1276,7 +1377,7 @@ void App::draw_bottom() {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: bottom_test(); break;
     case SC_MENU: bottom_menu(); break;
     case SC_DEX: bottom_dex(); break;
-    case SC_UPGRADES: case SC_BIND: case SC_BAN: bottom_upgrades(); break;
+    case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: bottom_upgrades(); break;
     case SC_GACHA: bottom_gacha(); break;
     case SC_PULL: bottom_pull(); break;
     case SC_GOALS: bottom_goals(); break;

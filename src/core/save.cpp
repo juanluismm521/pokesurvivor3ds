@@ -23,6 +23,7 @@ void Save::reset() {
   stats = SaveStats();
   for (auto& b : pbind) for (auto& x : b) x = -1;
   for (auto& b : pban) for (auto& x : b) x = -1;
+  for (auto& x : pstart) x = -1;
 }
 
 int Save::owned_count() const { int n = 0; for (int d = 0; d <= kMaxDex; ++d) if (owned_at[d] && mon_by_dex(d)) n++; return n; }
@@ -70,6 +71,7 @@ void save_end_run(Game& g) {
   s.coins += r.coins;
   // (los tickets ya se guardaron al cogerlos)
   s.stats.runs++;
+  if (pl.dex >= 0 && pl.dex <= kMaxDex) s.pused[pl.dex]++;   // para "más usados" en la colección
   s.stats.total_kills += pl.kills;
   s.stats.best_time = std::max(s.stats.best_time, int32_t(std::floor(g.time)));
   s.stats.best_level = std::max(s.stats.best_level, int32_t(pl.level));

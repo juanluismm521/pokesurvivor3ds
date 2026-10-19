@@ -57,7 +57,7 @@ void hazards_update(Game& g, float dt) {
         Player& q = g.players[k];
         if (q.active && !q.dead && hazard_inside(h, q.x, q.y, q.r)) {
           q.invuln = 0;
-          player_hurt(g, q, h.pct > 0 ? std::fmax(h.dmg, q.max_hp * h.pct) : h.dmg, h.type, h.pure);
+          player_hurt(g, q, h.pct > 0 ? std::fmax(h.dmg, q.max_hp * h.pct) : h.dmg, h.type, h.pure, h.cat);
         }
       }
     }

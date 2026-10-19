@@ -83,19 +83,19 @@ float Game::level_xp() {
 static void init_player(Game& g, Player& p, const RunConfig& c) {
   player_init(g, p, c.dex, c.shiny, c);
   // Atajos: movimientos con hueco fijo, antes de aprender nada.
-  for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < 64) p.bind[c.pbind[i]] = int8_t(i);
-  player_add_move(g, p, move_start_for(c.dex));
+  for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < kMaxMoves) p.bind[c.pbind[i]] = int8_t(i);
+  player_add_move(g, p, move_start_for(c.dex, c.pstart, c.upgrades[UP_START] > 0));
   // Mejora "Veto": movimientos que no quieres que te salgan.
   const Perks perks = upgrade_perks(c.upgrades);
-  for (int i = 0; i < 3 && i < perks.bans; ++i) if (c.pban[i] >= 0) p.banned |= 1ull << c.pban[i];
+  for (int i = 0; i < 3 && i < perks.bans; ++i) if (c.pban[i] >= 0) p.banned.set(c.pban[i]);
   // Mejora "Repertorio": un segundo movimiento de ataque al azar.
   if (perks.start_moves >= 2) {
-    int16_t all[64], pool[64];
-    const int na = move_pool_for(p.mon->types, all, 64);
+    int16_t all[kMaxMoves], pool[kMaxMoves];
+    const int na = move_pool_for(p.mon->types, all, kMaxMoves);
     int np = 0;
     for (int i = 0; i < na; ++i) {
       const int id = all[i];
-      if (player_has_move(p, id) || ((p.banned >> id) & 1ull) || kMoves[id].kind == K_BUFF) continue;
+      if (player_has_move(p, id) || p.banned.has(id) || kMoves[id].kind == K_BUFF) continue;
       pool[np++] = int16_t(id);
     }
     if (np) player_add_move(g, p, pool[int(g.rng.next() * np)]);
@@ -149,6 +149,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       std::memcpy(pc.upgrades, m.upgrades, sizeof(pc.upgrades));
       std::memcpy(pc.pbind, m.pbind, sizeof(pc.pbind));
       std::memcpy(pc.pban, m.pban, sizeof(pc.pban));
+      pc.pstart = m.pstart;
     }
     init_player(*this, players[i], pc);
     // En grupo, en fila (coop.js begin).

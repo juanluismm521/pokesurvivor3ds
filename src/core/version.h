@@ -5,7 +5,7 @@ namespace ps {
 
 constexpr const char* kGameTitle = "PokéSurvivor 3DS";
 constexpr const char* kVersion = "0.1.0";
-// Commit de la web (JPTER78/pokesurvivor) del que se copió reference/web.
-constexpr const char* kWebBase = "5bbc3b2";
+// El commit de la web del que salen los datos (kWebBase, kWebBaseDate) lo
+// escribe gen_data desde reference/web/UPSTREAM (ver gamedata.h).
 
 }  // namespace ps

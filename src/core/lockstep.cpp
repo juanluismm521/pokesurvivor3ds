@@ -47,11 +47,11 @@ Input unpack_input(const uint8_t* b) {
 
 static void put_member(W& w, const RunConfig::Member& m) {
   w.u16(uint32_t(m.dex)); w.u8(m.shiny ? 1 : 0);
-  w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.raw(m.name, 16);
+  w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.u8(uint8_t(m.pstart)); w.raw(m.name, 16);
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
-  r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); r.raw(m.name, 16);
+  r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); m.pstart = int8_t(r.u8()); r.raw(m.name, 16);
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }
 }
@@ -167,7 +167,7 @@ void Lockstep::got_hash(int who, int64_t t, uint32_t h) {
 void Lockstep::on_packet(const uint8_t* data, int len, int from) {
   if (!on_ || from < 0 || from >= kMaxPlayers) return;
   R r{data, len};
-  if (r.u32() != kMagic) return;
+  if (r.u32() != wire_magic()) return;
   const uint32_t type = r.u8();
   if (type == MSG_INPUT && host()) {
     const int p = int(r.u8());
@@ -222,7 +222,7 @@ int Lockstep::outbox(Packet* out, int max) {
   if (!on_ || max <= 0) return 0;
   Packet& pk = out[0];
   W w{pk.data, kMaxPacket};
-  w.u32(kMagic);
+  w.u32(wire_magic());
   const int64_t ht = last_hash_tick_;
   const uint32_t hh = ht >= 0 ? my_hash_[(ht / kHashEvery) % kHashRing] : 0;
   if (host()) {

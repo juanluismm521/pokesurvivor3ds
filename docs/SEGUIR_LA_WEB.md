@@ -49,8 +49,10 @@ La única forma de que la lógica se actualizara sola de verdad. Se probó:
 |---|---|---|---|
 | 1-2 enemigos | 26 ms | 10-15 ms | ~40 ms |
 | 10 enemigos | 45 ms | 12 ms | ~58 ms |
-| 64 enemigos (estimado ×65 del VPS) | ~130 ms | ~45 ms | ~175 ms |
+| 35 enemigos | 56 ms | 25 ms | ~81 ms |
+| 61-64 enemigos | 89-113 ms | 34-48 ms | **~137-147 ms (≈7 FPS)** |
 
+(Partida de 100 s con la web de la copia del port; memoria del JS: 4,9 MB.)
 Para 60 FPS hay **16,7 ms** en total (y eso sin dibujar de verdad ni sonido).
 Además, cargar el JS tarda 5-6 s y el reloj del emulador cuenta casi una
 instrucción por ciclo: en la consola real (cachés pequeñas) iría igual o peor.

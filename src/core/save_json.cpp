@@ -134,9 +134,9 @@ std::string save_to_json(const Save& s) {
   const char* item_ids[IT_COUNT];
   for (int i = 0; i < IT_COUNT; ++i) item_ids[i] = kItems[i].id;
   o.set("itemsFound", date_map(s.items_found, IT_COUNT, item_ids));
-  const char* move_ids[64];
-  for (int i = 0; i < 64; ++i) move_ids[i] = i < kMoveCount ? kMoves[i].id : "";
-  o.set("evoMoves", date_map(s.evo_moves, kMoveCount < 64 ? kMoveCount : 64, move_ids));
+  const char* move_ids[kMaxMoves];
+  for (int i = 0; i < kMaxMoves; ++i) move_ids[i] = i < kMoveCount ? kMoves[i].id : "";
+  o.set("evoMoves", date_map(s.evo_moves, kMoveCount, move_ids));
   const char* ach_ids[256];
   for (int i = 0; i < 256; ++i) ach_ids[i] = i < kAchCount ? kAch[i].id : "";
   o.set("ach", date_map(s.ach, kAchCount < 256 ? kAchCount : 256, ach_ids));
@@ -185,6 +185,13 @@ std::string save_to_json(const Save& s) {
   }
   o.set("pbind", std::move(pb));
   o.set("pban", std::move(pn));
+  Json pst = Json::object(), pus = Json::object();
+  for (int d = 0; d <= kMaxDex; ++d) {
+    if (s.pstart[d] >= 0 && s.pstart[d] < kMoveCount) pst.set(num_key(d), Json::str(kMoves[s.pstart[d]].id));
+    if (s.pused[d] > 0) pus.set(num_key(d), Json::num(s.pused[d]));
+  }
+  o.set("pstart", std::move(pst));
+  o.set("pused", std::move(pus));
   return o.dump();
 }
 
@@ -224,7 +231,7 @@ bool save_from_json(Save& s, const std::string& text) {
   for (const auto& kv : o["legends"].items()) { const int d = std::atoi(kv.first.c_str()); if (d > 0 && d <= kMaxDex) s.legends[d] = std::max<int64_t>(1, int64_t(kv.second.as_num(1))); }
   for (int t = 0; t < T_COUNT; ++t) if (o["arenas"].has(kTypeId[t])) s.arenas[t] = std::max<int64_t>(1, int64_t(o["arenas"][kTypeId[t]].as_num(1)));
   for (int i = 0; i < IT_COUNT; ++i) if (o["itemsFound"].has(kItems[i].id)) s.items_found[i] = std::max<int64_t>(1, int64_t(o["itemsFound"][kItems[i].id].as_num(1)));
-  for (int i = 0; i < kMoveCount && i < 64; ++i) if (o["evoMoves"].has(kMoves[i].id)) s.evo_moves[i] = std::max<int64_t>(1, int64_t(o["evoMoves"][kMoves[i].id].as_num(1)));
+  for (int i = 0; i < kMoveCount; ++i) if (o["evoMoves"].has(kMoves[i].id)) s.evo_moves[i] = std::max<int64_t>(1, int64_t(o["evoMoves"][kMoves[i].id].as_num(1)));
   for (int i = 0; i < kAchCount && i < 256; ++i) if (o["ach"].has(kAch[i].id)) s.ach[i] = std::max<int64_t>(1, int64_t(o["ach"][kAch[i].id].as_num(1)));
   const Json& mi = o["missions"];
   if (mi.is_obj()) {
@@ -269,6 +276,16 @@ bool save_from_json(Save& s, const std::string& text) {
       for (int q = 0; q < n; ++q) if (s.pban[d][q] == mi2) dup = true;
       if (!dup) s.pban[d][n++] = int8_t(mi2);
     }
+  }
+  // Movimiento inicial y partidas por Pokémon.
+  for (const auto& kv : o["pstart"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d < 0 || d > kMaxDex || !kv.second.is_str()) continue;
+    s.pstart[d] = int8_t(move_index(kv.second.as_str().c_str()));
+  }
+  for (const auto& kv : o["pused"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d >= 0 && d <= kMaxDex) s.pused[d] = n0(kv.second);
   }
   return true;
 }

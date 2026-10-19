@@ -54,3 +54,56 @@ TEST_CASE("sim: partidas enteras sin errores ni topes superados") {
     if (immortal && secs >= 1820) CHECK(s.judged);
   }
 }
+
+// Cada movimiento de la web (también las familias nuevas: persiguen, rebotan,
+// cargan, giran, terremoto, remolino, empujón, aturdir) se usa un rato, al
+// nivel 5 y evolucionado si puede: sin NaN ni topes superados, y los que
+// hacen daño, lo hacen.
+TEST_CASE("sim: cada movimiento de la web se usa sin errores") {
+  std::unique_ptr<Game> g(new Game());
+  int sin_dano = 0;
+  for (int id = 0; id < kMoveCount; ++id) {
+    bool armed = false;
+    SimHook hook = [&](Game& gg) {
+      Player& p = gg.pl();
+      if (armed) { p.active_slot = 0; return; }
+      armed = true;
+      p.moves[0] = move_instance(id, 5);
+      move_evolve(p.moves[0]);
+      p.moves[0].since = float(gg.time);
+      p.nmoves = 1; p.nslots = 1; p.slot_n[0] = 1; p.slots[0][0] = 0; p.active_slot = 0;
+      p.max_moves = 1;   // (las cartas sólo mejoran: no aprende otros)
+      proj_clear_orbs(gg, 0);
+    };
+    const SimStats s = sim_run(*g, 900 + uint32_t(id), 25, 35, true, &hook);
+    CHECK_MESSAGE(!s.nan, kMoves[id].id);
+    CHECK(s.max_proj < kMaxProjectiles);
+    CHECK(s.max_fields < kMaxFields);
+    if (kMoves[id].kind != K_BUFF && g->pl().moves[0].dealt <= 0) {
+      std::printf("[sim] %s (%s) no ha hecho daño en 35 s\n", kMoves[id].id, kKindId[kMoves[id].kind]);
+      sin_dano++;
+    }
+  }
+  CHECK(sin_dano == 0);
+}
+
+// Mejora "Movimiento inicial" (starters.js: startChoices / startMoveOf).
+TEST_CASE("movimiento inicial: el elegido con la mejora, y si no el de serie") {
+  const int wp = move_index("whirlpool"), wg = move_index("water-gun");
+  REQUIRE(wp >= 0);
+  CHECK(move_base_start_for(130) == move_start_for(130));
+  CHECK(move_start_for(130, wp, true) == wp);
+  CHECK(move_start_for(130, wp, false) == move_base_start_for(130));   // sin la mejora comprada
+  CHECK(move_start_for(25, wp, true) == move_base_start_for(25));      // no es de los suyos
+  int16_t ch[kMaxMoves];
+  const int n = move_start_choices(54, ch, kMaxMoves);                   // Psyduck: Confusión de serie aunque sea Agua
+  bool base = false, buff = false;
+  for (int i = 0; i < n; ++i) { if (ch[i] == move_base_start_for(54)) base = true; if (kMoves[ch[i]].kind == K_BUFF) buff = true; }
+  CHECK(base);
+  CHECK(!buff);
+  std::unique_ptr<Game> g(new Game());
+  RunConfig cfg; cfg.dex = 130; cfg.seed = 3; cfg.pstart = int8_t(wp); cfg.upgrades[UP_START] = 1;
+  g->start_run(cfg);
+  CHECK(g->pl().moves[0].def == wp);
+  (void)wg;
+}

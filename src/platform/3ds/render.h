@@ -36,7 +36,7 @@ struct Renderer {
   int rift_idx[4];
   int vfx_idx[SH_COUNT][PAL_COUNT][3];
   int type_icon[T_COUNT];
-  int move_icon[64];
+  int move_icon[kMaxMoves];
   int ui_icon[16];
 
   bool init();

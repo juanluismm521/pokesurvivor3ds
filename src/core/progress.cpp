@@ -297,7 +297,7 @@ void progress_emit(Save& s, const ProgEvent& e, int64_t now_ms, bool check_ach) 
       break;
     case EV_EVOLVE:
       S.evolutions++;
-      if (e.id >= 0 && e.id < 64 && !s.evo_moves[e.id]) s.evo_moves[e.id] = now;
+      if (e.id >= 0 && e.id < kMaxMoves && !s.evo_moves[e.id]) s.evo_moves[e.id] = now;
       break;
     case EV_ITEM:
       if (e.id >= 0 && e.id < IT_COUNT && !s.items_found[e.id]) s.items_found[e.id] = now;

@@ -45,12 +45,14 @@ struct Save {
   uint8_t pupg[kMaxDex + 1][UP_COUNT] = {};   // mejoras de cada Pokémon
   int8_t pbind[kMaxDex + 1][4];          // Atajos: movimiento por hueco (-1 nada)
   int8_t pban[kMaxDex + 1][3];           // Veto
+  int8_t pstart[kMaxDex + 1];            // Movimiento inicial elegido (-1: el de serie)
+  int32_t pused[kMaxDex + 1] = {};       // partidas jugadas con cada Pokémon
   int32_t t1 = 0, t10 = 0;               // tickets
   int32_t pity[10] = {};                 // por generación del banner
   int64_t legends[kMaxDex + 1] = {};
   int64_t arenas[T_COUNT] = {};
   int64_t items_found[IT_COUNT] = {};
-  int64_t evo_moves[64] = {};
+  int64_t evo_moves[kMaxMoves] = {};
   int64_t ach[256] = {};
   // Misiones: día y semana (claves de fecha) y las sorteadas.
   char m_day[16] = "", m_week[16] = "";

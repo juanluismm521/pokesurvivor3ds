@@ -18,6 +18,11 @@ namespace {
 constexpr float ARENA_R = 24;
 constexpr float BOSS_EVERY = 5;
 constexpr float TOUCH = 0.4f;
+// Contra la huida sin fin (18-10-2026): velocidad con tope suave (game.h,
+// judgment_cap_spd), legendarios al menos al 80 % de vuestra velocidad, Arceus
+// acelera sin tope desde los 5 min de Sentencia y desde los 7 su toque quita
+// cada vez más, hasta el 100 % a los 10.
+float touch_pct(float arena_t) { return std::fmin(1.0f, TOUCH + std::fmax(0.0f, arena_t - 420) / 180 * (1 - TOUCH)); }
 constexpr int ARCEUS = 493;
 constexpr float SCALE = 1.5f;
 constexpr float T_TITLE = 1.3f, T_FLASH = 4.7f, T_PORT = 5.1f, T_DESC = 5.7f, T_LAND = 7.9f, T_BACK = 9.1f, T_END = 10.1f;
@@ -213,7 +218,7 @@ void arceus_tick(Game& g, float dt) {
   if (j.acast >= 0) { cast_tick(g, dt, tg); return; }
   if (!tg) { j.aanim.loop(A_IDLE); return; }
   // Más lento que tú al principio; a los ~35 s ya te alcanza.
-  const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f);
+  const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) + std::fmax(0.0f, j.arena_t - 300) * 0.0015f;
   const float spd = std::fmax(70.0f, player_spd(g, *tg) * k);
   float dx, dy;
   norm(tg->x - j.ax, tg->y - j.ay, dx, dy);
@@ -239,7 +244,7 @@ void touch(Game& g, Player& pl) {
   if (dist2(j.ax, j.ay, pl.x, pl.y) > rr * rr) return;
   j.touch_cd = 0.9f;
   pl.invuln = 0;
-  player_hurt(g, pl, pl.max_hp * TOUCH, T_NONE, true);
+  player_hurt(g, pl, pl.max_hp * touch_pct(j.arena_t), T_NONE, true);
   g.camera.kick(0.6f);
   g.fx.ring(pl.x, pl.y, 6, 70, GOLD, 0.4f, 4);
   j.aanim.play(A_ATTACK, 1.4f);
@@ -283,7 +288,9 @@ void spawn_boss(Game& g) {
   EnemyDef def;
   def.dex = int16_t(dex);
   def.hp = float(jsround(j.base * k));
-  def.spd = float(jsround(clamp(48 + (mon->spd - 78) * 0.6f, 48.0f, 105.0f)));
+  float fast = 0;
+  for (int q = 0; q < g.nplayers; ++q) if (g.players[q].active && !g.players[q].dead) fast = std::fmax(fast, player_spd(g, g.players[q]));
+  def.spd = float(jsround(std::fmax(clamp(48 + (mon->spd - 78) * 0.6f, 48.0f, 105.0f), fast * 0.8f)));
   def.dmg = float(jsround((36 + t / 20) * k));
   def.xp = float(jsround(500 + t * 1.2f));
   def.behavior = is_one_of(*mon, {T_PSYCHIC, T_ELECTRIC, T_GHOST, T_FAIRY, T_FIRE, T_WATER, T_ICE, T_DRAGON}) ? BH_RANGED : BH_CHARGER;

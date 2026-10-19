@@ -36,7 +36,8 @@ struct Autotest {
   int dex = 25;
   bool immortal = true;
   bool tour = false;
-  float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
+  float warp = 0;
+  char move[24] = "";   // empezar con este movimiento (id de la web), para ver las familias nuevas   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
   bool coop = false, host = false, online = false;
   bool look = false;                // "coop mirar …": sólo busca salas (para ver la pantalla)
   bool die = false;                 // "morir": se deja caer y, cuando le levantan, se cierra
@@ -72,7 +73,7 @@ void read_autotest(Autotest& a) {
       if (!std::strcmp(extra, "morir")) a.die = true;
     }
   }
-  else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f", &a.seconds, &a.dex, &imm, &a.warp) >= 1) a.immortal = imm != 0; }
+  else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f %23s", &a.seconds, &a.dex, &imm, &a.warp, a.move) >= 1) a.immortal = imm != 0; }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
   a.log = std::fopen(path, "w");
@@ -169,8 +170,9 @@ int main() {
     app.auto_look = at.look;
     if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {
-    app.set_autotest(at.dex, at.immortal, at.warp);
+    app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
+    if (at.log && at.move[0]) std::fprintf(at.log, "empieza con %s (%d): %s\n", at.move, move_index(at.move), kMoves[g->pl().moves[0].def].id);
     if (at.log) {
       std::fprintf(at.log, "precargados %d Pokémon · %lu KB de sprites · memoria libre %lu KB · partida lista en %lu ms\n", r.sprites.loaded(),
                    (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024), (unsigned long)app.start_ms);

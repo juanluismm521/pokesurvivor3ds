@@ -4,6 +4,7 @@
 //   Abajo (320×240, táctil): vida, nivel, reloj, movimientos y las elecciones
 //   (cartas de nivel, objeto, vínculo), pausa y resumen.
 #include "platform/3ds/render.h"
+#include "core/stats.h"
 
 #include <algorithm>
 #include <cmath>
@@ -103,7 +104,7 @@ bool Renderer::init() {
         vfx_idx[s][p][f] = vfx.find(name);
       }
   for (int t = 0; t < T_COUNT; ++t) { std::snprintf(name, sizeof(name), "type:%s", kTypeId[t]); type_icon[t] = icons.find(name); }
-  for (int m = 0; m < kMoveCount && m < 64; ++m) { std::snprintf(name, sizeof(name), "move:%s", kMoves[m].id); move_icon[m] = icons.find(name); }
+  for (int m = 0; m < kMoveCount; ++m) { std::snprintf(name, sizeof(name), "move:%s", kMoves[m].id); move_icon[m] = icons.find(name); }
   static const char* const UI[16] = {"heart", "coin", "ticket", "ticket10", "berry", "magnet", "bomb", "shiny", "shield", "friends", "clock", "star", "bond", "cards", "up", "book"};
   for (int i = 0; i < 16; ++i) ui_icon[i] = icons.find(UI[i]);
   return true;
@@ -387,7 +388,20 @@ void Renderer::draw_top(Game& g, float eye) {
   for (const Field& f : g.fields) {
     if (!cam.sees(f.x, f.y, 60)) continue;
     const float x = v.sx(f.x), y = v.sy(f.y), r = f.r * 0.5f;
-    if (f.kind == FK_PATCH) {
+    if (f.kind == FK_VORTEX) {
+      // Remolino: mancha de su color y tres arcos que giran.
+      const float a = std::fmin(1.0f, std::fmin((f.life - f.t) * 2, f.t * 6));
+      ellipse(x, y, r, r * 0.6f, rgbf(f.col, 0.22f * a));
+      for (int k = 0; k < 3; ++k) {
+        const float rr = r * (0.35f + k * 0.28f), a0 = now * (3 - k * 0.6f) + k * 2;
+        dot_ring(x, y, rr, rr * 0.6f, 1, rgbf(f.col, 0.6f * a), a0, a0 + 3.4f);
+      }
+    } else if (f.kind == FK_STUNZONE) {
+      // Aviso de la zona de aturdir: se llena hasta que estalla.
+      const float k = clamp(f.t / f.delay, 0.0f, 1.0f);
+      ellipse(x, y, r * k, r * k * 0.6f, rgbf(f.col, 0.15f + 0.25f * k));
+      dot_ring(x, y, r, r * 0.6f, 1, rgbf(f.col, 0.8f));
+    } else if (f.kind == FK_PATCH) {
       const float a = std::fmin(1.0f, std::fmin((f.life - f.t) * 2, f.t * 6));
       ellipse(x, y, r, r * 0.62f, rgbf(f.col, 0.32f * a));
       dot_ring(x, y, r * 0.8f, r * 0.5f, 1, rgbf(f.col, 0.5f * a));
@@ -483,6 +497,13 @@ void Renderer::draw_top(Game& g, float eye) {
         const float lift = ((e.flying && !e.boss) ? 1 + std::sin(e.bob) * 1.5f : 0) + e.jump_lift;
         draw_sprite(e.anim, x, v.sy(e.y - lift), e.flash > 0 ? 1 : 0, alpha);
         if (e.dead) break;
+        // Aturdido: estrellitas girando sobre la cabeza.
+        if (e.stun_t > 0) {
+          for (int i = 0; i < 3; ++i) {
+            const float a = now * 5 + i * 2.094f;
+            draw_shape(SH_STAR, T_ELECTRIC, 0, x + std::cos(a) * 4.5f, v.sy(e.y - lift - e.body_h - 6 + std::sin(a) * 3), 0, 0.6f, 1);
+          }
+        }
         if (e.shield > 0) {
           ellipse(x, y - e.body_h * 0.225f, r * 1.5f, e.body_h * 0.325f, C2D_Color32(127, 200, 255, 36));
           dot_ring(x, y - e.body_h * 0.225f, r * 1.5f, e.body_h * 0.325f, 1, rgbf(0x9fd8ff, 0.4f));
@@ -505,13 +526,14 @@ void Renderer::draw_top(Game& g, float eye) {
         const float x = v.sx(p.x), y = v.sy(p.y), r = p.r * 0.5f;
         if (p.slot_n[p.active_slot] && !p.dead)
           dot_ring(x, y, r * 1.5f, r * 0.6f, 1, rgbf(kTypeColor[p.moves[p.slots[p.active_slot][0]].type()], 0.4f));
-        const float sr = (shadow_size(p.dex) == 0 ? 5 : shadow_size(p.dex) == 1 ? 8 : 12);
+        const float sr = (shadow_size(p.dex) == 0 ? 5 : shadow_size(p.dex) == 1 ? 8 : 12) * p.scale;
         ellipse(x, y, sr, sr * 0.42f, C2D_Color32(0, 0, 0, 87));
         if (p.power.def >= 0 && !p.dead)
           dot_ring(x, y, r * 2.1f, r * 0.85f, 2, rgbf(kPowers[p.power.def].color, 0.35f + std::sin(now * 8.3f) * 0.15f));
         const float alpha = p.invuln > 0 && !p.dead ? (int(std::floor(p.invuln * 18)) % 2 ? 0.45f : 1) : 1;
         draw_sprite(p.anim, x, y, p.flash > 0 ? 2 : 0, alpha);
-        static const uint32_t BC[BS_COUNT] = {0xff6b4d, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
+        // (atk, patk, satk, spd, def, regen)
+        static const uint32_t BC[BS_COUNT] = {0xff6b4d, 0xff6b4d, 0xc47bff, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
         int bi = 0;
         for (int b = 0; b < BS_COUNT; ++b) {
           if (p.buffs[b].n <= 0) continue;
@@ -887,14 +909,14 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
   text(t, 312, 6, 0.7f, C2D_Color32(255, 255, 255, 240), 2);
   // Potenciadores (al lado de la vida).
   {
-    static const char* const LBL[BS_COUNT] = {"ATK", "VEL", "DEF", "REG"};
-    static const uint32_t COL[BS_COUNT] = {0xff6b4d, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
+    static const char* const LBL[BS_COUNT] = {"ATK", "ATK", "AT.E", "VEL", "DEF", "REG"};
+    static const uint32_t COL[BS_COUNT] = {0xff6b4d, 0xff6b4d, 0xc47bff, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
     float bx = 238;
     for (int k = 0; k < BS_COUNT; ++k) {
       if (p.buffs[k].n <= 0) continue;
       std::snprintf(b, sizeof(b), "%s×%d", LBL[k], p.buffs[k].n);
       text(b, bx, 28, 0.34f, rgb(COL[k]), 0);
-      bx += 26;
+      bx += text_width(b, 0.34f) + 4;
     }
   }
 
@@ -926,7 +948,15 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       char tag[64] = "";
       int ic = -1;
       uint32_t col = 0x8fa3c4;
-      if (c.type == CT_NEW) { title = kMoves[c.move].name; desc = kMoves[c.move].desc; std::snprintf(tag, sizeof(tag), "%s", kTypeName[kMoves[c.move].type]); ic = move_icon[c.move]; col = kTypeColor[kMoves[c.move].type]; }
+      char fit[40] = "";
+      if (c.type == CT_NEW) {
+        const MoveDef& d = kMoves[c.move];
+        title = d.name; desc = d.desc; ic = move_icon[c.move]; col = kTypeColor[d.type];
+        // Tipo · Físico/Especial, y si es de su lado flojo, cuánto rinde (stats.h).
+        std::snprintf(tag, sizeof(tag), "%s%s", kTypeName[d.type], d.cat == CAT_PHYSICAL ? " · Físico" : d.cat == CAT_SPECIAL ? " · Especial" : "");
+        const float f = stats_fit(p.mon, d.cat);
+        if (f < 0.95f) std::snprintf(fit, sizeof(fit), "rinde un %d %%", int(jsround(f * 100)));
+      }
       else if (c.type == CT_UP) { const MoveInst& m = p.moves[c.move]; title = m.name(); desc = move_next_up_text(m); std::snprintf(tag, sizeof(tag), "Nv.%d > %d", m.lvl, m.lvl + 1); ic = move_icon[m.def]; col = kTypeColor[m.type()]; }
       else if (c.type == CT_EVO) {
         const MoveInst& m = p.moves[c.move];
@@ -942,6 +972,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + 6, 0, nullptr, 28.0f / icons.sub(ic).width, 28.0f / icons.sub(ic).width);
       text(title, 50, y + 3, 0.45f, C2D_Color32(240, 244, 255, 255), 0);
       text(tag, 304, y + 4, 0.34f, rgb(col), 2);
+      if (fit[0]) text(fit, 304, y + 14, 0.3f, rgb(0xff8a8a), 2);
       text(desc ? desc : "", 50, y + 21, 0.32f, rgb(0xb7c4dc), 0, false);
     }
     const int left = 1 + p.reroll_bonus - p.rerolls;
@@ -976,8 +1007,38 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     }
     text("A: elegir", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_PAUSED) {
-    text("PAUSA", 160, 90, 0.9f, rgb(0xffcb3d), 1);
-    text("START: seguir · SELECT: abandonar la partida", 160, 130, 0.4f, rgb(0xeaf2ff), 1);
+    // Resumen de la partida (pauseSummary de run-ui.js): ataques con su
+    // categoría, daño hecho y daño por segundo, y las estadísticas.
+    text("PAUSA", 160, 44, 0.6f, rgb(0xffcb3d), 1);
+    text("Ataque", 12, 64, 0.32f, rgb(0x8fa3c4), 0);
+    text("Daño", 236, 64, 0.32f, rgb(0x8fa3c4), 2);
+    text("por seg.", 308, 64, 0.32f, rgb(0x8fa3c4), 2);
+    for (int i = 0; i < p.nmoves && i < 8; ++i) {
+      const MoveInst& m = p.moves[i];
+      const float y = 78 + i * 13;
+      const int ic = move_icon[m.def];
+      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 10, y, 0, nullptr, 0.75f, 0.75f);
+      std::snprintf(b, sizeof(b), "%s Nv.%d", m.name(), m.lvl);
+      text(b, 24, y, 0.32f, rgb(0xeaf2ff), 0);
+      const int cat = m.cat();
+      text(cat == CAT_PHYSICAL ? "Físico" : cat == CAT_SPECIAL ? "Especial" : "Mejora", 168, y, 0.3f, rgb(cat < 0 ? 0x8fa3c4 : kTypeColor[m.type()]), 1);
+      if (cat >= 0) {
+        const float secs = std::fmax(5.0f, float(g.time) - m.since);
+        std::snprintf(b, sizeof(b), "%d", int(jsround(m.dealt)));
+        text(b, 236, y, 0.32f, rgb(0xeaf2ff), 2);
+        std::snprintf(b, sizeof(b), "%d/s", int(jsround(m.dealt / secs)));
+        text(b, 308, y, 0.32f, rgb(0xffd23f), 2);
+      }
+    }
+    // Ataque físico y especial (con sus danzas) y defensas.
+    const float ap = player_atk(p) * stats_fit(p.mon, CAT_PHYSICAL) * (1 + p.buffs[BS_PATK].n * p.buffs[BS_PATK].amount);
+    const float as = player_atk(p) * stats_fit(p.mon, CAT_SPECIAL) * (1 + p.buffs[BS_SATK].n * p.buffs[BS_SATK].amount);
+    std::snprintf(b, sizeof(b), "Ataque ×%.2f · At. Esp. ×%.2f · Defensa %d · Def. Esp. %d", ap, as, p.mon->df, p.mon->sd);
+    for (char* c = b; *c; ++c) if (*c == '.' && c[1] >= '0' && c[1] <= '9' && c > b && c[-1] >= '0' && c[-1] <= '9') *c = ',';
+    text(b, 160, 186, 0.3f, rgb(0xb7c4dc), 1);
+    std::snprintf(b, sizeof(b), "Velocidad %d · Reducción %d %% · Regeneración %.1f/s", int(jsround(player_spd(g, p))), int(jsround(player_reduction(p) * 100)), player_regen(p));
+    text(b, 160, 199, 0.3f, rgb(0xb7c4dc), 1);
+    text("START: seguir · SELECT: abandonar la partida", 160, 220, 0.36f, rgb(0xeaf2ff), 1);
   } else if (g.state == ST_OVER) {
     const RunSummary& s = g.summary;
     text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);

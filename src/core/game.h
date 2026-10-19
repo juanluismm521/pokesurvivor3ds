@@ -92,6 +92,7 @@ struct Player {
   float atk_mul = 1, spd_mul = 1, cd_mul = 1, dmg_reduce = 0, regen_flat = 0;
   float magnet = 78, xp_mul = 1, coin_mul = 1;
   float max_hp = 100, hp = 100, base_spd = 100, base_atk = 1;
+  float scale = 1;              // los grandes se dibujan algo más pequeños (player_scale)
 
   MoveInst moves[8];
   int nmoves = 0;
@@ -108,8 +109,8 @@ struct Player {
   int kills = 0, bosses = 0;
   int rerolls = 0, reroll_bonus = 0;
   float crit = 0;
-  uint64_t banned = 0;          // bit por movimiento (Veto)
-  int8_t bind[64];              // movimiento → hueco fijo (Atajos) o -1
+  MoveBits banned;              // bit por movimiento (Veto)
+  int8_t bind[kMaxMoves];       // movimiento → hueco fijo (Atajos) o -1
   int coins = 0, t1 = 0, t10 = 0;
   double dmg_dealt = 0;
 
@@ -210,6 +211,8 @@ struct Enemy {
   int8_t behavior = BH_CHASE;
   int8_t types[2] = {T_NORMAL, T_NONE};
   int8_t atk_type = T_NORMAL;
+  const Mon* mon = nullptr;     // sus Defensas (stats.h)
+  int8_t cat = CAT_PHYSICAL;    // pega con su lado fuerte: físico o especial
   bool flying = false;
   float flash = 0;
   float slow = 0, slow_t = 0;
@@ -228,6 +231,8 @@ struct Enemy {
   float spark_t = 0;
   Scale3 sc;
   float shield = 0, shield_t = 0;
+  float rd = 0;                 // jefes: daño recibido hace poco (bossDps = rd / 6)
+  float stun_t = 0;             // aturdido: quieto y sin atacar
   float skill_cd = 0;
   int32_t minions[8];
   int nminions = 0;
@@ -254,6 +259,10 @@ struct Projectile {
   uint32_t color = 0xffffff;
   float homing = 0, slow = 0, burn = 0, poison = 0, knock = 0;
   int8_t mtype = T_NONE;
+  int8_t mcat = CAT_NONE;       // físico / especial (la defensa que lo para)
+  int8_t bounce = 0;            // rebotes que le quedan (K_BOUNCE)
+  float drain = 0;              // vida que cura al dueño al dar (Beso Drenaje)
+  int8_t src = -1;              // movimiento del dueño (índice en moves): daño para el resumen
   int8_t vis_proj = SH_BALL, vis_pal = T_NORMAL, vis_trail = TR_NONE;
   bool has_vis = false;
   int8_t owner = 0;
@@ -287,7 +296,9 @@ struct Pickup {
 };
 
 // ---------------- campos (minas, meteoros, torretas, charcos) ----------------
-enum FieldKind : int8_t { FK_MINE, FK_METEOR, FK_TURRET, FK_PATCH };
+enum FieldKind : int8_t { FK_MINE, FK_METEOR, FK_TURRET, FK_PATCH,
+                          // familias nuevas (2026-10-19)
+                          FK_CHARGE, FK_SPIN, FK_QUAKE, FK_VORTEX, FK_STUNZONE };
 struct Field {
   int8_t kind = FK_MINE;
   int8_t owner = 0;
@@ -298,6 +309,10 @@ struct Field {
   float x = 0, y = 0, t = 0;
   float arm = 0, life = 0, r = 0, dmg = 0;
   float fall = 0, shot_t = 0, kick = 0, tick = 0;
+  // familias nuevas: carga (at), giro y terremoto (n, next, a / i, ca, sa),
+  // remolino (pull) y zona de aturdir (delay)
+  float at = 0, next = 0, a = 0, ca = 0, sa = 0, pull = 0, delay = 0;
+  int8_t n = 0, i = 0;
 };
 
 // ---------------- peligros con aviso ----------------
@@ -307,6 +322,7 @@ struct Hazard {
   float x = 0, y = 0, r = 0, angle = 0, len = 0, w = 0;
   float delay = 0, dmg = 0, pct = 0, t = 0, end = 0.3f;
   int8_t type = T_NONE;
+  int8_t cat = CAT_NONE;        // la defensa tuya que lo para (la del enemigo que lo lanza)
   bool pure = false, hit = false;
   uint32_t color = 0;
 };
@@ -350,6 +366,7 @@ struct RunConfig {
   uint8_t upgrades[UP_COUNT] = {};
   int8_t pbind[4] = {-1, -1, -1, -1};   // movimientos con hueco fijo
   int8_t pban[3] = {-1, -1, -1};
+  int8_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
   uint32_t seed = 1;
   int judged = 0;                        // veces que ha visto la Sentencia (saltar animación)
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
@@ -361,6 +378,7 @@ struct RunConfig {
     uint8_t upgrades[UP_COUNT] = {};
     int8_t pbind[4] = {-1, -1, -1, -1};
     int8_t pban[3] = {-1, -1, -1};
+    int8_t pstart = -1;
     char name[16] = {};
   };
   int nplayers = 1;
@@ -478,6 +496,7 @@ struct Game {
     int16_t dex = 0; bool shiny = false; int8_t type = 0; int back_biome = 0;
     float at = 0; int8_t phase = 0; float end_t = 0; int32_t boss_id = 0;
     float check_t = 30; bool asked = false; float down_t = 0; int misses = 0;
+    bool zone = false; float zone_x = 0, zone_y = 0, zone_r = 0;   // dónde estaba la última arena (leftBehind)
   } rift;
 
   struct JudgmentState {
@@ -526,7 +545,7 @@ bool player_add_move(Game& g, Player& p, int def);
 bool player_has_move(const Player& p, int def);
 void player_set_active(Game& g, Player& p, int i);
 void player_cycle(Game& g, Player& p, int dir);
-void player_hurt(Game& g, Player& p, float amount, int type = T_NONE, bool pure = false);
+void player_hurt(Game& g, Player& p, float amount, int type = T_NONE, bool pure = false, int cat = CAT_NONE);
 void player_heal(Game& g, Player& p, float amount);
 void player_add_max_hp(Player& p, float amount);
 int player_gain_xp(Player& p, float amount);
@@ -536,6 +555,8 @@ void player_add_buff(Player& p, int stat, float amount, float dur, int max_stack
 void player_cast(Game& g, Player& p, const MoveInst* m, int kind, float cd);
 void player_revive(Game& g, Player& p, float frac);
 float player_atk(const Player& p);
+float player_atk_for(const Player& p, const MoveInst& m);   // atkFor
+bool player_mono_type(const Player& p, int type);
 float player_spd(Game& g, const Player& p);
 float player_reduction(const Player& p);
 float player_regen(const Player& p);
@@ -548,6 +569,7 @@ void enemy_make_shiny(Game& g, Enemy& e);
 void enemy_make_golden(Enemy& e);
 void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x = 0, float dir_y = 0, float knock = 0, int eff = 0);
 void enemy_apply_slow(Enemy& e, float factor, float dur = 1.2f);
+void enemy_apply_stun(Enemy& e, float dur);
 void enemy_apply_burn(Enemy& e, float stacks = 1);
 void enemy_apply_poison(Enemy& e, float stacks = 1);
 void enemy_die(Game& g, Enemy& e);
@@ -609,6 +631,10 @@ float weather_level(const Game& g);
 void weather_force(Game& g, int kind, float dur);
 void weather_clear(Game& g);
 // rift.cpp
+// ¿Sigue este jugador en la arena aunque ya se haya vuelto al mapa? (leftBehind)
+inline bool rift_left_behind(const Game& g, const Player& p) {
+  return !g.rift.arena && g.rift.zone && dist2(p.x, p.y, g.rift.zone_x, g.rift.zone_y) < g.rift.zone_r * g.rift.zone_r;
+}
 void rift_reset(Game& g);
 void rift_update(Game& g, float dt);
 float rift_time_left(const Game& g);
@@ -619,6 +645,8 @@ void judgment_update(Game& g, float dt);
 void judgment_cine_tick(Game& g, float dt);
 void judgment_note_dmg(Game& g, float d, const Enemy& e);
 bool judgment_active(const Game& g);
+// Velocidad con tope suave en la Sentencia: lo que pase de 130 cuenta un 25 %.
+inline float judgment_cap_spd(float s) { return s <= 130 ? s : 130 + (s - 130) * 0.25f; }
 bool judgment_cinematic(const Game& g);
 // pathing.cpp
 void path_update(Game& g, float dt);

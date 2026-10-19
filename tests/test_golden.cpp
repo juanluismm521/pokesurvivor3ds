@@ -2,6 +2,8 @@
 // original de la web (tools/golden/golden.js lo ejecuta con node).
 #include <doctest/doctest.h>
 
+#include "core/stats.h"
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -182,6 +184,27 @@ TEST_CASE("dorado: Pokédex (personalidad, cuerpo y movimiento inicial)") {
     CHECK(move_start_for(m->dex) == d[i][4].as_int());
   }
   CHECK(bad == 0);
+  // Físico/especial, tamaño de los grandes y movimientos para empezar.
+  const Json& st = golden()["stats"];
+  REQUIRE(int(st.size()) == kDexCount);
+  int bad_choices = 0;
+  for (size_t i = 0; i < st.size(); ++i) {
+    const Json& r = st[i];
+    const Mon* m = mon_by_dex(int(r[0].as_int()));
+    CHECK(stats_taken(m, CAT_PHYSICAL) == doctest::Approx(r[1].as_num()).epsilon(1e-5));
+    CHECK(stats_taken(m, CAT_SPECIAL) == doctest::Approx(r[2].as_num()).epsilon(1e-5));
+    CHECK(stats_side_of(m) == (r[3].as_int() ? CAT_SPECIAL : CAT_PHYSICAL));
+    CHECK(stats_fit(m, CAT_PHYSICAL) == doctest::Approx(r[4].as_num()).epsilon(1e-5));
+    CHECK(stats_fit(m, CAT_SPECIAL) == doctest::Approx(r[5].as_num()).epsilon(1e-5));
+    CHECK(player_scale(m->dex) == doctest::Approx(r[6].as_num()).epsilon(1e-6));
+    CHECK(player_radius(m->dex) == doctest::Approx(r[7].as_num()).epsilon(1e-5));
+    int16_t ch[kMaxMoves];
+    const int n = move_start_choices(m->dex, ch, kMaxMoves);
+    bool same = size_t(n) == r[8].size();
+    for (int k = 0; same && k < n; ++k) same = ch[k] == r[8][k].as_int();
+    if (!same) bad_choices++;
+  }
+  CHECK(bad_choices == 0);
   const Json& f = golden()["defFor"];
   for (size_t i = 0; i < f.size(); ++i) {
     const Json& r = f[i];
@@ -218,8 +241,8 @@ TEST_CASE("dorado: movimientos (5 niveles y evolución)") {
   const Json& pool = golden()["pool"];
   for (size_t i = 0; i < pool.size(); ++i) {
     int8_t types[2] = {int8_t(pool[i][0][0].as_int()), int8_t(pool[i][0].size() > 1 ? pool[i][0][1].as_int() : -1)};
-    int16_t out[64];
-    const int n = move_pool_for(types, out, 64);
+    int16_t out[kMaxMoves];
+    const int n = move_pool_for(types, out, kMaxMoves);
     REQUIRE(size_t(n) == pool[i][1].size());
     for (int k = 0; k < n; ++k) CHECK(out[k] == pool[i][1][k].as_int());
   }

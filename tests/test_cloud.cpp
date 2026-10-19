@@ -67,6 +67,7 @@ Json future_web_save() {
     "stats": {"runs": 4, "bestTime": 300, "estadisticaNueva": 12},
     "led": {"base": {"c": [500, 0], "t1": [0, 0], "t10": [0, 0]}, "dweb": {"c": [400, 0], "t1": [2, 0], "gemas": [30, 5]}},
     "pbind": {"25": ["movimiento-nuevo", null, null, null]}, "pban": {},
+    "dfav": {"1100": 1800000000500}, "pused": {"25": 4, "1100": 2}, "pstart": {"1100": "movimiento-nuevo"},
     "medallas": {"oro": 1700000000500}
   })"));
   return s;
@@ -118,6 +119,9 @@ TEST_CASE("sincronizar: una web más nueva no pierde nada al pasar por la 3DS") 
   CHECK(cloud_save["led"]["dweb"]["gemas"][0].as_num() == 30);
   CHECK(cloud_save["medallas"]["oro"].as_num() == 1700000000500.0);
   CHECK(web::from_firestore(fs.doc["rango"]).as_num() == 5);   // campo nuevo del documento
+  CHECK(cloud_save["pstart"]["1100"].as_str() == "movimiento-nuevo");   // movimiento inicial de un Pokémon "nuevo"
+  CHECK(cloud_save["pused"]["1100"].as_num() == 2);
+  CHECK(cloud_save["dfav"]["1100"].as_num() == 1800000000500.0);
   // ...y lo de la 3DS también.
   CHECK(cloud_save["owned"].has("7"));
   CHECK(cloud_save["coins"].as_num() == 1000);

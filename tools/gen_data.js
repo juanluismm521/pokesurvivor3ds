@@ -82,10 +82,12 @@ const EXPECT_TYPES = ['normal', 'fire', 'water', 'grass', 'electric', 'ice', 'fi
 if (TYPES.join() !== EXPECT_TYPES.join()) fail('El orden de los tipos ha cambiado en la web: ' + TYPES.join());
 const T = t => (t == null ? -1 : TYPES.indexOf(t));
 const ANIMS = ['Idle', 'Walk', 'Attack', 'Shoot', 'Charge', 'Hurt', 'Faint'];
-const KINDS = ['projectile', 'melee', 'beam', 'orbit', 'nova', 'aura', 'boomerang', 'chain', 'mine', 'meteor', 'turret', 'dash', 'trail', 'cone', 'buff'];
+const KINDS = ['projectile', 'melee', 'beam', 'orbit', 'nova', 'aura', 'boomerang', 'chain', 'mine', 'meteor', 'turret', 'dash', 'trail', 'cone',
+               'homing', 'bounce', 'charge', 'spin', 'quake', 'vortex', 'shove', 'stun', 'buff'];
 if (Object.keys(G.__MV.LADDERS).join() !== KINDS.join()) fail('Las familias de movimientos han cambiado: ' + Object.keys(G.__MV.LADDERS).join());
-const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain'];
-const BUFFS = ['atk', 'spd', 'def', 'regen'];
+const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain',
+                'pull', 'bounce', 'stun', 'charge'];
+const BUFFS = ['atk', 'patk', 'satk', 'spd', 'def', 'regen'];
 const LSTATS = G.__LV.STATS.map(s => s.id);
 if (LSTATS.join() !== 'hp,atk,spd,cd,def,rgn,mag,xp,heal') fail('Las mejoras de nivel han cambiado: ' + LSTATS.join());
 const SHAPES = Object.keys(G.VFX.SHAPES);
@@ -118,7 +120,8 @@ w('};');
 // ---------------- Pokédex ----------------
 w('const Mon kDex[] = {');
 for (const p of G.DEX) {
-  w(`  {${p.dex}, ${esc(p.name)}, {${T(p.types[0])}, ${T(p.types[1])}}, ${p.hp}, ${p.spd}, ${fl(p.atk)}, ${p.rarity}, ${p.bst}, ${p.gen}, ${!!p.starter}, ${!!p.leg}},`);
+  for (const k of ['pa', 'sa', 'df', 'sd']) if (typeof p[k] !== 'number') fail(`Pokédex ${p.dex}: falta ${k}`);
+  w(`  {${p.dex}, ${esc(p.name)}, {${T(p.types[0])}, ${T(p.types[1])}}, ${p.hp}, ${p.spd}, ${fl(p.atk)}, ${fl(p.pa)}, ${fl(p.sa)}, ${p.df}, ${p.sd}, ${p.rarity}, ${p.bst}, ${p.gen}, ${!!p.starter}, ${!!p.leg}},`);
 }
 w('};');
 w(`const int kDexCount = ${G.DEX.length};`);
@@ -154,17 +157,20 @@ w(`const uint8_t kAnimDur[] = ${arr(durs)};`);
 w(`const char* const kKindId[K_COUNT] = ${arr(KINDS, esc)};`);
 w(`const char* const kMoveStatId[MS_NUM] = ${arr(MSTATS, esc)};`);
 w(`const uint8_t kMoveStatOp[MS_NUM] = ${arr(MSTATS.map(k => (G.__MV.MULT.includes(k) ? 1 : G.__MV.ADD.includes(k) ? 2 : 0)))};`);
-const known = new Set(['id', 'name', 'type', 'kind', 'desc', 'stat', ...MSTATS]);
+const known = new Set(['id', 'name', 'type', 'kind', 'desc', 'stat', 'cat', ...MSTATS]);
 w('const MoveDef kMoves[] = {');
 for (const m of G.Moves.ALL) {
+  if (m.stat && BUFFS.indexOf(m.stat) < 0) fail(`movimiento ${m.id}: potenciador de «${m.stat}» desconocido`);
+  if (![null, 'physical', 'special'].includes(m.cat == null ? null : m.cat)) fail(`movimiento ${m.id}: categoría «${m.cat}» desconocida`);
   for (const k of Object.keys(m)) if (!known.has(k) && k !== 'ups' && k !== 'maxLvl') fail(`movimientos: campo nuevo «${k}» (p. ej. en ${G.Moves.ALL.find(x => k in x).id}; en ${G.Moves.ALL.filter(x => k in x).length} movimientos)`);
   let has = 0;
   const v = MSTATS.map((k, i) => { if (m[k] != null) { has |= 1 << i; return fl(m[k]); } return '0.0f'; });
   const evo = G.Moves.EVO[m.id];
-  w(`  {${esc(m.id)}, ${esc(m.name)}, ${esc(m.desc)}, ${T(m.type)}, ${KINDS.indexOf(m.kind)}, ${m.stat ? BUFFS.indexOf(m.stat) : -1}, 0x${(has >>> 0).toString(16)}u, ${arr(v)}, ${evo ? LSTATS.indexOf(evo[1]) : -1}, ${evo ? esc(evo[0]) : 'nullptr'}},`);
+  w(`  {${esc(m.id)}, ${esc(m.name)}, ${esc(m.desc)}, ${T(m.type)}, ${KINDS.indexOf(m.kind)}, ${m.stat ? BUFFS.indexOf(m.stat) : -1}, ${m.cat === 'physical' ? 0 : m.cat === 'special' ? 1 : -1}, 0x${(has >>> 0).toString(16)}u, ${arr(v)}, ${evo ? LSTATS.indexOf(evo[1]) : -1}, ${evo ? esc(evo[0]) : 'nullptr'}},`);
 }
 w('};');
 w(`const int kMoveCount = ${G.Moves.ALL.length};`);
+w(`static_assert(${G.Moves.ALL.length} <= kMaxMoves, "la web tiene más movimientos que kMaxMoves (gamedata.h)");`);
 w('int move_index(const char* id) { for (int i = 0; i < kMoveCount; ++i) if (!std::strcmp(kMoves[i].id, id)) return i; return -1; }');
 const ladder = l => {
   const mods = Object.entries(l.m).map(([k, val]) => { const i = MSTATS.indexOf(k); if (i < 0) fail('mod ' + k); return `{${i}, ${fl(val)}}`; });
@@ -207,7 +213,7 @@ if (G.Items.LIST.map(i => i.id).join() !== ITEMS.join()) fail('Objetos: ' + G.It
 w(`const ItemDef kItems[IT_COUNT] = ${arr(G.Items.LIST.map(i => `{${esc(i.id)}, ${esc(i.name)}, ${esc(i.desc)}}`))};`);
 
 // ---------------- mejoras ----------------
-const UPS = ['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'coins', 'moves', 'crit', 'reroll', 'ban'];
+const UPS = ['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'coins', 'moves', 'crit', 'reroll', 'ban', 'start'];
 if (G.Upgrades.LIST.map(u => u.id).join() !== UPS.join()) fail('Mejoras: ' + G.Upgrades.LIST.map(u => u.id).join());
 w(`const UpgradeDef kUpgrades[UP_COUNT] = ${arr(G.Upgrades.LIST.map(u => `{${esc(u.id)}, ${esc(u.icon)}, ${esc(u.name)}, ${esc(u.unit)}, ${u.max}, ${u.base}, ${fl(u.grow)}}`))};`);
 
@@ -335,6 +341,21 @@ if (REPORT) {
   const rep = JSON.stringify({ problemas: problems, cuentas: check }, null, 1);
   if (ARGS[0]) fs.writeFileSync(ARGS[0], rep); else console.log(rep);
   process.exit(0);
+}
+// De qué versión de la web son los datos (reference/web/UPSTREAM) y una huella
+// de todo lo generado: dos 3DS con datos distintos no pueden jugar juntas
+// (el cooperativo calcula la misma partida en todas).
+{
+  const up = path.join(WEB, 'UPSTREAM');
+  const lines = fs.existsSync(up) ? fs.readFileSync(up, 'utf8').split('\n') : [];
+  const sha = (lines[0] || '').trim().slice(0, 7), date = (lines[1] || '').trim().slice(0, 10);
+  let h = 2166136261;
+  for (const line of out) for (let i = 0; i < line.length; i++) { h ^= line.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  w('namespace ps {');
+  w(`extern const char* const kWebBase; const char* const kWebBase = ${JSON.stringify(sha)};`);
+  w(`extern const char* const kWebBaseDate; const char* const kWebBaseDate = ${JSON.stringify(date)};`);
+  w(`extern const uint32_t kDataHash; const uint32_t kDataHash = 0x${h.toString(16).padStart(8, '0')}u;`);
+  w('}  // namespace ps');
 }
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 const text = out.join('\n') + '\n';

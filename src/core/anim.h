@@ -20,6 +20,10 @@ int shadow_size(int dex);
 // Radio de colisión y alto visual a partir del tamaño del sprite.
 float body_radius(int dex, float scale = 1);
 float body_height(int dex, float scale = 1);
+// Tu Pokémon, si es de los grandes (18-10-2026): se dibuja algo más pequeño y
+// choca como uno normal (playerScale / playerRadius de sprites.js).
+float player_scale(int dex);
+float player_radius(int dex);
 
 struct Animator {
   int16_t dex = 0;

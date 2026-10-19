@@ -15,8 +15,11 @@ struct MoveInst {
   float v[MS_NUM] = {};
   float t = 0;               // recarga restante
   float cast_at = -1;        // cuándo se lanzó (destello del icono en el HUD)
+  float since = 0;           // desde cuándo lo tienes (segundos de partida; resumen de la pausa)
+  mutable double dealt = 0;  // daño hecho con él (resumen de la pausa; lo apunta combat al golpear)
 
   const MoveDef& d() const { return kMoves[def]; }
+  int cat() const { return kMoves[def].cat; }
   int kind() const { return kMoves[def].kind; }
   int type() const { return kMoves[def].type; }
   bool has_(int s) const { return (has >> s) & 1u; }
@@ -38,6 +41,14 @@ bool move_evolve(MoveInst& m);
 // Movimientos que puede aprender un Pokémon (sus tipos + normal), en el orden
 // de la web (Set: primero el pool normal, luego los de cada tipo).
 int move_pool_for(const int8_t types[2], int16_t* out, int max);
-int move_start_for(int dex);   // G.startMoveOf: starter o el de su tipo
+// Movimiento inicial de serie (G.baseStartOf): el del starter o el de su tipo.
+int move_base_start_for(int dex);
+// Ataques que se pueden elegir para empezar (G.startChoices): los suyos, sin
+// potenciadores, y siempre el de serie. Devuelve cuántos.
+int move_start_choices(int dex, int16_t* out, int max);
+// Con el que empieza (G.startMoveOf): el elegido (pick, de save.pstart) si
+// tiene comprada la mejora "Movimiento inicial" y sigue siendo de los suyos; si
+// no, el de serie.
+int move_start_for(int dex, int pick = -1, bool bought = false);
 
 }  // namespace ps

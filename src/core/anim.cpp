@@ -1,6 +1,8 @@
 // anim.cpp — ver anim.h (sprites.js de la web).
 #include "core/anim.h"
 
+#include <cmath>
+
 namespace ps {
 
 namespace {
@@ -42,6 +44,18 @@ float body_height(int dex, float scale) {
   const AnimMeta* m = anim_meta(dex, A_IDLE);
   return (m ? m->ay : 24) * kPX * scale;
 }
+
+// Hasta 36 píxeles de alto, igual; lo que pase de ahí cuenta un 40 %. Los muy
+// anchos y no tan altos cuentan por su ancho (el del marco × 0,55). Como mucho,
+// el radio de Pikachu (18), así cabe por los pasillos.
+float player_scale(int dex) {
+  const float BIG_H = 36, BIG_K = 0.4f;
+  const AnimMeta* m = anim_meta(dex, A_IDLE);
+  const double h = m ? std::fmax(double(m->ay), m->w * 0.55) : 24;
+  if (h <= BIG_H) return 1;
+  return float(jsround((BIG_H + (h - BIG_H) * BIG_K) / h * 16) / 16);
+}
+float player_radius(int dex) { return std::fmin(18.0f, body_radius(dex, player_scale(dex))); }
 
 float Animator::progress() const {
   const AnimMeta* m = anim_meta(dex, cur, shiny);
