@@ -165,6 +165,9 @@ class App {
   float lobby_t_ = 0, coop_over_t_ = 0, quit_t_ = -1;
   char coop_msg_[96] = {};
   bool auto_coop_ = false, auto_host_ = false;
+ public:
+  bool auto_look = false;       // autotest: busca salas sin entrar
+ private:
   // sincronizar con pokesurvivor.com
  public:
   void cloud_tick();             // aplica lo que llegue de la nube (cada fotograma)
@@ -179,6 +182,8 @@ class App {
   bool login_now_ = false;
   Scene account_back_ = SC_SETTINGS;   // a dónde vuelve B desde la cuenta       // abrir el teclado para entrar (desde la pregunta)
   float auto_t_ = 0;
+  uint64_t coop_retry_ = 0;     // próximo intento de conectar con el servidor (ms)
+  bool coop_err_init_ = false;  // el mensaje es del intento de conectar
 };
 
 }  // namespace ps

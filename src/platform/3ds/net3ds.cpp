@@ -59,6 +59,7 @@ const char* room_code() { return g_online ? g_rc.code() : ""; }
 bool init() {
   if (g_online) {
     if (g_rc.is_open()) return true;
+    g_err.clear();
     if (!cloud3ds::soc_up()) { g_err = "No hay conexión a internet (¿wifi apagado?)."; return false; }
     if (!g_rc.open(g_server, g_port)) { g_err = g_rc.error; return false; }
     g_init = true;
@@ -82,6 +83,7 @@ bool ready() { return g_init; }
 
 bool create(const char* host_name) {
   if (g_online) {
+    g_err.clear();
     if (!g_rc.create(host_name)) { g_err = g_rc.error; return false; }
     return true;
   }
@@ -111,6 +113,7 @@ void set_room_info(int players) {
 
 int scan(Room* out, int max) {
   if (g_online) {
+    g_err.clear();   // (un error viejo no vale para esta búsqueda)
     g_nrooms = g_rc.list(g_rooms, 8);
     if (!g_nrooms && !g_rc.error.empty()) g_err = g_rc.error;
     int n = 0;
@@ -146,6 +149,7 @@ int scan(Room* out, int max) {
 
 bool join(int index) {
   if (g_online) {
+    g_err.clear();
     if (index < 0 || index >= g_nrooms) return false;
     if (!g_rc.join(g_rooms[index].code, g_name)) { g_err = g_rc.error; return false; }
     return true;

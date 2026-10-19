@@ -38,6 +38,7 @@ struct Autotest {
   bool tour = false;
   float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
   bool coop = false, host = false, online = false;
+  bool look = false;                // "coop mirar …": sólo busca salas (para ver la pantalla)
   bool die = false;                 // "morir": se deja caer y, cuando le levantan, se cierra
   int down_state = 0;               // 0 vivo, 1 caído, 2 levantado
   double revived_at = 0;
@@ -64,7 +65,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "https")) a.https = true;
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
-    a.coop = true; a.host = !std::strcmp(role, "host"); a.immortal = imm != 0;
+    a.coop = true; a.host = !std::strcmp(role, "host"); a.look = !std::strcmp(role, "mirar"); a.immortal = imm != 0;
     char extra[16] = "";
     while (std::fscanf(f, "%15s", extra) == 1) {
       if (!std::strcmp(extra, "online")) a.online = true;
@@ -165,6 +166,7 @@ int main() {
   }
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
+    app.auto_look = at.look;
     if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {
     app.set_autotest(at.dex, at.immortal, at.warp);

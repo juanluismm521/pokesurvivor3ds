@@ -28,7 +28,7 @@ class Client {
 
   // Esperan la respuesta (como mucho `timeout_ms`).
   bool create(const char* name, int timeout_ms = 3000);
-  int list(RoomInfo* out, int max, int timeout_ms = 2000);
+  int list(RoomInfo* out, int max, int timeout_ms = 3000);
   bool join(const char* code, const char* name, int timeout_ms = 3000);
   void leave();
 

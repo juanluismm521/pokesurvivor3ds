@@ -22,6 +22,45 @@ enum : uint8_t { HOST = 1, JOIN, LIST, SEND, PING, INFO, BYE };
 enum : uint8_t { ROOM = 101, JOINED, ROOMS, DATA, PEERS, PONG, ERR };
 }  // namespace
 
+namespace {
+// Última dirección buena de cada servidor: el DNS de la 3DS a veces falla
+// sin motivo (sobre todo la primera vez tras conectar al wifi) y no por eso
+// el servidor ha dejado de existir.
+char g_cache_host[64] = {};
+in_addr g_cache_addr = {};
+
+bool resolve(const char* host, in_addr& out) {
+  if (inet_pton(AF_INET, host, &out) == 1) return true;
+  for (int tries = 0; tries < 4; ++tries) {
+    addrinfo hints;
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    addrinfo* res = nullptr;
+    if (getaddrinfo(host, nullptr, &hints, &res) == 0 && res) {
+      bool ok = false;
+      for (addrinfo* a = res; a && !ok; a = a->ai_next)
+        if (a->ai_family == AF_INET && a->ai_addr) { out = reinterpret_cast<sockaddr_in*>(a->ai_addr)->sin_addr; ok = true; }
+      freeaddrinfo(res);
+      if (ok) {
+        std::snprintf(g_cache_host, sizeof(g_cache_host), "%s", host);
+        g_cache_addr = out;
+        return true;
+      }
+    }
+    hostent* he = gethostbyname(host);
+    if (he && he->h_addr_list[0]) {
+      std::memcpy(&out, he->h_addr_list[0], 4);
+      std::snprintf(g_cache_host, sizeof(g_cache_host), "%s", host);
+      g_cache_addr = out;
+      return true;
+    }
+  }
+  if (g_cache_host[0] && !std::strcmp(g_cache_host, host)) { out = g_cache_addr; return true; }
+  return false;
+}
+}  // namespace
+
 uint64_t now_ms() {
   timeval tv;
   gettimeofday(&tv, nullptr);
@@ -34,10 +73,9 @@ bool Client::open(const char* host, int port) {
   std::memset(&sa, 0, sizeof(sa));
   sa.sin_family = AF_INET;
   sa.sin_port = htons(uint16_t(port));
-  if (inet_pton(AF_INET, host, &sa.sin_addr) != 1) {
-    hostent* he = gethostbyname(host);
-    if (!he || !he->h_addr_list[0]) { error = "No se encuentra el servidor."; return false; }
-    std::memcpy(&sa.sin_addr, he->h_addr_list[0], 4);
+  if (!resolve(host, sa.sin_addr)) {
+    error = std::string("No se encuentra ") + host + " (¿wifi o nombre mal escrito?).";
+    return false;
   }
   fd_ = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd_ < 0) { error = "No se puede abrir la conexión."; return false; }
@@ -144,9 +182,9 @@ int Client::list(RoomInfo* out, int max, int timeout_ms) {
   std::memset(pad, 0, sizeof(pad));
   uint8_t buf[1300];
   int len = 0;
-  for (int tries = 0; tries < 2; ++tries) {
+  for (int tries = 0; tries < 3; ++tries) {
     raw_send(LIST, pad, sizeof(pad));
-    if (wait_for(ROOMS, buf, sizeof(buf), timeout_ms / 2, len) && len >= 6) {
+    if (wait_for(ROOMS, buf, sizeof(buf), timeout_ms / 3, len) && len >= 6) {
       const int n = buf[5];
       int got = 0, off = 6;
       for (int i = 0; i < n && got < max && off + 21 <= len; ++i, off += 21) {
@@ -155,6 +193,7 @@ int Client::list(RoomInfo* out, int max, int timeout_ms) {
         std::memcpy(r.host, buf + off + 4, 15); r.host[15] = 0;
         r.players = buf[off + 20];
       }
+      error.clear();
       return got;
     }
   }

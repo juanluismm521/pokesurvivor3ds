@@ -92,6 +92,7 @@ TEST_CASE("online: sala, lista, entrar y paquetes por el servidor de relevo") {
   relay::Client c;
   REQUIRE(c.open("127.0.0.1", srv.port));
   CHECK(c.list(rooms, 8) == 0);
+  CHECK(c.error.empty());   // (ninguna sala no es un error: el servidor sí contesta)
   CHECK(!c.join(a.code(), "Cris"));
   // Se va el anfitrión: el invitado se entera.
   a.leave();
@@ -157,4 +158,24 @@ TEST_CASE("online: 3 consolas juegan por el servidor y no se separan") {
   CHECK(compared > 40);
   for (int i = 0; i < N; ++i) CHECK(!ls[i].desync());
   CHECK(ls[N - 1].tick() > frames * 0.85);
+}
+
+TEST_CASE("online: buscar el servidor por su nombre y avisos claros") {
+  relay::Client c;
+  // Un nombre que no existe: lo dice con el nombre (y no se queda colgado).
+  CHECK(!c.open("no-existe.invalid", 24873));
+  CHECK(c.error.find("no-existe.invalid") != std::string::npos);
+  // Un nombre de verdad (localhost) se resuelve.
+  REQUIRE(c.open("localhost", 9));
+  // Nadie escuchando: «no contesta», no «no se encuentra».
+  relay::RoomInfo rooms[8];
+  CHECK(c.list(rooms, 8, 600) == 0);
+  CHECK(c.error.find("contesta") != std::string::npos);
+  if (!relay_available()) return;
+  Server srv;
+  REQUIRE(srv.start());
+  relay::Client d;
+  REQUIRE(d.open("localhost", srv.port));
+  CHECK(d.list(rooms, 8) == 0);
+  CHECK(d.error.empty());
 }
