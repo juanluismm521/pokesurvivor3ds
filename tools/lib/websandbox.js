@@ -3,7 +3,7 @@
  * Igual que el sandbox de tools/export_data.js de la web, más un canvas falso
  * que guarda los píxeles (para comparar el pintado del suelo con el port). */
 'use strict';
-const vm = require('vm');
+const vm = require('vm'), fs = require('fs'), path = require('path');
 
 function fakeCanvas() {
   const cv = { width: 0, height: 0, _img: null };
@@ -34,7 +34,13 @@ function create(lang) {
     setTimeout: noop, setInterval: noop, clearTimeout: noop, requestAnimationFrame: noop
   };
   sandbox.window = sandbox;
+  sandbox.document.write = noop;
+  sandbox.document.currentScript = null;
   vm.createContext(sandbox);
+  // Desde 2026-10-19 la web elige el idioma en js/core/locales.js (antes que
+  // nada; i18n.js lo necesita). Si existe, se carga aquí.
+  const loc = path.join(process.env.PS_WEB || path.join(__dirname, '..', '..', 'reference', 'web'), 'js', 'core', 'locales.js');
+  if (fs.existsSync(loc)) vm.runInContext(fs.readFileSync(loc, 'utf8'), sandbox, { filename: 'js/core/locales.js' });
   return sandbox;
 }
 

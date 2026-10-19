@@ -29,3 +29,4 @@ desktop.ini
 .DS_Store
 src/gen/
 tools/firebase-emu/*.log
+tools/web/auto.conf

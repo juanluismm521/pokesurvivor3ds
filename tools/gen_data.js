@@ -11,12 +11,27 @@
  *
  * Al final comprueba que no se pierde nada: cuentas y sumas de control contra
  * el JS (si algo no cuadra, sale con error).
+ *
+ *   node tools/gen_data.js --informe [salida.json]
+ *
+ * Modo informe (lo usa tools/web/actualizar.sh): no se para en el primer
+ * problema; sigue y apunta TODOS los cambios de la web que el port no sabe
+ * leer (familias de movimientos nuevas, campos nuevos...), y los deja en JSON.
  */
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
-const WEB = path.join(ROOT, 'reference', 'web');
-const OUT = process.argv[2] || path.join(ROOT, 'build', 'gen', 'gamedata.cpp');
+// (PS_WEB: otra copia de la web, p. ej. una versión nueva para tools/web/informe.js)
+const WEB = process.env.PS_WEB || path.join(ROOT, 'reference', 'web');
+const REPORT = process.argv.includes('--informe');
+const ARGS = process.argv.slice(2).filter(a => a !== '--informe');
+const OUT = REPORT ? null : ARGS[0] || path.join(ROOT, 'build', 'gen', 'gamedata.cpp');
+const problems = [];
+/** Un cambio de la web que el port no sabe leer: error (o, en modo informe, se apunta y se sigue). */
+function fail(msg) {
+  if (!REPORT) throw new Error(msg);
+  if (!problems.includes(msg)) problems.push(msg);
+}
 
 // ---------------- contexto aislado ----------------
 const sandbox = require('./lib/websandbox').create();
@@ -25,10 +40,11 @@ const EN = {};
 function load(f, inject) {
   let src = fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n');
   if (inject) for (const [marker, code] of inject) {
-    if (!src.includes(marker)) throw new Error(`${f}: no encuentro "${marker}" para inyectar`);
+    if (!src.includes(marker)) { fail(`${f}: no encuentro "${marker}" para inyectar`); continue; }
     src = src.replace(marker, code + '\n' + marker);
   }
-  vm.runInContext(src, sandbox, { filename: f });
+  try { vm.runInContext(src, sandbox, { filename: f }); }
+  catch (e) { if (!REPORT) throw e; fail(`${f}: no se puede cargar (${e.message})`); }
 }
 load('js/core/util.js');
 load('js/core/i18n.js');
@@ -63,26 +79,26 @@ const arr = (xs, f = x => x) => '{' + xs.map(f).join(', ') + '}';
 
 const TYPES = Object.keys(G.U.TYPE_NAME);
 const EXPECT_TYPES = ['normal', 'fire', 'water', 'grass', 'electric', 'ice', 'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'];
-if (TYPES.join() !== EXPECT_TYPES.join()) throw new Error('El orden de los tipos ha cambiado en la web: ' + TYPES.join());
+if (TYPES.join() !== EXPECT_TYPES.join()) fail('El orden de los tipos ha cambiado en la web: ' + TYPES.join());
 const T = t => (t == null ? -1 : TYPES.indexOf(t));
 const ANIMS = ['Idle', 'Walk', 'Attack', 'Shoot', 'Charge', 'Hurt', 'Faint'];
 const KINDS = ['projectile', 'melee', 'beam', 'orbit', 'nova', 'aura', 'boomerang', 'chain', 'mine', 'meteor', 'turret', 'dash', 'trail', 'cone', 'buff'];
-if (Object.keys(G.__MV.LADDERS).join() !== KINDS.join()) throw new Error('Las familias de movimientos han cambiado: ' + Object.keys(G.__MV.LADDERS).join());
+if (Object.keys(G.__MV.LADDERS).join() !== KINDS.join()) fail('Las familias de movimientos han cambiado: ' + Object.keys(G.__MV.LADDERS).join());
 const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain'];
 const BUFFS = ['atk', 'spd', 'def', 'regen'];
 const LSTATS = G.__LV.STATS.map(s => s.id);
-if (LSTATS.join() !== 'hp,atk,spd,cd,def,rgn,mag,xp,heal') throw new Error('Las mejoras de nivel han cambiado: ' + LSTATS.join());
+if (LSTATS.join() !== 'hp,atk,spd,cd,def,rgn,mag,xp,heal') fail('Las mejoras de nivel han cambiado: ' + LSTATS.join());
 const SHAPES = Object.keys(G.VFX.SHAPES);
 const EXPECT_SHAPES = ['fire', 'drop', 'bubble', 'leaf', 'bolt', 'shard', 'rock', 'blob', 'needle', 'star', 'streak', 'wind', 'web', 'ring', 'crescent', 'note', 'impact', 'claw', 'jaws', 'arrow', 'ball', 'shadow', 'heart'];
-if (SHAPES.join() !== EXPECT_SHAPES.join()) throw new Error('Las formas de vfx.js han cambiado: ' + SHAPES.join());
-const shapeIdx = s => (s == null ? -1 : s === 'lightning' ? 100 : (() => { const i = SHAPES.indexOf(s); if (i < 0) throw new Error('forma ' + s); return i; })());
+if (SHAPES.join() !== EXPECT_SHAPES.join()) fail('Las formas de vfx.js han cambiado: ' + SHAPES.join());
+const shapeIdx = s => (s == null ? -1 : s === 'lightning' ? 100 : (() => { const i = SHAPES.indexOf(s); if (i < 0) fail('forma ' + s); return i; })());
 const PALS = Object.keys(G.VFX.PAL);
-if (PALS.slice(0, 18).sort().join() !== EXPECT_TYPES.slice().sort().join() || PALS[18] !== 'aura') throw new Error('Paletas de vfx.js: ' + PALS.join());
+if (PALS.slice(0, 18).sort().join() !== EXPECT_TYPES.slice().sort().join() || PALS[18] !== 'aura') fail('Paletas de vfx.js: ' + PALS.join());
 const palIdx = p => (p === 'aura' ? 18 : T(p));
 const LIQ = ['water', 'swamp', 'lava', 'poison', 'spark', 'ice'];
 const PROPART = ['tree', 'crystal', 'dead'];
 const WX = Object.keys(G.Weather.KINDS);
-if (WX.join() !== 'sun,rain,sand,snow,fog') throw new Error('Climas: ' + WX.join());
+if (WX.join() !== 'sun,rain,sand,snow,fog') fail('Climas: ' + WX.join());
 const EVS = ['kill', 'chest', 'item', 'evolve', 'rift', 'runEnd', 'judge', 'judgeEnd', 'missionDone'];
 
 w('// gamedata.cpp — GENERADO por tools/gen_data.js. No editar a mano.');
@@ -107,7 +123,7 @@ for (const p of G.DEX) {
 w('};');
 w(`const int kDexCount = ${G.DEX.length};`);
 const idx = new Array(1026).fill(-1);
-G.DEX.forEach((p, i) => { if (p.dex > 1025) throw new Error('dex > 1025'); idx[p.dex] = i; });
+G.DEX.forEach((p, i) => { if (p.dex > 1025) fail('dex > 1025'); idx[p.dex] = i; });
 w(`const int16_t kDexIndex[kMaxDex + 1] = ${arr(idx)};`);
 
 // ---------------- sprites ----------------
@@ -115,17 +131,17 @@ w(`const char* const kAnimName[A_COUNT] = ${arr(ANIMS, esc)};`);
 const durs = [];
 const animMeta = m => {
   if (!m) return '{0, 0, 0, 0, 0, 0.0f, 0.0f}';
-  if (m.w > 255 || m.h > 255 || m.n > 255) throw new Error('fotograma demasiado grande');
+  if (m.w > 255 || m.h > 255 || m.n > 255) fail('fotograma demasiado grande');
   const at = durs.length;
-  for (const d of m.d) { if (d > 255) throw new Error('duración > 255'); durs.push(d); }
-  if (m.d.length !== m.n) throw new Error('d.length != n');
+  for (const d of m.d) { if (d > 255) fail('duración > 255'); durs.push(d); }
+  if (m.d.length !== m.n) fail('d.length != n');
   return `{${m.w}, ${m.h}, ${m.n}, ${m.r}, ${at}, ${fl(m.ax)}, ${fl(m.ay)}}`;
 };
 const metaRows = [], altRows = [];
 for (const p of G.DEX) {
   const m = G.SPRITE_META[p.dex];
-  if (!m) throw new Error('sin SPRITE_META: ' + p.dex);
-  if (m.sm) throw new Error('sm (animaciones que le faltan al shiny) no soportado todavía: ' + p.dex);
+  if (!m) { fail('sin SPRITE_META: ' + p.dex); continue; }
+  if (m.sm) fail('sm (animaciones que le faltan al shiny) no soportado todavía: ' + p.dex);
   let alt = -1;
   if (m.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(m.sa[a]))) + '},'); }
   metaRows.push(`  {${m.s}, ${!!m.sh}, ${!!m.hv}, ${alt}, ${arr(ANIMS.map(a => animMeta(m.a[a])))}},`);
@@ -141,7 +157,7 @@ w(`const uint8_t kMoveStatOp[MS_NUM] = ${arr(MSTATS.map(k => (G.__MV.MULT.includ
 const known = new Set(['id', 'name', 'type', 'kind', 'desc', 'stat', ...MSTATS]);
 w('const MoveDef kMoves[] = {');
 for (const m of G.Moves.ALL) {
-  for (const k of Object.keys(m)) if (!known.has(k) && k !== 'ups' && k !== 'maxLvl') throw new Error(`movimiento ${m.id}: campo desconocido ${k}`);
+  for (const k of Object.keys(m)) if (!known.has(k) && k !== 'ups' && k !== 'maxLvl') fail(`movimientos: campo nuevo «${k}» (p. ej. en ${G.Moves.ALL.find(x => k in x).id}; en ${G.Moves.ALL.filter(x => k in x).length} movimientos)`);
   let has = 0;
   const v = MSTATS.map((k, i) => { if (m[k] != null) { has |= 1 << i; return fl(m[k]); } return '0.0f'; });
   const evo = G.Moves.EVO[m.id];
@@ -151,17 +167,17 @@ w('};');
 w(`const int kMoveCount = ${G.Moves.ALL.length};`);
 w('int move_index(const char* id) { for (int i = 0; i < kMoveCount; ++i) if (!std::strcmp(kMoves[i].id, id)) return i; return -1; }');
 const ladder = l => {
-  const mods = Object.entries(l.m).map(([k, val]) => { const i = MSTATS.indexOf(k); if (i < 0) throw new Error('mod ' + k); return `{${i}, ${fl(val)}}`; });
-  if (mods.length > 5) throw new Error('más de 5 mods');
+  const mods = Object.entries(l.m).map(([k, val]) => { const i = MSTATS.indexOf(k); if (i < 0) fail('mod ' + k); return `{${i}, ${fl(val)}}`; });
+  if (mods.length > 5) fail('más de 5 mods');
   return `{${esc(l.t)}, ${mods.length}, ${arr(mods)}}`;
 };
 w('const Ladder kLadder[K_COUNT][4] = {');
-for (const k of KINDS) { const L = G.__MV.LADDERS[k]; if (L.length !== 4) throw new Error('escalera de ' + k); w('  ' + arr(L.map(ladder)) + ','); }
+for (const k of KINDS) { const L = G.__MV.LADDERS[k]; if (L.length !== 4) fail('escalera de ' + k); w('  ' + arr(L.map(ladder)) + ','); }
 w('};');
 w('const Ladder kEvoMods[K_COUNT] = {');
 for (const k of KINDS) w('  ' + (G.__MV.EVO_MODS[k] ? ladder(G.__MV.EVO_MODS[k]) : '{nullptr, 0, {}}') + ',');
 w('};');
-const mIdx = id => { const i = G.Moves.ALL.findIndex(m => m.id === id); if (i < 0) throw new Error('mov ' + id); return i; };
+const mIdx = id => { const i = G.Moves.ALL.findIndex(m => m.id === id); if (i < 0) fail('mov ' + id); return i; };
 w(`const int8_t kStartMove[T_COUNT] = ${arr(TYPES.map(t => mIdx(G.__MV.START[t])))};`);
 
 // ---------------- vfx ----------------
@@ -175,7 +191,7 @@ const MELEES = [null, 'impact', 'jaws', 'claw', 'vine', 'feather'];
 w('const MoveVis kMoveVis[] = {');
 for (const m of G.Moves.ALL) {
   const v = G.VFX.forMove(m), raw = G.__VX.MOVE[m.id] || {};
-  for (const k of Object.keys(raw)) if (!['proj', 'beam', 'melee', 'aura', 'buff', 'pal', 'trail', 'inward', 'rise'].includes(k)) throw new Error('vfx ' + k);
+  for (const k of Object.keys(raw)) if (!['proj', 'beam', 'melee', 'aura', 'buff', 'pal', 'trail', 'inward', 'rise'].includes(k)) fail('vfx ' + k);
   w(`  {${shapeIdx(v.proj)}, ${shapeIdx(v.beam)}, ${shapeIdx(v.aura)}, ${shapeIdx(v.buff)}, ${palIdx(v.pal)}, ${TRAILS.indexOf(v.trail || null)}, ${MELEES.indexOf(v.melee || null)}, ${!!v.inward}, ${!!v.rise}},`);
 }
 w('};');
@@ -187,12 +203,12 @@ w(`const char* const kNeedName[LS_COUNT] = ${arr(LSTATS.map(k => esc(G.Moves.NEE
 
 // ---------------- objetos ----------------
 const ITEMS = ['leftovers', 'choiceband', 'quickclaw', 'focussash', 'shellbell', 'amuletcoin', 'luckyegg', 'lifeorb', 'choicescarf', 'rockyhelmet', 'assaultvest'];
-if (G.Items.LIST.map(i => i.id).join() !== ITEMS.join()) throw new Error('Objetos: ' + G.Items.LIST.map(i => i.id).join());
+if (G.Items.LIST.map(i => i.id).join() !== ITEMS.join()) fail('Objetos: ' + G.Items.LIST.map(i => i.id).join());
 w(`const ItemDef kItems[IT_COUNT] = ${arr(G.Items.LIST.map(i => `{${esc(i.id)}, ${esc(i.name)}, ${esc(i.desc)}}`))};`);
 
 // ---------------- mejoras ----------------
 const UPS = ['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'coins', 'moves', 'crit', 'reroll', 'ban'];
-if (G.Upgrades.LIST.map(u => u.id).join() !== UPS.join()) throw new Error('Mejoras: ' + G.Upgrades.LIST.map(u => u.id).join());
+if (G.Upgrades.LIST.map(u => u.id).join() !== UPS.join()) fail('Mejoras: ' + G.Upgrades.LIST.map(u => u.id).join());
 w(`const UpgradeDef kUpgrades[UP_COUNT] = ${arr(G.Upgrades.LIST.map(u => `{${esc(u.id)}, ${esc(u.icon)}, ${esc(u.name)}, ${esc(u.unit)}, ${u.max}, ${u.base}, ${fl(u.grow)}}`))};`);
 
 // ---------------- enemigos ----------------
@@ -215,10 +231,10 @@ const biome = B => {
     `${c3(B.wallTop)}, ${col(B.wallLight)}, ${col(B.wallEdge)}, ${c3(B.wallFace)}, ${col(B.wallFaceDark)}, ${col(B.liq)}, ${col(B.liqDeep)}, ${col(B.foam)}, ${col(B.shore)}, ` +
     `${c3(B.leaf)}, ${c3(B.trunk)}, ${c3(B.rock)}, ${c3(B.grass)}}`;
 };
-for (const B of G.Tiles.BIOMES) { if (LIQ.indexOf(B.liquid) < 0 || PROPART.indexOf(B.prop) < 0) throw new Error('bioma ' + B.name); }
+for (const B of G.Tiles.BIOMES) { if (LIQ.indexOf(B.liquid) < 0 || PROPART.indexOf(B.prop) < 0) fail('bioma ' + B.name); }
 w('const Biome kBiomes[] = {'); for (const B of G.Tiles.BIOMES) w('  ' + biome(B) + ','); w('};');
 w(`const int kBiomeCount = ${G.Tiles.BIOMES.length};`);
-if (G.Tiles.NORMAL !== 3 || G.Tiles.ARENA !== 3) throw new Error('NORMAL/ARENA de tiles.js han cambiado');
+if (G.Tiles.NORMAL !== 3 || G.Tiles.ARENA !== 3) fail('NORMAL/ARENA de tiles.js han cambiado');
 w('const ArenaTheme kArenaThemes[] = {');
 for (const id of G.Tiles.ARENA_TYPES) {
   const th = G.Tiles.ARENA_THEMES[id], pr = th.props || {};
@@ -236,7 +252,7 @@ for (const k of WX) {
   w(`  {${esc(k)}, ${esc(d.name)}, ${esc(d.icon)}, ${esc(d.hint)}, ${col(d.color)}, {${d.tint[0]}, ${d.tint[1]}, ${d.tint[2]}}, ${fl(d.tint[3])}, ${arr(TYPES.map(t => fl(d.mult[t] || 1)))}, 0x${safe.toString(16)}u, ${!!d.slow}},`);
 }
 w('};');
-w(`const float kWeatherBiomeW[3][WX_COUNT] = ${arr(G.__WX.BIOME_W.map(b => { for (const k of Object.keys(b)) if (!WX.includes(k)) throw new Error('clima ' + k); return arr(WX.map(k => fl(b[k] || 0))); }))};`);
+w(`const float kWeatherBiomeW[3][WX_COUNT] = ${arr(G.__WX.BIOME_W.map(b => { for (const k of Object.keys(b)) if (!WX.includes(k)) fail('clima ' + k); return arr(WX.map(k => fl(b[k] || 0))); }))};`);
 
 // ---------------- altares ----------------
 w(`const PowerDef kPowers[4] = ${arr(G.Interact.POWERS.map(p => `{${esc(p.id)}, ${esc(p.name)}, ${esc(p.desc)}, ${col(p.color)}}`))};`);
@@ -256,11 +272,11 @@ w(`const TraitText kTraits[] = ${arr(traits.map(t => `{${esc(t)}, ${esc(G.TRAIT_
 w(`const int kTraitCount = ${traits.length};`);
 w('const TestQuestion kTest[] = {');
 for (const q of G.PERSONALITY_TEST) {
-  if (q.a.length !== 4) throw new Error('pregunta sin 4 respuestas');
+  if (q.a.length !== 4) fail('pregunta sin 4 respuestas');
   w(`  {${esc(q.q)}, ${arr(q.a.map(a => {
     const p = Object.entries(a.p);
-    if (p.length > 3) throw new Error('respuesta con más de 3 rasgos');
-    return `{${esc(a.t)}, ${p.length}, ${arr(p.map(([t, n]) => { if (traits.indexOf(t) < 0) throw new Error('rasgo ' + t); return `{${traits.indexOf(t)}, ${n}}`; }))}}`;
+    if (p.length > 3) fail('respuesta con más de 3 rasgos');
+    return `{${esc(a.t)}, ${p.length}, ${arr(p.map(([t, n]) => { if (traits.indexOf(t) < 0) fail('rasgo ' + t); return `{${traits.indexOf(t)}, ${n}}`; }))}}`;
   }))}},`);
 }
 w('};');
@@ -270,7 +286,7 @@ w(`const int kTestCount = ${G.PERSONALITY_TEST.length};`);
 const rew = r => `{${r.t1 || 0}, ${r.t10 || 0}, ${r.coins || 0}}`;
 const missions = [...G.MissionDefs.daily.map(m => [m, false]), ...G.MissionDefs.weekly.map(m => [m, true])];
 w(`const MissionDef kMissions[] = ${arr(missions.map(([m, wk]) => {
-  if (EVS.indexOf(m.ev) < 0) throw new Error('evento ' + m.ev);
+  if (EVS.indexOf(m.ev) < 0) fail('evento ' + m.ev);
   return `{${esc(m.id)}, ${EVS.indexOf(m.ev)}, ${wk}, ${m.mode === 'max'}, ${m.param === 'type'}, ${m.goals.length}, ${arr([0, 1, 2].map(i => m.goals[i] || 0))}, ${rew(m.reward)}}`;
 }))};`);
 w(`const int kMissionCount = ${missions.length};`);
@@ -298,9 +314,9 @@ const check = {
   logros: G.AchDefs.LIST.length, misiones: missions.length, traducciones: tr.length,
   duraciones: durs.length, sumaDex: sumDex
 };
-if (check.pokemon !== 966) throw new Error('Se esperaban 966 Pokémon');
+if (check.pokemon !== 966) fail('Se esperaban 966 Pokémon');
 const expDur = G.DEX.reduce((a, p) => { const m = G.SPRITE_META[p.dex]; let n = 0; for (const k of ANIMS) if (m.a[k]) n += m.a[k].d.length; if (m.sa) for (const k of ANIMS) if (m.sa[k]) n += m.sa[k].d.length; return a + n; }, 0);
-if (expDur !== durs.length) throw new Error('duraciones perdidas');
+if (expDur !== durs.length) fail('duraciones perdidas');
 
 // Configuración pública de Firebase de la web (para sincronizar la partida con
 // pokesurvivor.com desde la 3DS; no es secreta: va en la web).
@@ -314,6 +330,12 @@ if (expDur !== durs.length) throw new Error('duraciones perdidas');
   w('}  // namespace ps');
 }
 
+if (REPORT) {
+  // Modo informe: sólo la lista de problemas (y las cuentas, para ver qué ha crecido).
+  const rep = JSON.stringify({ problemas: problems, cuentas: check }, null, 1);
+  if (ARGS[0]) fs.writeFileSync(ARGS[0], rep); else console.log(rep);
+  process.exit(0);
+}
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 const text = out.join('\n') + '\n';
 // Sólo se reescribe si cambia (así make no recompila sin motivo).

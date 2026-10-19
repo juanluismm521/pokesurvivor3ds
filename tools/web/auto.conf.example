@@ -1,0 +1,12 @@
+# auto.conf — configuración de tools/web/auto.sh (copiar a tools/web/auto.conf).
+# auto.conf no se sube a git: es de cada máquina.
+
+# informe | datos (ver tools/web/auto.sh)
+MODO=informe
+
+# Dónde se hace todo (un worktree aparte; main no se toca hasta el final).
+WORKTREE=/root/pokesurvivor-3ds-auto
+
+# Comando para avisar: recibe el texto y, si hay, un archivo (el informe).
+# Por ejemplo, un script propio que mande un correo o un mensaje.
+AVISAR=""
