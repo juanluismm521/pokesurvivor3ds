@@ -52,7 +52,9 @@ y al acabar cada partida (o con «Sincronizar ahora»). En la web, recarga la
 página para ver lo de la 3DS. Las cuentas de Google no sirven en la consola.
 La contraseña no se guarda en la SD (sólo un token de sesión).
 
-## Jugar en grupo (hasta 4 consolas)
+## Jugar en grupo (hasta 4 consolas, cerca o por internet)
+En **En grupo**, L/R cambia entre **Cerca** (juego local, sin internet) y
+**Por internet** (con cualquiera, a través del servidor del proyecto).
 Cada consola necesita el juego. Una entra en **En grupo → Crear sala**; las
 demás, en **En grupo → Buscar salas** y eligen esa sala. Cuando estéis, el
 anfitrión pulsa **¡Empezar!**. Cada uno lleva su Pokémon (el compañero que
@@ -60,6 +62,12 @@ tenga elegido, con sus mejoras); el nivel, la experiencia y las monedas son
 del equipo; las cartas salen a la vez y se espera a que todos elijan; si
 alguien cae, quédate a su lado 3 s para levantarle. En grupo, START no para
 la partida (te quedas quieto); SELECT en la pausa te saca de la partida.
+
+## Servidor para jugar online
+`server/relay.py` (Python 3, sin dependencias): reenvía los paquetes entre las
+consolas de cada sala. `server/install.sh` lo instala como servicio
+(`pokesurvivor-relay`, UDP 24873). Las consolas usan el del proyecto; con
+`sd:/3ds/pokesurvivor-3ds/servidor.txt` («ip puerto») se usa otro.
 
 ## Compilar
 Ver `las normas del proyecto` > *Comandos* (instalación de devkitPro, generación de recursos,

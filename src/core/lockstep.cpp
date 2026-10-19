@@ -80,8 +80,9 @@ bool read_config(const uint8_t* b, int len, RunConfig& c) {
 
 // ---------------- lockstep ----------------
 
-void Lockstep::begin(int me, int n) {
+void Lockstep::begin(int me, int n, int delay) {
   on_ = true;
+  delay_ = delay < 2 ? 2 : delay > kRing / 4 ? kRing / 4 : delay;
   me_ = me; n_ = n;
   sim_ = local_ = bundled_ = 0;
   std::memset(have_, 0, sizeof(have_));
@@ -100,7 +101,7 @@ bool Lockstep::ready() const { return on_ && sim_ < bundled_; }
 
 // El invitado se adelanta según lo último que ha llegado del anfitrión (no
 // según lo que ha simulado): si no, cada paso esperaría una ida y vuelta.
-bool Lockstep::want_local() const { return on_ && local_ < (host() ? sim_ : std::max(sim_, bundled_)) + kDelay; }
+bool Lockstep::want_local() const { return on_ && local_ < (host() ? sim_ : std::max(sim_, bundled_)) + delay_; }
 
 void Lockstep::push_local(const Input& in) {
   const Input q = quantize(in);

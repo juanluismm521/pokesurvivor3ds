@@ -36,6 +36,8 @@ const std::string& error();
 void finish();                   // vuelve a JOB_IDLE
 
 void shutdown();
+// Red de la consola (socInit), compartida con el juego online. Una sola vez.
+bool soc_up();
 // Prueba de HTTPS (autotest): una renovación con un token inventado, que la
 // nube tiene que rechazar (400). Devuelve el código HTTP (0 = sin conexión) y
 // el error de curl si lo hay. No toca ningún dato.

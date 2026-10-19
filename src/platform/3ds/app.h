@@ -37,7 +37,7 @@ class App {
   void set_autotest(int dex, bool immortal, float warp = 0);
   // Autotest del cooperativo: crea la sala (o se une a la primera que vea),
   // empieza con 2 y el bot juega (para dos emuladores en la misma sala).
-  void set_coop_autotest(bool host, int dex, bool immortal);
+  void set_coop_autotest(bool host, int dex, bool immortal, bool online = false);
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
   bool tour = false;
@@ -144,7 +144,7 @@ class App {
   void lobby_net(float dt);
   void lobby_send_roster();
   void coop_host_start();
-  void coop_begin(const RunConfig& cfg, int idx);
+  void coop_begin(const RunConfig& cfg, int idx, int delay);
   void coop_end(const char* msg);
   void coop_net();               // paquetes de la partida en grupo
   void coop_leave();             // sale de la sala y apaga la radio
@@ -153,7 +153,8 @@ class App {
   RunConfig coop_cfg_;
   uint16_t coop_nodes_[kMaxPlayers] = {};
   bool start_acked_[kMaxPlayers] = {};
-  struct LobbyMate { uint16_t node = 0; RunConfig::Member m; };
+  struct LobbyMate { uint16_t node = 0; RunConfig::Member m; int rtt = 0; };
+  bool coop_online_ = false;    // «En grupo»: por internet (si no, cerca)
   LobbyMate lobby_[kMaxPlayers];
   int nlobby_ = 0;
   net3ds::Room rooms_[8];

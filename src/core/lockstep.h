@@ -68,8 +68,10 @@ struct Packet {
 
 class Lockstep {
  public:
-  // me: tu número (0 = anfitrión); n: jugadores al empezar.
-  void begin(int me, int n);
+  // me: tu número (0 = anfitrión); n: jugadores al empezar; delay: pasos de
+  // adelanto (en local kDelay; por internet, según el ping).
+  void begin(int me, int n, int delay = kDelay);
+  int delay() const { return delay_; }
   bool active() const { return on_; }
   bool host() const { return me_ == 0; }
   int me() const { return me_; }
@@ -105,7 +107,7 @@ class Lockstep {
  private:
   static constexpr int kHashRing = 16;
   bool on_ = false;
-  int me_ = 0, n_ = 1;
+  int me_ = 0, n_ = 1, delay_ = kDelay;
   int64_t sim_ = 0;                  // siguiente paso a simular
   int64_t local_ = 0;                // siguiente paso para el que falta tu entrada
   Input in_[kRing][kMaxPlayers];

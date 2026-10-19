@@ -11,6 +11,8 @@
 # Al acabar compara las huellas (tienen que ser iguales) y saca capturas.
 #
 # Uso: tools/emu_coop.sh [archivo.3dsx] [segundos de partida] [carpeta]
+# Con COOP_ONLINE=1, por internet (servidor de relevo del VPS, server/relay.py):
+# sin sala de Azahar (la red de la consola emulada sale directa).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROM=$(realpath "${1:-pokesurvivor-3ds.3dsx}")
@@ -21,14 +23,17 @@ mkdir -p "$OUT"
 APP=/opt/azahar/squashfs-root/AppRun
 ROOM_IMG=azahar-room:2126.2
 
-# --- servidor de salas ---
-if ! docker image inspect $ROOM_IMG >/dev/null 2>&1; then
+ONLINE=${COOP_ONLINE:-}
+# --- servidor de salas (sólo para el juego local) ---
+if [ -z "$ONLINE" ] && ! docker image inspect $ROOM_IMG >/dev/null 2>&1; then
   curl -sL -o "$W/room.img" https://github.com/azahar-emu/azahar/releases/download/2126.2/azahar-room-x86_64-2126.2.dockerimage
   docker load -i "$W/room.img" >/dev/null
 fi
 docker rm -f ps-room >/dev/null 2>&1
-docker run -d --name ps-room --network host $ROOM_IMG azahar-room --room-name prueba --port 24872 --max_members 4 --preferred-app PokeSurvivor --preferred-app-id 0 >/dev/null
-sleep 2
+if [ -z "$ONLINE" ]; then
+  docker run -d --name ps-room --network host $ROOM_IMG azahar-room --room-name prueba --port 24872 --max_members 4 --preferred-app PokeSurvivor --preferred-app-id 0 >/dev/null
+  sleep 2
+fi
 
 # --- dos "consolas" ---
 cp "$ROM" "$W/game.3dsx"
@@ -40,7 +45,7 @@ setup() {   # $1 = A|B, $2 = rol, $3 = dex
   sed -i 's/^Multiplayer\\ip=.*/Multiplayer\\ip=127.0.0.1/; s/^Multiplayer\\ip\\default=true/Multiplayer\\ip\\default=false/' "$D/config/azahar-emu/qt-config.ini"
   local SD="$D/data/azahar-emu/sdmc/3ds/pokesurvivor-3ds"
   mkdir -p "$SD"; rm -f "$SD/autotest.log"
-  echo "coop $2 $SECS $3 1" > "$SD/autotest.txt"
+  echo "coop $2 $SECS $3 1${ONLINE:+ online}" > "$SD/autotest.txt"
 }
 setup A host 25
 setup B join 4
@@ -71,7 +76,7 @@ join_room() {   # $1 = display
 }
 launch A 97; launch B 98
 sleep 9
-join_room 97; join_room 98
+[ -z "$ONLINE" ] && { join_room 97; join_room 98; }
 
 # --- esperar y comparar ---
 LA="$W/A/data/azahar-emu/sdmc/3ds/pokesurvivor-3ds/autotest.log"

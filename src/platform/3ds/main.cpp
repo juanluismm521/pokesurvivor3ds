@@ -22,6 +22,7 @@
 #include "platform/3ds/app.h"
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
+#include "platform/3ds/net3ds.h"
 #include "platform/3ds/render.h"
 
 using namespace ps;
@@ -36,7 +37,7 @@ struct Autotest {
   bool immortal = true;
   bool tour = false;
   float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
-  bool coop = false, host = false;
+  bool coop = false, host = false, online = false;
   bool nube = false, https = false;            // "nube usuario contraseña": entra y sincroniza (pruebas)
   char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
@@ -61,6 +62,8 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
     a.coop = true; a.host = !std::strcmp(role, "host"); a.immortal = imm != 0;
+    char extra[16] = "";
+    if (std::fscanf(f, "%15s", extra) == 1 && !std::strcmp(extra, "online")) a.online = true;
   }
   else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f", &a.seconds, &a.dex, &imm, &a.warp) >= 1) a.immortal = imm != 0; }
   std::fclose(f);
@@ -155,8 +158,8 @@ int main() {
     app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
   }
   if (at.on && at.coop) {
-    app.set_coop_autotest(at.host, at.dex, at.immortal);
-    if (at.log) { std::fprintf(at.log, "cooperativo: %s\n", at.host ? "anfitrión" : "invitado"); std::fflush(at.log); }
+    app.set_coop_autotest(at.host, at.dex, at.immortal, at.online);
+    if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {
     app.set_autotest(at.dex, at.immortal, at.warp);
     at.next_log = at.warp + 10;
@@ -249,8 +252,8 @@ int main() {
       const net::Lockstep& ls = app.lockstep();
       if (ls.last_hash_tick() > 0 && ls.last_hash_tick() % 600 == 0 && ls.last_hash_tick() != at.hash_logged) {
         at.hash_logged = ls.last_hash_tick();
-        std::fprintf(at.log, "huella paso %lld = %08lx · jugadores %d · esperando %d fotogramas · desincronizado %s\n", at.hash_logged,
-                     (unsigned long)ls.last_hash(), g->team_size(), ls.stall_frames(), ls.desync() ? "SÍ" : "no");
+        std::fprintf(at.log, "huella paso %lld = %08lx · jugadores %d · esperando %d fotogramas · desincronizado %s · retraso %d · ping %d ms\n", at.hash_logged,
+                     (unsigned long)ls.last_hash(), g->team_size(), ls.stall_frames(), ls.desync() ? "SÍ" : "no", ls.delay(), net3ds::rtt_ms());
         std::fflush(at.log);
       }
     }

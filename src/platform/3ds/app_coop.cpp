@@ -75,8 +75,10 @@ RunConfig::Member App::my_member() const {
   return m;
 }
 
-void App::set_coop_autotest(bool host, int dex, bool immortal) {
+void App::set_coop_autotest(bool host, int dex, bool immortal, bool online) {
   autotest = true;
+  coop_online_ = online;
+  net3ds::set_online(online);
   auto_dex_ = dex;
   auto_immortal_ = immortal;
   auto_coop_ = true;
@@ -89,8 +91,18 @@ void App::set_coop_autotest(bool host, int dex, bool immortal) {
 // ---------------- pantalla «En grupo» ----------------
 
 void App::in_coop(const UiIn& in) {
+  // Pestañas: cerca (juego local) o por internet.
+  bool sw = false;
+  if (in.down & (KEY_L | KEY_R)) sw = true;
+  if (in_rect(&in, 0, 24, 160, 20) && coop_online_) sw = true;
+  if (in_rect(&in, 160, 24, 160, 20) && !coop_online_) sw = true;
+  if (sw && !auto_coop_) {
+    coop_online_ = !coop_online_;
+    net3ds::set_online(coop_online_);
+    nrooms_ = 0; scanned_ = false; coop_msg_[0] = 0; cur_ = 0;
+  }
   if (!net3ds::ready() && !net3ds::init()) {
-    std::snprintf(coop_msg_, sizeof(coop_msg_), "No se puede usar el juego local (¿conexión inalámbrica apagada?)");
+    std::snprintf(coop_msg_, sizeof(coop_msg_), "%s", coop_online_ ? net3ds::last_error() : "No se puede usar el juego local (¿conexión inalámbrica apagada?)");
     if (in.down & KEY_B) go(SC_MENU);
     return;
   }
@@ -98,9 +110,9 @@ void App::in_coop(const UiIn& in) {
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
   int pick = -1;
-  if (in_rect(&in, 20, 36, 280, 34)) pick = 0;
-  if (in_rect(&in, 20, 76, 280, 34)) pick = 1;
-  for (int i = 0; i < nrooms_; ++i) if (in_rect(&in, 20, 132 + i * 24, 280, 22)) pick = 2 + i;
+  if (in_rect(&in, 20, 50, 280, 32)) pick = 0;
+  if (in_rect(&in, 20, 88, 280, 32)) pick = 1;
+  for (int i = 0; i < nrooms_; ++i) if (in_rect(&in, 20, 142 + i * 20, 280, 18)) pick = 2 + i;
   if (in.down & KEY_A) pick = cur_;
   if (in.down & KEY_B) { coop_leave(); go(SC_MENU); return; }
   // Autotest: el anfitrión crea la sala; el otro busca hasta encontrarla.
@@ -113,21 +125,23 @@ void App::in_coop(const UiIn& in) {
   if (pick < 0) return;
   cur_ = pick;
   coop_msg_[0] = 0;
+  const RunConfig::Member me = my_member();
+  net3ds::set_name(me.name);
   if (pick == 0) {
-    const RunConfig::Member me = my_member();
-    if (!net3ds::create(me.name)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido crear la sala"); return; }
+    if (!net3ds::create(me.name)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido crear la sala. %s", coop_online_ ? net3ds::last_error() : ""); return; }
     nlobby_ = 1;
     lobby_[0].node = net3ds::kHostNode;
     lobby_[0].m = me;
     lobby_t_ = 0;
     go(SC_LOBBY);
   } else if (pick == 1) {
-    nrooms_ = net3ds::scan(rooms_, 8);
+    nrooms_ = net3ds::scan(rooms_, coop_online_ ? 4 : 8);
     scanned_ = true;
     cur_ = nrooms_ ? 2 : 1;
+    if (!nrooms_ && coop_online_ && net3ds::last_error()[0]) std::snprintf(coop_msg_, sizeof(coop_msg_), "%s", net3ds::last_error());
   } else {
     const net3ds::Room& rm = rooms_[pick - 2];
-    if (!net3ds::join(rm.index)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido entrar en la sala de %s", rm.host); return; }
+    if (!net3ds::join(rm.index)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido entrar en la sala de %s. %s", rm.host, coop_online_ ? net3ds::last_error() : ""); return; }
     nlobby_ = 0;
     lobby_t_ = 0;
     go(SC_LOBBY);
@@ -136,23 +150,30 @@ void App::in_coop(const UiIn& in) {
 
 void App::bottom_coop() {
   header("Jugar en grupo");
-  button(20, 36, 280, 34, "Crear sala", cur_ == 0);
-  button(20, 76, 280, 34, "Buscar salas", cur_ == 1);
-  if (!scanned_) r_->text("Hasta 4 consolas cerca, cada una con el juego.", 160, 118, 0.34f, C_MUTED, 1);
-  else if (!nrooms_) r_->text("No hay salas cerca. Pide a alguien que cree una.", 160, 118, 0.34f, C_MUTED, 1);
-  else r_->text("Salas cerca:", 24, 118, 0.34f, C_MUTED, 0);
+  // Pestañas
+  for (int t = 0; t < 2; ++t) {
+    const bool on = (t == 1) == coop_online_;
+    C2D_DrawRectSolid(t * 160 + 4, 24, 0, 152, 20, on ? C_SEL : C_PANEL);
+    if (on) C2D_DrawRectSolid(t * 160 + 4, 42, 0, 152, 2, C_GOLD);
+    r_->text(t ? "Por internet" : "Cerca (juego local)", t * 160 + 80, 28, 0.36f, on ? C_GOLD : C_MUTED, 1);
+  }
+  button(20, 50, 280, 32, "Crear sala", cur_ == 0);
+  button(20, 88, 280, 32, "Buscar salas", cur_ == 1);
+  if (!scanned_) r_->text(coop_online_ ? "Con cualquiera que tenga el juego, esté donde esté." : "Hasta 4 consolas cerca, cada una con el juego.", 160, 126, 0.34f, C_MUTED, 1);
+  else if (!nrooms_) r_->text(coop_online_ ? "No hay salas abiertas. Crea una y avisa." : "No hay salas cerca. Pide a alguien que cree una.", 160, 126, 0.34f, C_MUTED, 1);
+  else r_->text(coop_online_ ? "Salas abiertas:" : "Salas cerca:", 24, 126, 0.34f, C_MUTED, 0);
   char b[64];
   for (int i = 0; i < nrooms_; ++i) {
-    const float y = 132 + i * 24;
-    C2D_DrawRectSolid(20, y, 0, 280, 22, cur_ == 2 + i ? C_SEL : C_PANEL);
-    if (cur_ == 2 + i) C2D_DrawRectSolid(20, y, 0, 3, 22, C_GOLD);
+    const float y = 142 + i * 20;
+    C2D_DrawRectSolid(20, y, 0, 280, 18, cur_ == 2 + i ? C_SEL : C_PANEL);
+    if (cur_ == 2 + i) C2D_DrawRectSolid(20, y, 0, 3, 18, C_GOLD);
     std::snprintf(b, sizeof(b), "Sala de %s", rooms_[i].host);
-    r_->text(b, 30, y + 6, 0.36f, C_TEXT, 0);
+    r_->text(b, 30, y + 4, 0.34f, C_TEXT, 0);
     std::snprintf(b, sizeof(b), "%d / 4", rooms_[i].players);
-    r_->text(b, 292, y + 6, 0.36f, C_MUTED, 2);
+    r_->text(b, 292, y + 4, 0.34f, C_MUTED, 2);
   }
-  if (coop_msg_[0]) r_->text(coop_msg_, 160, 212, 0.32f, C2D_Color32(255, 138, 150, 255), 1);
-  r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  if (coop_msg_[0]) r_->text(coop_msg_, 160, 214, 0.32f, C2D_Color32(255, 138, 150, 255), 1);
+  r_->text("A: elegir · L/R: cerca o por internet · B: volver", 160, 228, 0.32f, C_MUTED, 1);
 }
 
 // ---------------- sala ----------------
@@ -183,6 +204,9 @@ void App::lobby_net(float dt) {
     if (host && type == net::MSG_HELLO) {
       RunConfig::Member m;
       if (!net::read_member(p, pl, m)) continue;
+      uint8_t tmpm[128];
+      const int msz = net::write_member(m, tmpm, sizeof(tmpm));
+      const int rtt = pl >= msz + 2 ? int(p[msz] | p[msz + 1] << 8) : 0;
       int slot = -1;
       for (int i = 0; i < nlobby_; ++i) if (lobby_[i].node == from) slot = i;
       if (slot < 0 && nlobby_ < kMaxPlayers) slot = nlobby_++;
@@ -192,6 +216,7 @@ void App::lobby_net(float dt) {
         if (i != slot && !std::strcmp(lobby_[i].m.name, m.name)) { const int L = int(std::min<size_t>(std::strlen(m.name), 12)); m.name[L] = ' '; m.name[L + 1] = char('1' + slot); m.name[L + 2] = 0; }
       lobby_[slot].node = from;
       lobby_[slot].m = m;
+      lobby_[slot].rtt = rtt;
     } else if (host && type == net::MSG_BYE) {
       for (int i = 1; i < nlobby_; ++i)
         if (lobby_[i].node == from) { for (int k = i; k < nlobby_ - 1; ++k) lobby_[k] = lobby_[k + 1]; nlobby_--; break; }
@@ -214,17 +239,18 @@ void App::lobby_net(float dt) {
     } else if (!host && type == net::MSG_START) {
       if (pl < 1) continue;
       const int n = p[0];
-      if (n < 2 || n > kMaxPlayers || pl < 1 + 2 * n) continue;
+      if (n < 2 || n > kMaxPlayers || pl < 2 + 2 * n) continue;
+      const int delay = p[1];
       uint16_t nodes[kMaxPlayers];
-      for (int i = 0; i < n; ++i) nodes[i] = uint16_t(p[1 + 2 * i] | p[2 + 2 * i] << 8);
+      for (int i = 0; i < n; ++i) nodes[i] = uint16_t(p[2 + 2 * i] | p[3 + 2 * i] << 8);
       RunConfig cfg;
-      if (!net::read_config(p + 1 + 2 * n, pl - 1 - 2 * n, cfg) || cfg.nplayers != n) continue;
+      if (!net::read_config(p + 2 + 2 * n, pl - 2 - 2 * n, cfg) || cfg.nplayers != n) continue;
       const uint16_t me = net3ds::my_node();
       int idx = -1;
       for (int i = 0; i < n; ++i) if (nodes[i] == me) idx = i;
       if (idx <= 0) continue;
       for (int i = 0; i < n; ++i) coop_nodes_[i] = nodes[i];
-      coop_begin(cfg, idx);
+      coop_begin(cfg, idx, delay);
       return;
     } else if (!host && type == net::MSG_BYE && from == net3ds::kHostNode) {
       coop_leave();
@@ -255,7 +281,11 @@ void App::lobby_net(float dt) {
       uint8_t b[160];
       int n = put_header(b, net::MSG_HELLO);
       const int w = net::write_member(my_member(), b + n, int(sizeof(b)) - n);
-      if (w > 0) net3ds::send(net3ds::kHostNode, b, n + w);
+      if (w > 0) {
+        const int rtt = net3ds::rtt_ms();   // (por internet, para elegir el retraso)
+        b[n + w] = uint8_t(rtt); b[n + w + 1] = uint8_t(rtt >> 8);
+        net3ds::send(net3ds::kHostNode, b, n + w + 2);
+      }
     }
   }
 }
@@ -271,8 +301,10 @@ void App::in_lobby(const UiIn& in, float dt) {
 
 void App::bottom_lobby() {
   const bool host = net3ds::is_host();
-  header(host ? "Tu sala" : "En la sala");
   char b[64];
+  if (net3ds::online()) std::snprintf(b, sizeof(b), "%s %s · ping %d ms", host ? "Tu sala" : "Sala", net3ds::room_code(), net3ds::rtt_ms());
+  else std::snprintf(b, sizeof(b), "%s", host ? "Tu sala" : "En la sala");
+  header(b);
   for (int i = 0; i < kMaxPlayers; ++i) {
     const float y = 30 + i * 38;
     C2D_DrawRectSolid(20, y, 0, 280, 34, C_PANEL);
@@ -304,10 +336,19 @@ void App::coop_host_start() {
   for (int i = 0; i < nlobby_; ++i) { c.members[i] = lobby_[i].m; coop_nodes_[i] = lobby_[i].node; }
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
   for (int i = 0; i < kMaxPlayers; ++i) start_acked_[i] = i == 0;
-  coop_begin(c, 0);
+  // Retraso de los controles: en local, el fijo; por internet, lo que tarda en
+  // ir y volver lo de cada uno por el servidor (con margen).
+  int delay = net::kDelay;
+  if (net3ds::online()) {
+    int worst = 0;
+    for (int i = 1; i < nlobby_; ++i) worst = std::max(worst, lobby_[i].rtt);
+    delay = clamp(int(std::ceil((net3ds::rtt_ms() + worst) / 16.7)) + 3, net::kDelay, 30);
+  }
+  net3ds::close_room();
+  coop_begin(c, 0, delay);
 }
 
-void App::coop_begin(const RunConfig& cfg, int idx) {
+void App::coop_begin(const RunConfig& cfg, int idx, int delay) {
   coop_cfg_ = cfg;
   coop_ = true;
   g_->local = idx;
@@ -325,7 +366,7 @@ void App::coop_begin(const RunConfig& cfg, int idx) {
   coop_over_t_ = 0;
   quit_t_ = -1;
   coop_msg_[0] = 0;
-  ls_.begin(idx, cfg.nplayers);
+  ls_.begin(idx, cfg.nplayers, delay);
   scene = SC_RUN;
 }
 
@@ -355,6 +396,7 @@ void App::coop_net() {
       uint8_t b[1024];
       int n = put_header(b, net::MSG_START);
       b[n++] = uint8_t(coop_cfg_.nplayers);
+      b[n++] = uint8_t(ls_.delay());
       for (int i = 0; i < coop_cfg_.nplayers; ++i) { b[n++] = uint8_t(coop_nodes_[i]); b[n++] = uint8_t(coop_nodes_[i] >> 8); }
       const int w = net::write_config(coop_cfg_, b + n, int(sizeof(b)) - n);
       if (w > 0) net3ds::send(net3ds::kBroadcast, b, n + w);

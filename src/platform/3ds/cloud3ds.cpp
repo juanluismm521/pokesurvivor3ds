@@ -111,10 +111,17 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
 
 bool net_up() {
   if (g_soc) return true;
-  g_socbuf = static_cast<u32*>(memalign(0x1000, 0x100000));
-  if (!g_socbuf || R_FAILED(socInit(g_socbuf, 0x100000))) { std::free(g_socbuf); g_socbuf = nullptr; return false; }
+  if (!soc_up()) return false;
   curl_global_init(CURL_GLOBAL_DEFAULT);
   g_soc = true;
+  return true;
+}
+bool g_socinit = false;
+bool soc_up_impl() {
+  if (g_socinit) return true;
+  g_socbuf = static_cast<u32*>(memalign(0x1000, 0x100000));
+  if (!g_socbuf || R_FAILED(socInit(g_socbuf, 0x100000))) { std::free(g_socbuf); g_socbuf = nullptr; return false; }
+  g_socinit = true;
   return true;
 }
 
@@ -230,6 +237,8 @@ const Json& result() { return g_result; }
 const std::string& error() { return g_err; }
 void finish() { if (g_state != JOB_BUSY) { g_state = JOB_IDLE; g_result = Json(); g_local = Json(); } }
 
+bool soc_up() { return soc_up_impl(); }
+
 int probe_https(std::string& curl_error) {
   if (!net_up()) { curl_error = "socInit"; return 0; }
   cloud::HttpReq rq;
@@ -252,7 +261,8 @@ void shutdown() {
     threadFree(g_thr);
     g_thr = nullptr;
   }
-  if (g_soc) { curl_global_cleanup(); socExit(); std::free(g_socbuf); g_soc = false; }
+  if (g_soc) { curl_global_cleanup(); g_soc = false; }
+  if (g_socinit) { socExit(); std::free(g_socbuf); g_socbuf = nullptr; g_socinit = false; }
 }
 
 }  // namespace cloud3ds
