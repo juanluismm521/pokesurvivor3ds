@@ -13,7 +13,12 @@ struct Settings {
   bool fps = false;           // contador de FPS
   int music = 70, sfx = 80;   // volumen 0..100
   bool stereo = true;         // 3D (si el deslizador está subido)
+  // Servidor para jugar online (server de pokesurvivor-relay): IP o dominio y puerto.
+  char server[64] = "217.154.98.19";
+  int server_port = 24873;
 };
+// ¿Vale como IP o dominio? (letras, cifras, '.', '-'; sin espacios)
+bool settings_valid_host(const char* h);
 
 std::string settings_to_json(const Settings& s);
 bool settings_from_json(Settings& s, const std::string& text);

@@ -31,18 +31,9 @@ int g_nrooms = 0;
 char g_name[16] = "Jugador";
 std::string g_err;
 
-// Servidor: el VPS del proyecto; servidor.txt en la SD («ip puerto») lo cambia.
-void server_addr(char* host, int cap, int& port) {
-  std::snprintf(host, size_t(cap), "217.154.98.19");
-  port = relay::kDefaultPort;
-  FILE* f = std::fopen("sdmc:/3ds/pokesurvivor-3ds/servidor.txt", "r");
-  if (f) {
-    char h[64] = "";
-    int p = 0;
-    if (std::fscanf(f, "%63s %d", h, &p) >= 1 && h[0]) { std::snprintf(host, size_t(cap), "%s", h); if (p > 0) port = p; }
-    std::fclose(f);
-  }
-}
+// Servidor (de los ajustes; por defecto, el del proyecto).
+char g_server[64] = "217.154.98.19";
+int g_port = relay::kDefaultPort;
 udsBindContext g_bind;
 udsNetworkScanInfo* g_found = nullptr;
 size_t g_nfound = 0;
@@ -56,6 +47,11 @@ void set_online(bool on) {
 }
 bool online() { return g_online; }
 const char* last_error() { return g_err.c_str(); }
+void set_server(const char* host, int port) {
+  if (std::strcmp(host, g_server) || port != g_port) { if (g_online) exit(); }
+  std::snprintf(g_server, sizeof(g_server), "%s", host);
+  g_port = port;
+}
 void set_name(const char* name) { std::snprintf(g_name, sizeof(g_name), "%s", name); }
 int rtt_ms() { return g_online ? g_rc.rtt_ms() : 0; }
 const char* room_code() { return g_online ? g_rc.code() : ""; }
@@ -64,10 +60,7 @@ bool init() {
   if (g_online) {
     if (g_rc.is_open()) return true;
     if (!cloud3ds::soc_up()) { g_err = "No hay conexión a internet (¿wifi apagado?)."; return false; }
-    char host[64];
-    int port;
-    server_addr(host, sizeof(host), port);
-    if (!g_rc.open(host, port)) { g_err = g_rc.error; return false; }
+    if (!g_rc.open(g_server, g_port)) { g_err = g_rc.error; return false; }
     g_init = true;
     return true;
   }

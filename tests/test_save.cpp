@@ -256,3 +256,25 @@ TEST_CASE("partida: lo que sólo usa la web se conserva al leer y escribir en la
   CHECK(raw["stats"]["runs"].as_num() == 4);
   save_raw() = Json();
 }
+
+#include "core/settings.h"
+TEST_CASE("ajustes: servidor online (IP o dominio y puerto)") {
+  Settings s;
+  CHECK(std::string(s.server) == "217.154.98.19");
+  CHECK(s.server_port == 24873);
+  std::snprintf(s.server, sizeof(s.server), "relay.ejemplo.com");
+  s.server_port = 4000;
+  Settings t;
+  REQUIRE(settings_from_json(t, settings_to_json(s)));
+  CHECK(std::string(t.server) == "relay.ejemplo.com");
+  CHECK(t.server_port == 4000);
+  CHECK(settings_valid_host("192.168.1.20"));
+  CHECK(settings_valid_host("mi-servidor.duckdns.org"));
+  CHECK(!settings_valid_host("hola mundo"));
+  CHECK(!settings_valid_host(""));
+  CHECK(!settings_valid_host("-raro"));
+  Settings u;
+  REQUIRE(settings_from_json(u, "{\"server\":\"mal servidor\",\"serverPort\":99999}"));
+  CHECK(std::string(u.server) == "217.154.98.19");
+  CHECK(u.server_port == 24873);
+}

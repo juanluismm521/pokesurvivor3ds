@@ -44,6 +44,7 @@ int rtt_ms();                    // ping con el servidor (por internet; 0 en loc
 const char* room_code();         // código de la sala (por internet)
 const char* last_error();
 void set_name(const char* name); // (por internet: con qué nombre se entra)
+void set_server(const char* host, int port);   // IP o dominio y puerto (Ajustes)
 
 }  // namespace net3ds
 }  // namespace ps

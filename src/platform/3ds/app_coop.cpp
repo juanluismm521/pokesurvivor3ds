@@ -14,8 +14,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
+#include "core/settings.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
@@ -90,7 +92,38 @@ void App::set_coop_autotest(bool host, int dex, bool immortal, bool online) {
 
 // ---------------- pantalla «En grupo» ----------------
 
+namespace {
+bool ask_text(const char* hint, const char* initial, char* out, int cap, bool numbers) {
+  SwkbdState kb;
+  swkbdInit(&kb, numbers ? SWKBD_TYPE_NUMPAD : SWKBD_TYPE_WESTERN, 2, cap - 1);
+  swkbdSetHintText(&kb, hint);
+  swkbdSetInitialText(&kb, initial);
+  swkbdSetValidation(&kb, SWKBD_NOTEMPTY_NOTBLANK, 0, 0);
+  out[0] = 0;
+  return swkbdInputText(&kb, out, size_t(cap)) == SWKBD_BUTTON_CONFIRM && out[0];
+}
+}  // namespace
+
 void App::in_coop(const UiIn& in) {
+  net3ds::set_server(st_->server, st_->server_port);
+  // Por internet: Y (o tocar la fila) cambia el servidor (IP o dominio y puerto).
+  if (coop_online_ && !auto_coop_ && ((in.down & KEY_Y) || in_rect(&in, 20, 122, 280, 16))) {
+    char host[64], port[8], cur[8];
+    std::snprintf(cur, sizeof(cur), "%d", st_->server_port);
+    if (ask_text("IP o dominio del servidor", st_->server, host, sizeof(host), false)) {
+      if (!settings_valid_host(host)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "Ese servidor no vale (sólo letras, cifras, puntos y guiones)"); return; }
+      int p = st_->server_port;
+      if (ask_text("Puerto (normalmente 24873)", cur, port, sizeof(port), true)) p = std::atoi(port);
+      if (p <= 0 || p > 65535) { std::snprintf(coop_msg_, sizeof(coop_msg_), "Ese puerto no vale (1-65535)"); return; }
+      std::snprintf(st_->server, sizeof(st_->server), "%s", host);
+      st_->server_port = p;
+      settings_write(dir_, *st_);
+      net3ds::set_server(st_->server, st_->server_port);
+      nrooms_ = 0; scanned_ = false;
+      std::snprintf(coop_msg_, sizeof(coop_msg_), "Servidor: %s:%d", st_->server, st_->server_port);
+    }
+    return;
+  }
   // Pestañas: cerca (juego local) o por internet.
   bool sw = false;
   if (in.down & (KEY_L | KEY_R)) sw = true;
@@ -159,10 +192,17 @@ void App::bottom_coop() {
   }
   button(20, 50, 280, 32, "Crear sala", cur_ == 0);
   button(20, 88, 280, 32, "Buscar salas", cur_ == 1);
-  if (!scanned_) r_->text(coop_online_ ? "Con cualquiera que tenga el juego, esté donde esté." : "Hasta 4 consolas cerca, cada una con el juego.", 160, 126, 0.34f, C_MUTED, 1);
-  else if (!nrooms_) r_->text(coop_online_ ? "No hay salas abiertas. Crea una y avisa." : "No hay salas cerca. Pide a alguien que cree una.", 160, 126, 0.34f, C_MUTED, 1);
-  else r_->text(coop_online_ ? "Salas abiertas:" : "Salas cerca:", 24, 126, 0.34f, C_MUTED, 0);
-  char b[64];
+  char b[96];
+  if (coop_online_) {
+    // Servidor (se cambia con Y o tocando aquí).
+    std::snprintf(b, sizeof(b), "Servidor: %s:%d  (Y: cambiar)", st_->server, st_->server_port);
+    r_->text(b, 160, 124, 0.32f, C2D_Color32(154, 230, 255, 255), 1);
+    if (scanned_) r_->text(nrooms_ ? "Salas abiertas:" : "No hay salas abiertas. Crea una y avisa.", nrooms_ ? 24 : 160, 134, 0.32f, C_MUTED, nrooms_ ? 0 : 1);
+  } else {
+    if (!scanned_) r_->text("Hasta 4 consolas cerca, cada una con el juego.", 160, 126, 0.34f, C_MUTED, 1);
+    else if (!nrooms_) r_->text("No hay salas cerca. Pide a alguien que cree una.", 160, 126, 0.34f, C_MUTED, 1);
+    else r_->text("Salas cerca:", 24, 126, 0.34f, C_MUTED, 0);
+  }
   for (int i = 0; i < nrooms_; ++i) {
     const float y = 142 + i * 20;
     C2D_DrawRectSolid(20, y, 0, 280, 18, cur_ == 2 + i ? C_SEL : C_PANEL);

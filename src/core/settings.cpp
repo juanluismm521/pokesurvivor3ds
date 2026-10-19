@@ -17,6 +17,8 @@ std::string settings_to_json(const Settings& s) {
   o.set("music", Json::num(s.music));
   o.set("sfx", Json::num(s.sfx));
   o.set("stereo", Json::boolean(s.stereo));
+  o.set("server", Json::str(s.server));
+  o.set("serverPort", Json::num(s.server_port));
   return o.dump();
 }
 
@@ -33,9 +35,24 @@ bool settings_from_json(Settings& s, const std::string& text) {
   if (o.has("music")) s.music = int(o["music"].as_int(70));
   if (o.has("sfx")) s.sfx = int(o["sfx"].as_int(80));
   if (o.has("stereo")) s.stereo = o["stereo"].as_bool();
+  if (o["server"].is_str() && settings_valid_host(o["server"].as_str().c_str())) std::snprintf(s.server, sizeof(s.server), "%s", o["server"].as_str().c_str());
+  if (o.has("serverPort")) {
+    const int p = int(o["serverPort"].as_int(24873));
+    s.server_port = p > 0 && p < 65536 ? p : 24873;
+  }
   if (s.music < 0 || s.music > 100) s.music = 70;
   if (s.sfx < 0 || s.sfx > 100) s.sfx = 80;
   return true;
+}
+
+bool settings_valid_host(const char* h) {
+  if (!h || !*h) return false;
+  int n = 0;
+  for (const char* p = h; *p; ++p, ++n) {
+    const char c = *p;
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-')) return false;
+  }
+  return n < 64 && h[0] != '.' && h[0] != '-';
 }
 
 bool settings_read(const char* dir, Settings& s) {
