@@ -33,7 +33,7 @@ volatile bool g_quit = false;
 volatile int g_state = JOB_IDLE;
 int g_kind = 0;                  // 1 = entrar + sincronizar, 2 = sincronizar
 std::string g_name, g_pass, g_err, g_curl_err;
-Json g_local, g_result;
+Json g_local, g_result, g_remote;
 
 std::string path(const char* f) { return g_dir + "/" + f; }
 
@@ -154,6 +154,7 @@ void worker(void*) {
         g_acc.last_sync = now_ms();
         save_account();
         g_result = merged;
+        g_remote = c.last_remote;
         ok = true;
       } else {
         g_err = c.error.empty() ? "No se ha podido sincronizar." : c.error;
@@ -234,6 +235,7 @@ bool start_sync(const Json& local) {
 
 JobState state() { return JobState(g_state); }
 const Json& result() { return g_result; }
+const Json& last_remote() { return g_remote; }
 const std::string& error() { return g_err; }
 void finish() { if (g_state != JOB_BUSY) { g_state = JOB_IDLE; g_result = Json(); g_local = Json(); } }
 

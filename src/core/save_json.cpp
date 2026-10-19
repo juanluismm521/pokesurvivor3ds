@@ -298,10 +298,23 @@ Json& save_raw() {
   return raw;
 }
 
+namespace {
+Json& save_was() {   // lo que la 3DS entendía de la partida web al leerla
+  static Json was;
+  return was;
+}
+}  // namespace
+
+void save_set_raw(const Json& raw, const Save& s) {
+  save_raw() = raw;
+  save_was() = Json();
+  save_was().parse(save_to_json(s));
+}
+
 Json save_full_json(const Save& s) {
   Json mine;
   mine.parse(save_to_json(s));
-  return save_raw().is_obj() ? web::overlay(save_raw(), mine) : mine;
+  return save_raw().is_obj() ? web::overlay_changes(save_raw(), save_was(), mine) : mine;
 }
 
 int save_read_file(const char* dir, Save& s) {
@@ -310,7 +323,7 @@ int save_read_file(const char* dir, Save& s) {
   int got = 0;
   if (read_text(base + ".json", text) && save_from_json(s, text)) got = 1;
   else if (read_text(base + ".bak", text) && save_from_json(s, text)) got = 2;   // copia de seguridad
-  if (got) save_raw().parse(text);
+  if (got) { Json raw; raw.parse(text); save_set_raw(raw, s); }
   return got;
 }
 

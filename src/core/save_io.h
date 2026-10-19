@@ -20,7 +20,10 @@ bool save_write_file(const char* dir, const Save& s);
 // archivo se pone encima lo de la 3DS y se conserva lo que la 3DS no usa
 // (la libreta de monedas de cada aparato, campos nuevos de la web...).
 Json& save_raw();
-// Lo de la 3DS sobre la partida web completa.
+// Pone la partida web completa y apunta lo que la 3DS entiende de ella (`s`,
+// ya leída de `raw`): al escribir sólo se cambia lo que la 3DS haya cambiado.
+void save_set_raw(const Json& raw, const Save& s);
+// Lo de la 3DS sobre la partida web completa (sólo lo que ha cambiado).
 Json save_full_json(const Save& s);
 int clamp_from(int f);
 

@@ -32,6 +32,7 @@ bool start_sync(const Json& local);
 JobState state();
 // Al acabar bien: la partida fusionada (para aplicarla) y se guarda la cuenta.
 const Json& result();
+const Json& last_remote();     // la partida de la nube antes de sincronizar (copia)
 const std::string& error();
 void finish();                   // vuelve a JOB_IDLE
 

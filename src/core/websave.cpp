@@ -129,7 +129,7 @@ Json new_save(const std::string& name, int64_t now_ms) {
   return s;
 }
 
-void sanitize(Json& s) {
+void sanitize(Json& s, bool strict) {
   s.set("coins", Json::num(num(s["coins"])));
   Json& tk = s.ref("tickets");
   tk.set("t1", Json::num(num(tk["t1"])));
@@ -142,7 +142,8 @@ void sanitize(Json& s) {
       for (size_t j = e.items().size(); j-- > 0;) {
         auto& ek = e.items_mut()[j];
         const bool cur = !std::strcmp(ek.first.c_str(), "c") || ek.first == "t1" || ek.first == "t10";
-        if (!cur || !ek.second.is_arr()) { e.items_mut().erase(e.items_mut().begin() + long(j)); continue; }
+        // (sin strict, las monedas nuevas de una web más nueva se quedan)
+        if ((strict && !cur) || !ek.second.is_arr()) { e.items_mut().erase(e.items_mut().begin() + long(j)); continue; }
         ek.second = pair(num(ek.second[0]), num(ek.second[1]));
       }
     }
@@ -151,7 +152,7 @@ void sanitize(Json& s) {
   }
   for (const char* coll : {"owned", "shiny"}) {
     Json* c = s.get(coll);
-    if (!c || !c->is_obj()) continue;
+    if (!strict || !c || !c->is_obj()) continue;
     auto& it = c->items_mut();
     for (size_t i = it.size(); i-- > 0;) if (!dex_ok(it[i].first)) it.erase(it.begin() + long(i));
   }
@@ -164,7 +165,7 @@ void sanitize(Json& s) {
       std::vector<std::string> seen;
       for (int i = 0; i < 4; ++i) {
         const Json& id = l[i];   // (si no es una lista, null)
-        bool ok = id.is_str() && move_index(id.as_str().c_str()) >= 0;
+        bool ok = id.is_str() && (!strict || move_index(id.as_str().c_str()) >= 0);
         for (const auto& q : seen) if (ok && q == id.as_str()) ok = false;
         if (ok) { seen.push_back(id.as_str()); out.push(Json::str(id.as_str())); }
         else out.push(Json());
@@ -182,7 +183,7 @@ void sanitize(Json& s) {
       std::vector<std::string> seen;
       if (kv.second.is_arr())
         for (const Json& id : kv.second.elems()) {
-          if (!id.is_str() || move_index(id.as_str().c_str()) < 0) continue;
+          if (!id.is_str() || (strict && move_index(id.as_str().c_str()) < 0)) continue;
           bool dup = false;
           for (const auto& q : seen) if (q == id.as_str()) dup = true;
           if (dup || seen.size() >= 3) continue;
@@ -203,14 +204,15 @@ void sanitize(Json& s) {
       auto& ui = u.items_mut();
       for (size_t j = ui.size(); j-- > 0;) {
         const int k = upgrade_by_id(ui[j].first);
-        if (k < 0) ui.erase(ui.begin() + long(j));
+        if (!strict) ui[j].second = Json::num(num(ui[j].second));   // (sin recortar: la web pudo subir el máximo)
+        else if (k < 0) ui.erase(ui.begin() + long(j));
         else ui[j].second = Json::num(std::fmin(double(kUpgrades[k].max), num(ui[j].second)));
       }
     }
   }
 }
 
-Json migrate(Json s, const std::string& name, int64_t now_ms) {
+Json migrate(Json s, const std::string& name, int64_t now_ms, bool strict) {
   const Json base = new_save(name.empty() ? s["name"].as_str() : name, now_ms);
   for (const auto& kv : base.items()) {
     Json* v = s.get(kv.first);
@@ -236,8 +238,9 @@ Json migrate(Json s, const std::string& name, int64_t now_ms) {
   Json tk = Json::object(); tk.set("t1", Json::num(0)); tk.set("t10", Json::num(0));
   if (s["tickets"].is_obj()) for (const auto& kv : s["tickets"].items()) tk.set(kv.first, kv.second);
   s.set("tickets", tk);
-  sanitize(s);
-  s.set("v", Json::num(kVersion));
+  sanitize(s, strict);
+  // (una partida de un formato más nuevo conserva su versión: la 3DS no la baja)
+  if (version_of(s) < kVersion) s.set("v", Json::num(kVersion));
   return s;
 }
 
@@ -373,6 +376,71 @@ Json overlay(const Json& base, const Json& top) {
     else r.set(kv.first, kv.second);
   }
   return r;
+}
+
+int version_of(const Json& s) { return s["v"].is_num() ? int(s["v"].as_num()) : 0; }
+
+Json overlay_changes(const Json& raw, const Json& was, const Json& now) {
+  if (!raw.is_obj() || !now.is_obj()) return now;
+  Json r = raw;
+  for (const auto& kv : now.items()) {
+    const char* k = kv.first.c_str();
+    if (was.is_obj() && was.has(k) && same(was[k], kv.second) && raw.has(k)) continue;   // no ha cambiado: lo de la web
+    Json* cur = r.get(kv.first);
+    if (cur && cur->is_obj() && kv.second.is_obj()) *cur = overlay_changes(*cur, was[k], kv.second);
+    else r.set(kv.first, kv.second);
+  }
+  return r;
+}
+
+namespace {
+bool known_key(const std::string& k) {
+  static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
+                                  "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban"};
+  for (const char* q : K) if (k == q) return true;
+  return false;
+}
+// Añade a `dst` lo que tiene `src` y le falta (en profundidad).
+void add_missing(Json& dst, const Json& src) {
+  if (!dst.is_obj() || !src.is_obj()) return;
+  for (const auto& kv : src.items()) {
+    Json* d = dst.get(kv.first);
+    if (!d) dst.set(kv.first, kv.second);
+    else if (d->is_obj() && kv.second.is_obj()) add_missing(*d, kv.second);
+  }
+}
+}  // namespace
+
+Json merge_safe(const Json& a, const Json& b, int64_t now_ms) {
+  Json r = merge(a, b, now_ms);
+  if (!a.is_obj() || !b.is_obj()) return r;
+  for (const Json* side : {&a, &b})
+    for (const auto& kv : side->items()) {
+      if (known_key(kv.first)) continue;
+      Json* d = r.get(kv.first);
+      if (!d) r.set(kv.first, kv.second);
+      else if (d->is_obj() && kv.second.is_obj()) add_missing(*d, kv.second);
+    }
+  return r;
+}
+
+bool loses_progress(const Json& prev, const Json& merged, std::string& what) {
+  if (!prev.is_obj()) return false;
+  for (const char* coll : {"owned", "shiny", "legends", "arenas", "itemsFound", "evoMoves", "ach"})
+    for (const auto& kv : prev[coll].items())
+      if (!truthy(merged[coll][kv.first.c_str()]) && truthy(kv.second)) { what = std::string(coll) + "." + kv.first; return true; }
+  for (const auto& dv : prev["pupg"].items())
+    for (const auto& kv : dv.second.items())
+      if (plus(merged["pupg"][dv.first.c_str()][kv.first.c_str()]) < plus(kv.second)) { what = "pupg." + dv.first + "." + kv.first; return true; }
+  for (const auto& kv : prev["stats"].items())
+    if (plus(merged["stats"][kv.first.c_str()]) < plus(kv.second)) { what = "stats." + kv.first; return true; }
+  // La libreta: ningún apunte baja (lo ganado y gastado sólo crece).
+  for (const auto& dv : prev["led"].items())
+    for (const auto& kv : dv.second.items())
+      for (int i = 0; i < 2; ++i)
+        if (plus(merged["led"][dv.first.c_str()][kv.first.c_str()][i]) < plus(kv.second[i])) { what = "led." + dv.first + "." + kv.first; return true; }
+  return false;
 }
 
 // ---------------- Firestore ----------------

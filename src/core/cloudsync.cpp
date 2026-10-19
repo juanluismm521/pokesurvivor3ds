@@ -153,8 +153,9 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     rq.headers = {"Content-Type: application/json", auth};
     rq.body = "{\"documents\":[" + jstr(doc_path(c, s)) + "],\"transaction\":" + jstr(tx) + "}";
     if (!call(c, rq, rs)) { rollback(c, base, auth, tx); return false; }
-    Json remote;
+    Json remote, other = Json::object();   // (otros campos del documento: se conservan)
     bool ban = false;
+    int doc_v = 0;
     {
       Json arr;
       arr.parse(rs.body);
@@ -165,19 +166,39 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
       }
       for (const Json& e : arr.elems()) {
         if (!e["found"].is_obj()) continue;
-        remote = web::from_firestore(e["found"]["fields"]["save"]);
-        ban = e["found"]["fields"]["ban"]["booleanValue"].as_bool();
+        const Json& f = e["found"]["fields"];
+        remote = web::from_firestore(f["save"]);
+        ban = f["ban"]["booleanValue"].as_bool();
+        doc_v = int(web::from_firestore(f["v"]).as_num(0));
+        for (const auto& kv : f.items())
+          if (kv.first != "save" && kv.first != "v" && kv.first != "updatedAt" && kv.first != "ban") other.set(kv.first, kv.second);
       }
+    }
+    c.last_remote = remote;
+    // Una web más nueva (otro formato de partida): no se toca nada.
+    if (doc_v > web::kVersion || web::version_of(remote) > web::kVersion) {
+      c.error = "La partida de la web es de una versión más nueva del juego: actualiza el juego de la 3DS para sincronizar (no se ha tocado nada).";
+      rollback(c, base, auth, tx);
+      return false;
     }
     // 3. fusión (la hora de la 3DS, pasada a la del servidor: su reloj va en hora local)
     Json local = local_in;
     if (local["updated"].is_num()) local.set("updated", Json::num(local["updated"].as_num() + double(c.clock_delta)));
     const int64_t now = local_now_ms + c.clock_delta;
-    local = web::migrate(local, "", now);
+    // (sin strict: lo que la 3DS no conoce de una web más nueva se queda)
+    local = web::migrate(local, "", now, false);
     web::fold(local, dev);
-    merged = remote.is_obj() ? web::merge(local, web::migrate(remote, "", now), now) : local;
+    const Json rem = remote.is_obj() ? web::migrate(remote, "", now, false) : Json();
+    merged = rem.is_obj() ? web::merge_safe(local, rem, now) : local;
+    // Última red de seguridad: si la fusión perdiera algo, no se sube nada.
+    std::string lost;
+    if (web::loses_progress(rem, merged, lost) || web::loses_progress(local, merged, lost)) {
+      c.error = "Por seguridad no se ha sincronizado (se perdería " + lost + "). Avisa al creador del juego.";
+      rollback(c, base, auth, tx);
+      return false;
+    }
     // 4. subir
-    Json fields = Json::object();
+    Json fields = other;
     fields.set("save", web::to_firestore(merged));
     fields.set("v", web::to_firestore(Json::num(web::kVersion)));
     if (ban) fields.set("ban", web::to_firestore(Json::boolean(true)));

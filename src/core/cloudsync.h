@@ -47,6 +47,7 @@ struct Client {
   void* ctx = nullptr;
   std::string error;                  // último error, en español
   int64_t clock_delta = 0;            // hora del servidor - hora de esta consola (ms)
+  Json last_remote;                   // la partida de la nube tal como estaba (copia de seguridad)
 };
 
 // db.js nameToEmail: el nombre en minúsculas, en hexadecimal (UTF-8), @dominio.

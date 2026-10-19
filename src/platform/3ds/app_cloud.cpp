@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "core/save_io.h"
 #include "core/websave.h"
@@ -64,12 +65,20 @@ void App::cloud_tick() {
   if (s_->updated != cloud_t0_updated_) {
     Json mine = save_full_json(*s_);
     const int64_t now = now_ms() + cloud3ds::account().delta;
-    mine = web::migrate(mine, "", now);
+    mine = web::migrate(mine, "", now, false);
     web::fold(mine, cloud3ds::account().dev);
-    merged = web::merge(mine, merged, now);
+    merged = web::merge_safe(mine, merged, now);
+  }
+  // Copias de seguridad en la SD: la partida de aquí y la de la nube, como estaban.
+  {
+    const std::string before = save_full_json(*s_).dump();
+    if (FILE* f = std::fopen((std::string(dir_) + "/save.antes-de-sincronizar.json").c_str(), "wb")) { std::fwrite(before.data(), 1, before.size(), f); std::fclose(f); }
+    const std::string cloud = cloud3ds::last_remote().dump();
+    if (cloud3ds::last_remote().is_obj())
+      if (FILE* f = std::fopen((std::string(dir_) + "/nube.copia.json").c_str(), "wb")) { std::fwrite(cloud.data(), 1, cloud.size(), f); std::fclose(f); }
   }
   if (save_from_json(*s_, merged.dump())) {
-    save_raw() = merged;
+    save_set_raw(merged, *s_);
     save_write_file(dir_, *s_);
     g_->dirty = false;
     int owned = 0;
