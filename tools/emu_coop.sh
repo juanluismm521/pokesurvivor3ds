@@ -11,7 +11,7 @@
 # Al acabar compara las huellas (tienen que ser iguales) y saca capturas.
 #
 # Uso: tools/emu_coop.sh [archivo.3dsx] [segundos de partida] [carpeta]
-# Con COOP_ONLINE=1, por internet (servidor de relevo del VPS, server/relay.py):
+# Con COOP_ONLINE=1, por internet (servidor de relevo del VPS, repo pokesurvivor-relay):
 # sin sala de Azahar (la red de la consola emulada sale directa).
 set -uo pipefail
 cd "$(dirname "$0")/.."

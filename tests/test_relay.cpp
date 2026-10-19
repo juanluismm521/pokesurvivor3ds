@@ -1,4 +1,4 @@
-// Juego online: el servidor de relevo de verdad (server/relay.py) y varias
+// Juego online: el servidor de relevo de verdad (relay.py del repo pokesurvivor-relay) y varias
 // "consolas" en este programa que crean, buscan y entran en la sala por UDP y
 // juegan con el lockstep a través del servidor.
 #include <doctest/doctest.h>
@@ -22,6 +22,14 @@
 using namespace ps;
 
 namespace {
+// El servidor está en su propio repositorio (pokesurvivor-relay), al lado de
+// éste; si no está, estas pruebas se saltan (con aviso).
+bool relay_available() {
+  if (FILE* f = std::fopen(PS_RELAY_PY, "r")) { std::fclose(f); return true; }
+  MESSAGE("No encuentro el servidor (" << PS_RELAY_PY << "): clona pokesurvivor-relay al lado de este repositorio. Se salta la prueba.");
+  return false;
+}
+
 struct Server {
   pid_t pid = -1;
   int port = 0;
@@ -30,7 +38,7 @@ struct Server {
     pid = fork();
     if (pid == 0) {
       const std::string p = std::to_string(port);
-      const std::string py = std::string(PS_SOURCE_DIR) + "/server/relay.py";
+      const std::string py = PS_RELAY_PY;
       execlp("python3", "python3", py.c_str(), "--port", p.c_str(), "--host", "127.0.0.1", (char*)nullptr);
       _exit(127);
     }
@@ -44,6 +52,7 @@ void sleep_ms(int ms) { usleep(useconds_t(ms) * 1000); }
 }  // namespace
 
 TEST_CASE("online: sala, lista, entrar y paquetes por el servidor de relevo") {
+  if (!relay_available()) return;
   Server srv;
   REQUIRE(srv.start());
   relay::Client a, b;
@@ -91,6 +100,7 @@ TEST_CASE("online: sala, lista, entrar y paquetes por el servidor de relevo") {
 }
 
 TEST_CASE("online: 3 consolas juegan por el servidor y no se separan") {
+  if (!relay_available()) return;
   Server srv;
   REQUIRE(srv.start());
   const int N = 3;

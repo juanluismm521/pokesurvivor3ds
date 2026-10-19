@@ -17,7 +17,7 @@ struct Room {
   int index = 0;                 // (posición en la última búsqueda)
 };
 
-// Por internet (servidor de relevo, server/relay.py) en vez del juego local.
+// Por internet (servidor de relevo: repositorio pokesurvivor-relay) en vez del juego local.
 // Cambiar de modo cierra lo que hubiera abierto.
 void set_online(bool online);
 bool online();

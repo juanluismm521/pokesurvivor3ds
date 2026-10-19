@@ -1,4 +1,4 @@
-// relay_client.h — cliente del servidor de relevo (server/relay.py) para jugar
+// relay_client.h — cliente del servidor de relevo (relay.py del repositorio pokesurvivor-relay) para jugar
 // online: crear sala, ver las salas abiertas, entrar, mandar y recibir
 // paquetes de la sala y mantenerla viva (PING cada segundo, que además mide el
 // ping). Sockets BSD (UDP): igual en la 3DS (soc:u, tras socInit) y en Linux,

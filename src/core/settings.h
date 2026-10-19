@@ -13,7 +13,7 @@ struct Settings {
   bool fps = false;           // contador de FPS
   int music = 70, sfx = 80;   // volumen 0..100
   bool stereo = true;         // 3D (si el deslizador está subido)
-  // Servidor para jugar online (server de pokesurvivor-relay): IP o dominio y puerto.
+  // Servidor para jugar online (repositorio pokesurvivor-relay): IP o dominio y puerto.
   char server[64] = "217.154.98.19";
   int server_port = 24873;
 };
