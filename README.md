@@ -100,7 +100,7 @@ Archivos que el juego usa en `sd:/3ds/pokesurvivor-3ds/`:
 En grupo, START no para la partida (te quedas quieto).
 
 ## El servidor para jugar online
-Está en **su propio repositorio, `pokesurvivor-relay`**: un solo archivo de
+Está en **su propio repositorio, [pokesurvivor3ds-server](https://github.com/juanluismm521/pokesurvivor3ds-server)**: un solo archivo de
 Python con **Docker** y una guía sencilla para montarlo (VPS, Raspberry Pi o
 PC de casa). Por defecto la consola usa el del proyecto; cada uno puede poner
 el suyo en **En grupo → Por internet → Y**.
@@ -115,9 +115,10 @@ source tools/env.sh && make              # → pokesurvivor-3ds.3dsx
 cmake -S . -B build-pc && cmake --build build-pc -j2 && (cd build-pc && ctest)   # pruebas en PC
 ```
 
-Las pruebas del juego online usan el servidor del repositorio
-`pokesurvivor-relay` clonado al lado de éste (si no está, se saltan con un
-aviso). Más comandos (emulador, autotest, pruebas de grupo y de la nube) en
+Las pruebas del juego online usan el servidor
+([pokesurvivor3ds-server](https://github.com/juanluismm521/pokesurvivor3ds-server));
+CMake lo busca en `../docker/pokesurvivor-relay` (se cambia con
+`-DPS_RELAY_PY=ruta/relay.py`; si no está, se saltan con un aviso). Más comandos (emulador, autotest, pruebas de grupo y de la nube) en
 [`las normas del proyecto`](las normas del proyecto) → *Comandos*.
 
 ## Cómo se ha probado

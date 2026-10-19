@@ -86,7 +86,7 @@ last sync (`save.antes-de-sincronizar.json`, `nube.copia.json`).
 | START + SELECT | Exit the game |
 
 ## The online server
-It lives in **its own repository, `pokesurvivor-relay`**: a single Python file
+It lives in **its own repository, [pokesurvivor3ds-server](https://github.com/juanluismm521/pokesurvivor3ds-server)**: a single Python file
 with **Docker** and an easy setup guide (VPS, Raspberry Pi or home PC). By
 default the console uses the project's server; anyone can set their own in
 **En grupo → Por internet → Y**.
