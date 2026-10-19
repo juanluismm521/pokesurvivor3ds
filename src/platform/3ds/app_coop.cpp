@@ -77,7 +77,7 @@ RunConfig::Member App::my_member() const {
   return m;
 }
 
-void App::set_coop_autotest(bool host, int dex, bool immortal, bool online) {
+void App::set_coop_autotest(bool host, int dex, bool immortal, bool online, bool suicidal) {
   autotest = true;
   coop_online_ = online;
   net3ds::set_online(online);
@@ -87,6 +87,7 @@ void App::set_coop_autotest(bool host, int dex, bool immortal, bool online) {
   auto_host_ = host;
   auto_t_ = 0;
   bot.init(host ? 12345 : 54321);
+  bot.suicidal = suicidal;
   go(SC_COOP);
 }
 

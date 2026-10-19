@@ -38,6 +38,9 @@ struct Autotest {
   bool tour = false;
   float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
   bool coop = false, host = false, online = false;
+  bool die = false;                 // "morir": se deja caer y, cuando le levantan, se cierra
+  int down_state = 0;               // 0 vivo, 1 caído, 2 levantado
+  double revived_at = 0;
   bool nube = false, https = false;            // "nube usuario contraseña": entra y sincroniza (pruebas)
   char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
@@ -63,7 +66,10 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
     a.coop = true; a.host = !std::strcmp(role, "host"); a.immortal = imm != 0;
     char extra[16] = "";
-    if (std::fscanf(f, "%15s", extra) == 1 && !std::strcmp(extra, "online")) a.online = true;
+    while (std::fscanf(f, "%15s", extra) == 1) {
+      if (!std::strcmp(extra, "online")) a.online = true;
+      if (!std::strcmp(extra, "morir")) a.die = true;
+    }
   }
   else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f", &a.seconds, &a.dex, &imm, &a.warp) >= 1) a.immortal = imm != 0; }
   std::fclose(f);
@@ -158,7 +164,7 @@ int main() {
     app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
   }
   if (at.on && at.coop) {
-    app.set_coop_autotest(at.host, at.dex, at.immortal, at.online);
+    app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {
     app.set_autotest(at.dex, at.immortal, at.warp);
@@ -256,6 +262,13 @@ int main() {
                      (unsigned long)ls.last_hash(), g->team_size(), ls.stall_frames(), ls.desync() ? "SÍ" : "no", ls.delay(), net3ds::rtt_ms());
         std::fflush(at.log);
       }
+    }
+    // Modo "morir": apunta cuándo cae y cuándo le levantan; luego se cierra.
+    if (at.on && at.die && app.coop() && app.scene == SC_RUN) {
+      const Player& me = g->me();
+      if (at.down_state == 0 && me.dead) { at.down_state = 1; if (at.log) { std::fprintf(at.log, "caído a los %.1f s\n", g->time); std::fflush(at.log); } }
+      else if (at.down_state == 1 && !me.dead) { at.down_state = 2; at.revived_at = g->time; if (at.log) { std::fprintf(at.log, "¡levantado a los %.1f s! (vida %.0f / %.0f)\n", g->time, me.hp, me.max_hp); std::fflush(at.log); } }
+      else if (at.down_state == 2 && g->time - at.revived_at > 3) break;
     }
     if (at.on && g->time >= at.seconds) break;
     if (at.on && at.coop && g->state == ST_OVER && app.scene == SC_RUN) break;

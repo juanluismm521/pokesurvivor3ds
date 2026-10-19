@@ -37,7 +37,7 @@ class App {
   void set_autotest(int dex, bool immortal, float warp = 0);
   // Autotest del cooperativo: crea la sala (o se une a la primera que vea),
   // empieza con 2 y el bot juega (para dos emuladores en la misma sala).
-  void set_coop_autotest(bool host, int dex, bool immortal, bool online = false);
+  void set_coop_autotest(bool host, int dex, bool immortal, bool online = false, bool suicidal = false);
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
   bool tour = false;

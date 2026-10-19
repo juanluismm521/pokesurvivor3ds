@@ -13,6 +13,7 @@ struct Bot {
   int t = 0;
   float wander = 0;
   int cards = 0;
+  bool suicidal = false;   // (autotest) va a por los enemigos sin huir ni curarse
 
   void init(uint32_t seed) { rng.reseed(seed * 7919u + 13); t = 0; wander = rng.next() * kTau; cards = 0; }
 
@@ -65,6 +66,14 @@ struct Bot {
   // levantar al compañero caído; cada 2 s, el hueco con el mejor ataque.
   void move(const Game& g, Input& in, const Player& me) {
     const int who = int(&me - g.players);
+    if (suicidal) {
+      // Directo al enemigo más cercano.
+      float bd = 1e30f, tx = me.x, ty = me.y;
+      for (const Enemy& e : g.enemies) { const float d = dist2(me.x, me.y, e.x, e.y); if (!e.dead && d < bd) { bd = d; tx = e.x; ty = e.y; } }
+      const float d = std::sqrt(bd) + 1;
+      if (bd < 1e29f) { in.ax = (tx - me.x) / d; in.ay = (ty - me.y) / d; }
+      return;
+    }
     const Player& p = me;
     float ax = std::cos(wander) * 0.6f, ay = std::sin(wander) * 0.6f;
     if (t % 240 == 0) wander += rng.range(-1.5f, 1.5f);
