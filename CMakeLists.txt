@@ -60,3 +60,11 @@ target_link_libraries(ps_sim PRIVATE ps_core)
 
 enable_testing()
 add_test(NAME ps_tests COMMAND ps_tests)
+
+# ps_cloud: la sincronización con pokesurvivor.com desde el PC (con curl), para
+# probarla contra el emulador de Firebase y la web (tools/cloud_e2e.js).
+find_package(CURL QUIET)
+if(CURL_FOUND)
+  add_executable(ps_cloud tests/cloud_main.cpp)
+  target_link_libraries(ps_cloud PRIVATE ps_core CURL::libcurl)
+endif()

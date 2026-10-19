@@ -44,6 +44,14 @@ regeneran con los scripts de `tools/`.
 | Y | Cambiar las cartas de nivel |
 | START + SELECT | Salir del juego |
 
+## La misma partida en la web y en la 3DS
+**Ajustes → Cuenta de pokesurvivor.com → Entrar** con tu usuario y contraseña
+de la web. Se juntan las dos partidas (nunca se pierde nada: Pokémon, shinies,
+monedas, tickets, mejoras...) y a partir de ahí se sincroniza sola al encender
+y al acabar cada partida (o con «Sincronizar ahora»). En la web, recarga la
+página para ver lo de la 3DS. Las cuentas de Google no sirven en la consola.
+La contraseña no se guarda en la SD (sólo un token de sesión).
+
 ## Jugar en grupo (hasta 4 consolas)
 Cada consola necesita el juego. Una entra en **En grupo → Crear sala**; las
 demás, en **En grupo → Buscar salas** y eligen esa sala. Cuando estéis, el

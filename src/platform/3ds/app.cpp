@@ -15,6 +15,7 @@
 #include "core/util.h"
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
+#include "platform/3ds/cloud3ds.h"
 
 namespace ps {
 
@@ -75,7 +76,8 @@ void App::apply_settings() {
 }
 
 void App::save_now() {
-  s_->updated = now_ms();
+  // (en la hora del servidor: el reloj de la 3DS va en hora local y la web en UTC)
+  s_->updated = now_ms() + cloud3ds::account().delta;
   save_write_file(dir_, *s_);
   g_->dirty = false;
 }
@@ -92,6 +94,7 @@ void App::go(Scene sc) {
 }
 
 void App::start_run() {
+  over_synced_ = false;
   RunConfig cfg;
   cfg.dex = autotest ? auto_dex_ : s_->partner;
   cfg.shiny = !autotest && s_->partner_shiny && s_->owns_shiny(cfg.dex);
@@ -282,6 +285,7 @@ void App::update(const UiIn& in0, float dt) {
     }
   }
   g_->now_ms = now_ms();
+  cloud_tick();
   notices(dt);
   if (scene != SC_RUN) {
     backdrop_step(dt);
@@ -303,6 +307,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_SETTINGS: in_settings(in); break;
     case SC_COOP: in_coop(in); break;
     case SC_LOBBY: in_lobby(in, dt); break;
+    case SC_ACCOUNT: in_account(in); break;
     case SC_CREDITS:
       if (in.rep & KEY_DDOWN) scroll_ = std::min(scroll_ + 1, std::max(0, credit_lines_ - 10));
       if (in.rep & KEY_DUP) scroll_ = std::max(0, scroll_ - 1);
@@ -380,6 +385,7 @@ void App::in_run(const UiIn& in) {
   } else if (g.state == ST_OVER) {
     paused_ = false;
     if (g.dirty) save_now();
+    if (!over_synced_) { over_synced_ = true; cloud_autostart(); }   // (a la nube, si hay cuenta)
     if (coop_) {
       // En grupo: un momento para que los demás reciban lo último; luego, al menú.
       if (coop_over_t_ > 1.5f && (in.down & (KEY_A | KEY_B))) { coop_leave(); go(SC_MENU); }
@@ -1086,14 +1092,14 @@ void App::bottom_goals() {
 // ---------------- ajustes ----------------
 
 void App::in_settings(const UiIn& in) {
-  const int n = 8;
+  const int n = 9;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
-  for (int i = 0; i < n; ++i) if (in_rect(&in, 6, 28 + i * 24, 308, 22)) cur_ = i;
+  for (int i = 0; i < n; ++i) if (in_rect(&in, 6, 26 + i * 21, 308, 19)) cur_ = i;
   int d = 0;
   if (in.rep & KEY_DLEFT) d = -1;
   if (in.rep & (KEY_DRIGHT | KEY_A)) d = 1;
-  if (in.tap && in_rect(&in, 6, 28 + cur_ * 24, 308, 22)) d = 1;
+  if (in.tap && in_rect(&in, 6, 26 + cur_ * 21, 308, 19)) d = 1;
   if (d) {
     switch (cur_) {
       case 0: st_->lang ^= 1; break;
@@ -1104,6 +1110,7 @@ void App::in_settings(const UiIn& in) {
       case 5: st_->music = clamp(st_->music + d * 10, 0, 100); break;
       case 6: st_->sfx = clamp(st_->sfx + d * 10, 0, 100); break;
       case 7: st_->stereo = !st_->stereo; break;
+      case 8: settings_write(dir_, *st_); go(SC_ACCOUNT); return;
     }
     apply_settings();
   }
@@ -1112,8 +1119,8 @@ void App::in_settings(const UiIn& in) {
 
 void App::bottom_settings() {
   header("Ajustes");
-  static const char* const L[8] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D"};
-  char v[8][24];
+  static const char* const L[9] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta de pokesurvivor.com"};
+  char v[9][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
   if (st_->quality < 0) {   // en automático, qué modelo ha detectado
@@ -1129,11 +1136,12 @@ void App::bottom_settings() {
   std::snprintf(v[5], 24, "%d %%", st_->music);
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
   std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
-  for (int i = 0; i < 8; ++i) {
-    const float y = 28 + i * 24;
-    C2D_DrawRectSolid(6, y, 0, 308, 22, i == cur_ ? C_SEL : C_PANEL);
-    r_->text(L[i], 14, y + 4, 0.38f, C_TEXT);
-    r_->text(v[i], 306, y + 4, 0.38f, C_GOLD, 2, false);
+  std::snprintf(v[8], 24, "%.23s", cloud3ds::account().on ? cloud3ds::account().name.c_str() : tr("Sin conectar"));
+  for (int i = 0; i < 9; ++i) {
+    const float y = 26 + i * 21;
+    C2D_DrawRectSolid(6, y, 0, 308, 19, i == cur_ ? C_SEL : C_PANEL);
+    r_->text(L[i], 14, y + 3, 0.38f, C_TEXT);
+    r_->text(v[i], 306, y + 3, 0.38f, C_GOLD, 2, false);
   }
   r_->text("Izquierda/derecha: cambiar · B: guardar y volver", 160, 226, 0.32f, C_MUTED, 1);
 }
@@ -1270,6 +1278,7 @@ void App::draw_bottom() {
     case SC_CREDITS: bottom_credits(); break;
     case SC_COOP: bottom_coop(); break;
     case SC_LOBBY: bottom_lobby(); break;
+    case SC_ACCOUNT: bottom_account(); break;
     default: break;
   }
 }

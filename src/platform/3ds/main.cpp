@@ -21,6 +21,7 @@
 #include "core/version.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/audio3ds.h"
+#include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/render.h"
 
 using namespace ps;
@@ -36,6 +37,8 @@ struct Autotest {
   bool tour = false;
   float warp = 0;   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
   bool coop = false, host = false;
+  bool nube = false, https = false;            // "nube usuario contraseña": entra y sincroniza (pruebas)
+  char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
   FILE* log = nullptr;
   double next_log = 10;
@@ -54,6 +57,8 @@ void read_autotest(Autotest& a) {
   char first[8] = "";
   char role[8] = "";
   if (std::fscanf(f, "%7s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
+  else if (!std::strcmp(first, "https")) a.https = true;
+  else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
     a.coop = true; a.host = !std::strcmp(role, "host"); a.immortal = imm != 0;
   }
@@ -101,6 +106,7 @@ int main() {
   static Settings settings;
   settings_read(kDir, settings);
 
+  cloud3ds::init(kDir);
   std::unique_ptr<Game> g(new Game());
   static App app;
   app.init(&r, g.get(), save.get(), &settings, kDir);
@@ -118,6 +124,36 @@ int main() {
     std::fflush(at.log);
   }
   if (at.tour) { app.start_tour(); at.on = false; }
+  if (at.https) {
+    std::string err;
+    const u64 t0 = osGetTime();
+    const int st = cloud3ds::probe_https(err);
+    if (at.log) { std::fprintf(at.log, "https: %d %s · %.1f s\n", st, err.c_str(), (osGetTime() - t0) / 1000.0); std::fclose(at.log); at.log = nullptr; }
+    cloud3ds::shutdown();
+    audio::exit(); C2D_Fini(); C3D_Fini(); gfxExit(); romfsExit();
+    return 0;
+  }
+  if (at.nube) {
+    // Entra en la cuenta, sincroniza, lo apunta en el log y se cierra.
+    at.on = false;
+    const u64 t0 = osGetTime();
+    app.cloud_test(at.user, at.pass);
+    while (aptMainLoop() && app.cloud_done == 0 && osGetTime() - t0 < 90000) { app.cloud_tick(); gspWaitForVBlank(); }
+    if (at.log) {
+      int owned = 0;
+      for (int d = 1; d <= kMaxDex; ++d) if (save->owned_at[d]) owned++;
+      std::fprintf(at.log, "nube: %s · %s · monedas %d · tickets %d/%d · Pokémon %d · shinies %d · %.0f s\n", app.cloud_done > 0 ? "BIEN" : "MAL",
+                   app.cloud_done > 0 ? cloud3ds::account().name.c_str() : cloud3ds::error().c_str(), int(save->coins), int(save->t1), int(save->t10),
+                   owned, int(save->stats.shinies), (osGetTime() - t0) / 1000.0);
+      std::fclose(at.log);
+      at.log = nullptr;
+    }
+    cloud3ds::shutdown();
+    audio::exit(); C2D_Fini(); C3D_Fini(); gfxExit(); romfsExit();
+    return 0;
+  } else if (!at.on && !at.tour) {
+    app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
+  }
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal);
     if (at.log) { std::fprintf(at.log, "cooperativo: %s\n", at.host ? "anfitrión" : "invitado"); std::fflush(at.log); }
@@ -233,6 +269,7 @@ int main() {
     std::fclose(at.log);
   }
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
+  cloud3ds::shutdown();
   audio::exit();
   C2D_Fini();
   C3D_Fini();

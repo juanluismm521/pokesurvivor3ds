@@ -302,6 +302,18 @@ if (check.pokemon !== 966) throw new Error('Se esperaban 966 Pokémon');
 const expDur = G.DEX.reduce((a, p) => { const m = G.SPRITE_META[p.dex]; let n = 0; for (const k of ANIMS) if (m.a[k]) n += m.a[k].d.length; if (m.sa) for (const k of ANIMS) if (m.sa[k]) n += m.sa[k].d.length; return a + n; }, 0);
 if (expDur !== durs.length) throw new Error('duraciones perdidas');
 
+// Configuración pública de Firebase de la web (para sincronizar la partida con
+// pokesurvivor.com desde la 3DS; no es secreta: va en la web).
+{
+  const fb = {};
+  vm.runInContext(fs.readFileSync(path.join(WEB, 'js/core/firebase-config.js'), 'utf8').replace(/G\.FIREBASE_CONFIG/g, '__FB.cfg'), Object.assign(sandbox, { __FB: fb }));
+  const c = fb.cfg || {};
+  w('namespace ps {');
+  w(`extern const char* const kWebApiKey; const char* const kWebApiKey = ${JSON.stringify(c.apiKey || '')};`);
+  w(`extern const char* const kWebProject; const char* const kWebProject = ${JSON.stringify(c.projectId || '')};`);
+  w('}  // namespace ps');
+}
+
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 const text = out.join('\n') + '\n';
 // Sólo se reescribe si cambia (así make no recompila sin motivo).

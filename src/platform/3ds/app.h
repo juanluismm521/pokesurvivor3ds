@@ -19,7 +19,7 @@ namespace ps {
 
 enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_GACHA, SC_PULL,
-  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY
+  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT
 };
 
 struct UiIn {
@@ -78,6 +78,7 @@ class App {
   void in_settings(const UiIn& in);
   void in_coop(const UiIn& in);
   void in_lobby(const UiIn& in, float dt);
+  void in_account(const UiIn& in);
   // Dibujo
   void bottom_test();
   void bottom_menu();
@@ -90,6 +91,7 @@ class App {
   void bottom_credits();
   void bottom_coop();
   void bottom_lobby();
+  void bottom_account();
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
   void top_pull();
@@ -160,6 +162,16 @@ class App {
   float lobby_t_ = 0, coop_over_t_ = 0, quit_t_ = -1;
   char coop_msg_[96] = {};
   bool auto_coop_ = false, auto_host_ = false;
+  // sincronizar con pokesurvivor.com
+ public:
+  void cloud_tick();             // aplica lo que llegue de la nube (cada fotograma)
+  void cloud_autostart();        // al arrancar y al acabar una partida (si hay cuenta)
+  bool cloud_test(const char* user, const char* pass);   // autotest "nube"
+  int cloud_done = 0;            // (autotest) 1 = bien, -1 = mal
+ private:
+  int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
+  char cloud_msg_[128] = {};
+  bool over_synced_ = false;
   float auto_t_ = 0;
 };
 

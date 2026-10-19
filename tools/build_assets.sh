@@ -13,4 +13,6 @@ if [ "${1:-}" != "rapido" ]; then
   echo "== sprites de los 966 Pokémon (≈4 min)"; python3 tools/gen_sprites.py
   echo "== música y efectos (≈8 min)";           node tools/gen_audio.js
 fi
+# Certificados raíz para HTTPS (sincronizar con pokesurvivor.com).
+cp /etc/ssl/certs/ca-certificates.crt romfs/cacert.pem
 echo "== listo: $(du -sh romfs | cut -f1) en romfs/"
