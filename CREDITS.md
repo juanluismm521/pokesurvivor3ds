@@ -136,6 +136,10 @@ licencia en `assets/fonts/OFL.txt`). El juego usa una versión modificada,
 "Pixelify PS", con los números redibujados para distinguirlos mejor
 (`tools/make_font.py`).
 
+En la 3DS, los textos pequeños usan [Tiny5](https://github.com/Gissio/font_tiny5)
+de Stefan Schmidt (SIL Open Font License 1.1, licencia en
+`assets-src/fonts/OFL-Tiny5.txt`), que a 8 px se ve nítida en la pantalla.
+
 ## Marca
 
 Pokémon es propiedad de Nintendo, Creatures Inc. y GAME FREAK.

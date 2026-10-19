@@ -261,7 +261,7 @@ void App::header(const char* title) {
 bool App::button(float x, float y, float w, float h, const char* label, bool sel, const UiIn* in, u32 col) {
   C2D_DrawRectSolid(x, y, 0, w, h, sel ? C_SEL : C_PANEL);
   if (sel) C2D_DrawRectSolid(x, y, 0, 3, h, col ? col : C_GOLD);
-  r_->text(label, x + w / 2, y + h / 2 - 7, 0.42f, C_TEXT, 1);
+  r_->text(label, x + w / 2, y + h / 2 - 9, 0.5f, C_TEXT, 1);   // (fuente grande, centrada)
   return in_rect(in, x, y, w, h);
 }
 
@@ -457,7 +457,10 @@ void App::bottom_test() {
       const float y = 64 + i * 42;
       C2D_DrawRectSolid(10, y, 0, 300, 38, i == cur_ ? C_SEL : C_PANEL);
       if (i == cur_) C2D_DrawRectSolid(10, y, 0, 3, 38, C_GOLD);
-      r_->text_wrap(kTest[q_].a[i].text, 160, y + 4, 0.4f, C_TEXT, 290, 1);
+      // Centrada si cabe en una línea; si no, en dos.
+      const char* t = kTest[q_].a[i].text;
+      if (r_->text_width(t, 0.4f) <= 290) r_->text(t, 160, y + 11, 0.4f, C_TEXT, 1);
+      else r_->text_wrap(t, 160, y + 5, 0.4f, C_TEXT, 290, 1);
     }
     return;
   }
@@ -1081,7 +1084,13 @@ void App::bottom_settings() {
   char v[8][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
-  std::snprintf(v[1], 24, "%s", tr(Q[st_->quality + 1]));
+  if (st_->quality < 0) {   // en automático, qué modelo ha detectado
+    bool n3ds = false;
+    APT_CheckNew3DS(&n3ds);
+    std::snprintf(v[1], 24, "%s · %s", tr("Auto"), n3ds ? "New 3DS" : "3DS");
+  } else {
+    std::snprintf(v[1], 24, "%s", tr(Q[st_->quality + 1]));
+  }
   std::snprintf(v[2], 24, "%s", tr(st_->dmg_numbers ? "Sí" : "No"));
   std::snprintf(v[3], 24, "%s", tr(st_->calm ? "Sí" : "No"));
   std::snprintf(v[4], 24, "%s", tr(st_->fps ? "Sí" : "No"));

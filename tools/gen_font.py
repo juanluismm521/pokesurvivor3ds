@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""gen_font.py — Pixelify Sans → romfs/gfx/font.bcfnt (mkbcfnt).
+"""gen_font.py — fuentes del juego en .bcfnt (mkbcfnt):
+  romfs/gfx/font.bcfnt        Pixelify Sans a 12 pt (textos grandes, a 1× o 2×)
+  romfs/gfx/font_small.bcfnt  Tiny5 a 6 pt = 8 px exactos (textos pequeños): es una
+                              fuente pixel de 5 px de alto y a ese tamaño cae justo
+                              en la rejilla, sin píxeles a medio tono
 
 Sólo con los caracteres que usa el juego: ASCII imprimible más todo lo que no
 sea ASCII en los textos (tablas generadas de la web, traducciones y el código
@@ -38,6 +42,16 @@ def main():
     extra = [p for p in ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'] if os.path.exists(p)]
     subprocess.check_call([MKBCFNT, '-s', size, '-w', wl, '-o', out, font] + extra)
     print(f'gen_font: {len(chars)} caracteres, {os.path.getsize(out)} bytes')
+    # Tiny5 viene como fuente variable: se saca la instancia normal.
+    from fontTools.ttLib import TTFont
+    from fontTools.varLib import instancer
+    tiny = os.path.join(ROOT, 'build', 'Tiny5-Regular.ttf')
+    inst = instancer.instantiateVariableFont(TTFont(os.path.join(ROOT, 'assets-src', 'fonts', 'Tiny5-VF.ttf')),
+                                             {'wght': 400, 'wdth': 100, 'ROND': 0, 'BLED': 0, 'JITT': 0})
+    inst.save(tiny)
+    small = os.path.join(os.path.dirname(out), 'font_small.bcfnt')
+    subprocess.check_call([MKBCFNT, '-s', '6', '-w', wl, '-o', small, tiny] + extra)
+    print(f'gen_font: font_small.bcfnt {os.path.getsize(small)} bytes')
 
 
 if __name__ == '__main__':

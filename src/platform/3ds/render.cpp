@@ -78,6 +78,8 @@ bool Renderer::init() {
   // Fuente propia (Pixelify Sans, tools/gen_font.py); si falta, la del sistema.
   font = C2D_FontLoad("romfs:/gfx/font.bcfnt");
   if (font) C2D_FontSetFilter(font, GPU_NEAREST, GPU_NEAREST);
+  font_small = font ? C2D_FontLoad("romfs:/gfx/font_small.bcfnt") : nullptr;
+  if (font_small) C2D_FontSetFilter(font_small, GPU_NEAREST, GPU_NEAREST);
   font_k = font ? 1.2f : 1.0f;
   if (!props.load("romfs:/gfx/props.t3x", "romfs:/gfx/props.idx")) return false;
   if (!vfx.load("romfs:/gfx/vfx.t3x", "romfs:/gfx/vfx.idx")) return false;
@@ -123,35 +125,57 @@ void Renderer::begin_frame(Game& g) {
 
 // ---------------- utilidades ----------------
 
+Renderer::FontPick Renderer::pick_font(float size) const {
+  if (!font) return {nullptr, size, 0};   // fuente del sistema: tal cual
+  // citro2d escala todas las fuentes para que 1.0 sea una celda de 30 px (la
+  // del sistema): el tamaño real de una fuente es celda/30.
+  auto cell = [](C2D_Font f) { return float(C2D_FontGetInfo(f)->tglp->cellHeight); };
+  const float want = size * font_k * 30;   // alto de celda que se pedía
+  if (font_small) {
+    const float c = cell(font_small);
+    if (want < c * 1.6f) return {font_small, c / 30, std::round((want - c) / 2)};
+  }
+  const float c = cell(font);
+  const float n = want < c * 1.7f ? 1 : want < c * 2.6f ? 2 : 3;
+  return {font, n * c / 30, std::round((want - n * c) / 2)};
+}
+
 void Renderer::text(const char* s, float x, float y, float size, u32 color, int align, bool shadow) {
   if (i18n_lang() != LANG_ES) s = tr(s);
+  const FontPick fp = pick_font(size);
   C2D_Text t;
-  C2D_TextFontParse(&t, font, tbuf, s);
+  C2D_TextFontParse(&t, fp.f, tbuf, s);
   C2D_TextOptimize(&t);
   float w = 0, h = 0;
-  size *= font_k;
-  C2D_TextGetDimensions(&t, size, size, &w, &h);
+  C2D_TextGetDimensions(&t, fp.k, fp.k, &w, &h);
   if (align == 1) x -= w / 2;
   else if (align == 2) x -= w;
+  // En píxeles enteros + ¼: con muestreo "nearest", si la letra cae justo en
+  // medio píxel se pierden columnas; con ¼ nunca cae en la frontera (ni aunque
+  // citro2d centre luego cada línea y sume medio píxel).
+  x = std::floor(x + 0.5f) + 0.25f;
+  y = std::floor(y + fp.dy + 0.5f) + 0.25f;
   if (shadow) {
-    C2D_DrawText(&t, C2D_WithColor, x + 1, y + 1, 0, size, size, C2D_Color32(0, 0, 0, (color >> 24) * 3 / 4));
-    C2D_DrawText(&t, C2D_WithColor, x - 1, y, 0, size, size, C2D_Color32(0, 0, 0, (color >> 24) / 2));
+    C2D_DrawText(&t, C2D_WithColor, x + 1, y + 1, 0, fp.k, fp.k, C2D_Color32(0, 0, 0, (color >> 24) * 3 / 4));
+    C2D_DrawText(&t, C2D_WithColor, x - 1, y, 0, fp.k, fp.k, C2D_Color32(0, 0, 0, (color >> 24) / 2));
   }
-  C2D_DrawText(&t, C2D_WithColor, x, y, 0, size, size, color);
+  C2D_DrawText(&t, C2D_WithColor, x, y, 0, fp.k, fp.k, color);
 }
 
 // Texto con salto de línea automático (ancho `width`); align 1 = centrado en x.
 float Renderer::text_wrap(const char* s, float x, float y, float size, u32 color, float width, int align) {
   if (i18n_lang() != LANG_ES) s = tr(s);
+  const FontPick fp = pick_font(size);
   C2D_Text t;
-  C2D_TextFontParse(&t, font, tbuf, s);
+  C2D_TextFontParse(&t, fp.f, tbuf, s);
   C2D_TextOptimize(&t);
-  size *= font_k;
   float w = 0, h = 0;
-  C2D_TextGetDimensions(&t, size, size, &w, &h);
+  C2D_TextGetDimensions(&t, fp.k, fp.k, &w, &h);
+  x = std::floor(x + 0.5f) + 0.25f;   // (ver text())
+  y = std::floor(y + fp.dy + 0.5f) + 0.25f;
   const u32 flags = C2D_WithColor | C2D_WordWrap | (align == 1 ? C2D_AlignCenter : 0);
-  C2D_DrawText(&t, flags, x + 1, y + 1, 0, size, size, C2D_Color32(0, 0, 0, (color >> 24) * 3 / 4), width);
-  C2D_DrawText(&t, flags, x, y, 0, size, size, color, width);
+  C2D_DrawText(&t, flags, x + 1, y + 1, 0, fp.k, fp.k, C2D_Color32(0, 0, 0, (color >> 24) * 3 / 4), width);
+  C2D_DrawText(&t, flags, x, y, 0, fp.k, fp.k, color, width);
   // Alto aproximado: líneas según el ancho.
   const int lines = int(w / width) + 1;
   return h * lines;
@@ -159,10 +183,11 @@ float Renderer::text_wrap(const char* s, float x, float y, float size, u32 color
 
 float Renderer::text_width(const char* s, float size) {
   if (i18n_lang() != LANG_ES) s = tr(s);
+  const FontPick fp = pick_font(size);
   C2D_Text t;
-  C2D_TextFontParse(&t, font, tbuf, s);
+  C2D_TextFontParse(&t, fp.f, tbuf, s);
   float w = 0, h = 0;
-  C2D_TextGetDimensions(&t, size * font_k, size * font_k, &w, &h);
+  C2D_TextGetDimensions(&t, fp.k, fp.k, &w, &h);
   return w;
 }
 
@@ -258,12 +283,12 @@ void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now)
   const float fk = w.fade_k();
   int variant = 0;
   switch (p.type) {
-    case PR_GRASS: variant = std::sin(now * 2.4f + p.wiggle) > 0.55f ? 1 : 0; return;
-    case PR_ROCK: variant = p.hp < p.max_hp * 0.5f ? 1 : 0; return;
-    case PR_ALTAR: variant = p.kind * 2 + (p.used ? 1 : 0); return;
-    case PR_SPRING: variant = p.charge < 0.15f ? 1 : 0; return;
-    case PR_TRAP: variant = p.kind; return;
-    default: return;
+    case PR_GRASS: variant = std::sin(now * 2.4f + p.wiggle) > 0.55f ? 1 : 0; break;
+    case PR_ROCK: variant = p.hp < p.max_hp * 0.5f ? 1 : 0; break;
+    case PR_ALTAR: variant = p.kind * 2 + (p.used ? 1 : 0); break;
+    case PR_SPRING: variant = p.charge < 0.15f ? 1 : 0; break;
+    case PR_TRAP: variant = p.kind; break;
+    default: break;
   }
   const int idx = prop_idx[biome][p.type][variant];
   if (idx < 0) return;
@@ -290,8 +315,9 @@ void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now)
   } else {
     C2D_DrawImageAt(props.image(idx), px, py, 0);
   }
+  props_drawn++;
   if (p.flash > 0) { C2D_ImageTint t; C2D_PlainImageTint(&t, C2D_Color32f(1, 1, 1, 0.6f), 1); C2D_DrawImageAt(props.image(idx), px, py, 0, &t); }
-  }
+}
 
 
 namespace {
@@ -301,7 +327,7 @@ DItem items[900];
 }  // namespace
 
 void Renderer::draw_top(Game& g, float eye) {
-  if (eye <= 0) C2D_TextBufClear(tbuf);
+  if (eye <= 0) { C2D_TextBufClear(tbuf); props_drawn = 0; }
   const float far = eye * 3.0f, mid = eye * 1.5f;
   const Camera& cam = g.camera;
   View v{cam.left() - cam.sx, cam.top() - cam.sy};

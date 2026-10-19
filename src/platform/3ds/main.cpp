@@ -201,9 +201,9 @@ int main() {
     }
     if (at.on && at.log && g->time >= at.next_log) {
       at.next_log += 10;
-      std::fprintf(at.log, "t=%4.0f s · %2d FPS (media %.1f, mín %d) · enemigos %d · proyectiles %d · partículas %d · Pokémon cargados %d (%lu KB) · libre %lu KB · lineal %lu KB · heap %lu KB\n",
+      std::fprintf(at.log, "t=%4.0f s · %2d FPS (media %.1f, mín %d) · enemigos %d · proyectiles %d · partículas %d · objetos %d · Pokémon cargados %d (%lu KB) · libre %lu KB · lineal %lu KB · heap %lu KB\n",
                    g->time, r.fps, at.fps_n ? at.fps_sum / at.fps_n : 0.0, at.min_fps == 999 ? 0 : at.min_fps, g->enemies.n, g->projectiles.n,
-                   g->fx.parts.n, r.sprites.loaded(), (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024),
+                   g->fx.parts.n, r.props_drawn, r.sprites.loaded(), (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024),
                    (unsigned long)(linearSpaceFree() / 1024), heap_kb());
       std::fflush(at.log);
     }

@@ -13,9 +13,15 @@ struct Renderer {
   SpriteBank sprites;
   ChunkCache chunks;
   C2D_TextBuf tbuf = nullptr;
-  C2D_Font font = nullptr;
+  C2D_Font font = nullptr;        // Pixelify (celda de 20 px): textos grandes, a 1× o 2×
+  C2D_Font font_small = nullptr;  // Tiny5 (celda de 10 px): textos pequeños, a 1×
   float font_k = 1;              // escala de la fuente propia frente a la del sistema
+  // Fuente, escala y ajuste vertical para un tamaño (`size` como en la fuente
+  // del sistema). Las fuentes pixel sólo se ven nítidas a escala entera.
+  struct FontPick { C2D_Font f; float k; float dy; };
+  FontPick pick_font(float size) const;
   int fps = 60;
+  int props_drawn = 0;   // objetos del escenario dibujados en el último fotograma (autotest)
   bool show_fps = false;
   bool old_3ds = false;          // pinta el suelo más despacio (menos filas por fotograma)
   int card_cursor = 0;
