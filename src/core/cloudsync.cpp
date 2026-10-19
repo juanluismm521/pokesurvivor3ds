@@ -34,12 +34,15 @@ std::string auth_error(const Json& j, int status) {
   if (m.find("USER_DISABLED") != std::string::npos) return "Esa cuenta está desactivada.";
   if (m.find("TOKEN_EXPIRED") != std::string::npos || m.find("INVALID_REFRESH_TOKEN") != std::string::npos)
     return "La sesión ha caducado: vuelve a entrar.";
+  if (m.find("referer") != std::string::npos || m.find("Referer") != std::string::npos)
+    return "La nube no acepta peticiones de la consola (clave limitada a la web).";
   if (status == 0) return "Sin conexión a internet.";
   return "Error del servidor (" + std::to_string(status) + (m.empty() ? "" : ": " + m) + ").";
 }
 
 bool call(Client& c, HttpReq& rq, HttpResp& rs) {
   rs = HttpResp();
+  if (!c.cfg.referer.empty()) rq.headers.push_back("Referer: " + c.cfg.referer);
   if (!c.http || !c.http(rq, rs, c.ctx) || rs.status == 0) { c.error = "Sin conexión a internet."; return false; }
   return true;
 }
@@ -51,6 +54,7 @@ void rollback(Client& c, const std::string& base, const std::string& auth, const
   rq.url = base + ":rollback";
   rq.headers = {"Content-Type: application/json", auth};
   rq.body = "{\"transaction\":" + jstr(tx) + "}";
+  if (!c.cfg.referer.empty()) rq.headers.push_back("Referer: " + c.cfg.referer);
   HttpResp rs;
   if (c.http) c.http(rq, rs, c.ctx);
 }

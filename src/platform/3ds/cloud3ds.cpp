@@ -247,6 +247,7 @@ int probe_https(std::string& curl_error) {
   rq.method = "POST";
   rq.url = "https://securetoken.googleapis.com/v1/token?key=" + g_cfg.api_key;
   rq.headers.push_back("Content-Type: application/x-www-form-urlencoded");
+  rq.headers.push_back("Referer: " + g_cfg.referer);
   rq.body = "grant_type=refresh_token&refresh_token=prueba-de-la-3ds";
   cloud::HttpResp rs;
   g_curl_err.clear();

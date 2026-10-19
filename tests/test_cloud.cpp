@@ -16,12 +16,15 @@ using namespace ps;
 namespace {
 struct FakeFs {
   Json doc;                  // campos del documento (formato Firestore) o null
-  int commits = 0, rollbacks = 0;
+  int commits = 0, rollbacks = 0, no_referer = 0;
   std::string last_commit;
 };
 
 bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
   FakeFs& fs = *static_cast<FakeFs*>(ctx);
+  bool ref = false;
+  for (const auto& h : rq.headers) if (h == "Referer: https://pokesurvivor.com/") ref = true;
+  if (!ref) fs.no_referer++;
   rs.status = 200;
   rs.date_ms = 1800000000000LL;
   const std::string& u = rq.url;
@@ -101,6 +104,7 @@ TEST_CASE("sincronizar: una web más nueva no pierde nada al pasar por la 3DS") 
   Json merged;
   REQUIRE_MESSAGE(cloud::sync(c, ses, local, "ctrprueba", 1800000002000LL, merged), c.error);
   CHECK(fs.commits == 1);
+  CHECK(fs.no_referer == 0);   // (todas las peticiones dicen venir de la web)
   const Json cloud_save = web::from_firestore(fs.doc["save"]);
   // Todo lo de la web "futura" sigue en la nube...
   CHECK(cloud_save["owned"].has("1100"));

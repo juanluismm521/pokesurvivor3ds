@@ -34,6 +34,9 @@ struct Config {
   std::string auth_base = "https://identitytoolkit.googleapis.com";
   std::string token_base = "https://securetoken.googleapis.com";
   std::string fs_base = "https://firestore.googleapis.com";
+  // La clave de la web sólo acepta peticiones que vengan de la web (Referer);
+  // con permiso del proyecto, la 3DS se presenta como la web.
+  std::string referer = "https://pokesurvivor.com/";
 };
 
 struct Session {
