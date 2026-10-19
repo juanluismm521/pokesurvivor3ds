@@ -260,7 +260,7 @@ TEST_CASE("partida: lo que sólo usa la web se conserva al leer y escribir en la
 #include "core/settings.h"
 TEST_CASE("ajustes: servidor online (IP o dominio y puerto)") {
   Settings s;
-  CHECK(std::string(s.server) == "217.154.98.19");
+  CHECK(std::string(s.server) == "pokesurvivor3ds.duckdns.org");
   CHECK(s.server_port == 24873);
   std::snprintf(s.server, sizeof(s.server), "relay.ejemplo.com");
   s.server_port = 4000;
@@ -275,6 +275,14 @@ TEST_CASE("ajustes: servidor online (IP o dominio y puerto)") {
   CHECK(!settings_valid_host("-raro"));
   Settings u;
   REQUIRE(settings_from_json(u, "{\"server\":\"mal servidor\",\"serverPort\":99999}"));
-  CHECK(std::string(u.server) == "217.154.98.19");
+  CHECK(std::string(u.server) == "pokesurvivor3ds.duckdns.org");
   CHECK(u.server_port == 24873);
+}
+
+TEST_CASE("ajustes: la IP de antes pasa al dominio") {
+  Settings s;
+  REQUIRE(settings_from_json(s, "{\"server\":\"217.154.98.19\",\"serverPort\":24873}"));
+  CHECK(std::string(s.server) == "pokesurvivor3ds.duckdns.org");
+  REQUIRE(settings_from_json(s, "{\"server\":\"192.168.1.5\"}"));
+  CHECK(std::string(s.server) == "192.168.1.5");   // (uno puesto a mano se respeta)
 }

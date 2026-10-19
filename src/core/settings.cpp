@@ -2,6 +2,7 @@
 #include "core/settings.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "core/json.h"
 
@@ -36,6 +37,9 @@ bool settings_from_json(Settings& s, const std::string& text) {
   if (o.has("sfx")) s.sfx = int(o["sfx"].as_int(80));
   if (o.has("stereo")) s.stereo = o["stereo"].as_bool();
   if (o["server"].is_str() && settings_valid_host(o["server"].as_str().c_str())) std::snprintf(s.server, sizeof(s.server), "%s", o["server"].as_str().c_str());
+  // El servidor por defecto era la IP del VPS; ahora es su dominio (si cambia
+  // de máquina, sólo hay que cambiar el dominio).
+  if (!std::strcmp(s.server, "217.154.98.19")) std::snprintf(s.server, sizeof(s.server), "pokesurvivor3ds.duckdns.org");
   if (o.has("serverPort")) {
     const int p = int(o["serverPort"].as_int(24873));
     s.server_port = p > 0 && p < 65536 ? p : 24873;

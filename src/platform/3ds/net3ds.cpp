@@ -32,7 +32,7 @@ char g_name[16] = "Jugador";
 std::string g_err;
 
 // Servidor (de los ajustes; por defecto, el del proyecto).
-char g_server[64] = "217.154.98.19";
+char g_server[64] = "pokesurvivor3ds.duckdns.org";
 int g_port = relay::kDefaultPort;
 udsBindContext g_bind;
 udsNetworkScanInfo* g_found = nullptr;
