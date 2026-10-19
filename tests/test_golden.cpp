@@ -292,3 +292,71 @@ TEST_CASE("dorado: huecos con atajos y fusiones de vínculos") {
     }
   }
 }
+
+// ---------------- partida de la web (db.js) ----------------
+#include "core/websave.h"
+
+namespace {
+// Primera ruta en la que dos JSON difieren (para entender el fallo).
+std::string json_diff(const Json& a, const Json& b, const std::string& path = "") {
+  if (a.kind() != b.kind()) return path + " (tipo " + std::to_string(int(a.kind())) + " vs " + std::to_string(int(b.kind())) + ": " + a.dump().substr(0, 60) + " / " + b.dump().substr(0, 60) + ")";
+  if (a.is_obj()) {
+    for (const auto& kv : a.items()) {
+      if (!b.has(kv.first.c_str())) return path + "." + kv.first + " (sólo en la 3DS)";
+      const std::string d = json_diff(kv.second, b[kv.first.c_str()], path + "." + kv.first);
+      if (!d.empty()) return d;
+    }
+    for (const auto& kv : b.items()) if (!a.has(kv.first.c_str())) return path + "." + kv.first + " (sólo en la web)";
+    return "";
+  }
+  if (a.is_arr()) {
+    if (a.size() != b.size()) return path + " (largo)";
+    for (size_t i = 0; i < a.size(); ++i) { const std::string d = json_diff(a[i], b[i], path + "[" + std::to_string(i) + "]"); if (!d.empty()) return d; }
+    return "";
+  }
+  return ps::web::same(a, b) ? "" : path + " (" + a.dump() + " vs " + b.dump() + ")";
+}
+}  // namespace
+
+TEST_CASE("dorado: partida de la web — migrate, libreta y fusión (db.js)") {
+  const Json& cs = golden()["websave"];
+  REQUIRE(cs.size() == 5);
+  const int64_t NOW = 1700000000000LL;
+  for (size_t c = 0; c < cs.size(); ++c) {
+    CAPTURE(c);
+    const Json& C = cs[c];
+    const Json ma = web::migrate(C["a"], "", NOW), mb = web::migrate(C["b"], "", NOW);
+    CHECK_MESSAGE(json_diff(ma, C["ma"]) == "", "migrate a");
+    CHECK_MESSAGE(json_diff(mb, C["mb"]) == "", "migrate b");
+    CHECK_MESSAGE(json_diff(web::led_of(ma, "ctr3ds01"), C["led"]) == "", "ledOf");
+    Json fa = ma;
+    web::fold(fa, "ctr3ds01");
+    CHECK_MESSAGE(json_diff(web::merge(fa, mb, NOW), C["m1"]) == "", "merge 3DS+web");
+    CHECK_MESSAGE(json_diff(web::merge(mb, ma, NOW), C["m2"]) == "", "merge web+3DS");
+  }
+}
+
+TEST_CASE("partida de la web: Firestore ida y vuelta y superposición") {
+  Json s = web::new_save("Ana", 1700000000000LL);
+  s.ref("owned").set("25", Json::object()).set("at", Json::num(1700000000123.0));
+  s.set("ratio", Json::num(0.5));
+  Json arr = Json::array(); arr.push(Json()); arr.push(Json::str("x")); arr.push(Json::boolean(true));
+  s.set("lista", arr);
+  const Json fv = web::to_firestore(s);
+  CHECK(fv["mapValue"]["fields"]["coins"]["integerValue"].as_str() == "500");
+  CHECK(fv["mapValue"]["fields"]["ratio"]["doubleValue"].as_num() == 0.5);
+  CHECK(fv["mapValue"]["fields"]["owned"]["mapValue"]["fields"]["25"]["mapValue"]["fields"]["at"]["integerValue"].as_str() == "1700000000123");
+  CHECK(web::same(web::from_firestore(fv), s));
+  // Lo que la 3DS no conoce (de la web) se queda al escribir encima.
+  Json raw = s;
+  raw.set("led", Json::object());
+  raw.ref("stats").set("cosaNueva", Json::num(3));
+  Json top = Json::object();
+  top.set("coins", Json::num(10));
+  top.ref("stats").set("runs", Json::num(4));
+  const Json o = web::overlay(raw, top);
+  CHECK(o["coins"].as_num() == 10);
+  CHECK(o["stats"]["runs"].as_num() == 4);
+  CHECK(o["stats"]["cosaNueva"].as_num() == 3);
+  CHECK(o.has("led"));
+}

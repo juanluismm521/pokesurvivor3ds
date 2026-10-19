@@ -5,6 +5,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
 
 #include "core/gacha.h"
 #include "core/json.h"
@@ -224,4 +225,34 @@ TEST_CASE("idioma: las traducciones al inglés dan lo mismo que la web") {
   CHECK(bad == 0);
   i18n_set(LANG_ES);
   CHECK(std::string(tr("Volver")) == "Volver");
+}
+
+TEST_CASE("partida: lo que sólo usa la web se conserva al leer y escribir en la SD") {
+  const std::string dir = "save_web_extra";
+  std::remove((dir + "/save.json").c_str());
+  mkdir(dir.c_str(), 0777);
+  {
+    FILE* f = std::fopen((dir + "/save.json").c_str(), "wb");
+    REQUIRE(f);
+    const char* txt = "{\"v\":3,\"name\":\"Ana\",\"created\":1,\"updated\":2,\"coins\":700,\"owned\":{\"25\":{\"at\":5,\"from\":\"starter\"}},"
+                      "\"partner\":25,\"led\":{\"base\":{\"c\":[500,0]},\"dweb\":{\"c\":[300,100]}},\"cosaWeb\":{\"a\":1},\"stats\":{\"runs\":3,\"nuevoStat\":9}}";
+    std::fwrite(txt, 1, std::strlen(txt), f);
+    std::fclose(f);
+  }
+  std::unique_ptr<Save> s(new Save());
+  REQUIRE(save_read_file(dir.c_str(), *s) == 1);
+  CHECK(s->coins == 700);
+  s->coins = 650;
+  s->stats.runs = 4;
+  REQUIRE(save_write_file(dir.c_str(), *s));
+  save_raw() = Json();
+  std::unique_ptr<Save> t(new Save());
+  REQUIRE(save_read_file(dir.c_str(), *t) == 1);
+  CHECK(t->coins == 650);
+  const Json& raw = save_raw();
+  CHECK(raw["led"]["dweb"]["c"][0].as_num() == 300);
+  CHECK(raw["cosaWeb"]["a"].as_num() == 1);
+  CHECK(raw["stats"]["nuevoStat"].as_num() == 9);
+  CHECK(raw["stats"]["runs"].as_num() == 4);
+  save_raw() = Json();
 }

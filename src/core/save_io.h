@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string>
 
+#include "core/json.h"
+
 #include "core/save.h"
 
 namespace ps {
@@ -14,6 +16,12 @@ void new_save(Save& s, const char* name, int64_t now_ms);
 int save_read_file(const char* dir, Save& s);
 // Escritura atómica (temporal + renombrar) con copia de seguridad.
 bool save_write_file(const char* dir, const Save& s);
+// La partida web completa tal como se leyó (o se sincronizó): al escribir el
+// archivo se pone encima lo de la 3DS y se conserva lo que la 3DS no usa
+// (la libreta de monedas de cada aparato, campos nuevos de la web...).
+Json& save_raw();
+// Lo de la 3DS sobre la partida web completa.
+Json save_full_json(const Save& s);
 int clamp_from(int f);
 
 }  // namespace ps

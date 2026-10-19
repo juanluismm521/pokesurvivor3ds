@@ -217,5 +217,53 @@ out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
   for (const m of out.missions) for (const t of m.texts) out.i18n.push([t, GE.I18n.t(t)]);
 }
 
+// ---------------- partida de la web: migrate, sanitize, ledOf, merge (db.js) ----------------
+{
+  vm.runInContext('Date.now = () => 1700000000000;', sandbox);
+  load('js/core/db.js', [['return {\n    ready,', 'G.__DBX = { migrate, sanitize, ledOf, newSave, merge };']]);
+  const X = G.__DBX, NOW = 1700000000000, DEV = 'ctr3ds01';
+  const U = G.Upgrades.LIST.map(u => u.id), M = G.Moves.ALL.map(m => m.id);
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const mk = f => { const s = X.newSave('Ana'); f(s); return s; };
+  const cases = [];
+  // 1. dos partidas nuevas
+  cases.push([mk(s => { s.updated = NOW + 5; }), mk(s => { s.updated = NOW + 9; s.coins = 650; })]);
+  // 2. sincronización de verdad: libreta con dos aparatos web; la 3DS jugó con una copia vieja
+  const base = mk(s => {
+    s.coins = 900; s.tickets = { t1: 4, t10: 1 }; s.updated = NOW + 100;
+    s.owned = { 25: { at: 10, from: 'starter' }, 4: { at: 20, from: 'gacha' } }; s.partner = 25;
+    s.led = { base: { c: [500, 0], t1: [0, 0], t10: [0, 0] }, dweb1: { c: [600, 200], t1: [4, 0], t10: [1, 0] } };
+    s.pupg = { 25: { [U[0]]: 2, [U[1]]: 1 } }; s.stats.runs = 5; s.stats.bestTime = 400;
+    s.missions = { day: '2026-10-19', daily: [{ id: 'kill', goal: 300, prog: 100, claimed: false, told: false }, { id: 'time', goal: 5, prog: 2, claimed: false, told: false }], week: '2026-W42', weekly: [] };
+  });
+  const web = clone(base);
+  web.updated = NOW + 300; web.coins = 1000; web.led.dweb1.c = [800, 300]; web.stats.runs = 7; web.owned[1] = { at: 50, from: 'gacha' };
+  web.missions.daily[0].prog = 180;
+  const ds = clone(base);
+  ds.updated = NOW + 200; ds.coins = 1150; ds.tickets.t1 = 6; ds.owned[7] = { at: 60, from: 'wild' }; ds.shiny = { 25: { at: 70, from: 'wild' } };
+  ds.pupg[25][U[0]] = 4; ds.stats.bestTime = 900; ds.missions.daily[1].prog = 5; ds.missions.daily[1].claimed = true; ds.legends = { 150: 80 };
+  cases.push([ds, web]);
+  // 3. basura (partida tocada a mano) y formatos viejos
+  cases.push([{
+    name: 'Ana', created: NOW - 50, updated: NOW + 1, coins: -5, tickets: { t1: '7', t10: 2.6 }, owned: { 9999: { at: 1 }, '025': { at: 2 }, 6: { at: 3, from: 'gacha' } },
+    pupg: { 25: { [U[0]]: 99, nope: 3 }, 4: null }, pity: 6, upgrades: { [U[1]]: 2 }, partner: 25,
+    led: { dX: { c: ['5', -2], zz: [1, 2] }, bad: 3 }, stats: { runs: 2 },
+    pbind: { 25: [M[0], null, M[1], M[1], M[2]], 4: 'x' }, pban: { 25: [M[3], 'bogus', M[3], M[4], M[5], M[6]] }
+  }, mk(s => { s.updated = NOW; s.coins = 10; })]);
+  // 4. misiones del mismo día y compañero que el más nuevo no tiene
+  cases.push([mk(s => { s.updated = NOW + 1; s.partner = 4; s.partnerShiny = true; s.owned = { 4: { at: 3 } };
+                       s.missions = { day: 'd1', daily: [{ id: 'a', prog: 3, claimed: true, told: false }, { id: 'b', prog: 9, claimed: false, told: true }], week: 'w', weekly: [{ id: 'z', prog: 1 }] }; }),
+              mk(s => { s.updated = NOW + 2; s.partner = 9; s.owned = { 1: { at: 5 } };
+                       s.missions = { day: 'd1', daily: [{ id: 'a', prog: 1, claimed: false, told: true }, { id: 'c', prog: 1, claimed: false, told: false }], week: 'w2', weekly: [{ id: 'z', prog: 7 }] }; })]);
+  // 5. una sin libreta y otra con ella (lo que gastó cada uno)
+  cases.push([mk(s => { s.updated = NOW + 8; s.coins = 120; s.tickets = { t1: 0, t10: 0 }; }),
+              mk(s => { s.updated = NOW + 3; s.coins = 300; s.led = { base: { c: [500, 0] }, dweb9: { c: [0, 200], t1: [3, 3] } }; })]);
+  out.websave = cases.map(([a, b]) => {
+    const ma = X.migrate(clone(a)), mb = X.migrate(clone(b));
+    const fa = clone(ma); fa.led = X.ledOf(fa, DEV);
+    return { a, b, ma, mb, led: X.ledOf(ma, DEV), m1: X.merge(clone(fa), clone(mb)), m2: X.merge(clone(mb), clone(ma)) };
+  });
+}
+
 fs.writeFileSync(path.join(OUT, 'golden.json'), JSON.stringify(out));
 console.log('golden: ' + Object.keys(out).map(k => k + (Array.isArray(out[k]) ? ' ' + out[k].length : '')).join(', '));

@@ -17,6 +17,7 @@
 #include "core/progress.h"
 #include "core/types.h"
 #include "core/util.h"
+#include "core/websave.h"
 
 namespace ps {
 
@@ -292,17 +293,30 @@ bool read_text(const std::string& path, std::string& out) {
 }
 }  // namespace
 
+Json& save_raw() {
+  static Json raw;
+  return raw;
+}
+
+Json save_full_json(const Save& s) {
+  Json mine;
+  mine.parse(save_to_json(s));
+  return save_raw().is_obj() ? web::overlay(save_raw(), mine) : mine;
+}
+
 int save_read_file(const char* dir, Save& s) {
   std::string text;
   const std::string base = std::string(dir) + "/save";
-  if (read_text(base + ".json", text) && save_from_json(s, text)) return 1;
-  if (read_text(base + ".bak", text) && save_from_json(s, text)) return 2;   // copia de seguridad
-  return 0;
+  int got = 0;
+  if (read_text(base + ".json", text) && save_from_json(s, text)) got = 1;
+  else if (read_text(base + ".bak", text) && save_from_json(s, text)) got = 2;   // copia de seguridad
+  if (got) save_raw().parse(text);
+  return got;
 }
 
 bool save_write_file(const char* dir, const Save& s) {
   const std::string base = std::string(dir) + "/save";
-  const std::string text = save_to_json(s);
+  const std::string text = save_full_json(s).dump();
   const std::string tmp = base + ".tmp", cur = base + ".json", bak = base + ".bak";
   FILE* f = std::fopen(tmp.c_str(), "wb");
   if (!f) return false;

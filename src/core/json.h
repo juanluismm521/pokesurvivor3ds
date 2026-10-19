@@ -42,6 +42,14 @@ class Json {
   const Json& operator[](const char* key) const;
   Json& set(const std::string& key, Json v);
   bool has(const char* key) const;
+  // Acceso para modificar: el valor de `key` (nullptr si no está), o el valor
+  // de `key` creándolo (null) si no está; quitar una clave.
+  Json* get(const std::string& key);
+  Json& ref(const std::string& key);
+  bool remove(const std::string& key);
+  std::vector<std::pair<std::string, Json>>& items_mut() { return o_; }
+  std::vector<Json>& elems() { return a_; }
+  const std::vector<Json>& elems() const { return a_; }
   const std::vector<std::pair<std::string, Json>>& items() const { return o_; }
 
   bool parse(const char* text, size_t len);

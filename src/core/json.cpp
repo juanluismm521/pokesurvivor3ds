@@ -22,7 +22,27 @@ bool Json::has(const char* key) const {
   return false;
 }
 
+Json* Json::get(const std::string& key) {
+  if (k_ != OBJ) return nullptr;
+  for (auto& kv : o_) if (kv.first == key) return &kv.second;
+  return nullptr;
+}
+
+Json& Json::ref(const std::string& key) {
+  if (k_ != OBJ) { *this = object(); }
+  if (Json* v = get(key)) return *v;
+  o_.emplace_back(key, Json());
+  return o_.back().second;
+}
+
+bool Json::remove(const std::string& key) {
+  if (k_ != OBJ) return false;
+  for (size_t i = 0; i < o_.size(); ++i) if (o_[i].first == key) { o_.erase(o_.begin() + long(i)); return true; }
+  return false;
+}
+
 Json& Json::set(const std::string& key, Json v) {
+  if (k_ != OBJ) *this = object();   // (null → objeto, como `x = x || {}`)
   for (auto& kv : o_) if (kv.first == key) { kv.second = std::move(v); return kv.second; }
   o_.emplace_back(key, std::move(v));
   return o_.back().second;
