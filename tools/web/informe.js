@@ -72,7 +72,12 @@ try {
   const chg = Object.keys(B.forma).filter(k => k in A.forma && A.forma[k] !== B.forma[k]).map(k => `${k}: ${A.forma[k]} → ${B.forma[k]}`);
   // G.DEX[].pa y G.DEX_BY{}.pa son lo mismo: se dejan sólo los de las listas.
   const dedupe = ks => ks.filter(k => !/\{\}/.test(k) || !ks.some(o => o !== k && o.replace(/\[\]/g, '{}') === k));
-  forma = { nuevo: dedupe(add), quitado: dedupe(rem), cambia: chg, errores: B.errores.filter(e => !A.errores.includes(e)) };
+  // (un error al cargar un archivo que sólo es de la web no cambia nada en la 3DS)
+  const matters = e => { const r = ruleOf(e.split(':')[0]); return !r || r.tipo !== 'web'; };
+  forma = { nuevo: dedupe(add), quitado: dedupe(rem), cambia: chg, errores: B.errores.filter(e => !A.errores.includes(e)),
+            erroresWeb: [] };
+  forma.erroresWeb = forma.errores.filter(e => !matters(e));
+  forma.errores = forma.errores.filter(matters);
   // Lo que gen_data no sabe leer en la versión nueva y sí en la vieja (con
   // --desde = la copia del port, la vieja no tiene ninguno).
   const gen = dir => {

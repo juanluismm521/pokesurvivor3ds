@@ -14,7 +14,8 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 
 function load(webDir) {
-  const ctx = { console: { log() {}, warn() {}, error() {}, info() {} }, print() {} };
+  const ctx = { console: { log() {}, warn() {}, error() {}, info() {} }, print() {},
+                TextEncoder, TextDecoder, URL, atob, btoa, queueMicrotask };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'navegador.js'), 'utf8'), ctx, { filename: 'navegador.js' });
   const html = fs.readFileSync(path.join(webDir, 'dev.html'), 'utf8');
