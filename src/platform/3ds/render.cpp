@@ -120,7 +120,9 @@ void Renderer::preload_run(Game& g) {
 
 void Renderer::begin_frame(Game& g) {
   sprites.poll();
-  if (world_seed != uint32_t(g.world.seed())) { chunks.clear(); world_seed = uint32_t(g.world.seed()); }
+  if (world_seed != uint32_t(g.world.seed()) || terrain_gen != g.world.terrain_gen()) {
+    chunks.clear(); world_seed = uint32_t(g.world.seed()); terrain_gen = g.world.terrain_gen();
+  }
   // Pinta 3 filas de casillas por fotograma (un chunk en ~6 fotogramas); más si
   // lo que se ve está sin pintar.
   const int base = old_3ds ? 1 : 3;
@@ -138,7 +140,8 @@ Renderer::FontPick Renderer::pick_font(float size) const {
   const float want = size * font_k * 30;   // alto de celda que se pedía
   if (font_small) {
     const float c = cell(font_small);
-    if (want < c * 1.6f) return {font_small, c / 30, std::round((want - c) / 2)};
+    // (hasta 0,36: Tiny5; desde 0,38, la grande, que se lee mucho mejor)
+    if (want < 13.2f) return {font_small, c / 30, std::round((want - c) / 2)};
   }
   const float c = cell(font);
   const float n = want < c * 1.7f ? 1 : want < c * 2.6f ? 2 : 3;
@@ -247,6 +250,23 @@ void Renderer::draw_ground(World& w, const Camera& cam, float vl, float vt, floa
     for (int32_t cy = c0y - 1; cy <= c1y + 1; ++cy)
       for (int32_t cx = c0x - 1; cx <= c1x + 1; ++cx)
         if (cx < c0x || cx > c1x || cy < c0y || cy > c1y) chunks.get(w, cx, cy, biome);
+  // Trozo aún sin pintar: suelo liso y, encima, sus paredes y su agua sacadas
+  // del terreno (una pared que choca SIEMPRE se ve).
+  auto rough = [&](int32_t cx, int32_t cy, float x, float y) {
+    const Biome& B = kBiomes[biome];
+    C2D_DrawRectSolid(x, y, 0, kChunkPx, kChunkPx, rgb(B.floor[0]));
+    const float ts = kTS * 0.5f;   // casilla en pantalla
+    for (int j = 0; j < kChunkTiles; ++j)
+      for (int i = 0; i < kChunkTiles; ++i) {
+        const uint8_t t = w.terrain_at(cx * kChunkTiles + i, cy * kChunkTiles + j);
+        if (t == TR_WALL) {
+          C2D_DrawRectSolid(x + i * ts, y + j * ts, 0, ts, ts, rgb(B.wallTop[0]));
+          C2D_DrawRectSolid(x + i * ts, y + j * ts + ts - 3, 0, ts, 3, rgb(B.wallFaceDark));
+        } else if (t == TR_LIQUID) {
+          C2D_DrawRectSolid(x + i * ts, y + j * ts, 0, ts, ts, rgb(B.liq));
+        }
+      }
+  };
   for (int32_t cy = c0y; cy <= c1y; ++cy)
     for (int32_t cx = c0x; cx <= c1x; ++cx) {
       const float x = v.sx(cx * kCW), y = v.sy(cy * kCW);
@@ -254,11 +274,12 @@ void Renderer::draw_ground(World& w, const Camera& cam, float vl, float vt, floa
       if (fk >= 0) {
         C2D_Image* old = chunks.get(w, cx, cy, w.fade_from());
         if (old) C2D_DrawImageAt(*old, x, y, 0);
-        if (cur) { C2D_ImageTint t; C2D_AlphaImageTint(&t, fk); C2D_DrawImageAt(*cur, x, y, 0, &t); }
+        else if (!cur) rough(cx, cy, x, y);
+        if (cur) { C2D_ImageTint t; C2D_AlphaImageTint(&t, old ? fk : 1.0f); C2D_DrawImageAt(*cur, x, y, 0, &t); }
       } else if (cur) {
         C2D_DrawImageAt(*cur, x, y, 0);
       } else {
-        C2D_DrawRectSolid(x, y, 0, kChunkPx, kChunkPx, rgb(kBiomes[biome].floor[0]));
+        rough(cx, cy, x, y);
       }
     }
 
@@ -328,7 +349,7 @@ void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now)
 namespace {
 enum DKind : int8_t { D_PROP, D_ENEMY, D_PLAYER, D_RIFT, D_ARCEUS, D_LOST, D_GOAL };
 struct DItem { float y; int8_t kind; const void* p; int16_t i = 0; };
-DItem items[900];
+DItem items[1600];
 }  // namespace
 
 void Renderer::draw_top(Game& g, float eye) {
@@ -431,10 +452,10 @@ void Renderer::draw_top(Game& g, float eye) {
   int n = 0;
   const float pad = 70;
   w.for_props_in_rect(v.l - pad, v.t - pad, v.l + cam.w + pad, v.t + cam.h + pad, [&](Prop& p) {
-    if (n < 600 && cam.sees(p.x, p.y, 70)) items[n++] = {p.flat ? p.y - 4000 : p.y, D_PROP, &p};
+    if (n < 1200 && cam.sees(p.x, p.y, 70)) items[n++] = {p.flat ? p.y - 4000 : p.y, D_PROP, &p};
   });
-  for (const Enemy& e : g.corpses) if (n < 880 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
-  for (const Enemy& e : g.enemies) if (n < 880 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
+  for (const Enemy& e : g.corpses) if (n < 1560 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
+  for (const Enemy& e : g.enemies) if (n < 1560 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
   for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) items[n++] = {g.players[i].y, D_PLAYER, &g.players[i]};
   if (g.rift.open) items[n++] = {g.rift.y, D_RIFT, nullptr};
   if (g.judg.a_on && g.judg.ported) items[n++] = {g.judg.ay, D_ARCEUS, nullptr};

@@ -9,6 +9,7 @@
 #include <string>
 
 #include "core/save_io.h"
+#include "core/settings.h"
 #include "core/websave.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/app_ui.h"
@@ -93,16 +94,51 @@ void App::cloud_tick() {
   cloud3ds::finish();
 }
 
+void App::in_cloudask(const UiIn& in) {
+  if (in.rep & KEY_DUP) cur_ = (cur_ + 2) % 3;
+  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 3;
+  int pick = -1;
+  for (int i = 0; i < 3; ++i) if (in_rect(&in, 20, 112 + i * 40, 280, 34)) pick = i;
+  if (in.down & KEY_A) pick = cur_;
+  if (in.down & KEY_B) pick = 1;
+  if (pick < 0) return;
+  if (pick == 0) { go(SC_ACCOUNT); login_now_ = true; account_back_ = SC_MENU; }
+  else {
+    if (pick == 2) { st_->cloud_never = true; settings_write(dir_, *st_); }
+    go(SC_MENU);
+  }
+}
+
+void App::bottom_cloudask() {
+  header("pokesurvivor.com");
+  r_->text("¿Conectar con tu cuenta", 160, 28, 0.45f, C_GOLD, 1);
+  r_->text("de pokesurvivor.com?", 160, 48, 0.45f, C_GOLD, 1);
+  r_->text_wrap("Tendrás la MISMA partida en la web y en la 3DS: Pokémon, shinies, monedas, tickets y mejoras. Nunca se pierde nada: se juntan las dos.", 160, 74, 0.34f, C_TEXT, 290, 1);
+  button(20, 112, 280, 34, "Sí, conectar", cur_ == 0);
+  button(20, 152, 280, 34, "No de momento", cur_ == 1);
+  button(20, 192, 280, 34, "Nunca", cur_ == 2);
+  r_->text("(siempre puedes hacerlo en Ajustes → Cuenta web)", 160, 229, 0.3f, C_MUTED, 1);
+}
+
 void App::in_account(const UiIn& in) {
   const cloud3ds::Account& a = cloud3ds::account();
   const bool busy = cloud3ds::state() == cloud3ds::JOB_BUSY;
   const int n = a.on ? 2 : 1;
+  // (desde la pregunta del principio: directo al teclado)
+  if (login_now_ && !a.on && !busy) { login_now_ = false; cur_ = 0; UiIn fake; fake.down = KEY_A; in_account(fake); return; }
+  login_now_ = false;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
   int pick = -1;
   for (int i = 0; i < n; ++i) if (in_rect(&in, 20, 132 + i * 40, 280, 34)) pick = i;
   if (in.down & KEY_A) pick = cur_;
-  if (in.down & KEY_B) { go(SC_SETTINGS); cur_ = 8; return; }
+  if (in.down & KEY_B) {
+    const Scene back = account_back_;
+    account_back_ = SC_SETTINGS;
+    go(back);
+    if (back == SC_SETTINGS) cur_ = 8;
+    return;
+  }
   if (pick < 0 || busy) return;
   cur_ = pick;
   if (!a.on) {

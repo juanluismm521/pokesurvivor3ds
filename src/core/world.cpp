@@ -57,7 +57,22 @@ float World::fade_k() const {
 }
 
 void World::set_arena(bool on, int32_t tx, int32_t ty, float r, int theme) {
-  if (!on) { arena_ = ArenaInfo(); return; }
+  terrain_gen_++;   // (el terreno cambia: lo pintado de antes ya no vale)
+  if (!on) {
+    // Fuera la arena: también se olvidan sus chunks (si no, sus paredes seguían).
+    const ArenaInfo a = arena_;
+    arena_ = ArenaInfo();
+    if (a.on)
+      for (auto& c : cache_) {
+        if (!c.valid) continue;
+        if (std::fabs(float(c.cx * kChunkTiles + kChunkTiles / 2 - a.tx)) < a.r + 9 + kChunkTiles &&
+            std::fabs(float(c.cy * kChunkTiles + kChunkTiles / 2 - a.ty)) < a.r + 9 + kChunkTiles) {
+          c.valid = false;
+          if (last_ == &c) last_ = nullptr;
+        }
+      }
+    return;
+  }
   arena_.on = true; arena_.tx = tx; arena_.ty = ty; arena_.r = r; arena_.theme = theme;
   // Olvida los chunks de esa zona (si se hubieran generado antes).
   const float R = r + 9;

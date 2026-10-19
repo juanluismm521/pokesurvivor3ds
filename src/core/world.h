@@ -131,6 +131,7 @@ class World {
   float fade_k() const;
   int fade_from() const { return fade_from_; }
   uint32_t biome_gen() const { return biome_gen_; }   // cambia al cambiar de bioma
+  uint32_t terrain_gen() const { return terrain_gen_; }   // cambia si el terreno cambia (arenas)
 
   int chunks_generated() const { return generated_; }
 
@@ -152,6 +153,7 @@ class World {
   float fade_t_ = -1;
   int fade_from_ = 0;
   uint32_t biome_gen_ = 0;
+  uint32_t terrain_gen_ = 0;
   uint32_t stamp_ = 0;
   int generated_ = 0;
   Chunk* last_ = nullptr;

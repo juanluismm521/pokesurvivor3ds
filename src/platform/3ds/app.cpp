@@ -286,6 +286,11 @@ void App::update(const UiIn& in0, float dt) {
   }
   g_->now_ms = now_ms();
   cloud_tick();
+  // Al abrir: ¿conectar con pokesurvivor.com? (una vez; no si ya hay cuenta o dijo «Nunca»)
+  if (scene == SC_MENU && !cloud_asked_ && !autotest && !tour && !st_->cloud_never && !cloud3ds::account().on) {
+    cloud_asked_ = true;
+    go(SC_CLOUDASK);
+  }
   notices(dt);
   if (scene != SC_RUN) {
     backdrop_step(dt);
@@ -308,6 +313,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_COOP: in_coop(in); break;
     case SC_LOBBY: in_lobby(in, dt); break;
     case SC_ACCOUNT: in_account(in); break;
+    case SC_CLOUDASK: in_cloudask(in); break;
     case SC_CREDITS:
       if (in.rep & KEY_DDOWN) scroll_ = std::min(scroll_ + 1, std::max(0, credit_lines_ - 10));
       if (in.rep & KEY_DUP) scroll_ = std::max(0, scroll_ - 1);
@@ -1036,7 +1042,7 @@ void App::bottom_goals() {
       C2D_DrawRectSolid(6, y, 0, 308, 34, i == cur_ ? C_SEL : C_PANEL);
       if (m.def < 0) continue;
       mission_text(m, b, sizeof(b));
-      r_->text(b, 12, y + 2, 0.36f, m.claimed ? C_MUTED : C_TEXT);
+      r_->text(b, 12, y + 1, 0.4f, m.claimed ? C_MUTED : C_TEXT);
       const float f = std::min(1.0f, float(m.prog) / std::max(1, int(m.goal)));
       C2D_DrawRectSolid(12, y + 22, 0, 180, 6, C2D_Color32(0, 0, 0, 140));
       C2D_DrawRectSolid(12, y + 22, 0, 180 * f, 6, mission_done(m) ? C2D_Color32(0x5f, 0xe0, 0x8a, 255) : C_GOLD);
@@ -1064,8 +1070,8 @@ void App::bottom_goals() {
       std::snprintf(medal, sizeof(medal), "medal%d", s_->ach[k] ? a.tier : 0);
       const int ic = r_->icons.find(s_->ach[k] ? medal : "medalOff");
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 2, 0, nullptr, 2, 2);
-      r_->text(a.name, 38, y + 1, 0.36f, s_->ach[k] ? C_TEXT : C_MUTED);
-      r_->text(a.desc, 38, y + 14, 0.28f, C_MUTED, 0, false);
+      r_->text(a.name, 38, y, 0.4f, s_->ach[k] ? C_TEXT : C_MUTED);
+      r_->text(a.desc, 38, y + 16, 0.28f, C_MUTED, 0, false);
       std::snprintf(b, sizeof(b), "%d/%d", std::min(ach_value(*s_, k), int(a.goal)), int(a.goal));
       r_->text(b, 308, y + 8, 0.32f, s_->ach[k] ? C_GOLD : C_MUTED, 2, false);
     }
@@ -1119,7 +1125,7 @@ void App::in_settings(const UiIn& in) {
 
 void App::bottom_settings() {
   header("Ajustes");
-  static const char* const L[9] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta de pokesurvivor.com"};
+  static const char* const L[9] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta web"};
   char v[9][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
@@ -1279,6 +1285,7 @@ void App::draw_bottom() {
     case SC_COOP: bottom_coop(); break;
     case SC_LOBBY: bottom_lobby(); break;
     case SC_ACCOUNT: bottom_account(); break;
+    case SC_CLOUDASK: bottom_cloudask(); break;
     default: break;
   }
 }

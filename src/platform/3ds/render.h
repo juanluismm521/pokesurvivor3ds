@@ -30,7 +30,7 @@ struct Renderer {
   bool show_fps = false;
   bool old_3ds = false;          // pinta el suelo más despacio (menos filas por fotograma)
   int card_cursor = 0;
-  uint32_t world_seed = 0;
+  uint32_t world_seed = 0, terrain_gen = 0;
   // Índices de imágenes de los atlas (buscados al cargar).
   int prop_idx[32][PR_COUNT][8];
   int rift_idx[4];

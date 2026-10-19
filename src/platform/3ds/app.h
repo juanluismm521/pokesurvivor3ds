@@ -19,7 +19,7 @@ namespace ps {
 
 enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_GACHA, SC_PULL,
-  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT
+  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK
 };
 
 struct UiIn {
@@ -79,6 +79,7 @@ class App {
   void in_coop(const UiIn& in);
   void in_lobby(const UiIn& in, float dt);
   void in_account(const UiIn& in);
+  void in_cloudask(const UiIn& in);
   // Dibujo
   void bottom_test();
   void bottom_menu();
@@ -92,6 +93,7 @@ class App {
   void bottom_coop();
   void bottom_lobby();
   void bottom_account();
+  void bottom_cloudask();
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
   void top_pull();
@@ -173,6 +175,9 @@ class App {
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
   char cloud_msg_[128] = {};
   bool over_synced_ = false;
+  bool cloud_asked_ = false;     // ya se ha preguntado al abrir
+  bool login_now_ = false;
+  Scene account_back_ = SC_SETTINGS;   // a dónde vuelve B desde la cuenta       // abrir el teclado para entrar (desde la pregunta)
   float auto_t_ = 0;
 };
 

@@ -506,6 +506,15 @@ void App::advance(double& acc, float dt) {
 // Arriba, en la partida en grupo: a quién se espera, pausa y avisos.
 void App::coop_overlay() {
   if (!coop_ && !coop_msg_[0]) return;
+  // Por internet: el ping siempre a la vista (verde, amarillo o rojo).
+  if (coop_ && net3ds::online()) {
+    char pb[24];
+    const int p = net3ds::rtt_ms();
+    std::snprintf(pb, sizeof(pb), "ping %d ms", p);
+    const float w = r_->text_width(pb, 0.32f) + 8;
+    C2D_DrawRectSolid(TW - w - 2, 2, 0, w, 11, C2D_Color32(0, 0, 0, 150));
+    r_->text(pb, TW - 6, 3, 0.32f, p < 90 ? C2D_Color32(126, 224, 122, 255) : p < 160 ? C_GOLD : C2D_Color32(255, 95, 109, 255), 2, false);
+  }
   if (coop_ && g_->state != ST_OVER && ls_.stall_frames() > 30) {
     char names[64] = "";
     const uint8_t mask = ls_.waiting_mask();

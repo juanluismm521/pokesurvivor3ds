@@ -16,6 +16,7 @@ struct Settings {
   // Servidor para jugar online (repositorio pokesurvivor-relay): IP o dominio y puerto.
   char server[64] = "pokesurvivor3ds.duckdns.org";
   int server_port = 24873;
+  bool cloud_never = false;   // «Nunca»: no preguntar al abrir por la cuenta de pokesurvivor.com
 };
 // ¿Vale como IP o dominio? (letras, cifras, '.', '-'; sin espacios)
 bool settings_valid_host(const char* h);

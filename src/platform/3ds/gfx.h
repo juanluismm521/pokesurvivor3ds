@@ -99,7 +99,9 @@ class SpriteBank {
 // ---------------- chunks del suelo ----------------
 class ChunkCache {
  public:
-  static constexpr int kSlots = 24;
+  // (32: con el anillo de alrededor y el bioma viejo durante el cambio de
+  // bioma se piden hasta 26 a la vez; con 24 se echaban unos a otros)
+  static constexpr int kSlots = 32;
   // El pintado va en un hilo en otro núcleo (el 2 en la New 3DS, el 1 en la
   // vieja); si no se puede crear, se pinta a trozos en el hilo principal.
   void init();
