@@ -1,5 +1,28 @@
 # Entrar con Google en la 3DS
 
+## YA, sin esperar a nadie: ponle nombre y contraseña a tu cuenta de Google
+
+Las cuentas creadas con Google en la web no tienen nombre ni contraseña (el
+apodo que eliges sólo sirve para los amigos: con él no se puede entrar). Pero
+se les pueden **añadir** sin crear otra cuenta, con el propio sistema de
+cuentas de la web, y entonces la 3DS entra con ellos (misma cuenta, misma
+partida). Hace falta un ordenador:
+
+1. En el ordenador, abre **pokesurvivor.com** y entra con tu cuenta de Google.
+2. Pulsa **F12** (o clic derecho → Inspeccionar) y ve a la pestaña **Consola**.
+   (Chrome puede pedir que escribas `allow pasting` antes de pegar.)
+3. Copia todo `tools/web/vincular_nombre.js`, cambia en las dos primeras líneas
+   `TuNombre` y `tu-contraseña` por los que quieras, pégalo y pulsa Enter.
+4. Sale «¡Hecho!». En la 3DS: Ajustes → Cuenta web → «Entrar con usuario y
+   contraseña» con ese nombre y contraseña. En la web también sirven.
+
+Si dice que el nombre ya es de otra cuenta, elige otro (por ejemplo, si tienes
+una cuenta vieja de nombre con ese mismo nombre). Probado con la web original
+y el emulador de Firebase (`tools/google_nombre_e2e.js`): la 3DS entra en la
+MISMA cuenta de Google y tiene su partida.
+
+## Con el botón «Entrar con Google» de la 3DS
+
 La 3DS ya sabe entrar con una cuenta de Google y sincronizar su partida con
 pokesurvivor.com (la MISMA cuenta que en la web). Lo hace como las teles y las
 consolas: enseña un código, y desde el móvil o el ordenador se entra en
