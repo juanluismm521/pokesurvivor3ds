@@ -48,6 +48,7 @@ void App::cloud_autostart() {
 
 bool App::cloud_test(const char* user, const char* pass) {
   cloud_t0_updated_ = s_->updated;
+  if (!std::strcmp(user, "google")) return cloud3ds::start_google(save_full_json(*s_));   // (autotest "nube google -")
   return cloud3ds::start_login(user, pass, save_full_json(*s_));
 }
 
@@ -123,7 +124,13 @@ void App::bottom_cloudask() {
 void App::in_account(const UiIn& in) {
   const cloud3ds::Account& a = cloud3ds::account();
   const bool busy = cloud3ds::state() == cloud3ds::JOB_BUSY;
-  const int n = a.on ? 2 : 1;
+  const int n = 2;
+  // Esperando a que se acepte en Google: B cancela.
+  std::string gcode, gurl;
+  if (busy && cloud3ds::google_code(gcode, gurl)) {
+    if (in.down & KEY_B) cloud3ds::cancel_google();
+    return;
+  }
   // (desde la pregunta del principio: directo al teclado)
   if (login_now_ && !a.on && !busy) { login_now_ = false; cur_ = 0; UiIn fake; fake.down = KEY_A; in_account(fake); return; }
   login_now_ = false;
@@ -141,7 +148,17 @@ void App::in_account(const UiIn& in) {
   }
   if (pick < 0 || busy) return;
   cur_ = pick;
-  if (!a.on) {
+  if (!a.on && pick == 1) {
+    // Entrar con Google (código en la consola, se acepta en el móvil).
+    cloud_msg_[0] = 0;
+    if (!cloud3ds::google_ready()) {
+      std::snprintf(cloud_msg_, sizeof(cloud_msg_), "Entrar con Google aún no está activado para la 3DS");
+      cloud_done = -1;
+      return;
+    }
+    cloud_t0_updated_ = s_->updated;
+    cloud3ds::start_google(save_full_json(*s_));
+  } else if (!a.on) {
     char user[48], pass[64];
     if (!ask("Usuario de pokesurvivor.com", user, 17, false)) return;
     if (!ask("Contraseña", pass, 64, true)) return;
@@ -167,8 +184,20 @@ void App::bottom_account() {
   char b[128];
   if (!a.on) {
     r_->text_wrap("Entra con tu cuenta de pokesurvivor.com para tener la MISMA partida en la web y en la 3DS: Pokémon, shinies, monedas, tickets y mejoras. Nunca se pierde nada: se juntan las dos.", 160, 30, 0.36f, C_TEXT, 290, 1);
-    r_->text_wrap("Sirven las cuentas de usuario y contraseña (las de Google no).", 160, 98, 0.34f, C_MUTED, 290, 1);
-    button(20, 132, 280, 34, busy ? "Entrando…" : "Entrar", cur_ == 0);
+    std::string gcode, gurl;
+    if (busy && cloud3ds::google_code(gcode, gurl)) {
+      // El código, bien grande: se escribe en google.com/device desde el móvil.
+      r_->text("Desde el móvil o el ordenador, entra en", 160, 104, 0.36f, C_TEXT, 1);
+      std::snprintf(b, sizeof(b), "%s", gurl.compare(0, 8, "https://") == 0 ? gurl.c_str() + 8 : gurl.c_str());
+      r_->text(b, 160, 122, 0.45f, C2D_Color32(154, 230, 255, 255), 1);
+      r_->text("y escribe este código:", 160, 144, 0.36f, C_TEXT, 1);
+      r_->text(gcode.c_str(), 160, 160, 0.9f, C_GOLD, 1);
+      r_->text("Elige la cuenta de Google con la que juegas en la web.", 160, 196, 0.32f, C_MUTED, 1);
+      r_->text("B: cancelar", 160, 228, 0.32f, C_MUTED, 1);
+      return;
+    }
+    button(20, 132, 280, 34, busy ? "Entrando…" : "Entrar con usuario y contraseña", cur_ == 0);
+    button(20, 172, 280, 34, "Entrar con Google", cur_ == 1);
   } else {
     std::snprintf(b, sizeof(b), "Conectado como %s", a.name.c_str());
     r_->text(b, 160, 36, 0.5f, C_GOLD, 1);

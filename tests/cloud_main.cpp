@@ -3,6 +3,8 @@
 // web de verdad (tools/cloud_e2e.js).
 //
 //   ps_cloud <usuario> <contraseña> <partida.json> <aparato> [salida.json]
+//   ps_cloud --google - <partida.json> <aparato> [salida.json]   (entrar con Google:
+//            PS_GOOGLE_DEVICE, PS_GOOGLE_TOKEN = direcciones de Google; PS_GOOGLE_ID)
 //   variables: PS_AUTH (http://127.0.0.1:9099), PS_FS (http://127.0.0.1:8089),
 //              PS_PROJECT (demo-pokesurvivor), PS_KEY (clave), PS_NOW (hora en ms)
 #include <curl/curl.h>
@@ -10,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <unistd.h>
 #include <string>
 
 #include "core/cloudsync.h"
@@ -68,7 +71,20 @@ int main(int argc, char** argv) {
   Json local;
   if (!local.parse(text)) { std::fprintf(stderr, "partida no válida\n"); return 2; }
   cloud::Session s;
-  if (!cloud::login(c, argv[1], argv[2], s)) { std::fprintf(stderr, "login: %s\n", c.error.c_str()); return 1; }
+  if (std::string(argv[1]) == "--google") {
+    c.cfg.google_client_id = env("PS_GOOGLE_ID", "cliente-tv");
+    c.cfg.google_client_secret = env("PS_GOOGLE_SECRET", "secreto");
+    c.cfg.google_device_url = env("PS_GOOGLE_DEVICE", c.cfg.google_device_url.c_str());
+    c.cfg.google_token_url = env("PS_GOOGLE_TOKEN", c.cfg.google_token_url.c_str());
+    cloud::GoogleDevice d;
+    if (!cloud::google_start(c, d)) { std::fprintf(stderr, "google: %s\n", c.error.c_str()); return 1; }
+    std::printf("entra en %s y escribe %s\n", d.verification_url.c_str(), d.user_code.c_str());
+    std::fflush(stdout);
+    int r = 0;
+    for (int t = 0; t < d.expires_in && (r = cloud::google_poll(c, d, s)) == 0; t += d.interval) sleep(unsigned(d.interval));
+    if (r != 1) { std::fprintf(stderr, "google: %s\n", c.error.c_str()); return 1; }
+    std::printf("google: entra como %s\n", s.name.c_str());
+  } else if (!cloud::login(c, argv[1], argv[2], s)) { std::fprintf(stderr, "login: %s\n", c.error.c_str()); return 1; }
   const int64_t now = std::atoll(env("PS_NOW", "0")) ? std::atoll(env("PS_NOW", "0")) : int64_t(std::time(nullptr)) * 1000;
   Json merged;
   if (!cloud::sync(c, s, local, argv[4], now, merged)) { std::fprintf(stderr, "sync: %s\n", c.error.c_str()); return 1; }

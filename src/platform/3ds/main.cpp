@@ -172,7 +172,18 @@ int main() {
     at.on = false;
     const u64 t0 = osGetTime();
     app.cloud_test(at.user, at.pass);
-    while (aptMainLoop() && app.cloud_done == 0 && osGetTime() - t0 < 90000) { app.cloud_tick(); gspWaitForVBlank(); }
+    bool code_logged = false;
+    app.show_account();   // (para ver en las capturas la pantalla de la cuenta y el código)
+    while (aptMainLoop() && app.cloud_done == 0 && osGetTime() - t0 < 90000) {
+      app.cloud_tick();
+      C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+      C2D_TargetClear(top, C2D_Color32(0, 0, 0, 255)); C2D_SceneBegin(top); app.draw_top(0);
+      C2D_TargetClear(bottom, C2D_Color32(16, 22, 34, 255)); C2D_SceneBegin(bottom); app.draw_bottom();
+      C3D_FrameEnd(0);
+      std::string gc, gu;
+      if (!code_logged && cloud3ds::google_code(gc, gu) && at.log) { code_logged = true; std::fprintf(at.log, "google: entra en %s y escribe %s\n", gu.c_str(), gc.c_str()); std::fflush(at.log); }
+      gspWaitForVBlank();
+    }
     if (at.log) {
       int owned = 0;
       for (int d = 1; d <= kMaxDex; ++d) if (save->owned_at[d]) owned++;

@@ -37,6 +37,13 @@ struct Config {
   // La clave de la web sólo acepta peticiones que vengan de la web (Referer);
   // con permiso del proyecto, la 3DS se presenta como la web.
   std::string referer = "https://pokesurvivor.com/";
+  // Entrar con Google (OAuth para aparatos sin navegador: la consola enseña un
+  // código y se acepta en google.com/device desde el móvil). Hace falta un
+  // cliente OAuth de tipo «TV y dispositivos de entrada limitada» del MISMO
+  // proyecto de Google que la web (si no, Firebase no acepta su token).
+  std::string google_client_id, google_client_secret;
+  std::string google_device_url = "https://oauth2.googleapis.com/device/code";
+  std::string google_token_url = "https://oauth2.googleapis.com/token";
 };
 
 struct Session {
@@ -57,6 +64,20 @@ struct Client {
 std::string name_to_email(const std::string& name);
 
 bool login(Client& c, const std::string& name, const std::string& pass, Session& s);
+
+// ---- Entrar con Google (flujo de dispositivo) ----
+struct GoogleDevice {
+  std::string device_code, user_code, verification_url;
+  int interval = 5;                   // segundos entre preguntas
+  int expires_in = 1800;              // validez del código (s)
+};
+// Pide el código que se enseña en la consola.
+bool google_start(Client& c, GoogleDevice& d);
+// ¿Lo ha aceptado ya? 1 = sí (sesión de Firebase en `s`, la MISMA cuenta que
+// en la web), 0 = todavía no (esperar d.interval s), -1 = error (c.error).
+int google_poll(Client& c, GoogleDevice& d, Session& s);
+// Con un token de Google ya conseguido: la cuenta de Firebase (signInWithIdp).
+bool google_firebase(Client& c, const std::string& google_id_token, Session& s);
 bool refresh(Client& c, Session& s);
 // Sube y baja: `local` es la partida completa de la 3DS; `dev`, el nombre de
 // este aparato en la libreta; `local_now_ms`, la hora de la consola. Deja en

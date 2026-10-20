@@ -177,6 +177,7 @@ class App {
   void cloud_tick();             // aplica lo que llegue de la nube (cada fotograma)
   void cloud_autostart();        // al arrancar y al acabar una partida (si hay cuenta)
   bool cloud_test(const char* user, const char* pass);   // autotest "nube"
+  void show_account() { go(SC_ACCOUNT); }   // autotest "nube google": la pantalla de la cuenta en las capturas
   int cloud_done = 0;            // (autotest) 1 = bien, -1 = mal
  private:
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar

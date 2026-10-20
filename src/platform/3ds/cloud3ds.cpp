@@ -31,7 +31,17 @@ Thread g_thr = nullptr;
 LightEvent g_ev;
 volatile bool g_quit = false;
 volatile int g_state = JOB_IDLE;
-int g_kind = 0;                  // 1 = entrar + sincronizar, 2 = sincronizar
+int g_kind = 0;                  // 1 = entrar + sincronizar, 2 = sincronizar, 3 = entrar con Google + sincronizar
+// Entrar con Google: el código que se enseña (lo escribe el hilo) y cancelar.
+LightLock g_glock;
+std::string g_gcode, g_gurl;
+volatile bool g_gcancel = false;
+// Cliente OAuth «TV y dispositivos de entrada limitada» del proyecto de la web
+// (lo crea quien administra pokesurvivor-free en Google Cloud). Vacío: el botón
+// lo explica. Pruebas: google.json en la SD ({"client_id":..,"client_secret":..,
+// "device":..,"token":..}) lo cambia.
+const char kGoogleClientId[] = "";
+const char kGoogleClientSecret[] = "";
 std::string g_name, g_pass, g_err, g_curl_err;
 Json g_local, g_result, g_remote;
 
@@ -143,6 +153,23 @@ void worker(void*) {
       cloud::Session s;
       s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
       bool in = true;
+      if (g_kind == 3) {
+        // Entrar con Google: código en la consola, se acepta en el móvil.
+        cloud::GoogleDevice d;
+        in = cloud::google_start(c, d);
+        if (in) {
+          LightLock_Lock(&g_glock); g_gcode = d.user_code; g_gurl = d.verification_url; LightLock_Unlock(&g_glock);
+          int r = 0;
+          const u64 end = osGetTime() + u64(d.expires_in) * 1000;
+          while (!g_gcancel && !g_quit && osGetTime() < end) {
+            for (int k = 0; k < d.interval * 10 && !g_gcancel && !g_quit; ++k) svcSleepThread(100000000ll);   // (0,1 s)
+            if (g_gcancel || g_quit) break;
+            if ((r = cloud::google_poll(c, d, s)) != 0) break;
+          }
+          if (r != 1) { in = false; if (g_gcancel) c.error = "Cancelado."; else if (r == 0) c.error = "El código ha caducado: vuelve a intentarlo."; }
+          LightLock_Lock(&g_glock); g_gcode.clear(); LightLock_Unlock(&g_glock);
+        }
+      }
       if (g_kind == 1) {
         in = cloud::login(c, g_name, g_pass, s);
         g_pass.assign(g_pass.size(), '\0');
@@ -190,6 +217,9 @@ void init(const char* dir) {
   g_cfg = cloud::Config();
   g_cfg.api_key = kWebApiKey;
   g_cfg.project = kWebProject;
+  g_cfg.google_client_id = kGoogleClientId;
+  g_cfg.google_client_secret = kGoogleClientSecret;
+  LightLock_Init(&g_glock);
   // Pruebas: nube.json en la SD apunta a otro Firebase (el emulador del VPS).
   std::string t;
   Json o;
@@ -198,6 +228,12 @@ void init(const char* dir) {
     if (o["fs"].is_str()) g_cfg.fs_base = o["fs"].as_str();
     if (o["project"].is_str()) g_cfg.project = o["project"].as_str();
     if (o["key"].is_str()) g_cfg.api_key = o["key"].as_str();
+  }
+  if (read_file(path("google.json"), t) && o.parse(t) && o.is_obj()) {
+    if (o["client_id"].is_str()) g_cfg.google_client_id = o["client_id"].as_str();
+    if (o["client_secret"].is_str()) g_cfg.google_client_secret = o["client_secret"].as_str();
+    if (o["device"].is_str()) g_cfg.google_device_url = o["device"].as_str();
+    if (o["token"].is_str()) g_cfg.google_token_url = o["token"].as_str();
   }
   g_acc = Account();
   if (read_file(path("cuenta.json"), t) && o.parse(t) && o.is_obj()) {
@@ -228,6 +264,21 @@ bool start_login(const std::string& name, const std::string& pass, const Json& l
   if (g_state == JOB_BUSY) return false;
   g_name = name; g_pass = pass; g_local = local;
   return start(1);
+}
+
+bool start_google(const Json& local) {
+  if (g_state == JOB_BUSY) return false;
+  g_local = local;
+  g_gcancel = false;
+  return start(3);
+}
+void cancel_google() { g_gcancel = true; }
+bool google_ready() { return !g_cfg.google_client_id.empty(); }
+bool google_code(std::string& code, std::string& url) {
+  LightLock_Lock(&g_glock);
+  code = g_gcode; url = g_gurl;
+  LightLock_Unlock(&g_glock);
+  return !code.empty();
 }
 
 bool start_sync(const Json& local) {

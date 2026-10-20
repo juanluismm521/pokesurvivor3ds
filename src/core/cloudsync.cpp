@@ -115,6 +115,97 @@ bool login(Client& c, const std::string& name, const std::string& pass, Session&
   return true;
 }
 
+// ---------------- entrar con Google ----------------
+
+namespace {
+// El nombre que se enseña (displayNameOf de db.js: la primera palabra, sin símbolos).
+std::string display_name_of(const Json& j) {
+  std::string n = trim(j["displayName"].as_str());
+  if (n.empty()) n = trim(j["fullName"].as_str());
+  if (n.empty()) { const std::string e = j["email"].as_str(); n = e.substr(0, e.find('@')); }
+  n = n.substr(0, n.find(' '));
+  std::string o;
+  for (unsigned char ch : n) if (std::isalnum(ch) || ch == '_' || ch >= 0x80) o += char(ch);
+  return o.empty() ? "Entrenador" : o;
+}
+std::string google_error(const std::string& e) {
+  if (e == "access_denied") return "Has cancelado el permiso en Google.";
+  if (e == "expired_token") return "El código ha caducado: vuelve a intentarlo.";
+  if (e == "invalid_client" || e == "unauthorized_client") return "El inicio con Google de la 3DS no está activado todavía.";
+  return "Google no ha dejado entrar (" + e + ").";
+}
+}  // namespace
+
+bool google_start(Client& c, GoogleDevice& d) {
+  if (c.cfg.google_client_id.empty()) { c.error = "El inicio con Google de la 3DS no está activado todavía."; return false; }
+  HttpReq rq;
+  rq.method = "POST";
+  rq.url = c.cfg.google_device_url;
+  rq.headers.push_back("Content-Type: application/x-www-form-urlencoded");
+  rq.body = "client_id=" + urlenc(c.cfg.google_client_id) + "&scope=" + urlenc("openid email profile");
+  HttpResp rs;
+  rs = HttpResp();
+  if (!c.http || !c.http(rq, rs, c.ctx) || rs.status == 0) { c.error = "Sin conexión a internet."; return false; }
+  Json j;
+  j.parse(rs.body);
+  if (rs.status != 200 || !j["device_code"].is_str()) {
+    c.error = google_error(j["error"].is_str() ? j["error"].as_str() : std::to_string(rs.status));
+    return false;
+  }
+  d.device_code = j["device_code"].as_str();
+  d.user_code = j["user_code"].as_str();
+  d.verification_url = j["verification_url"].is_str() ? j["verification_url"].as_str() : j["verification_uri"].as_str();
+  if (d.verification_url.empty()) d.verification_url = "https://www.google.com/device";
+  d.interval = int(j["interval"].as_int(5));
+  if (d.interval < 1 || d.interval > 60) d.interval = 5;
+  d.expires_in = int(j["expires_in"].as_int(1800));
+  return true;
+}
+
+int google_poll(Client& c, GoogleDevice& d, Session& s) {
+  HttpReq rq;
+  rq.method = "POST";
+  rq.url = c.cfg.google_token_url;
+  rq.headers.push_back("Content-Type: application/x-www-form-urlencoded");
+  rq.body = "client_id=" + urlenc(c.cfg.google_client_id) + "&client_secret=" + urlenc(c.cfg.google_client_secret) +
+            "&device_code=" + urlenc(d.device_code) + "&grant_type=" + urlenc("urn:ietf:params:oauth:grant-type:device_code");
+  HttpResp rs;
+  if (!c.http || !c.http(rq, rs, c.ctx) || rs.status == 0) return 0;   // (sin red un momento: se vuelve a preguntar)
+  Json j;
+  j.parse(rs.body);
+  if (rs.status == 200 && j["id_token"].is_str()) return google_firebase(c, j["id_token"].as_str(), s) ? 1 : -1;
+  const std::string e = j["error"].as_str();
+  if (e == "authorization_pending") return 0;
+  if (e == "slow_down") { d.interval += 5; return 0; }
+  c.error = google_error(e.empty() ? std::to_string(rs.status) : e);
+  return -1;
+}
+
+bool google_firebase(Client& c, const std::string& google_id_token, Session& s) {
+  HttpReq rq;
+  rq.method = "POST";
+  rq.url = c.cfg.auth_base + "/v1/accounts:signInWithIdp?key=" + c.cfg.api_key;
+  rq.headers.push_back("Content-Type: application/json");
+  const std::string post = "id_token=" + urlenc(google_id_token) + "&providerId=google.com";
+  rq.body = "{\"postBody\":" + jstr(post) + ",\"requestUri\":\"https://pokesurvivor.com/\",\"returnSecureToken\":true,\"returnIdpCredential\":true}";
+  HttpResp rs;
+  if (!call(c, rq, rs)) return false;
+  Json j;
+  j.parse(rs.body);
+  if (rs.status != 200 || !j["idToken"].is_str()) {
+    const std::string m = j["error"]["message"].as_str();
+    if (m.find("INVALID_IDP_RESPONSE") != std::string::npos || m.find("audience") != std::string::npos)
+      c.error = "pokesurvivor.com no acepta todavía el inicio con Google desde la 3DS.";
+    else c.error = auth_error(j, rs.status);
+    return false;
+  }
+  s.name = display_name_of(j);
+  s.uid = j["localId"].as_str();
+  s.id_token = j["idToken"].as_str();
+  s.refresh_token = j["refreshToken"].as_str();
+  return true;
+}
+
 bool refresh(Client& c, Session& s) {
   HttpReq rq;
   rq.method = "POST";

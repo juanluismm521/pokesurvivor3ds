@@ -29,6 +29,12 @@ void logout();
 // Trabajo en segundo plano. Uno a la vez.
 bool start_login(const std::string& name, const std::string& pass, const Json& local);   // entra y sincroniza
 bool start_sync(const Json& local);
+// Entrar con Google: la consola enseña un código que se escribe en
+// google.com/device (móvil u ordenador); luego sincroniza como siempre.
+bool start_google(const Json& local);
+bool google_code(std::string& code, std::string& url);   // el código, cuando lo hay
+void cancel_google();
+bool google_ready();             // hay cliente de Google configurado
 JobState state();
 // Al acabar bien: la partida fusionada (para aplicarla) y se guarda la cuenta.
 const Json& result();

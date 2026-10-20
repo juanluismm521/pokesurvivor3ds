@@ -176,3 +176,63 @@ TEST_CASE("sincronizar: la 3DS sólo escribe lo que ha cambiado") {
   CHECK(j["pbind"]["25"][1].is_str());
   save_raw() = Json();
 }
+
+// Entrar con Google desde la consola (flujo de dispositivo + signInWithIdp).
+namespace {
+struct FakeGoogle { int polls = 0; bool deny = false; std::string idp_body; };
+bool fake_google(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
+  FakeGoogle& g = *static_cast<FakeGoogle*>(ctx);
+  rs.status = 200;
+  if (rq.url.find("/device/code") != std::string::npos) {
+    CHECK(rq.body.find("client_id=cliente-tv") != std::string::npos);
+    CHECK(rq.body.find("scope=openid%20email%20profile") != std::string::npos);
+    rs.body = R"({"device_code":"DC","user_code":"ABCD-EFGH","verification_url":"https://www.google.com/device","interval":5,"expires_in":1800})";
+  } else if (rq.url.find("/token") != std::string::npos && rq.url.find("securetoken") == std::string::npos) {
+    CHECK(rq.body.find("device_code=DC") != std::string::npos);
+    CHECK(rq.body.find("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code") != std::string::npos);
+    g.polls++;
+    rs.status = 428;
+    if (g.deny) { rs.status = 403; rs.body = R"({"error":"access_denied"})"; }
+    else if (g.polls == 1) rs.body = R"({"error":"authorization_pending"})";
+    else if (g.polls == 2) rs.body = R"({"error":"slow_down"})";
+    else { rs.status = 200; rs.body = R"({"access_token":"AT","id_token":"GOOGLE.ID.TOKEN","expires_in":3599})"; }
+  } else if (rq.url.find("signInWithIdp") != std::string::npos) {
+    g.idp_body = rq.body;
+    bool ref = false;
+    for (const auto& h : rq.headers) if (h == "Referer: https://pokesurvivor.com/") ref = true;
+    CHECK(ref);
+    rs.body = R"({"localId":"uid-google","idToken":"t","refreshToken":"r","displayName":"Juan Luis Martínez","email":"juan@gmail.com"})";
+  } else { rs.status = 404; rs.body = "{}"; }
+  return true;
+}
+}  // namespace
+
+TEST_CASE("entrar con Google: código en la consola, se acepta en el móvil y es la misma cuenta") {
+  FakeGoogle g;
+  cloud::Client c;
+  c.http = fake_google; c.ctx = &g;
+  cloud::GoogleDevice d;
+  cloud::Session s;
+  // Sin cliente configurado: lo dice claro.
+  CHECK(!cloud::google_start(c, d));
+  CHECK(c.error.find("no está activado") != std::string::npos);
+  c.cfg.google_client_id = "cliente-tv"; c.cfg.google_client_secret = "secreto";
+  REQUIRE(cloud::google_start(c, d));
+  CHECK(d.user_code == "ABCD-EFGH");
+  CHECK(d.verification_url == "https://www.google.com/device");
+  CHECK(cloud::google_poll(c, d, s) == 0);   // todavía no
+  CHECK(cloud::google_poll(c, d, s) == 0);   // más despacio
+  CHECK(d.interval == 10);
+  REQUIRE(cloud::google_poll(c, d, s) == 1);
+  CHECK(s.uid == "uid-google");
+  CHECK(s.refresh_token == "r");
+  CHECK(s.name == "Juan");
+  CHECK(g.idp_body.find("providerId=google.com") != std::string::npos);
+  CHECK(g.idp_body.find("id_token=GOOGLE.ID.TOKEN") != std::string::npos);
+  // Si en Google se dice que no.
+  FakeGoogle g2; g2.deny = true;
+  c.ctx = &g2;
+  REQUIRE(cloud::google_start(c, d));
+  CHECK(cloud::google_poll(c, d, s) == -1);
+  CHECK(c.error.find("cancelado") != std::string::npos);
+}
