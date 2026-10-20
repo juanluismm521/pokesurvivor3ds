@@ -158,10 +158,14 @@ Propuesta: Fase 12, cuando el port esté al día con la web.
 ## 6. La consola se actualiza sola (hecho: los datos)
 Lo que más cambia en la web (números de equilibrio, nombres, textos y
 traducciones) llega a la consola **sin programa nuevo**:
-1. `auto.sh` (cron, dos veces al día) baja la web. Si sólo cambian datos y
-   todas las pruebas pasan, lo sube a `main` y `publicar_datos.sh` publica el
-   **paquete de datos** (≈160 KB) en https://pokesurvivor3ds.duckdns.org/datos/.
-2. La consola, al encender y con wifi, baja en segundo plano el paquete de su
+1. El **actualizador** (contenedor del repositorio del servidor, perfil
+   «datos») mira la web cada 6 horas. Si sólo cambian datos y las pruebas de PC
+   pasan, publica el **paquete de datos** (≈160 KB) en
+   https://pokesurvivor3ds.duckdns.org/datos/. Si la web pide una versión nueva
+   del juego, avisa por Telegram (con `TELEGRAM_TOKEN` y `TELEGRAM_CHAT_ID` en
+   su `.env`).
+2. La consola, si en Ajustes está activado «Comprobar actualizaciones
+   automáticamente» (de serie, no), al encender y con wifi baja en segundo plano el paquete de su
    versión (`<esquema>.json`). Lo comprueba entero (forma, huella y rangos de
    cada número) y lo aplica en cuanto no hay una partida ni una sala en marcha.
    Aviso: «Datos del juego al día · web del …».

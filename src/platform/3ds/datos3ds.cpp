@@ -98,7 +98,8 @@ std::string init(const char* dir) {
 }
 
 void start_check() {
-  if (g_busy || g_thr) return;
+  if (g_busy) return;
+  if (g_thr) { threadJoin(g_thr, U64_MAX); threadFree(g_thr); g_thr = nullptr; }   // (la anterior ya acabó)
   g_busy = true;
   set_status("Buscando datos nuevos…");
   s32 prio = 0x30;

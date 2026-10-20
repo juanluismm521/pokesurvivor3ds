@@ -16,7 +16,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 ROOT=$(pwd)
 MODE=${1:-informe}
-WEB_URL=https://github.com/JPTER78/pokesurvivor.git
+WEB_URL=${WEB_REPO:-https://github.com/JPTER78/pokesurvivor.git}
 CACHE=$ROOT/tools/cache/web
 OUT=$ROOT/build/web
 mkdir -p "$OUT"
@@ -64,9 +64,11 @@ if [ "$MODE" != pruebas ]; then
     result portar; exit 3
   fi
   CHANGED=$(node -e "const j=require('$OUT/informe.json');console.log(j.archivos.map(a=>a.f).join(' '))")
+  if [ "${PS_SIN_3DS:-0}" != 1 ]; then   # (recursos de la 3DS: no hacen falta para un paquete de datos)
   if echo "$CHANGED" | grep -qE 'js/(ui/icons|entities/vfx|world/tiles|data/(moves|items|pokedex))\.js'; then log "arte (gen_art)"; node tools/gen_art.js || { result pruebas-fallan; exit 1; }; fi
   if echo "$CHANGED" | grep -qE 'js/data/sprites-meta\.js'; then log "sprites (gen_sprites, ≈4 min)"; python3 tools/gen_sprites.py || { result pruebas-fallan; exit 1; }; fi
   if echo "$CHANGED" | grep -qE 'js/(core/audio|data/music)\.js'; then log "sonido (gen_audio, ≈8 min)"; node tools/gen_audio.js || { result pruebas-fallan; exit 1; }; fi
+  fi
   if [ "$VEREDICTO" = portar ]; then
     log "la web cambia lógica del juego: los datos ya están, falta portar (ver $OUT/informe.md)"
     result portar; exit 3
@@ -74,11 +76,15 @@ if [ "$MODE" != pruebas ]; then
 fi
 
 # ---------------- pruebas ----------------
-log "compilar para la 3DS"
-# shellcheck disable=SC1091
-source tools/env.sh
-if ! make -j2 > "$OUT/make.log" 2>&1; then tail -20 "$OUT/make.log"; result pruebas-fallan; exit 1; fi
-if grep -q "warning:" "$OUT/make.log"; then log "AVISO: make da avisos (ver $OUT/make.log)"; fi
+# PS_SIN_3DS=1: sin compilar para la 3DS (el actualizador de Docker: para un
+# paquete de datos basta con las pruebas de PC, que sacan los dorados del JS nuevo).
+if [ "${PS_SIN_3DS:-0}" != 1 ]; then
+  log "compilar para la 3DS"
+  # shellcheck disable=SC1091
+  source tools/env.sh
+  if ! make -j2 > "$OUT/make.log" 2>&1; then tail -20 "$OUT/make.log"; result pruebas-fallan; exit 1; fi
+  if grep -q "warning:" "$OUT/make.log"; then log "AVISO: make da avisos (ver $OUT/make.log)"; fi
+fi
 log "pruebas en PC (casos dorados con la web nueva, simulación con ASan/UBSan)"
 cmake -S . -B build-pc > /dev/null && cmake --build build-pc -j2 > "$OUT/cmake.log" 2>&1 || { tail -20 "$OUT/cmake.log"; result pruebas-fallan; exit 1; }
 if ! (cd build-pc && ctest --output-on-failure > "$OUT/ctest.log" 2>&1); then

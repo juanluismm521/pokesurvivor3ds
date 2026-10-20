@@ -17,6 +17,9 @@ struct Settings {
   char server[64] = "pokesurvivor3ds.duckdns.org";
   int server_port = 24873;
   bool cloud_never = false;   // «Nunca»: no preguntar al abrir por la cuenta de pokesurvivor.com
+  // «Comprobar actualizaciones automáticamente»: al encender (con wifi) baja los
+  // datos nuevos de la web (datos3ds). Desactivado de serie (decisión del dueño).
+  bool datos_auto = false;
 };
 // ¿Vale como IP o dominio? (letras, cifras, '.', '-'; sin espacios)
 bool settings_valid_host(const char* h);

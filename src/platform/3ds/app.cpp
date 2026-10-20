@@ -1206,15 +1206,18 @@ void App::bottom_goals() {
 
 // ---------------- ajustes ----------------
 
+// Filas de Ajustes (10: caben con 19 px cada una).
+constexpr int kSetY = 24, kSetStep = 19, kSetH = 17;
+
 void App::in_settings(const UiIn& in) {
-  const int n = 9;
+  const int n = 10;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
-  for (int i = 0; i < n; ++i) if (in_rect(&in, 6, 26 + i * 21, 308, 19)) cur_ = i;
+  for (int i = 0; i < n; ++i) if (in_rect(&in, 6, kSetY + i * kSetStep, 308, kSetH)) cur_ = i;
   int d = 0;
   if (in.rep & KEY_DLEFT) d = -1;
   if (in.rep & (KEY_DRIGHT | KEY_A)) d = 1;
-  if (in.tap && in_rect(&in, 6, 26 + cur_ * 21, 308, 19)) d = 1;
+  if (in.tap && in_rect(&in, 6, kSetY + cur_ * kSetStep, 308, kSetH)) d = 1;
   if (d) {
     switch (cur_) {
       case 0: st_->lang ^= 1; break;
@@ -1226,6 +1229,11 @@ void App::in_settings(const UiIn& in) {
       case 6: st_->sfx = clamp(st_->sfx + d * 10, 0, 100); break;
       case 7: st_->stereo = !st_->stereo; break;
       case 8: settings_write(dir_, *st_); go(SC_ACCOUNT); return;
+      case 9:
+        st_->datos_auto = !st_->datos_auto;
+        settings_write(dir_, *st_);
+        if (st_->datos_auto) datos3ds::start_check();   // (al activarlo, se mira ya)
+        return;
     }
     apply_settings();
   }
@@ -1234,8 +1242,9 @@ void App::in_settings(const UiIn& in) {
 
 void App::bottom_settings() {
   header("Ajustes");
-  static const char* const L[9] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta web"};
-  char v[9][24];
+  static const char* const L[10] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta web",
+                                    "Comprobar actualizaciones automáticamente"};
+  char v[10][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
   if (st_->quality < 0) {   // en automático, qué modelo ha detectado
@@ -1252,11 +1261,14 @@ void App::bottom_settings() {
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
   std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
   std::snprintf(v[8], 24, "%.23s", cloud3ds::account().on ? cloud3ds::account().name.c_str() : tr("Sin conectar"));
-  for (int i = 0; i < 9; ++i) {
-    const float y = 26 + i * 21;
-    C2D_DrawRectSolid(6, y, 0, 308, 19, i == cur_ ? C_SEL : C_PANEL);
-    r_->text(L[i], 14, y + 3, 0.38f, C_TEXT);
-    r_->text(v[i], 306, y + 3, 0.38f, C_GOLD, 2, false);
+  std::snprintf(v[9], 24, "%s", tr(st_->datos_auto ? "Sí" : "No"));
+  for (int i = 0; i < 10; ++i) {
+    const float y = kSetY + i * kSetStep;
+    C2D_DrawRectSolid(6, y, 0, 308, kSetH, i == cur_ ? C_SEL : C_PANEL);
+    // (el texto largo, un poco más pequeño para que quepa con su valor)
+    const float sz = r_->text_width(tr(L[i]), 0.38f) > 250 ? 0.3f : 0.38f;
+    r_->text(L[i], 14, y + (sz < 0.38f ? 4 : 2), sz, C_TEXT);
+    r_->text(v[i], 306, y + 2, 0.38f, C_GOLD, 2, false);
   }
   // De qué versión de la web son los datos (reference/web/UPSTREAM, por gen_data).
   char ver[96];

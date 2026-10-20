@@ -187,7 +187,7 @@ int main() {
     return 0;
   } else if (!at.on && !at.tour) {
     app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
-    datos3ds::start_check(); // (y se miran los datos nuevos de la web)
+    if (settings.datos_auto) datos3ds::start_check();   // (y, si está activado, los datos nuevos de la web)
   }
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
