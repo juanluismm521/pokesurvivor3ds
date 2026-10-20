@@ -48,17 +48,6 @@ bool call(Client& c, HttpReq& rq, HttpResp& rs) {
 }
 
 // Deshace una transacción a medias (si no, el documento queda bloqueado un rato).
-void rollback(Client& c, const std::string& base, const std::string& auth, const std::string& tx) {
-  HttpReq rq;
-  rq.method = "POST";
-  rq.url = base + ":rollback";
-  rq.headers = {"Content-Type: application/json", auth};
-  rq.body = "{\"transaction\":" + jstr(tx) + "}";
-  if (!c.cfg.referer.empty()) rq.headers.push_back("Referer: " + c.cfg.referer);
-  HttpResp rs;
-  if (c.http) c.http(rq, rs, c.ctx);
-}
-
 std::string doc_path(const Client& c, const Session& s) {
   return "projects/" + c.cfg.project + "/databases/(default)/documents/saves/" + s.uid;
 }
@@ -249,27 +238,22 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
   const std::string auth = "Authorization: Bearer " + s.id_token;
   const std::string base = c.cfg.fs_base + "/v1/projects/" + c.cfg.project + "/databases/(default)/documents";
   for (int attempt = 0; attempt < 3; ++attempt) {
-    // 1. transacción
+    // Como las transacciones del SDK web: se lee (batchGet) y se escribe con la
+    // condición de que el documento siga igual (updateTime, o que no exista);
+    // si otro lo ha cambiado entre medias, se repite. (Sin beginTransaction:
+    // pokesurvivor.com lo rechaza con «Missing or insufficient permissions».)
+    // 1. lo que hay en la nube
     HttpReq rq;
-    rq.method = "POST";
-    rq.url = base + ":beginTransaction";
-    rq.headers = {"Content-Type: application/json", auth};
-    rq.body = "{}";
-    HttpResp rs;
-    if (!call(c, rq, rs)) return false;
-    Json j;
-    j.parse(rs.body);
-    if (rs.status != 200 || !j["transaction"].is_str()) { c.error = auth_error(j, rs.status); return false; }
-    const std::string tx = j["transaction"].as_str();
-    if (rs.date_ms) c.clock_delta = rs.date_ms - local_now_ms;
-    // 2. lo que hay en la nube (batchGet dentro de la transacción, como el SDK)
-    rq = HttpReq();
     rq.method = "POST";
     rq.url = base + ":batchGet";
     rq.headers = {"Content-Type: application/json", auth};
-    rq.body = "{\"documents\":[" + jstr(doc_path(c, s)) + "],\"transaction\":" + jstr(tx) + "}";
-    if (!call(c, rq, rs)) { rollback(c, base, auth, tx); return false; }
+    rq.body = "{\"documents\":[" + jstr(doc_path(c, s)) + "]}";
+    HttpResp rs;
+    if (!call(c, rq, rs)) return false;
+    if (rs.date_ms) c.clock_delta = rs.date_ms - local_now_ms;
+    Json j;
     Json remote, other = Json::object();   // (otros campos del documento: se conservan)
+    std::string upd_time;                  // updateTime del documento leído ("" = no existe)
     bool ban = false;
     int doc_v = 0;
     {
@@ -277,11 +261,11 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
       arr.parse(rs.body);
       if (rs.status != 200 || !arr.is_arr()) {
         c.error = rs.status == 403 ? "La nube ha rechazado el acceso (permiso denegado)." : auth_error(arr.is_arr() ? Json() : arr, rs.status);
-        rollback(c, base, auth, tx);
         return false;
       }
       for (const Json& e : arr.elems()) {
         if (!e["found"].is_obj()) continue;
+        upd_time = e["found"]["updateTime"].as_str();
         const Json& f = e["found"]["fields"];
         remote = web::from_firestore(f["save"]);
         ban = f["ban"]["booleanValue"].as_bool();
@@ -294,7 +278,6 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     // Una web más nueva (otro formato de partida): no se toca nada.
     if (doc_v > web::kVersion || web::version_of(remote) > web::kVersion) {
       c.error = "La partida de la web es de una versión más nueva del juego: actualiza el juego de la 3DS para sincronizar (no se ha tocado nada).";
-      rollback(c, base, auth, tx);
       return false;
     }
     // 3. fusión (la hora de la 3DS, pasada a la del servidor: su reloj va en hora local)
@@ -310,7 +293,6 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     std::string lost;
     if (web::loses_progress(rem, merged, lost) || web::loses_progress(local, merged, lost)) {
       c.error = "Por seguridad no se ha sincronizado (se perdería " + lost + "). Avisa al creador del juego.";
-      rollback(c, base, auth, tx);
       return false;
     }
     // 4. subir
@@ -329,22 +311,26 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     Json w = Json::object();
     w.set("update", doc);
     w.set("updateTransforms", trs);
+    Json pre = Json::object();
+    if (upd_time.empty()) pre.set("exists", Json::boolean(false));
+    else pre.set("updateTime", Json::str(upd_time));
+    w.set("currentDocument", pre);
     Json writes = Json::array();
     writes.push(w);
     Json body = Json::object();
     body.set("writes", writes);
-    body.set("transaction", Json::str(tx));
     rq = HttpReq();
     rq.method = "POST";
     rq.url = base + ":commit";
     rq.headers = {"Content-Type: application/json", auth};
     rq.body = body.dump();
-    if (!call(c, rq, rs)) { rollback(c, base, auth, tx); return false; }
+    if (!call(c, rq, rs)) return false;
     if (rs.status == 200) return true;
-    rollback(c, base, auth, tx);
-    if (rs.status == 409) continue;   // otra consola ha escrito a la vez: se repite
     j = Json();
     j.parse(rs.body);
+    // Otro aparato ha escrito entre medias (no se cumple la condición): se repite.
+    const std::string why = j["error"]["status"].as_str();
+    if (rs.status == 409 || why == "FAILED_PRECONDITION" || why == "ALREADY_EXISTS" || why == "NOT_FOUND" || why == "ABORTED") continue;
     c.error = rs.status == 403 ? "La nube ha rechazado la partida (permiso denegado)." : auth_error(j, rs.status);
     return false;
   }

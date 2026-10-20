@@ -16,7 +16,9 @@ using namespace ps;
 namespace {
 struct FakeFs {
   Json doc;                  // campos del documento (formato Firestore) o null
-  int commits = 0, rollbacks = 0, no_referer = 0;
+  int commits = 0, no_referer = 0, conflicts = 0;
+  int version = 1;           // updateTime del documento (cambia con cada escritura)
+  int sneak = 0;             // escrituras de "otro aparato" justo después de leer (para probar el reintento)
   std::string last_commit;
 };
 
@@ -30,17 +32,34 @@ bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
   const std::string& u = rq.url;
   if (u.find("signInWithPassword") != std::string::npos) rs.body = "{\"idToken\":\"t\",\"refreshToken\":\"r\",\"localId\":\"uid1\"}";
   else if (u.find("/v1/token") != std::string::npos) rs.body = "{\"id_token\":\"t\",\"refresh_token\":\"r\",\"user_id\":\"uid1\"}";
-  else if (u.find(":beginTransaction") != std::string::npos) rs.body = "{\"transaction\":\"TX\"}";
-  else if (u.find(":rollback") != std::string::npos) { fs.rollbacks++; rs.body = "{}"; }
-  else if (u.find(":batchGet") != std::string::npos) {
+  else if (u.find(":beginTransaction") != std::string::npos || u.find(":rollback") != std::string::npos) {
+    // Como pokesurvivor.com: las transacciones de la API REST, no.
+    rs.status = 403;
+    rs.body = "{\"error\":{\"code\":403,\"message\":\"Missing or insufficient permissions.\",\"status\":\"PERMISSION_DENIED\"}}";
+  } else if (u.find(":batchGet") != std::string::npos) {
     Json arr = Json::array(), e = Json::object();
-    if (fs.doc.is_obj()) { Json f = Json::object(); f.set("name", Json::str("x")); f.set("fields", fs.doc); e.set("found", f); }
-    else e.set("missing", Json::str("x"));
+    if (fs.doc.is_obj()) {
+      Json f = Json::object(); f.set("name", Json::str("x")); f.set("fields", fs.doc);
+      f.set("updateTime", Json::str("2027-01-15T10:00:0" + std::to_string(fs.version) + "Z"));
+      e.set("found", f);
+    } else e.set("missing", Json::str("x"));
     arr.push(e);
     rs.body = arr.dump();
+    if (fs.sneak > 0 && fs.doc.is_obj()) { fs.sneak--; fs.version++; }   // otro aparato escribe entre medias
   } else if (u.find(":commit") != std::string::npos) {
     Json b;
     b.parse(rq.body);
+    // La condición del SDK: que el documento siga como se leyó.
+    const Json& pre = b["writes"][0]["currentDocument"];
+    const bool ok = pre["exists"].is_bool() ? (pre["exists"].as_bool() == fs.doc.is_obj())
+                  : (fs.doc.is_obj() && pre["updateTime"].as_str() == "2027-01-15T10:00:0" + std::to_string(fs.version) + "Z");
+    if (!ok || b.has("transaction")) {
+      fs.conflicts++;
+      rs.status = 400;
+      rs.body = "{\"error\":{\"code\":400,\"message\":\"the stored version does not match the required base version.\",\"status\":\"FAILED_PRECONDITION\"}}";
+      return true;
+    }
+    fs.version++;
     fs.doc = b["writes"][0]["update"]["fields"];
     Json ts = Json::object();
     ts.set("timestampValue", Json::str("2027-01-15T10:00:00Z"));
@@ -129,6 +148,30 @@ TEST_CASE("sincronizar: una web más nueva no pierde nada al pasar por la 3DS") 
   save_raw() = Json();
 }
 
+TEST_CASE("sincronizar: si otro aparato escribe entre medias, se vuelve a leer y se junta") {
+  FakeFs fs;
+  fs.doc = Json::object();
+  fs.doc.set("save", web::to_firestore(future_web_save()));
+  fs.doc.set("v", web::to_firestore(Json::num(3)));
+  fs.sneak = 1;
+  cloud::Client c;
+  c.http = fake_http; c.ctx = &fs;
+  cloud::Session ses;
+  REQUIRE(cloud::login(c, "Ana", "x", ses));
+  Json merged;
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", 1800000002000LL, merged), c.error);
+  CHECK(fs.conflicts == 1);
+  CHECK(fs.commits == 1);
+  CHECK(web::from_firestore(fs.doc["save"])["owned"].has("1100"));
+  // Y una cuenta sin partida en la nube: se crea (condición «no existe»).
+  FakeFs empty;
+  c.ctx = &empty;
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", 1800000002000LL, merged), c.error);
+  CHECK(empty.commits == 1);
+  CHECK(empty.conflicts == 0);
+  save_raw() = Json();
+}
+
 TEST_CASE("sincronizar: una partida de un formato más nuevo no se toca") {
   FakeFs fs;
   Json fut = future_web_save();
@@ -145,7 +188,6 @@ TEST_CASE("sincronizar: una partida de un formato más nuevo no se toca") {
   CHECK(!cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", 1800000000000LL, merged));
   CHECK(c.error.find("más nueva") != std::string::npos);
   CHECK(fs.commits == 0);
-  CHECK(fs.rollbacks == 1);
   CHECK(fs.doc.dump() == before);
 }
 
