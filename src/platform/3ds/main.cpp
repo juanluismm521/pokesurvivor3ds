@@ -146,7 +146,7 @@ int main() {
                  (unsigned long)(linearSpaceFree() / 1024), loaded == 1 ? "sí" : loaded == 2 ? "copia" : "nueva", boot_ms);
     std::fflush(at.log);
   }
-  if (at.log) { std::fprintf(at.log, "datos al arrancar: %s\n", datos_boot.c_str()); std::fflush(at.log); }
+  if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
   if (at.datos) {
     // Busca datos nuevos, los aplica si los hay, lo apunta y se cierra.
@@ -158,7 +158,7 @@ int main() {
     if (at.log) {
       std::fprintf(at.log, "datos: %s · %s · programa nuevo en la web: %s · %.1f s\n", datos3ds::status().c_str(), applied ? msg.c_str() : "nada aplicado",
                    datos3ds::newer_program() ? "sí" : "no", (osGetTime() - t0) / 1000.0);
-      std::fprintf(at.log, "Impactrueno: daño %.1f · Placaje: %s\n", double(kMoves[move_index("thunder-shock")].v[MS_DMG]), kMoves[move_index("tackle")].name);
+      std::fprintf(at.log, "Impactrueno: daño %.1f · Placaje: %s · Pikachu: vida %d\n", double(kMoves[move_index("thunder-shock")].v[MS_DMG]), kMoves[move_index("tackle")].name, int(mon_by_dex(25)->hp));
       std::fclose(at.log); at.log = nullptr;
     }
     datos3ds::shutdown();
