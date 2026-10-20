@@ -84,7 +84,15 @@ const UpdateFile& file_of(const UpdateEntry& e) { return g_cia ? e.cia : e.f3dsx
 bool fetch_manifest(std::string& why) {
   std::string body, err;
   int st = 0;
-  if (!cloud3ds::http_get(datos3ds::base() + "programa/ultimo.json", body, st, err)) {
+  // (el DNS de la consola a veces falla justo al encender: unos reintentos)
+  bool ok = false;
+  for (int k = 0; k < 4 && !ok && !g_cancel; ++k) {
+    if (k) svcSleepThread(3000000000LL);
+    body.clear();
+    ok = cloud3ds::http_get(datos3ds::base() + "programa/ultimo.json", body, st, err);
+    if (st != 0) break;   // (el servidor ha contestado: no hace falta insistir)
+  }
+  if (!ok) {
     why = st == 404 ? "Todavía no hay versiones publicadas" : st == 0 ? "Sin conexión" : "El servidor no contesta";
     return false;
   }
