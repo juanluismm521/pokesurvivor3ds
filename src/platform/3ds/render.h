@@ -28,6 +28,9 @@ struct Renderer {
   int fps = 60;
   int props_drawn = 0;   // objetos del escenario dibujados en el último fotograma (autotest)
   bool show_fps = false;
+  // Depuración (rejilla.txt en la SD): casillas de colisión (rojo pared, azul
+  // líquido) y los pies y el círculo de choque de los jugadores, encima de todo.
+  bool debug_grid = false;
   bool old_3ds = false;          // pinta el suelo más despacio (menos filas por fotograma)
   int card_cursor = 0;
   uint32_t world_seed = 0, terrain_gen = 0;

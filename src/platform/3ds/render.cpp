@@ -718,6 +718,43 @@ void Renderer::draw_top(Game& g, float eye) {
     text(t.s, v.sx(t.x), v.sy(t.y) - 8, t.big ? 0.48f : 0.36f, rgbf(t.color, std::fmin(1.0f, k * 2.2f)), 1);
   }
 
+  if (debug_grid) {
+    // Lo que de verdad choca, sobre lo que se ve.
+    g_par = far;
+    auto box = [](float x, float y, float s, u32 c) {
+      C2D_DrawRectSolid(x, y, 0, s, 1, c); C2D_DrawRectSolid(x, y + s - 1, 0, s, 1, c);
+      C2D_DrawRectSolid(x, y, 0, 1, s, c); C2D_DrawRectSolid(x + s - 1, y, 0, 1, s, c);
+    };
+    const int32_t t0x = World::tile_of(v.l), t1x = World::tile_of(v.l + cam.w), t0y = World::tile_of(v.t), t1y = World::tile_of(v.t + cam.h);
+    for (int32_t ty = t0y; ty <= t1y; ++ty)
+      for (int32_t tx = t0x; tx <= t1x; ++tx) {
+        const uint8_t t = w.terrain_at(tx, ty);
+        if (t == TR_WALL) box(v.sx(tx * kTS), v.sy(ty * kTS), kTS * 0.5f, C2D_Color32(255, 40, 40, 255));
+        else if (t == TR_LIQUID) box(v.sx(tx * kTS), v.sy(ty * kTS), kTS * 0.5f, C2D_Color32(60, 140, 255, 255));
+        // Lo que tenía el chunk pintado (verde = pared, cian = líquido), en un cuadradito dentro.
+        const int32_t cx = int32_t(std::floor(tx / 16.0)), cy = int32_t(std::floor(ty / 16.0));
+        if (const uint8_t* pt = chunks.painted_terrain(cx, cy, w.biome())) {
+          const uint8_t q = pt[(ty - cy * 16) * 16 + (tx - cx * 16)];
+          if (q == TR_WALL) box(v.sx(tx * kTS) + 4, v.sy(ty * kTS) + 4, 8, C2D_Color32(40, 255, 40, 255));
+          else if (q == TR_LIQUID) box(v.sx(tx * kTS) + 4, v.sy(ty * kTS) + 4, 8, C2D_Color32(0, 255, 255, 255));
+        }
+      }
+    // Bordes de los chunks (donde empieza cada uno según el mundo): gris.
+    for (int32_t cy = int32_t(std::floor(v.t / kCW)); cy * kCW <= v.t + cam.h; ++cy)
+      C2D_DrawRectSolid(0, v.sy(cy * kCW) + 1, 0, 400, 1, C2D_Color32(200, 200, 200, 255));
+    for (int32_t cx = int32_t(std::floor(v.l / kCW)); cx * kCW <= v.l + cam.w; ++cx)
+      C2D_DrawRectSolid(v.sx(cx * kCW) + 1, 0, 0, 1, 240, C2D_Color32(200, 200, 200, 255));
+    g_par = mid;
+    for (int i = 0; i < g.nplayers; ++i) {
+      const Player& p = g.players[i];
+      if (!p.active) continue;
+      const float x = v.sx(p.x), y = v.sy(p.y);
+      dot_ring(x, y, p.r * 0.5f, p.r * 0.5f, 1, C2D_Color32(255, 255, 0, 255));
+      C2D_DrawRectSolid(x - 3, y, 0, 7, 1, C2D_Color32(255, 0, 255, 255));
+      C2D_DrawRectSolid(x, y - 3, 0, 1, 7, C2D_Color32(255, 0, 255, 255));
+    }
+  }
+
   g_par = 0;
   // --- el pilar de luz de Arceus ---
   if (g.judg.a_on && g.judg.ported && g.judg.phase == 1) {

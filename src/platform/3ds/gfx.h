@@ -112,10 +112,14 @@ class ChunkCache {
   // Pinta un poco (hasta `rows` filas de casillas) del chunk pendiente.
   void work(World& w, int rows);
   int pending() const;
+  // Depuración: el terreno con el que se pintó el chunk (si está listo).
+  const uint8_t* painted_terrain(int32_t cx, int32_t cy, int biome) const;
+  bool debug_marks = false;   // marca arriba (magenta), izquierda (amarillo) y la esquina (blanco)
 
  private:
   struct Slot {
     int32_t cx, cy; int biome; uint32_t gen; bool used, ready, painting; int row; uint32_t stamp;
+    uint8_t terr[16 * 16];   // el terreno con el que se pintó (depuración: rejilla.txt)
     C3D_Tex tex; Tex3DS_SubTexture sub; C2D_Image img;
   };
   static void worker(void* arg);

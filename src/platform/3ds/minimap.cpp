@@ -74,7 +74,9 @@ void Minimap::work(Game& g, int rows) {
   const u16 cl = to565(mix(B.liq, 0x000000, 0.15f));
   u16* dst = static_cast<u16*>(tex_[back].data);
   for (int k = 0; k < rows && row_ < kTexH; ++k, ++row_) {
-    const int y = row_, ty = kTexH - 1 - y;   // (la GPU guarda las filas de abajo arriba)
+    // Fila y del mapa → fila y de la textura (con top = 1 - y/H sale derecho;
+    // con kTexH - 1 - y el terreno salía volteado bajo los iconos).
+    const int y = row_, ty = y;
     for (int x = 0; x < kTexW; ++x) {
       const uint8_t t = w.terrain_at(ox_[back] + x, oy_[back] + y);
       dst[((ty >> 3) * (kTexW >> 3) + (x >> 3)) * 64 + morton(u32(x), u32(ty))] = t == TR_WALL ? cw : t == TR_LIQUID ? cl : cf;

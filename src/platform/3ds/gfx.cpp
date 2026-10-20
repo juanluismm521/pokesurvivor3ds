@@ -314,7 +314,11 @@ static inline u32 morton(u32 x, u32 y) {
 void upload_rgb565(C3D_Tex& tex, const uint32_t* rgba, int w, int h) {
   u16* dst = static_cast<u16*>(tex.data);
   for (int y = 0; y < h; ++y) {
-    const int ty = h - 1 - y;            // la GPU guarda las filas de abajo arriba
+    // Fila y de la imagen → fila y de la textura: con el subtexture de los
+    // chunks (top = 1, bottom = 0) así sale derecha. (Antes era h - 1 - y y
+    // cada chunk se veía VOLTEADO de arriba abajo: paredes y agua no estaban
+    // donde chocaban; comprobado con rejilla.txt en Azahar.)
+    const int ty = y;
     for (int x = 0; x < w; ++x) {
       const uint32_t c = rgba[y * w + x];  // bytes R,G,B,A
       const u16 v = u16(((c & 0xF8) << 8) | ((c >> 5) & 0x7E0) | ((c >> 19) & 0x1F));
@@ -322,6 +326,11 @@ void upload_rgb565(C3D_Tex& tex, const uint32_t* rgba, int w, int h) {
     }
   }
   C3D_TexFlush(&tex);
+}
+
+static void marks(uint32_t* b) {
+  for (int i = 0; i < kChunkPx; ++i) { b[i] = 0xFFFF00FFu; b[i * kChunkPx] = 0xFF00FFFFu; }   // (bytes R,G,B,A)
+  for (int y = 2; y < 8; ++y) for (int x = 2; x < 8; ++x) b[y * kChunkPx + x] = 0xFFFFFFFFu;
 }
 
 void ChunkCache::worker(void* arg) {
@@ -332,6 +341,7 @@ void ChunkCache::worker(void* arg) {
     const int j = c.job_;
     if (j >= 0 && !c.job_done_) {
       c.painter_.paint_all(c.buf_);
+      if (c.debug_marks) marks(c.buf_);
       upload_rgb565(c.slots_[j].tex, c.buf_, kChunkPx, kChunkPx);
       c.job_done_ = true;
     }
@@ -407,6 +417,7 @@ void ChunkCache::work(World& w, int rows) {
       Slot& s = slots_[best];
       s.painting = true;
       painter_.begin(w, s.cx, s.cy, s.biome);   // (lee el terreno aquí, en el hilo principal)
+      for (int j = 0; j < 16; ++j) for (int i = 0; i < 16; ++i) s.terr[j * 16 + i] = painter_.terr[(j + 1) * 18 + i + 1];
       job_gen_ = s.gen;
       job_done_ = false;
       job_ = best;
@@ -425,6 +436,7 @@ void ChunkCache::work(World& w, int rows) {
       Slot& s = slots_[best];
       s.painting = true; s.row = 0;
       painter_.begin(w, s.cx, s.cy, s.biome);
+      for (int j = 0; j < 16; ++j) for (int i = 0; i < 16; ++i) s.terr[j * 16 + i] = painter_.terr[(j + 1) * 18 + i + 1];
     }
     Slot& s = slots_[painting_];
     const int n = rows < 16 - s.row ? rows : 16 - s.row;
@@ -432,11 +444,17 @@ void ChunkCache::work(World& w, int rows) {
     s.row += n;
     rows -= n;
     if (s.row >= 16) {
+      if (debug_marks) marks(buf_);
       upload_rgb565(s.tex, buf_, kChunkPx, kChunkPx);
       s.ready = true; s.painting = false;
       painting_ = -1;
     }
   }
+}
+
+const uint8_t* ChunkCache::painted_terrain(int32_t cx, int32_t cy, int biome) const {
+  for (const auto& s : slots_) if (s.used && s.ready && s.cx == cx && s.cy == cy && s.biome == biome) return s.terr;
+  return nullptr;
 }
 
 int ChunkCache::pending() const { int n = 0; for (const auto& s : slots_) if (s.used && !s.ready) n++; return n; }
