@@ -393,6 +393,7 @@ const dataHash = fnv(datosTxt);
   // El paquete, si se pide (PS_PAQUETE=archivo.json).
   if (process.env.PS_PAQUETE) {
     const pack = `{"formato":1,"esquema":${JSON.stringify(schema)},"web":${JSON.stringify(sha)},"fecha":${JSON.stringify(date)},"huella":${dataHash},"datos":${datosTxt}}`;
+    fs.mkdirSync(path.dirname(path.resolve(process.env.PS_PAQUETE)), { recursive: true });
     fs.writeFileSync(process.env.PS_PAQUETE, pack);
     console.log(`gen_data: paquete ${process.env.PS_PAQUETE} (${(pack.length / 1024).toFixed(0)} KB, esquema ${schema})`);
   }
