@@ -70,5 +70,11 @@ class Client {
 
 uint64_t now_ms();
 
+// La última dirección buena de un servidor ("1.2.3.4"), para guardarla en la SD
+// y usarla si el DNS falla al arrancar (falla a veces la primera vez tras
+// conectar al wifi, aunque el servidor exista).
+bool last_good_address(const char* host, char* ip, int cap);
+void remember_address(const char* host, const char* ip);
+
 }  // namespace relay
 }  // namespace ps

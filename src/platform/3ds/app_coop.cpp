@@ -122,7 +122,7 @@ void App::in_coop(const UiIn& in) {
       st_->server_port = p;
       settings_write(dir_, *st_);
       net3ds::set_server(st_->server, st_->server_port);
-      nrooms_ = 0; scanned_ = false; coop_retry_ = 0;
+      nrooms_ = 0; scanned_ = false; coop_retry_ = 0; coop_fails_ = 0; coop_err_init_ = false;
       std::snprintf(coop_msg_, sizeof(coop_msg_), "Servidor: %s:%d", st_->server, st_->server_port);
     }
     return;
@@ -135,7 +135,7 @@ void App::in_coop(const UiIn& in) {
   if (sw && !auto_coop_) {
     coop_online_ = !coop_online_;
     net3ds::set_online(coop_online_);
-    nrooms_ = 0; scanned_ = false; coop_msg_[0] = 0; cur_ = 0; coop_retry_ = 0;
+    nrooms_ = 0; scanned_ = false; coop_msg_[0] = 0; cur_ = 0; coop_retry_ = 0; coop_fails_ = 0; coop_err_init_ = false;
   }
   if (!net3ds::ready()) {
     // Se reintenta cada 2 s (no en cada fotograma: buscar el servidor bloquea).
@@ -145,8 +145,14 @@ void App::in_coop(const UiIn& in) {
       ok = net3ds::init();
       coop_retry_ = now + 2000;
       if (!ok) {
-        std::snprintf(coop_msg_, sizeof(coop_msg_), "%s", coop_online_ ? net3ds::last_error() : "No se puede usar el juego local (¿conexión inalámbrica apagada?)");
-        coop_err_init_ = true;
+        // Por internet, el primer fallo suele ser el DNS de la consola recién
+        // conectada al wifi: se sigue intentando sin asustar; el error sólo
+        // sale si falla 4 veces seguidas (unos 8 s).
+        coop_fails_++;
+        if (!coop_online_ || coop_fails_ >= 4) {
+          std::snprintf(coop_msg_, sizeof(coop_msg_), "%s", coop_online_ ? net3ds::last_error() : "No se puede usar el juego local (¿conexión inalámbrica apagada?)");
+          coop_err_init_ = true;
+        }
       }
     }
     if (!ok) {
@@ -155,6 +161,7 @@ void App::in_coop(const UiIn& in) {
     }
   }
   // Ya conectado: fuera el aviso del intento fallido.
+  coop_fails_ = 0;
   if (coop_err_init_) { coop_msg_[0] = 0; coop_err_init_ = false; }
   const int n = 2 + nrooms_;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
@@ -217,7 +224,9 @@ void App::bottom_coop() {
     // Servidor (se cambia con Y o tocando aquí).
     std::snprintf(b, sizeof(b), "Servidor: %s:%d  (Y: cambiar)", st_->server, st_->server_port);
     r_->text(b, 160, 119, 0.32f, C2D_Color32(154, 230, 255, 255), 1);
-    if (!net3ds::ready() && !coop_msg_[0]) status = "Conectando con el servidor…";
+    static char conn[48];
+    std::snprintf(conn, sizeof(conn), coop_fails_ ? "Conectando con el servidor… (intento %d)" : "Conectando con el servidor…", coop_fails_ + 1);
+    if (!net3ds::ready() && !coop_msg_[0]) status = conn;
     else if (scanned_) status = nrooms_ ? "Salas abiertas:" : "No hay salas abiertas. Crea una y avisa.";
   } else {
     if (!scanned_) status = "Hasta 4 consolas cerca, cada una con el juego.";

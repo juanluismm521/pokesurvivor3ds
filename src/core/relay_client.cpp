@@ -61,6 +61,18 @@ bool resolve(const char* host, in_addr& out) {
 }
 }  // namespace
 
+bool last_good_address(const char* host, char* ip, int cap) {
+  if (!g_cache_host[0] || std::strcmp(g_cache_host, host) != 0) return false;
+  return inet_ntop(AF_INET, &g_cache_addr, ip, socklen_t(cap)) != nullptr;
+}
+
+void remember_address(const char* host, const char* ip) {
+  in_addr a;
+  if (!host || !host[0] || inet_pton(AF_INET, ip, &a) != 1) return;
+  std::snprintf(g_cache_host, sizeof(g_cache_host), "%s", host);
+  g_cache_addr = a;
+}
+
 uint64_t now_ms() {
   timeval tv;
   gettimeofday(&tv, nullptr);

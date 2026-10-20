@@ -19,6 +19,7 @@
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
+#include "platform/3ds/net3ds.h"
 
 namespace ps {
 
@@ -275,7 +276,7 @@ void App::update(const UiIn& in0, float dt) {
       tour_t_ = 0;
       const int i = tour_i_++;
       static bool pulled = false;
-      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS};
+      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
@@ -285,7 +286,12 @@ void App::update(const UiIn& in0, float dt) {
       else {
         static int k = -1;
         if (scene == SC_GOALS && k >= 4 && k <= 5) { in.down |= KEY_R; k++; }
-        else if (++k < 9) { if (ORDER[k] != scene) go(ORDER[k]); }
+        else if (++k < int(sizeof(ORDER) / sizeof(ORDER[0]))) {
+          if (ORDER[k] != scene) {
+            go(ORDER[k]);
+            if (ORDER[k] == SC_COOP) { coop_online_ = true; net3ds::set_online(true); coop_fails_ = 0; coop_retry_ = 0; }   // (por internet)
+          }
+        }
         else quit = true;
       }
     }
@@ -547,7 +553,7 @@ void App::in_menu(const UiIn& in) {
   cur_ = pick;
   switch (pick) {
     case 0: start_run(); break;
-    case 1: cur_ = 0; coop_msg_[0] = 0; go(SC_COOP); break;
+    case 1: cur_ = 0; coop_msg_[0] = 0; coop_fails_ = 0; coop_err_init_ = false; coop_retry_ = 0; go(SC_COOP); break;
     case 2: go(SC_DEX); break;
     case 3: go(SC_UPGRADES); break;
     case 4: go(SC_GACHA); break;
@@ -1273,10 +1279,35 @@ void App::bottom_settings() {
   // De qué versión de la web son los datos (reference/web/UPSTREAM, por gen_data).
   char ver[96];
   const DataPackInfo& dp = datapack_current();
-  std::snprintf(ver, sizeof(ver), "Versión %s · datos de pokesurvivor.com del %s (%s)%s", kVersion, dp.on ? dp.fecha.c_str() : kWebBaseDate,
-                dp.on ? dp.web.c_str() : kWebBase, dp.on ? " · al día solos" : "");
+  std::snprintf(ver, sizeof(ver), "Versión %s · datos del %s%s", kVersion, dp.on ? dp.fecha.c_str() : kWebBaseDate, dp.on ? " · al día solos" : "");
   r_->text(ver, 160, 215, 0.28f, C_MUTED, 1);
   r_->text("Izquierda/derecha: cambiar · B: guardar y volver", 160, 226, 0.32f, C_MUTED, 1);
+}
+
+// Píldora con los tickets (normal y ×10) y su icono, centrada en cx.
+void App::top_tickets_badge(float cx, float y) {
+  const int i1 = r_->icons.find("ticket"), i10 = r_->icons.find("ticket10");
+  char a[16], b[16];
+  std::snprintf(a, sizeof(a), "%d", int(s_->t1));
+  std::snprintf(b, sizeof(b), "%d", int(s_->t10));
+  const float k = 1.5f, isz = 12 * k;
+  const float wa = r_->text_width(a, 0.5f), wb = r_->text_width(b, 0.5f);
+  const float w = 10 + isz + 4 + wa + 14 + isz + 4 + wb + 10, h = 24;
+  const float x = std::floor(cx - w / 2);
+  C2D_DrawRectSolid(x + 2, y, 0, w - 4, h, C2D_Color32(14, 18, 34, 215));
+  C2D_DrawRectSolid(x, y + 2, 0, w, h - 4, C2D_Color32(14, 18, 34, 215));
+  C2D_DrawRectSolid(x + 2, y, 0, w - 4, 1, C_GOLD);
+  C2D_DrawRectSolid(x + 2, y + h - 1, 0, w - 4, 1, C_GOLD);
+  C2D_DrawRectSolid(x, y + 2, 0, 1, h - 4, C_GOLD);
+  C2D_DrawRectSolid(x + w - 1, y + 2, 0, 1, h - 4, C_GOLD);
+  float px = x + 10;
+  if (i1 >= 0) C2D_DrawImageAt(r_->icons.image(i1), px, y + 3, 0, nullptr, k, k);
+  px += isz + 4;
+  r_->text(a, px, y + 3, 0.5f, s_->t1 > 0 ? C_TEXT : C_MUTED);
+  px += wa + 14;
+  if (i10 >= 0) C2D_DrawImageAt(r_->icons.image(i10), px, y + 3, 0, nullptr, k, k);
+  px += isz + 4;
+  r_->text(b, px, y + 3, 0.5f, s_->t10 > 0 ? C_GOLD : C_MUTED);
 }
 
 void App::bottom_credits() {
@@ -1299,7 +1330,10 @@ void App::bottom_credits() {
 // ---------------- dibujo ----------------
 
 void App::draw_top(float eye) {
-  if (scene == SC_RUN) { r_->draw_top(*g_, eye); coop_overlay(); }
+  if (scene == SC_RUN) {
+    r_->draw_top(*g_, eye); coop_overlay();
+    if (g_->state == ST_OVER) top_cloud_badge();   // (se sube a la nube al acabar: que se vea)
+  }
   else {
     if (eye <= 0) C2D_TextBufClear(r_->tbuf);
     draw_backdrop(scene == SC_MENU ? 0.15f : 0.45f, eye);
@@ -1334,7 +1368,8 @@ void App::draw_top(float eye) {
         char b[64];
         std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(dex)->name, sh ? " ★" : "");
         r_->text(b, 200, 10, 0.7f, C_TEXT, 1);
-        r_->text("PokéSurvivor 3DS", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 120), 1, false);
+        r_->text("PokéSurvivor 3DS · port de juanluismm520", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 140), 1, false);
+        top_cloud_badge();
         break;
       }
       case SC_DEX: {
@@ -1370,6 +1405,7 @@ void App::draw_top(float eye) {
           std::snprintf(nb, sizeof(nb), "%d / 9", gen_);
           r_->text(nb, 200, 34, 0.32f, C_TEXT, 1);
         }
+        top_tickets_badge(200, 50);
         int16_t f[3];
         const int nf = gacha_featured(gen_, f);
         for (int i = 0; i < nf; ++i) draw_mon(f[i], false, 90 + i * 110, 170, 2, 0, 1);

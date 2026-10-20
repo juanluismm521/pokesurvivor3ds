@@ -62,8 +62,39 @@ void ago(int64_t then, char* out, int cap) {
 }
 }  // namespace
 
+// Nube dibujada con círculos (no hay icono de nube en los atlas).
+static void cloud_icon(float x, float y, u32 c) {
+  C2D_DrawCircleSolid(x + 5, y + 8, 0, 4.5f, c);
+  C2D_DrawCircleSolid(x + 10, y + 5.5f, 0, 5.5f, c);
+  C2D_DrawCircleSolid(x + 15, y + 8, 0, 4, c);
+  C2D_DrawRectSolid(x + 5, y + 8, 0, 10, 4.5f, c);
+}
+
+void App::top_cloud_badge() {
+  const cloud3ds::Account& a = cloud3ds::account();
+  if (!a.on) return;
+  const bool busy = cloud3ds::state() == cloud3ds::JOB_BUSY;
+  char name[40], when[48], t[32];
+  std::snprintf(name, sizeof(name), "%.16s", a.name.c_str());
+  if (busy) std::snprintf(when, sizeof(when), "Sincronizando%.*s", int(osGetTime() / 300) % 4, "...");
+  else { ago(a.last_sync, t, sizeof(t)); std::snprintf(when, sizeof(when), "Sincronizado %s", t); }
+  const float w = 30 + std::max(r_->text_width(name, 0.38f), r_->text_width(when, 0.3f)) + 8;
+  C2D_DrawRectSolid(4, 4, 0, w, 30, C2D_Color32(12, 18, 32, 200));
+  C2D_DrawRectSolid(4, 4, 0, 2, 30, busy ? C_GOLD : C2D_Color32(126, 224, 122, 255));
+  cloud_icon(10, 8, C2D_Color32(220, 236, 255, 255));
+  // Marquita: ✔ verde al día; puntos dorados sincronizando.
+  if (busy) C2D_DrawCircleSolid(25, 24, 0, 2.5f, C_GOLD);
+  else { C2D_DrawRectSolid(19, 23, 0, 3, 2, C2D_Color32(80, 200, 90, 255)); C2D_DrawRectSolid(21, 21, 0, 2, 4, C2D_Color32(80, 200, 90, 255)); C2D_DrawRectSolid(22, 18, 0, 2, 4, C2D_Color32(80, 200, 90, 255)); }
+  r_->text(name, 34, 5, 0.38f, C_GOLD);
+  r_->text(when, 34, 20, 0.3f, C2D_Color32(200, 212, 235, 255));
+}
+
 void App::cloud_autostart() {
-  if (autotest || !cloud3ds::account().on || cloud3ds::state() != cloud3ds::JOB_IDLE) return;
+  if (autotest || !cloud3ds::account().on) return;
+  // Si hay otra en marcha (la del encendido...), ésta espera a que acabe:
+  // al final de cada partida se sube SIEMPRE lo último.
+  if (cloud3ds::state() != cloud3ds::JOB_IDLE) { cloud_want_ = true; return; }
+  cloud_want_ = false;
   cloud_t0_updated_ = s_->updated;
   cloud3ds::start_sync(save_full_json(*s_));
 }
@@ -75,6 +106,8 @@ bool App::cloud_test(const char* user, const char* pass) {
 }
 
 void App::cloud_tick() {
+  // La que esperaba: en cuanto la otra acaba y no hay partida en marcha.
+  if (cloud_want_ && cloud3ds::state() == cloud3ds::JOB_IDLE && !(scene == SC_RUN && g_->state != ST_OVER)) cloud_autostart();
   const cloud3ds::JobState st = cloud3ds::state();
   if (st == cloud3ds::JOB_FAILED) {
     std::snprintf(cloud_msg_, sizeof(cloud_msg_), "%s", cloud3ds::error().c_str());

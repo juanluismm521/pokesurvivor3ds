@@ -97,6 +97,8 @@ class App {
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
   void top_pull();
+  void top_cloud_badge();          // pantalla de arriba: con quién has entrado y la última sincronización
+  void top_tickets_badge(float cx, float y);   // pantalla de arriba: los tickets que te quedan
   void draw_mon(int dex, bool shiny, float x, float y, float scale, int mode = 0, int dir = 0);
   void header(const char* title);
   bool button(float x, float y, float w, float h, const char* label, bool sel, const UiIn* in = nullptr, u32 col = 0);
@@ -183,12 +185,14 @@ class App {
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
   char cloud_msg_[128] = {};
   bool over_synced_ = false;
+  bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)
   bool cloud_asked_ = false;     // ya se ha preguntado al abrir
   bool login_now_ = false;
   Scene account_back_ = SC_SETTINGS;   // a dónde vuelve B desde la cuenta       // abrir el teclado para entrar (desde la pregunta)
   float auto_t_ = 0;
   uint64_t coop_retry_ = 0;     // próximo intento de conectar con el servidor (ms)
   bool coop_err_init_ = false;  // el mensaje es del intento de conectar
+  int coop_fails_ = 0;          // intentos seguidos sin poder conectar
 };
 
 }  // namespace ps

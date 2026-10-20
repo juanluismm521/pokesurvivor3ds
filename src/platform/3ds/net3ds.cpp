@@ -38,6 +38,22 @@ udsBindContext g_bind;
 udsNetworkScanInfo* g_found = nullptr;
 size_t g_nfound = 0;
 AppData g_app;
+
+// La última dirección buena de cada servidor, en la SD («host ip»): si el DNS
+// falla al arrancar, se usa ésa (el servidor no ha dejado de existir).
+const char kAddrFile[] = "sdmc:/3ds/pokesurvivor-3ds/servidor_ip.txt";
+void load_address() {
+  FILE* f = std::fopen(kAddrFile, "rb");
+  if (!f) return;
+  char host[64], ip[32];
+  if (std::fscanf(f, "%63s %31s", host, ip) == 2 && !std::strcmp(host, g_server)) relay::remember_address(host, ip);
+  std::fclose(f);
+}
+void save_address() {
+  char ip[32];
+  if (!relay::last_good_address(g_server, ip, sizeof(ip))) return;
+  if (FILE* f = std::fopen(kAddrFile, "wb")) { std::fprintf(f, "%s %s\n", g_server, ip); std::fclose(f); }
+}
 }  // namespace
 
 void set_online(bool on) {
@@ -61,7 +77,10 @@ bool init() {
     if (g_rc.is_open()) return true;
     g_err.clear();
     if (!cloud3ds::soc_up()) { g_err = "No hay conexión a internet (¿wifi apagado?)."; return false; }
+    char ip[32];
+    if (!relay::last_good_address(g_server, ip, sizeof(ip))) load_address();
     if (!g_rc.open(g_server, g_port)) { g_err = g_rc.error; return false; }
+    save_address();
     g_init = true;
     return true;
   }
