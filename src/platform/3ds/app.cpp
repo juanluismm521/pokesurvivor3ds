@@ -282,7 +282,7 @@ void App::update(const UiIn& in0, float dt) {
       static bool pulled = false;
       static int bought = 0;
       static bool shinied = false;
-      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
+      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_UPDATE, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
@@ -1334,7 +1334,7 @@ void App::in_settings(const UiIn& in) {
 void App::bottom_settings() {
   header("Ajustes");
   static const char* const L[10] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta web",
-                                    "Actualizaciones (A: abrir)"};
+                                    "Actualizaciones"};
   char v[10][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
@@ -1352,7 +1352,7 @@ void App::bottom_settings() {
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
   std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
   std::snprintf(v[8], 24, "%.23s", cloud3ds::account().on ? cloud3ds::account().name.c_str() : tr("Sin conectar"));
-  std::snprintf(v[9], 24, "%s %s", tr("Automáticas:"), tr(st_->datos_auto ? "Sí" : "No"));
+  std::snprintf(v[9], 24, "%s %s (A)", tr("Solas:"), tr(st_->datos_auto ? "Sí" : "No"));
   for (int i = 0; i < 10; ++i) {
     const float y = kSetY + i * kSetStep;
     C2D_DrawRectSolid(6, y, 0, 308, kSetH, i == cur_ ? C_SEL : C_PANEL);
