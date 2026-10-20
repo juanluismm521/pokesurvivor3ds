@@ -15,6 +15,7 @@
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
+#include "platform/3ds/qrcodegen.h"
 
 namespace ps {
 
@@ -28,6 +29,27 @@ bool ask(const char* hint, char* out, int cap, bool password) {
   if (password) swkbdSetPasswordMode(&kb, SWKBD_PASSWORD_HIDE_DELAY);
   out[0] = 0;
   return swkbdInputText(&kb, out, size_t(cap)) == SWKBD_BUTTON_CONFIRM && out[0];
+}
+
+// Un QR (qrcodegen) de lado como mucho `side` px, con su margen blanco.
+void draw_qr(const std::string& text, float x, float y, float side) {
+  static std::string last;
+  static uint8_t qr[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+  static bool ok = false;
+  if (text != last) {   // (se calcula una vez por código)
+    uint8_t tmp[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+    ok = qrcodegen_encodeText(text.c_str(), tmp, qr, qrcodegen_Ecc_MEDIUM, 1, 10, qrcodegen_Mask_AUTO, true);
+    last = text;
+  }
+  if (!ok) return;
+  const int n = qrcodegen_getSize(qr), quiet = 3;
+  const float m = float(int(side / float(n + 2 * quiet)));   // (píxeles enteros por módulo: nítido)
+  const float full = m * float(n + 2 * quiet);
+  C2D_DrawRectSolid(x, y, 0, full, full, C2D_Color32(255, 255, 255, 255));
+  const u32 ink = C2D_Color32(16, 20, 31, 255);
+  for (int j = 0; j < n; ++j)
+    for (int i = 0; i < n; ++i)
+      if (qrcodegen_getModule(qr, i, j)) C2D_DrawRectSolid(x + m * float(i + quiet), y + m * float(j + quiet), 0, m, m, ink);
 }
 
 void ago(int64_t then, char* out, int cap) {
@@ -149,13 +171,8 @@ void App::in_account(const UiIn& in) {
   if (pick < 0 || busy) return;
   cur_ = pick;
   if (!a.on && pick == 1) {
-    // Entrar con Google (código en la consola, se acepta en el móvil).
+    // Entrar con Google (QR a la página del servidor, o código de google.com/device).
     cloud_msg_[0] = 0;
-    if (!cloud3ds::google_ready()) {
-      std::snprintf(cloud_msg_, sizeof(cloud_msg_), "Entrar con Google aún no está activado para la 3DS");
-      cloud_done = -1;
-      return;
-    }
     cloud_t0_updated_ = s_->updated;
     cloud3ds::start_google(save_full_json(*s_));
   } else if (!a.on) {
@@ -185,6 +202,27 @@ void App::bottom_account() {
   if (!a.on) {
     r_->text_wrap("Entra con tu cuenta de pokesurvivor.com para tener la MISMA partida en la web y en la 3DS: Pokémon, shinies, monedas, tickets y mejoras. Nunca se pierde nada: se juntan las dos.", 160, 30, 0.36f, C_TEXT, 290, 1);
     std::string gcode, gurl;
+    if (busy && cloud3ds::google_code(gcode, gurl) && cloud3ds::google_qr()) {
+      // Pantalla entera: el QR a la página que lo explica, y el código por si
+      // se escribe la dirección a mano.
+      C2D_DrawRectSolid(0, 22, 0, BW, BH - 22, C_BG);
+      draw_qr(gurl, 8, 30, 180);
+      const float cx = 252;
+      r_->text("Entrar con Google", cx, 31, 0.36f, C_GOLD, 1);
+      r_->text_wrap("Escanea el QR con el móvil y sigue los pasos (hace falta un ordenador con tu cuenta de Google abierta en pokesurvivor.com).", cx, 50, 0.31f, C_TEXT, 118, 1);
+      r_->text("o abre en el ordenador:", cx, 136, 0.3f, C_MUTED, 1);
+      std::string host = gurl.compare(0, 8, "https://") == 0 ? gurl.substr(8) : gurl;
+      const size_t cut = host.find("/vincular/");
+      if (cut != std::string::npos) host = host.substr(0, cut) + "/vincular/";
+      r_->text(host.c_str(), cx, 150, 0.3f, C2D_Color32(154, 230, 255, 255), 1);
+      r_->text("código:", cx, 166, 0.3f, C_MUTED, 1);
+      r_->text(gcode.c_str(), cx, 178, 0.55f, C_GOLD, 1);
+      const int dots = int(osGetTime() / 300) % 4;
+      std::snprintf(b, sizeof(b), "Esperando%.*s", dots, "...");
+      r_->text(b, 8 + 90, 216, 0.34f, C_GOLD, 1);
+      r_->text("B: cancelar", cx, 222, 0.32f, C_MUTED, 1);
+      return;
+    }
     if (busy && cloud3ds::google_code(gcode, gurl)) {
       // El código, bien grande: se escribe en google.com/device desde el móvil.
       r_->text("Desde el móvil o el ordenador, entra en", 160, 104, 0.36f, C_TEXT, 1);

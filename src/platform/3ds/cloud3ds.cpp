@@ -36,6 +36,10 @@ int g_kind = 0;                  // 1 = entrar + sincronizar, 2 = sincronizar, 3
 LightLock g_glock;
 std::string g_gcode, g_gurl;
 volatile bool g_gcancel = false;
+volatile bool g_gqr = false;     // el código es un QR (servicio «vincular» del servidor del proyecto)
+// El servidor del proyecto (servicio «vincular»: la página del QR). Pruebas:
+// "vincular" en nube.json lo cambia.
+std::string g_vinc = "https://pokesurvivor3ds.duckdns.org";
 // Cliente OAuth «TV y dispositivos de entrada limitada» del proyecto de la web
 // (lo crea quien administra pokesurvivor-free en Google Cloud). Vacío: el botón
 // lo explica. Pruebas: google.json en la SD ({"client_id":..,"client_secret":..,
@@ -153,7 +157,45 @@ void worker(void*) {
       cloud::Session s;
       s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
       bool in = true;
-      if (g_kind == 3) {
+      if (g_kind == 3 && g_cfg.google_client_id.empty()) {
+        // Entrar con Google por QR: la consola pide un código al servidor del
+        // proyecto y lo enseña como QR; la página explica cómo mandar la sesión
+        // de Google desde pokesurvivor.com y la consola la recoge aquí.
+        in = false;
+        cloud::HttpReq rq;
+        rq.method = "POST";
+        rq.url = g_vinc + "/vincular/api/nuevo";
+        cloud::HttpResp rs;
+        Json n;
+        if (!http(rq, rs, nullptr)) c.error = "No se encuentra el servidor de PokéSurvivor 3DS.";
+        else if (rs.status == 429) c.error = "Demasiados códigos seguidos: espera unos minutos.";
+        else if (rs.status != 200 || !n.parse(rs.body) || !n["code"].is_str() || !n["url"].is_str()) c.error = "El servidor no ha dado un código.";
+        else {
+          g_gqr = true;
+          LightLock_Lock(&g_glock); g_gcode = n["code"].as_str(); g_gurl = n["url"].as_str(); LightLock_Unlock(&g_glock);
+          const std::string ask = g_vinc + "/vincular/api/espera?code=" + n["code"].as_str() + "&secret=" + n["secret"].as_str();
+          const u64 end = osGetTime() + u64(n["ttl"].as_num(900)) * 1000;
+          bool gone = false;
+          while (!g_gcancel && !g_quit && !in && !gone && osGetTime() < end) {
+            for (int k = 0; k < 20 && !g_gcancel && !g_quit; ++k) svcSleepThread(100000000ll);   // (cada 2 s)
+            if (g_gcancel || g_quit) break;
+            cloud::HttpReq q;
+            q.url = ask;
+            cloud::HttpResp r;
+            Json j;
+            if (!http(q, r, nullptr)) continue;   // (un corte de wifi: se sigue esperando)
+            if (r.status == 200 && j.parse(r.body) && j["refresh"].is_str()) {
+              if (!cloud::session_from_refresh(c, j["refresh"].as_str(), j["nombre"].as_str(), s)) gone = true;
+              else in = true;
+            } else if (r.status == 404) {
+              gone = true;
+              c.error = "El código ha caducado: vuelve a intentarlo.";
+            }
+          }
+          if (!in && c.error.empty()) c.error = g_gcancel ? "Cancelado." : "El código ha caducado: vuelve a intentarlo.";
+          LightLock_Lock(&g_glock); g_gcode.clear(); LightLock_Unlock(&g_glock);
+        }
+      } else if (g_kind == 3) {
         // Entrar con Google: código en la consola, se acepta en el móvil.
         cloud::GoogleDevice d;
         in = cloud::google_start(c, d);
@@ -228,6 +270,7 @@ void init(const char* dir) {
     if (o["fs"].is_str()) g_cfg.fs_base = o["fs"].as_str();
     if (o["project"].is_str()) g_cfg.project = o["project"].as_str();
     if (o["key"].is_str()) g_cfg.api_key = o["key"].as_str();
+    if (o["vincular"].is_str()) g_vinc = o["vincular"].as_str();
   }
   if (read_file(path("google.json"), t) && o.parse(t) && o.is_obj()) {
     if (o["client_id"].is_str()) g_cfg.google_client_id = o["client_id"].as_str();
@@ -270,10 +313,11 @@ bool start_google(const Json& local) {
   if (g_state == JOB_BUSY) return false;
   g_local = local;
   g_gcancel = false;
+  g_gqr = false;
   return start(3);
 }
 void cancel_google() { g_gcancel = true; }
-bool google_ready() { return !g_cfg.google_client_id.empty(); }
+bool google_qr() { return g_gqr; }
 bool google_code(std::string& code, std::string& url) {
   LightLock_Lock(&g_glock);
   code = g_gcode; url = g_gurl;

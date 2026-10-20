@@ -29,12 +29,15 @@ void logout();
 // Trabajo en segundo plano. Uno a la vez.
 bool start_login(const std::string& name, const std::string& pass, const Json& local);   // entra y sincroniza
 bool start_sync(const Json& local);
-// Entrar con Google: la consola enseña un código que se escribe en
-// google.com/device (móvil u ordenador); luego sincroniza como siempre.
+// Entrar con Google. De serie, por QR: la consola pide un código al servidor
+// del proyecto (servicio «vincular») y enseña un QR a su página, que explica
+// cómo mandar la sesión de Google desde pokesurvivor.com; la consola la recoge
+// y entra sola. Si hay un cliente OAuth de Google configurado (google.json),
+// en su lugar el código para google.com/device. Luego sincroniza como siempre.
 bool start_google(const Json& local);
-bool google_code(std::string& code, std::string& url);   // el código, cuando lo hay
+bool google_code(std::string& code, std::string& url);   // el código y su dirección, cuando los hay
+bool google_qr();                // el código va en un QR (url = la página)
 void cancel_google();
-bool google_ready();             // hay cliente de Google configurado
 JobState state();
 // Al acabar bien: la partida fusionada (para aplicarla) y se guarda la cuenta.
 const Json& result();

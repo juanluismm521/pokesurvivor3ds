@@ -76,6 +76,9 @@ bool google_start(Client& c, GoogleDevice& d);
 // ¿Lo ha aceptado ya? 1 = sí (sesión de Firebase en `s`, la MISMA cuenta que
 // en la web), 0 = todavía no (esperar d.interval s), -1 = error (c.error).
 int google_poll(Client& c, GoogleDevice& d, Session& s);
+// Con la sesión que llega de la web (entrar con Google por QR, servidor
+// «vincular»): el token de renovación de Firebase → sesión con su nombre.
+bool session_from_refresh(Client& c, const std::string& refresh_token, const std::string& name_hint, Session& s);
 // Con un token de Google ya conseguido: la cuenta de Firebase (signInWithIdp).
 bool google_firebase(Client& c, const std::string& google_id_token, Session& s);
 bool refresh(Client& c, Session& s);

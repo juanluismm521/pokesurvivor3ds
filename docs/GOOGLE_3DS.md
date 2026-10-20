@@ -21,19 +21,41 @@ una cuenta vieja de nombre con ese mismo nombre). Probado con la web original
 y el emulador de Firebase (`tools/google_nombre_e2e.js`): la 3DS entra en la
 MISMA cuenta de Google y tiene su partida.
 
-## Con el botón «Entrar con Google» de la 3DS
+## Con el botón «Entrar con Google» de la 3DS (QR, de serie)
 
-La 3DS ya sabe entrar con una cuenta de Google y sincronizar su partida con
-pokesurvivor.com (la MISMA cuenta que en la web). Lo hace como las teles y las
-consolas: enseña un código, y desde el móvil o el ordenador se entra en
-**google.com/device**, se escribe y se elige la cuenta de Google.
+Ajustes → Cuenta web → **Entrar con Google**. La consola enseña un **QR** y un
+código de 8 letras:
 
-Probado de punta a punta con el emulador de Firebase (`tools/google_e2e.py`):
-una cuenta de nombre con su Gmail vinculado entra con Google y es la misma
-(con su partida, y con nombre y contraseña sigue entrando); una cuenta creada
-con Google en la web también entra y sincroniza.
+1. Se escanea el QR con el móvil: lleva a una página del servidor del
+   proyecto (`https://pokesurvivor3ds.duckdns.org/vincular/<código>`) que
+   explica los pasos. Sin móvil: en el ordenador se abre
+   `pokesurvivor3ds.duckdns.org/vincular/` y se escribe el código.
+2. En el **ordenador**, con la cuenta de Google abierta en pokesurvivor.com, se
+   abre la consola del navegador (F12) y se pega el trocito que da la página
+   (botón «Copiar el código»). Sale «¡Listo!».
+3. La 3DS entra sola en la MISMA cuenta de Google y sincroniza. No hay que
+   repetirlo: la consola guarda su sesión como siempre (`cuenta.json`).
 
-## Lo que falta (sólo puede hacerlo quien administra pokesurvivor-free)
+Cómo va por dentro: el trocito manda la sesión de Firebase de la web (el token
+de renovación) al servicio `vincular` del servidor
+(`pokesurvivor3ds-server/vincular`), que la guarda **sólo en memoria** hasta
+que la consola (que pregunta cada 2 s con un secreto que sólo ella conoce) la
+recoge, o 15 minutos. No se guarda en disco ni en registros. No toca la web ni
+Firebase: es la misma sesión que ya tiene el navegador.
+
+Pruebas: `tools/google_qr_e2e.js` (web ORIGINAL en Chromium + emulador de
+Firebase + el servicio en local + `ps_cloud --qr`, el mismo código que la
+consola) y `tools/google_qr_emu.sh` (lo mismo con la consola en Azahar; lee el
+QR de la captura con zbar). En el servidor, `tests/test_vincular.py`.
+
+## Otra forma: google.com/device (necesita un cliente OAuth)
+
+La 3DS también sabe entrar como las teles: enseña un código que se escribe en
+**google.com/device** desde el móvil, sin ordenador. Se usa en lugar del QR en
+cuanto hay un cliente OAuth configurado (`kGoogleClientId` o `google.json`).
+Probado con el emulador de Firebase (`tools/google_e2e.py`).
+
+### Lo que falta para eso (sólo puede hacerlo quien administra pokesurvivor-free)
 
 Google sólo da ese código a un **cliente OAuth** registrado, y Firebase sólo
 acepta la cuenta si ese cliente es **del mismo proyecto** que la web. Son 5

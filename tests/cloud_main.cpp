@@ -5,6 +5,8 @@
 //   ps_cloud <usuario> <contraseña> <partida.json> <aparato> [salida.json]
 //   ps_cloud --google - <partida.json> <aparato> [salida.json]   (entrar con Google:
 //            PS_GOOGLE_DEVICE, PS_GOOGLE_TOKEN = direcciones de Google; PS_GOOGLE_ID)
+//   ps_cloud --qr - <partida.json> <aparato> [salida.json]       (entrar con Google por QR:
+//            PS_VINCULAR = servidor «vincular», p. ej. http://127.0.0.1:8000)
 //   variables: PS_AUTH (http://127.0.0.1:9099), PS_FS (http://127.0.0.1:8089),
 //              PS_PROJECT (demo-pokesurvivor), PS_KEY (clave), PS_NOW (hora en ms)
 #include <curl/curl.h>
@@ -71,7 +73,29 @@ int main(int argc, char** argv) {
   Json local;
   if (!local.parse(text)) { std::fprintf(stderr, "partida no válida\n"); return 2; }
   cloud::Session s;
-  if (std::string(argv[1]) == "--google") {
+  if (std::string(argv[1]) == "--qr") {
+    // Como la consola: pide un código, enseña la página y espera la sesión.
+    const std::string base = env("PS_VINCULAR", "https://pokesurvivor3ds.duckdns.org");
+    cloud::HttpReq rq; rq.method = "POST"; rq.url = base + "/vincular/api/nuevo";
+    cloud::HttpResp rs;
+    Json n;
+    if (!http(rq, rs, nullptr) || rs.status != 200 || !n.parse(rs.body)) { std::fprintf(stderr, "qr: el servidor no contesta\n"); return 1; }
+    std::printf("QR: %s\n", n["url"].as_str().c_str());
+    std::fflush(stdout);
+    bool got = false;
+    for (int t = 0; t < 300 && !got; ++t) {
+      cloud::HttpReq q; q.url = base + "/vincular/api/espera?code=" + n["code"].as_str() + "&secret=" + n["secret"].as_str();
+      cloud::HttpResp r;
+      Json j;
+      if (http(q, r, nullptr) && r.status == 200 && j.parse(r.body)) {
+        if (!cloud::session_from_refresh(c, j["refresh"].as_str(), j["nombre"].as_str(), s)) { std::fprintf(stderr, "qr: %s\n", c.error.c_str()); return 1; }
+        got = true;
+      } else if (r.status == 404) { std::fprintf(stderr, "qr: el código ha caducado\n"); return 1; }
+      else usleep(500000);
+    }
+    if (!got) { std::fprintf(stderr, "qr: nadie ha entregado la sesión\n"); return 1; }
+    std::printf("qr: entra como %s\n", s.name.c_str());
+  } else if (std::string(argv[1]) == "--google") {
     c.cfg.google_client_id = env("PS_GOOGLE_ID", "cliente-tv");
     c.cfg.google_client_secret = env("PS_GOOGLE_SECRET", "secreto");
     c.cfg.google_device_url = env("PS_GOOGLE_DEVICE", c.cfg.google_device_url.c_str());

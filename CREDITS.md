@@ -147,6 +147,14 @@ En la 3DS, los textos pequeños usan [Tiny5](https://github.com/Gissio/font_tiny
 de Stefan Schmidt (SIL Open Font License 1.1, licencia en
 `assets-src/fonts/OFL-Tiny5.txt`), que a 8 px se ve nítida en la pantalla.
 
+## Bibliotecas (3DS)
+
+El QR de «Entrar con Google» se hace con
+[QR Code generator](https://github.com/nayuki/QR-Code-generator) de Project Nayuki
+(licencia MIT, en `src/platform/3ds/qrcodegen.c`). La conexión con la web usa
+[curl](https://curl.se/) y [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/)
+de los paquetes de devkitPro.
+
 ## Marca
 
 Pokémon es propiedad de Nintendo, Creatures Inc. y GAME FREAK.

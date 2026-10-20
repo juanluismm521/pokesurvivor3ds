@@ -181,6 +181,27 @@ int google_poll(Client& c, GoogleDevice& d, Session& s) {
   return -1;
 }
 
+bool session_from_refresh(Client& c, const std::string& refresh_token, const std::string& name_hint, Session& s) {
+  s = Session();
+  s.refresh_token = refresh_token;
+  if (!refresh(c, s)) return false;
+  // El nombre: el que manda la web (displayName) o el de la cuenta (accounts:lookup).
+  Json j = Json::object();
+  j.set("displayName", Json::str(name_hint));
+  if (name_hint.empty()) {
+    HttpReq rq;
+    rq.method = "POST";
+    rq.url = c.cfg.auth_base + "/v1/accounts:lookup?key=" + c.cfg.api_key;
+    rq.headers.push_back("Content-Type: application/json");
+    rq.body = "{\"idToken\":" + jstr(s.id_token) + "}";
+    HttpResp rs;
+    Json r;
+    if (call(c, rq, rs) && rs.status == 200 && r.parse(rs.body) && r["users"][0].is_obj()) j = r["users"][0];
+  }
+  s.name = display_name_of(j);
+  return true;
+}
+
 bool google_firebase(Client& c, const std::string& google_id_token, Session& s) {
   HttpReq rq;
   rq.method = "POST";
