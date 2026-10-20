@@ -58,7 +58,18 @@ struct Client {
   std::string error;                  // último error, en español
   int64_t clock_delta = 0;            // hora del servidor - hora de esta consola (ms)
   Json last_remote;                   // la partida de la nube tal como estaba (copia de seguridad)
+  // Esperar (lo pone la plataforma; null = no se espera y se avisa). Para el
+  // tope de pokesurvivor.com entre dos guardados de la misma partida.
+  void (*sleep_ms)(int ms, void* ctx) = nullptr;
 };
+
+// pokesurvivor.com no deja guardar la partida dos veces en menos de ~20 s
+// (medido: a los 18 s se rechaza, a los 22 s se acepta; la web espera 65 s,
+// db.js MIN_GAP). Si se guardó hace menos de esto (desde la web u otra
+// consola), se espera lo que falte antes de subir.
+constexpr int64_t kMinWriteGapMs = 25000;
+// "2026-10-20T14:36:51.250Z" → ms desde 1970 (0 si no se entiende).
+int64_t parse_timestamp(const std::string& t);
 
 // db.js nameToEmail: el nombre en minúsculas, en hexadecimal (UTF-8), @dominio.
 std::string name_to_email(const std::string& name);

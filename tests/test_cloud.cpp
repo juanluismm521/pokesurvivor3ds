@@ -3,6 +3,7 @@
 #include <doctest/doctest.h>
 
 #include <cstring>
+#include <ctime>
 #include <memory>
 #include <string>
 
@@ -20,7 +21,19 @@ struct FakeFs {
   int version = 1;           // updateTime del documento (cambia con cada escritura)
   int sneak = 0;             // escrituras de "otro aparato" justo después de leer (para probar el reintento)
   std::string last_commit;
+  int64_t now = 1800000000000LL;   // reloj del servidor (avanza al esperar)
+  int waited_ms = 0, too_soon = 0;
 };
+
+std::string iso(int64_t ms) {
+  const time_t t = time_t(ms / 1000);
+  tm g;
+  gmtime_r(&t, &g);
+  char b[40];
+  std::snprintf(b, sizeof(b), "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ", g.tm_year + 1900, g.tm_mon + 1, g.tm_mday, g.tm_hour, g.tm_min, g.tm_sec, int(ms % 1000));
+  return b;
+}
+void fake_sleep(int ms, void* ctx) { FakeFs& fs = *static_cast<FakeFs*>(ctx); fs.now += ms; fs.waited_ms += ms; }
 
 bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
   FakeFs& fs = *static_cast<FakeFs*>(ctx);
@@ -28,7 +41,7 @@ bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
   for (const auto& h : rq.headers) if (h == "Referer: https://pokesurvivor.com/") ref = true;
   if (!ref) fs.no_referer++;
   rs.status = 200;
-  rs.date_ms = 1800000000000LL;
+  rs.date_ms = fs.now;
   const std::string& u = rq.url;
   if (u.find("signInWithPassword") != std::string::npos) rs.body = "{\"idToken\":\"t\",\"refreshToken\":\"r\",\"localId\":\"uid1\"}";
   else if (u.find("/v1/token") != std::string::npos) rs.body = "{\"id_token\":\"t\",\"refresh_token\":\"r\",\"user_id\":\"uid1\"}";
@@ -59,10 +72,20 @@ bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
       rs.body = "{\"error\":{\"code\":400,\"message\":\"the stored version does not match the required base version.\",\"status\":\"FAILED_PRECONDITION\"}}";
       return true;
     }
+    // Como pokesurvivor.com: no se guarda dos veces en menos de ~20 s.
+    if (fs.doc.is_obj()) {
+      const int64_t at = cloud::parse_timestamp(fs.doc["updatedAt"]["timestampValue"].as_str());
+      if (at && fs.now - at < 20000) {
+        fs.too_soon++;
+        rs.status = 403;
+        rs.body = "{\"error\":{\"code\":403,\"message\":\"Missing or insufficient permissions.\",\"status\":\"PERMISSION_DENIED\"}}";
+        return true;
+      }
+    }
     fs.version++;
     fs.doc = b["writes"][0]["update"]["fields"];
     Json ts = Json::object();
-    ts.set("timestampValue", Json::str("2027-01-15T10:00:00Z"));
+    ts.set("timestampValue", Json::str(iso(fs.now)));
     fs.doc.set("updatedAt", ts);
     fs.commits++;
     fs.last_commit = rq.body;
@@ -145,6 +168,45 @@ TEST_CASE("sincronizar: una web más nueva no pierde nada al pasar por la 3DS") 
   CHECK(cloud_save["owned"].has("7"));
   CHECK(cloud_save["coins"].as_num() == 1000);
   CHECK(cloud_save["led"].has("ctrprueba"));
+  save_raw() = Json();
+}
+
+TEST_CASE("sincronizar: fechas de Firestore") {
+  CHECK(cloud::parse_timestamp("1970-01-01T00:00:00Z") == 0);
+  CHECK(cloud::parse_timestamp("2027-01-15T08:00:00Z") == 1800000000000LL);
+  CHECK(cloud::parse_timestamp("2026-10-20T14:36:51.250185Z") == cloud::parse_timestamp("2026-10-20T14:36:51Z") + 250);
+  CHECK(cloud::parse_timestamp("2024-02-29T12:00:00.5Z") == 1709208000500LL);
+  CHECK(cloud::parse_timestamp("basura") == 0);
+}
+
+TEST_CASE("sincronizar: si se acaba de guardar (web u otra consola), se espera al tope de pokesurvivor.com") {
+  FakeFs fs;
+  fs.doc = Json::object();
+  fs.doc.set("save", web::to_firestore(future_web_save()));
+  fs.doc.set("v", web::to_firestore(Json::num(3)));
+  Json ts = Json::object();
+  ts.set("timestampValue", Json::str(iso(fs.now - 5000)));   // la web guardó hace 5 s
+  fs.doc.set("updatedAt", ts);
+  cloud::Client c;
+  c.http = fake_http; c.ctx = &fs;
+  cloud::Session ses;
+  REQUIRE(cloud::login(c, "Ana", "x", ses));
+  Json merged;
+  // Sin poder esperar: no se sube nada y se avisa.
+  CHECK(!cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", fs.now, merged));
+  CHECK(c.error.find("unos segundos") != std::string::npos);
+  CHECK(fs.commits == 0);
+  // Esperando: se espera lo que falta (20 s hasta los 25) y entra a la primera.
+  c.sleep_ms = fake_sleep;
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", fs.now, merged), c.error);
+  CHECK(fs.waited_ms == 20000);
+  CHECK(fs.commits == 1);
+  CHECK(fs.too_soon == 0);
+  // Y sincronizar otra vez enseguida (botón dos veces): espera los 25 s.
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", fs.now, merged), c.error);
+  CHECK(fs.waited_ms == 45000);
+  CHECK(fs.commits == 2);
+  CHECK(fs.too_soon == 0);
   save_raw() = Json();
 }
 

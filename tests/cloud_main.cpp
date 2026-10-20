@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
   c.cfg.project = env("PS_PROJECT", "demo-pokesurvivor");
   c.cfg.api_key = env("PS_KEY", "fake-api-key");
   c.http = http;
+  c.sleep_ms = [](int ms, void*) { std::fprintf(stderr, "(se acaba de guardar: espera %.1f s)\n", ms / 1000.0); usleep(useconds_t(ms) * 1000); };
   std::string text;
   if (FILE* f = std::fopen(argv[3], "rb")) { char b[8192]; size_t n; while ((n = std::fread(b, 1, sizeof(b), f)) > 0) text.append(b, n); std::fclose(f); }
   Json local;

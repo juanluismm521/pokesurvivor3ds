@@ -1,6 +1,7 @@
 // cloudsync.cpp — ver cloudsync.h.
 #include "core/cloudsync.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -233,10 +234,30 @@ bool refresh(Client& c, Session& s) {
   return true;
 }
 
+int64_t parse_timestamp(const std::string& t) {
+  int y, mo, d, h, mi, se;
+  if (t.size() < 20 || std::sscanf(t.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d", &y, &mo, &d, &h, &mi, &se) != 6) return 0;
+  int ms = 0;
+  if (t[19] == '.') {   // (fracciones: sólo las milésimas)
+    int k = 0;
+    for (size_t i = 20; i < t.size() && t[i] >= '0' && t[i] <= '9'; ++i) if (k < 3) { ms = ms * 10 + (t[i] - '0'); ++k; }
+    while (k < 3) { ms *= 10; ++k; }
+  }
+  // días desde 1970-01-01 (días civiles, como progress.cpp)
+  y -= mo <= 2;
+  const int64_t era = (y >= 0 ? y : y - 399) / 400;
+  const int64_t yoe = y - era * 400;
+  const int64_t doy = (153 * (mo + (mo > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  const int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  const int64_t days = era * 146097 + doe - 719468;
+  return ((days * 24 + h) * 60 + mi) * 60000 + int64_t(se) * 1000 + ms;
+}
+
 bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, int64_t local_now_ms, Json& merged) {
   if (!refresh(c, s)) return false;
   const std::string auth = "Authorization: Bearer " + s.id_token;
   const std::string base = c.cfg.fs_base + "/v1/projects/" + c.cfg.project + "/databases/(default)/documents";
+  int waits = 0;
   for (int attempt = 0; attempt < 3; ++attempt) {
     // Como las transacciones del SDK web: se lee (batchGet) y se escribe con la
     // condición de que el documento siga igual (updateTime, o que no exista);
@@ -254,6 +275,7 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     Json j;
     Json remote, other = Json::object();   // (otros campos del documento: se conservan)
     std::string upd_time;                  // updateTime del documento leído ("" = no existe)
+    int64_t saved_at = 0;                  // updatedAt de la nube (hora del servidor, ms)
     bool ban = false;
     int doc_v = 0;
     {
@@ -270,11 +292,29 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
         remote = web::from_firestore(f["save"]);
         ban = f["ban"]["booleanValue"].as_bool();
         doc_v = int(web::from_firestore(f["v"]).as_num(0));
+        saved_at = parse_timestamp(f["updatedAt"]["timestampValue"].as_str());
         for (const auto& kv : f.items())
           if (kv.first != "save" && kv.first != "v" && kv.first != "updatedAt" && kv.first != "ban") other.set(kv.first, kv.second);
       }
     }
     c.last_remote = remote;
+    // Se acaba de guardar (desde la web u otro aparato): pokesurvivor.com no
+    // deja volver a guardar todavía. Se espera lo que falte y se vuelve a leer.
+    if (saved_at > 0) {
+      const int64_t server_now = rs.date_ms ? rs.date_ms : local_now_ms + c.clock_delta;
+      const int64_t gap = server_now - saved_at;
+      if (gap >= -2000 && gap < kMinWriteGapMs) {
+        if (!c.sleep_ms || waits >= 2) {
+          c.error = "Se acaba de guardar la partida desde otro sitio: prueba otra vez en unos segundos.";
+          return false;
+        }
+        c.sleep_ms(int(kMinWriteGapMs - std::max<int64_t>(gap, 0)), c.ctx);
+        local_now_ms += kMinWriteGapMs - std::max<int64_t>(gap, 0);
+        ++waits;
+        --attempt;   // (esperar no cuenta como intento)
+        continue;
+      }
+    }
     // Una web más nueva (otro formato de partida): no se toca nada.
     if (doc_v > web::kVersion || web::version_of(remote) > web::kVersion) {
       c.error = "La partida de la web es de una versión más nueva del juego: actualiza el juego de la 3DS para sincronizar (no se ha tocado nada).";

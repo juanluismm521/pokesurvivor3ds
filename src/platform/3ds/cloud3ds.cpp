@@ -153,6 +153,7 @@ void worker(void*) {
       cloud::Client c;
       c.cfg = g_cfg;
       c.http = http;
+      c.sleep_ms = [](int ms, void*) { for (int k = 0; k < ms / 100 && !g_quit; ++k) svcSleepThread(100000000ll); };
       c.clock_delta = g_acc.delta;
       cloud::Session s;
       s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
