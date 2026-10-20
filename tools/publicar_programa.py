@@ -109,6 +109,13 @@ def publicar(repo=ROOT, notas=''):
     if not tocar and last:
         cambios = subprocess.run(['git', 'diff', '--name-only', last, 'HEAD'], cwd=repo, capture_output=True, text=True).stdout
         tocar = any(p.startswith(('assets-src/', 'tools/gen_', 'tools/build_assets', 'reference/web/')) for p in cambios.split())
+    # Las librerías de Node de tools/ (no van en git): las del repo de trabajo o npm.
+    nm = os.path.join(repo, 'tools', 'node_modules')
+    if not os.path.exists(nm):
+        if repo != ROOT and os.path.isdir(os.path.join(ROOT, 'tools', 'node_modules')):
+            os.symlink(os.path.join(ROOT, 'tools', 'node_modules'), nm)
+        else:
+            sh('PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --no-audit --no-fund', cwd=os.path.join(repo, 'tools'))
     if tocar:
         sh('tools/build_assets.sh', cwd=repo)
     # Pruebas de PC: si no pasan, no se publica nada.
