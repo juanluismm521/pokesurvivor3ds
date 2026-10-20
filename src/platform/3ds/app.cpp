@@ -12,6 +12,8 @@
 #include "core/progress.h"
 #include "core/save_io.h"
 #include "core/version.h"
+#include "core/datapack.h"
+#include "platform/3ds/datos3ds.h"
 #include "core/upgrades.h"
 #include "core/util.h"
 #include "platform/3ds/app_ui.h"
@@ -290,6 +292,16 @@ void App::update(const UiIn& in0, float dt) {
   }
   g_->now_ms = now_ms();
   cloud_tick();
+  // Datos nuevos de la web: se aplican en el menú (nunca en plena partida ni en una sala).
+  const bool calm = scene != SC_RUN && scene != SC_COOP && scene != SC_LOBBY && !coop_;
+  if (calm && datos3ds::pending()) {
+    std::string m;
+    if (datos3ds::apply_pending(m)) g_notices.push("Datos del juego al día", ("web del " + datapack_current().fecha).c_str(), -1);
+  }
+  if (calm && datos3ds::newer_program() && !newer_told_) {
+    newer_told_ = true;
+    g_notices.push("Hay una versión nueva del juego", "con lo último de la web", -1);
+  }
   // Al abrir: ¿conectar con pokesurvivor.com? (una vez; no si ya hay cuenta o dijo «Nunca»)
   if (scene == SC_MENU && !cloud_asked_ && !autotest && !tour && !st_->cloud_never && !cloud3ds::account().on) {
     cloud_asked_ = true;
@@ -1248,7 +1260,9 @@ void App::bottom_settings() {
   }
   // De qué versión de la web son los datos (reference/web/UPSTREAM, por gen_data).
   char ver[96];
-  std::snprintf(ver, sizeof(ver), "Versión %s · datos de pokesurvivor.com del %s (%s)", kVersion, kWebBaseDate, kWebBase);
+  const DataPackInfo& dp = datapack_current();
+  std::snprintf(ver, sizeof(ver), "Versión %s · datos de pokesurvivor.com del %s (%s)%s", kVersion, dp.on ? dp.fecha.c_str() : kWebBaseDate,
+                dp.on ? dp.web.c_str() : kWebBase, dp.on ? " · al día solos" : "");
   r_->text(ver, 160, 215, 0.28f, C_MUTED, 1);
   r_->text("Izquierda/derecha: cambiar · B: guardar y volver", 160, 226, 0.32f, C_MUTED, 1);
 }

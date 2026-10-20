@@ -12,6 +12,9 @@ namespace ps {
 
 enum Lang { LANG_ES, LANG_EN };
 void i18n_set(Lang l);
+// Otra tabla de traducciones (la de un paquete de datos; null: la de fábrica).
+struct Tr;
+void i18n_set_table(const Tr* t, int n);
 Lang i18n_lang();
 // Devuelve el texto traducido (un puntero que vive mientras no se vacíe la caché).
 const char* tr(const char* s);

@@ -18,7 +18,7 @@ extern const char* const kTypeId[T_COUNT];      // "fire"...
 extern const char* const kTypeName[T_COUNT];    // "Fuego"... (español)
 extern const uint32_t kTypeColor[T_COUNT];      // 0xRRGGBB
 // Multiplicador de los juegos (2, 0.5, 0 o 1) de atacante → defensor.
-extern const float kTypeChart[T_COUNT][T_COUNT];
+extern float kTypeChart[T_COUNT][T_COUNT];
 
 // ---------------- Pokédex ----------------
 struct Mon {
@@ -35,7 +35,7 @@ struct Mon {
   bool starter;
   bool leg;
 };
-extern const Mon kDex[];
+extern Mon kDex[];
 extern const int kDexCount;
 constexpr int kMaxDex = 1025;
 // Índice en kDex de cada número de Pokédex (-1 si no existe).
@@ -107,7 +107,7 @@ struct MoveDef {
   int8_t evo_need;           // LevelStat que pide para evolucionar (-1 = no evoluciona)
   const char* evo_name;
 };
-extern const MoveDef kMoves[];
+extern MoveDef kMoves[];
 extern const int kMoveCount;
 // Tope de movimientos del port (los ids caben en int8_t). gen_data comprueba
 // al compilar que la web no lo pasa; si algún día lo pasa, hay que agrandar
@@ -123,8 +123,8 @@ int move_index(const char* id);   // -1 si no existe
 
 struct Mod { int8_t stat; float val; };
 struct Ladder { const char* text; int8_t n; Mod m[5]; };
-extern const Ladder kLadder[K_COUNT][4];   // mejoras de nivel 1→5
-extern const Ladder kEvoMods[K_COUNT];     // al evolucionar
+extern Ladder kLadder[K_COUNT][4];   // mejoras de nivel 1→5
+extern Ladder kEvoMods[K_COUNT];     // al evolucionar
 extern const int8_t kStartMove[T_COUNT];   // movimiento inicial por tipo principal
 
 // Aspecto de cada movimiento (vfx.js): formas y paleta.
@@ -151,7 +151,7 @@ extern const int8_t kTypeShape[T_COUNT];         // disparo por defecto de cada 
 // ---------------- subir de nivel ----------------
 enum LevelStat : int8_t { LS_HP, LS_ATK, LS_SPD, LS_CD, LS_DEF, LS_RGN, LS_MAG, LS_XP, LS_HEAL, LS_COUNT };
 struct LevelStatDef { const char* id; const char* icon; const char* title; const char* desc; int16_t max; };
-extern const LevelStatDef kLevelStats[LS_COUNT];
+extern LevelStatDef kLevelStats[LS_COUNT];
 extern const char* const kNeedName[LS_COUNT];    // "Vigor"... (condición de evolución)
 
 // ---------------- objetos equipables ----------------
@@ -160,7 +160,7 @@ enum ItemId : int8_t {
   IT_AMULETCOIN, IT_LUCKYEGG, IT_LIFEORB, IT_CHOICESCARF, IT_ROCKYHELMET, IT_ASSAULTVEST, IT_COUNT
 };
 struct ItemDef { const char* id; const char* name; const char* desc; };
-extern const ItemDef kItems[IT_COUNT];
+extern ItemDef kItems[IT_COUNT];
 
 // ---------------- mejoras permanentes ----------------
 enum UpgradeId : int8_t {
@@ -168,14 +168,14 @@ enum UpgradeId : int8_t {
   UP_CRIT, UP_REROLL, UP_BAN, UP_START, UP_COUNT
 };
 struct UpgradeDef { const char* id; const char* icon; const char* name; const char* unit; int8_t max; int16_t base; float grow; };
-extern const UpgradeDef kUpgrades[UP_COUNT];
+extern UpgradeDef kUpgrades[UP_COUNT];
 
 // ---------------- enemigos ----------------
 struct Tier { int16_t from, bst0, bst1; float hp, spd, dmg, xp; int8_t cast; };
-extern const Tier kTiers[];
+extern Tier kTiers[];
 extern const int kTierCount;
 struct BossSlot { int16_t at; int32_t hp; int16_t dmg, xp, bst0, bst1; };
-extern const BossSlot kBossSlots[];
+extern BossSlot kBossSlots[];
 extern const int kBossSlotCount;
 extern const int16_t kHealDex[], kShieldDex[], kBombDex[];
 extern const int kHealCount, kShieldCount, kBombCount;
@@ -221,7 +221,7 @@ struct WeatherDef {
   uint32_t safe;     // bit por tipo
   bool slow;
 };
-extern const WeatherDef kWeather[WX_COUNT];
+extern WeatherDef kWeather[WX_COUNT];
 extern const float kWeatherBiomeW[3][WX_COUNT];
 
 // ---------------- altares ----------------
@@ -231,8 +231,8 @@ extern const PowerDef kPowers[4];
 // ---------------- gacha ----------------
 struct BannerDef { int8_t gen; const char* name; uint32_t color[3]; };
 extern const BannerDef kBanners[9];
-extern const float kGachaRates[5];          // por rareza 1..5
-extern const int16_t kGachaRefund[6];       // índice = rareza
+extern float kGachaRates[5];          // por rareza 1..5
+extern int16_t kGachaRefund[6];       // índice = rareza
 extern const char* const kRarityName[6];
 extern const uint32_t kRarityColor[6];
 
@@ -255,13 +255,13 @@ struct MissionDef {
   const char* id; int8_t ev; bool weekly; bool max_mode; bool type_param;
   int8_t ngoals; int32_t goals[3]; Reward reward;
 };
-extern const MissionDef kMissions[];
+extern MissionDef kMissions[];
 extern const int kMissionCount;
 struct AchDef {
   const char* id; const char* cat; int8_t tier; const char* name; const char* desc;
   int32_t goal; Reward reward; const char* title; int16_t dex;
 };
-extern const AchDef kAch[];
+extern AchDef kAch[];
 extern const int kAchCount;
 struct AchCat { const char* id; const char* name; };
 extern const AchCat kAchCats[];
@@ -270,7 +270,8 @@ extern const int kAchCatCount;
 // ---------------- versión de los datos ----------------
 extern const char* const kWebBase;       // commit de la web de reference/web (7 letras)
 extern const char* const kWebBaseDate;   // y su fecha (AAAA-MM-DD)
-extern const uint32_t kDataHash;         // huella de todas las tablas generadas
+extern uint32_t kDataHash;               // huella de los datos en uso (los de fábrica o los de un paquete bajado)
+extern const char* const kDataSchema;    // forma de los datos que entiende este programa (paquetes compatibles)
 
 // ---------------- idioma ----------------
 struct Tr { const char* es; const char* en; };

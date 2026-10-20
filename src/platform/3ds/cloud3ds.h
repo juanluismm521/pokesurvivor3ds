@@ -39,6 +39,8 @@ void finish();                   // vuelve a JOB_IDLE
 void shutdown();
 // Red de la consola (socInit), compartida con el juego online. Una sola vez.
 bool soc_up();
+// GET por HTTPS (para los paquetes de datos; se puede llamar desde otro hilo).
+bool http_get(const std::string& url, std::string& body, int& status, std::string& err);
 // Prueba de HTTPS (autotest): una renovación con un token inventado, que la
 // nube tiene que rechazar (400). Devuelve el código HTTP (0 = sin conexión) y
 // el error de curl si lo hay. No toca ningún dato.

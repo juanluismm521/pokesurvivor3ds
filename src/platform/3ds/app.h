@@ -143,6 +143,7 @@ class App {
   int auto_move_ = -1;
   float auto_pause_ = -1;        // autotest con movimiento: pausa un rato (resumen en las capturas)
   bool auto_paused_ = false;
+  bool newer_told_ = false;      // ya se ha dicho que hay un programa nuevo
   bool auto_immortal_ = true;
   // cooperativo
   RunConfig::Member my_member() const;

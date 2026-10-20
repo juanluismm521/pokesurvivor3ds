@@ -22,6 +22,7 @@
 #include "platform/3ds/app.h"
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
+#include "platform/3ds/datos3ds.h"
 #include "platform/3ds/net3ds.h"
 #include "platform/3ds/render.h"
 
@@ -36,14 +37,14 @@ struct Autotest {
   int dex = 25;
   bool immortal = true;
   bool tour = false;
-  float warp = 0;
-  char move[24] = "";   // empezar con este movimiento (id de la web), para ver las familias nuevas   // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
+  float warp = 0;       // adelanta el reloj de la partida (para probar la Sentencia sin esperar)
+  char move[24] = "";   // empezar con este movimiento (id de la web), para ver las familias nuevas
   bool coop = false, host = false, online = false;
   bool look = false;                // "coop mirar …": sólo busca salas (para ver la pantalla)
   bool die = false;                 // "morir": se deja caer y, cuando le levantan, se cierra
   int down_state = 0;               // 0 vivo, 1 caído, 2 levantado
   double revived_at = 0;
-  bool nube = false, https = false;            // "nube usuario contraseña": entra y sincroniza (pruebas)
+  bool nube = false, https = false, datos = false;   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
   char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
   FILE* log = nullptr;
@@ -64,6 +65,7 @@ void read_autotest(Autotest& a) {
   char role[8] = "";
   if (std::fscanf(f, "%7s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
   else if (!std::strcmp(first, "https")) a.https = true;
+  else if (!std::strcmp(first, "datos")) a.datos = true;
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
     a.coop = true; a.host = !std::strcmp(role, "host"); a.look = !std::strcmp(role, "mirar"); a.immortal = imm != 0;
@@ -118,6 +120,8 @@ int main() {
   settings_read(kDir, settings);
 
   cloud3ds::init(kDir);
+  // Datos del juego: los de la SD (el último paquete bajado de la web) o los de fábrica.
+  const std::string datos_boot = datos3ds::init(kDir);
   std::unique_ptr<Game> g(new Game());
   static App app;
   app.init(&r, g.get(), save.get(), &settings, kDir);
@@ -134,7 +138,26 @@ int main() {
                  (unsigned long)(linearSpaceFree() / 1024), loaded == 1 ? "sí" : loaded == 2 ? "copia" : "nueva", boot_ms);
     std::fflush(at.log);
   }
+  if (at.log) { std::fprintf(at.log, "datos al arrancar: %s\n", datos_boot.c_str()); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
+  if (at.datos) {
+    // Busca datos nuevos, los aplica si los hay, lo apunta y se cierra.
+    const u64 t0 = osGetTime();
+    datos3ds::start_check();
+    while (aptMainLoop() && datos3ds::busy() && osGetTime() - t0 < 60000) gspWaitForVBlank();
+    std::string msg;
+    const bool applied = datos3ds::apply_pending(msg);
+    if (at.log) {
+      std::fprintf(at.log, "datos: %s · %s · programa nuevo en la web: %s · %.1f s\n", datos3ds::status().c_str(), applied ? msg.c_str() : "nada aplicado",
+                   datos3ds::newer_program() ? "sí" : "no", (osGetTime() - t0) / 1000.0);
+      std::fprintf(at.log, "Impactrueno: daño %.1f · Placaje: %s\n", double(kMoves[move_index("thunder-shock")].v[MS_DMG]), kMoves[move_index("tackle")].name);
+      std::fclose(at.log); at.log = nullptr;
+    }
+    datos3ds::shutdown();
+    cloud3ds::shutdown();
+    audio::exit(); C2D_Fini(); C3D_Fini(); gfxExit(); romfsExit();
+    return 0;
+  }
   if (at.https) {
     std::string err;
     const u64 t0 = osGetTime();
@@ -164,6 +187,7 @@ int main() {
     return 0;
   } else if (!at.on && !at.tour) {
     app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
+    datos3ds::start_check(); // (y se miran los datos nuevos de la web)
   }
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
@@ -289,6 +313,7 @@ int main() {
     std::fclose(at.log);
   }
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
+  datos3ds::shutdown();
   cloud3ds::shutdown();
   audio::exit();
   C2D_Fini();

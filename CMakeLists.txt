@@ -24,8 +24,9 @@ find_program(NODE node REQUIRED)
 file(GLOB WEB_DATA CONFIGURE_DEPENDS reference/web/js/data/*.js reference/web/js/world/tiles.js
      reference/web/js/systems/*.js reference/web/js/entities/vfx.js)
 set(GEN_DATA ${CMAKE_BINARY_DIR}/gen/gamedata.cpp)
-add_custom_command(OUTPUT ${GEN_DATA}
-  COMMAND ${NODE} ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${GEN_DATA}
+set(GEN_PACK ${CMAKE_BINARY_DIR}/gen/paquete.json)   # paquete de datos (lo que la 3DS baja sola)
+add_custom_command(OUTPUT ${GEN_DATA} ${GEN_PACK}
+  COMMAND ${CMAKE_COMMAND} -E env PS_PAQUETE=${GEN_PACK} ${NODE} ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${GEN_DATA}
   DEPENDS ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
   COMMENT "Generando las tablas del juego")
 
@@ -53,7 +54,7 @@ add_dependencies(ps_tests golden)
 # El servidor de relevo (jugar online) vive en su propio repositorio, al lado.
 set(PS_RELAY_PY "${CMAKE_SOURCE_DIR}/../docker/pokesurvivor-relay/relay.py" CACHE FILEPATH "relay.py del repositorio pokesurvivor-relay")
 target_compile_definitions(ps_tests PRIVATE
-  PS_SOURCE_DIR="${CMAKE_SOURCE_DIR}" PS_GOLDEN_DIR="${GOLDEN_DIR}" PS_RELAY_PY="${PS_RELAY_PY}")
+  PS_SOURCE_DIR="${CMAKE_SOURCE_DIR}" PS_GOLDEN_DIR="${GOLDEN_DIR}" PS_RELAY_PY="${PS_RELAY_PY}" PS_PAQUETE="${GEN_PACK}")
 
 # Herramienta: el bot juega una partida y escribe un resumen
 add_executable(ps_sim tests/sim_main.cpp)

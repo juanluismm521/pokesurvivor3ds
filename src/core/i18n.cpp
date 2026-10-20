@@ -24,6 +24,9 @@ struct Dict {
   std::unordered_map<std::string, std::string> cache;
 };
 Dict& dict() { static Dict d; return d; }
+// Traducciones en uso: las de fábrica o las de un paquete de datos (datapack).
+const Tr* g_tr = kLangEn;
+int g_ntr = kLangEnCount;
 
 // Minúsculas / mayúsculas de ASCII y de las letras del español (UTF-8).
 std::string lower(const std::string& s) {
@@ -69,9 +72,9 @@ void build() {
   if (d.built) return;
   d.built = true;
   std::vector<std::pair<std::string, const char*>> fr;
-  for (int i = 0; i < kLangEnCount; ++i) {
-    const std::string es = kLangEn[i].es;
-    const char* en = kLangEn[i].en;
+  for (int i = 0; i < g_ntr; ++i) {
+    const std::string es = g_tr[i].es;
+    const char* en = g_tr[i].en;
     const size_t at = es.find("{x}");
     if (at != std::string::npos) {
       Pattern p;
@@ -182,6 +185,7 @@ std::string core(const std::string& s) {
 }  // namespace
 
 void i18n_set(Lang l) { g_lang = l; dict().cache.clear(); }
+void i18n_set_table(const Tr* t, int n) { g_tr = t ? t : kLangEn; g_ntr = t ? n : kLangEnCount; dict() = Dict(); }
 Lang i18n_lang() { return g_lang; }
 
 const char* tr(const char* s) {

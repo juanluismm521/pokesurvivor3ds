@@ -66,3 +66,6 @@ Mira las capturas. Lo que sólo se puede probar en la consola va a `PROGRESS.md`
 - Si algo de la web no tiene sentido en la 3DS (móvil, ratón, ranking...),
   apúntalo en `PROGRESS.md` en vez de portarlo.
 - Commit en español y sin firmas. A `main` sólo con todas las pruebas pasando.
+- Después, `tools/web/publicar_datos.sh`: el paquete de datos nuevo para las
+  consolas. Si la forma de los datos ha cambiado (esquema nuevo), las consolas
+  con el programa viejo avisan de que hay una versión nueva del juego.

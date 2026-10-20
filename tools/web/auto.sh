@@ -5,6 +5,8 @@
 #   MODO=informe  sólo escribe el informe (build/web/informe.md) y avisa.
 #   MODO=datos    además, si la web sólo cambia datos (veredicto "automatico")
 #                 y TODAS las pruebas pasan, lo sube a main (commit + push).
+#                 Además publica el paquete de datos (tools/web/publicar_datos.sh):
+#                 las consolas lo bajan solas al encender, sin cambiar de programa.
 #                 Si hay lógica que portar, prepara una rama web/<commit> con
 #                 la web nueva y los datos ya regenerados, y avisa: portarla es
 #                 cosa de una persona (o de alguien que alguien
@@ -70,7 +72,9 @@ fi
 # Sólo datos y todo pasa: commit (sin firmas) y a main.
 git commit -qm "Web $SHORT: $(head -2 reference/web/UPSTREAM | tail -1 | cut -c1-150)" || true
 if git push -q origin "HEAD:main"; then
-  avisar "Port actualizado a la web $SHORT y subido a main (sólo datos; todas las pruebas pasan)" build/web/informe.md
+  # Y el paquete de datos para las consolas (lo bajan solas al encender).
+  tools/web/publicar_datos.sh >> build-auto.log 2>&1 || avisar "Web $SHORT: no se ha podido publicar el paquete de datos" build-auto.log
+  avisar "Port actualizado a la web $SHORT y subido a main (sólo datos; todas las pruebas pasan); las consolas lo bajarán solas" build/web/informe.md
 else
   avisar "Port actualizado a la web $SHORT pero no se ha podido subir a main (¿main ha cambiado?): rama web/$SHORT" build-auto.log
 fi

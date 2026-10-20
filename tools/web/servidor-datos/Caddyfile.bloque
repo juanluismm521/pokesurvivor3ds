@@ -1,0 +1,5 @@
+# pokesurvivor 3DS: paquetes de datos para la consola (tools/web/servidor-datos)
+pokesurvivor3ds.duckdns.org {
+    encode zstd gzip
+    reverse_proxy pokesurvivor-datos:80
+}

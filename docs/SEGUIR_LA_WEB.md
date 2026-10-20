@@ -155,10 +155,26 @@ Coste estimado: varias semanas. Cuidado también con el gasto de la Realtime
 Database de la web (la señalización son pocos mensajes, pero es de JPTER78).
 Propuesta: Fase 12, cuando el port esté al día con la web.
 
-## 6. Que la consola se actualice sola (propuesta)
-El último paso de «cargar automáticamente»: al arrancar, el juego miraría si
-hay una versión nueva publicada en GitHub (Releases del repo; ya tiene HTTPS) y
-ofrecería «Actualizar». Bajaría el `.3dsx` nuevo a la SD y se reiniciaría.
-Junto con `auto.sh`, quedaría: commit en la web → port (solo si son datos) →
-versión publicada → la consola se actualiza. Necesita publicar *releases* en
-GitHub (Fase 8), así que es decisión del dueño.
+## 6. La consola se actualiza sola (hecho: los datos)
+Lo que más cambia en la web (números de equilibrio, nombres, textos y
+traducciones) llega a la consola **sin programa nuevo**:
+1. `auto.sh` (cron, dos veces al día) baja la web. Si sólo cambian datos y
+   todas las pruebas pasan, lo sube a `main` y `publicar_datos.sh` publica el
+   **paquete de datos** (≈160 KB) en https://pokesurvivor3ds.duckdns.org/datos/.
+2. La consola, al encender y con wifi, baja en segundo plano el paquete de su
+   versión (`<esquema>.json`). Lo comprueba entero (forma, huella y rangos de
+   cada número) y lo aplica en cuanto no hay una partida ni una sala en marcha.
+   Aviso: «Datos del juego al día · web del …».
+3. Lo guarda en la SD (`datos.json`): **sin conexión** se usa el último bajado,
+   o los datos de fábrica.
+
+Qué NO cambia solo (a propósito): la lógica (formas nuevas de atacar,
+sistemas nuevos...), los Pokémon y movimientos que existen, los sprites y el
+arte. Para eso hace falta un programa nuevo: si la web ya lo pide (otro
+esquema), la consola avisa «Hay una versión nueva del juego». El cooperativo
+mezcla la huella de los datos en sus paquetes: dos consolas con datos
+distintos no se juntan.
+
+Pendiente (decisión del dueño): que la consola baje también el **programa**
+nuevo (`.3dsx`) y se cambie sola. Se puede servir desde el mismo servidor;
+convendría firmarlo para que nadie pueda colar otro.

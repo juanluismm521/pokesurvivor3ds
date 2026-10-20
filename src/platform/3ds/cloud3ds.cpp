@@ -109,12 +109,14 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   return r == CURLE_OK;
 }
 
+LightLock g_net_lock;
+bool g_net_lock_init = false;
 bool net_up() {
-  if (g_soc) return true;
-  if (!soc_up()) return false;
-  curl_global_init(CURL_GLOBAL_DEFAULT);
-  g_soc = true;
-  return true;
+  if (!g_net_lock_init) { LightLock_Init(&g_net_lock); g_net_lock_init = true; }   // (lo hace init, en el hilo principal)
+  LightLock_Lock(&g_net_lock);
+  const bool ok = g_soc || (soc_up() && (curl_global_init(CURL_GLOBAL_DEFAULT), g_soc = true));
+  LightLock_Unlock(&g_net_lock);
+  return ok;
 }
 bool g_socinit = false;
 bool soc_up_impl() {
@@ -183,6 +185,7 @@ bool start(int kind) {
 }  // namespace
 
 void init(const char* dir) {
+  if (!g_net_lock_init) { LightLock_Init(&g_net_lock); g_net_lock_init = true; }
   g_dir = dir;
   g_cfg = cloud::Config();
   g_cfg.api_key = kWebApiKey;
@@ -240,6 +243,19 @@ const std::string& error() { return g_err; }
 void finish() { if (g_state != JOB_BUSY) { g_state = JOB_IDLE; g_result = Json(); g_local = Json(); } }
 
 bool soc_up() { return soc_up_impl(); }
+
+bool http_get(const std::string& url, std::string& body, int& status, std::string& err) {
+  if (!net_up()) { status = 0; err = "No hay conexión a internet."; return false; }
+  cloud::HttpReq rq;
+  rq.method = "GET";
+  rq.url = url;
+  cloud::HttpResp rs;
+  const bool ok = http(rq, rs, nullptr);
+  status = rs.status;
+  body.swap(rs.body);
+  if (!ok) err = "Sin conexión con el servidor.";
+  return ok && status == 200;
+}
 
 int probe_https(std::string& curl_error) {
   if (!net_up()) { curl_error = "socInit"; return 0; }

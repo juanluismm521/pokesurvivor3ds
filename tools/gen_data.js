@@ -113,12 +113,12 @@ w('namespace ps {');
 w(`const char* const kTypeId[T_COUNT] = ${arr(TYPES, esc)};`);
 w(`const char* const kTypeName[T_COUNT] = ${arr(TYPES.map(t => G.U.TYPE_NAME[t]), esc)};`);
 w(`const uint32_t kTypeColor[T_COUNT] = ${arr(TYPES.map(t => G.U.TYPE_COLOR[t]), col)};`);
-w('const float kTypeChart[T_COUNT][T_COUNT] = {');
+w('float kTypeChart[T_COUNT][T_COUNT] = {');
 for (const a of TYPES) w('  ' + arr(TYPES.map(d => { const r = G.Types.CHART[a] || {}; return fl(r[d] == null ? 1 : r[d]); })) + ',');
 w('};');
 
 // ---------------- Pokédex ----------------
-w('const Mon kDex[] = {');
+w('Mon kDex[] = {');
 for (const p of G.DEX) {
   for (const k of ['pa', 'sa', 'df', 'sd']) if (typeof p[k] !== 'number') fail(`Pokédex ${p.dex}: falta ${k}`);
   w(`  {${p.dex}, ${esc(p.name)}, {${T(p.types[0])}, ${T(p.types[1])}}, ${p.hp}, ${p.spd}, ${fl(p.atk)}, ${fl(p.pa)}, ${fl(p.sa)}, ${p.df}, ${p.sd}, ${p.rarity}, ${p.bst}, ${p.gen}, ${!!p.starter}, ${!!p.leg}},`);
@@ -158,7 +158,7 @@ w(`const char* const kKindId[K_COUNT] = ${arr(KINDS, esc)};`);
 w(`const char* const kMoveStatId[MS_NUM] = ${arr(MSTATS, esc)};`);
 w(`const uint8_t kMoveStatOp[MS_NUM] = ${arr(MSTATS.map(k => (G.__MV.MULT.includes(k) ? 1 : G.__MV.ADD.includes(k) ? 2 : 0)))};`);
 const known = new Set(['id', 'name', 'type', 'kind', 'desc', 'stat', 'cat', ...MSTATS]);
-w('const MoveDef kMoves[] = {');
+w('MoveDef kMoves[] = {');
 for (const m of G.Moves.ALL) {
   if (m.stat && BUFFS.indexOf(m.stat) < 0) fail(`movimiento ${m.id}: potenciador de «${m.stat}» desconocido`);
   if (![null, 'physical', 'special'].includes(m.cat == null ? null : m.cat)) fail(`movimiento ${m.id}: categoría «${m.cat}» desconocida`);
@@ -177,10 +177,10 @@ const ladder = l => {
   if (mods.length > 5) fail('más de 5 mods');
   return `{${esc(l.t)}, ${mods.length}, ${arr(mods)}}`;
 };
-w('const Ladder kLadder[K_COUNT][4] = {');
+w('Ladder kLadder[K_COUNT][4] = {');
 for (const k of KINDS) { const L = G.__MV.LADDERS[k]; if (L.length !== 4) fail('escalera de ' + k); w('  ' + arr(L.map(ladder)) + ','); }
 w('};');
-w('const Ladder kEvoMods[K_COUNT] = {');
+w('Ladder kEvoMods[K_COUNT] = {');
 for (const k of KINDS) w('  ' + (G.__MV.EVO_MODS[k] ? ladder(G.__MV.EVO_MODS[k]) : '{nullptr, 0, {}}') + ',');
 w('};');
 const mIdx = id => { const i = G.Moves.ALL.findIndex(m => m.id === id); if (i < 0) fail('mov ' + id); return i; };
@@ -204,23 +204,23 @@ w('};');
 w(`const int8_t kTypeShape[T_COUNT] = ${arr(TYPES.map(t => shapeIdx(G.VFX.forType(t).proj)))};`);
 
 // ---------------- subir de nivel ----------------
-w(`const LevelStatDef kLevelStats[LS_COUNT] = ${arr(G.__LV.STATS.map(s => `{${esc(s.id)}, ${esc(s.icon)}, ${esc(s.title)}, ${esc(s.desc)}, ${s.max || 0}}`))};`);
+w(`LevelStatDef kLevelStats[LS_COUNT] = ${arr(G.__LV.STATS.map(s => `{${esc(s.id)}, ${esc(s.icon)}, ${esc(s.title)}, ${esc(s.desc)}, ${s.max || 0}}`))};`);
 w(`const char* const kNeedName[LS_COUNT] = ${arr(LSTATS.map(k => esc(G.Moves.NEED_NAME[k] || null)))};`);
 
 // ---------------- objetos ----------------
 const ITEMS = ['leftovers', 'choiceband', 'quickclaw', 'focussash', 'shellbell', 'amuletcoin', 'luckyegg', 'lifeorb', 'choicescarf', 'rockyhelmet', 'assaultvest'];
 if (G.Items.LIST.map(i => i.id).join() !== ITEMS.join()) fail('Objetos: ' + G.Items.LIST.map(i => i.id).join());
-w(`const ItemDef kItems[IT_COUNT] = ${arr(G.Items.LIST.map(i => `{${esc(i.id)}, ${esc(i.name)}, ${esc(i.desc)}}`))};`);
+w(`ItemDef kItems[IT_COUNT] = ${arr(G.Items.LIST.map(i => `{${esc(i.id)}, ${esc(i.name)}, ${esc(i.desc)}}`))};`);
 
 // ---------------- mejoras ----------------
 const UPS = ['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'coins', 'moves', 'crit', 'reroll', 'ban', 'start'];
 if (G.Upgrades.LIST.map(u => u.id).join() !== UPS.join()) fail('Mejoras: ' + G.Upgrades.LIST.map(u => u.id).join());
-w(`const UpgradeDef kUpgrades[UP_COUNT] = ${arr(G.Upgrades.LIST.map(u => `{${esc(u.id)}, ${esc(u.icon)}, ${esc(u.name)}, ${esc(u.unit)}, ${u.max}, ${u.base}, ${fl(u.grow)}}`))};`);
+w(`UpgradeDef kUpgrades[UP_COUNT] = ${arr(G.Upgrades.LIST.map(u => `{${esc(u.id)}, ${esc(u.icon)}, ${esc(u.name)}, ${esc(u.unit)}, ${u.max}, ${u.base}, ${fl(u.grow)}}`))};`);
 
 // ---------------- enemigos ----------------
-w(`const Tier kTiers[] = ${arr(G.Enemies.TIERS.map(t => `{${t.from}, ${t.bst[0]}, ${t.bst[1]}, ${fl(t.hp)}, ${fl(t.spd)}, ${fl(t.dmg)}, ${fl(t.xp)}, ${t.cast}}`))};`);
+w(`Tier kTiers[] = ${arr(G.Enemies.TIERS.map(t => `{${t.from}, ${t.bst[0]}, ${t.bst[1]}, ${fl(t.hp)}, ${fl(t.spd)}, ${fl(t.dmg)}, ${fl(t.xp)}, ${t.cast}}`))};`);
 w(`const int kTierCount = ${G.Enemies.TIERS.length};`);
-w(`const BossSlot kBossSlots[] = ${arr(G.Enemies.BOSS_SLOTS.map(b => `{${b.at}, ${b.hp}, ${b.dmg}, ${b.xp}, ${b.bst[0]}, ${b.bst[1]}}`))};`);
+w(`BossSlot kBossSlots[] = ${arr(G.Enemies.BOSS_SLOTS.map(b => `{${b.at}, ${b.hp}, ${b.dmg}, ${b.xp}, ${b.bst[0]}, ${b.bst[1]}}`))};`);
 w(`const int kBossSlotCount = ${G.Enemies.BOSS_SLOTS.length};`);
 for (const [name, set] of [['Heal', G.__EN.HEAL], ['Shield', G.__EN.SHIELD], ['Bomb', G.__EN.BOMB]]) {
   w(`const int16_t k${name}Dex[] = ${arr([...set])};`);
@@ -251,7 +251,7 @@ w(`const int kArenaThemeCount = ${G.Tiles.ARENA_TYPES.length};`);
 w('int arena_theme_index(const char* id) { for (int i = 0; i < kArenaThemeCount; ++i) if (!std::strcmp(kArenaThemes[i].id, id)) return i; return -1; }');
 
 // ---------------- clima ----------------
-w('const WeatherDef kWeather[WX_COUNT] = {');
+w('WeatherDef kWeather[WX_COUNT] = {');
 for (const k of WX) {
   const d = G.Weather.KINDS[k];
   let safe = 0; for (const t of d.safe || []) safe |= 1 << T(t);
@@ -265,8 +265,8 @@ w(`const PowerDef kPowers[4] = ${arr(G.Interact.POWERS.map(p => `{${esc(p.id)}, 
 
 // ---------------- gacha ----------------
 w(`const BannerDef kBanners[9] = ${arr(G.Gacha.BANNERS.map(b => `{${b.gen}, ${esc(b.name)}, ${arr(b.color.map(col))}}`))};`);
-w(`const float kGachaRates[5] = ${arr(G.Gacha.RATES.map(r => fl(r[1])))};`);
-w(`const int16_t kGachaRefund[6] = ${arr([0, 1, 2, 3, 4, 5].map(r => G.Gacha.REFUND[r] || 0))};`);
+w(`float kGachaRates[5] = ${arr(G.Gacha.RATES.map(r => fl(r[1])))};`);
+w(`int16_t kGachaRefund[6] = ${arr([0, 1, 2, 3, 4, 5].map(r => G.Gacha.REFUND[r] || 0))};`);
 w(`const char* const kRarityName[6] = ${arr([0, 1, 2, 3, 4, 5].map(r => esc(G.Gacha.RARITY_NAME[r] || '')))};`);
 w(`const uint32_t kRarityColor[6] = ${arr([0, 1, 2, 3, 4, 5].map(r => col(G.Gacha.RARITY_COLOR[r] || '#000000')))};`);
 
@@ -291,12 +291,12 @@ w(`const int kTestCount = ${G.PERSONALITY_TEST.length};`);
 // ---------------- misiones y logros ----------------
 const rew = r => `{${r.t1 || 0}, ${r.t10 || 0}, ${r.coins || 0}}`;
 const missions = [...G.MissionDefs.daily.map(m => [m, false]), ...G.MissionDefs.weekly.map(m => [m, true])];
-w(`const MissionDef kMissions[] = ${arr(missions.map(([m, wk]) => {
+w(`MissionDef kMissions[] = ${arr(missions.map(([m, wk]) => {
   if (EVS.indexOf(m.ev) < 0) fail('evento ' + m.ev);
   return `{${esc(m.id)}, ${EVS.indexOf(m.ev)}, ${wk}, ${m.mode === 'max'}, ${m.param === 'type'}, ${m.goals.length}, ${arr([0, 1, 2].map(i => m.goals[i] || 0))}, ${rew(m.reward)}}`;
 }))};`);
 w(`const int kMissionCount = ${missions.length};`);
-w('const AchDef kAch[] = {');
+w('AchDef kAch[] = {');
 for (const a of G.AchDefs.LIST) w(`  {${esc(a.id)}, ${esc(a.cat)}, ${a.tier}, ${esc(a.name)}, ${esc(a.desc)}, ${a.goal}, ${rew(a.reward)}, ${esc(a.title || null)}, ${a.dex || 0}},`);
 w('};');
 w(`const int kAchCount = ${G.AchDefs.LIST.length};`);
@@ -342,20 +342,60 @@ if (REPORT) {
   if (ARGS[0]) fs.writeFileSync(ARGS[0], rep); else console.log(rep);
   process.exit(0);
 }
-// De qué versión de la web son los datos (reference/web/UPSTREAM) y una huella
-// de todo lo generado: dos 3DS con datos distintos no pueden jugar juntas
-// (el cooperativo calcula la misma partida en todas).
+// ---------------- paquete de datos (lo que la 3DS puede actualizar sola) ----------------
+// La consola baja este paquete (publicado por tools/web/publicar_datos.sh) y
+// cambia con él sus tablas sin cambiar de programa: números de equilibrio,
+// nombres, textos y traducciones. Sólo si la FORMA de los datos es la misma que
+// la que entiende su programa (kDataSchema): mismos movimientos y familias,
+// mismos Pokémon y tipos, mismas mejoras, misiones y logros... Si la web cambia
+// algo de eso, hace falta un programa nuevo (y el paquete nuevo no le vale al viejo).
+// La huella del cooperativo (kDataHash) es la de los datos del paquete: dos
+// consolas con los mismos datos juegan juntas aunque uno los tenga de fábrica.
+const fnv = str => { let h = 2166136261; for (const b of Buffer.from(str, 'utf8')) { h ^= b; h = Math.imul(h, 16777619) >>> 0; } return h; };
+const n6 = v => (v == null ? 0 : +v);   // (precisión completa: la consola los lee igual que las tablas compiladas)
+const forma = JSON.stringify({
+  tipos: TYPES, familias: KINDS, numeros: MSTATS, buffs: BUFFS, nivel: LSTATS, objetos: ITEMS, mejoras: UPS, climas: WX, eventos: EVS,
+  dex: G.DEX.map(p => [p.dex, p.types]), movs: G.Moves.ALL.map(m => [m.id, m.kind, m.type, m.stat || null, m.cat || null]),
+  tiers: G.Enemies.TIERS.length, jefes: G.Enemies.BOSS_SLOTS.length, misiones: missions.map(([m, wk]) => [m.id, m.ev, wk, m.mode || null, m.param || null, m.goals.length]),
+  logros: G.AchDefs.LIST.map(a => [a.id, a.cat, a.tier, a.dex || 0]), starters: G.STARTERS.map(x => [x.dex, x.start])
+});
+const schema = fnv(forma).toString(16).padStart(8, '0');
+const ladderOut = l => [l.t, Object.entries(l.m).map(([k, v]) => [MSTATS.indexOf(k), n6(v)])];
+const datos = {
+  dex: G.DEX.map(p => [p.name, p.hp, p.spd, n6(p.atk), n6(p.pa), n6(p.sa), p.df, p.sd, p.rarity, p.bst]),
+  movs: G.Moves.ALL.map(m => { const evo = G.Moves.EVO[m.id]; return [m.name, m.desc, MSTATS.map(k => (m[k] == null ? null : n6(m[k]))), evo ? LSTATS.indexOf(evo[1]) : -1, evo ? evo[0] : null]; }),
+  escaleras: KINDS.map(k => G.__MV.LADDERS[k].map(ladderOut)),
+  evos: KINDS.map(k => (G.__MV.EVO_MODS[k] ? ladderOut(G.__MV.EVO_MODS[k]) : null)),
+  tabla: TYPES.map(a => TYPES.map(d => { const r = G.Types.CHART[a] || {}; return n6(r[d] == null ? 1 : r[d]); })),
+  nivel: G.__LV.STATS.map(x => [x.title, x.desc, x.max || 0]),
+  objetos: G.Items.LIST.map(i => [i.name, i.desc]),
+  mejoras: G.Upgrades.LIST.map(u => [u.name, u.unit, u.max, u.base, n6(u.grow)]),
+  tiers: G.Enemies.TIERS.map(t => [t.from, t.bst[0], t.bst[1], n6(t.hp), n6(t.spd), n6(t.dmg), n6(t.xp), t.cast]),
+  jefes: G.Enemies.BOSS_SLOTS.map(b => [b.at, b.hp, b.dmg, b.xp, b.bst[0], b.bst[1]]),
+  climas: WX.map(k => TYPES.map(t => n6(G.Weather.KINDS[k].mult[t] || 1))),
+  gacha: [G.Gacha.RATES.map(r => n6(r[1])), [0, 1, 2, 3, 4, 5].map(r => G.Gacha.REFUND[r] || 0)],
+  misiones: missions.map(([m]) => [[0, 1, 2].map(i => m.goals[i] || 0), [m.reward.t1 || 0, m.reward.t10 || 0, m.reward.coins || 0]]),
+  logros: G.AchDefs.LIST.map(a => [a.name, a.desc, a.goal, [a.reward.t1 || 0, a.reward.t10 || 0, a.reward.coins || 0], a.title || null]),
+  en: tr
+};
+const datosTxt = JSON.stringify(datos);
+const dataHash = fnv(datosTxt);
 {
   const up = path.join(WEB, 'UPSTREAM');
   const lines = fs.existsSync(up) ? fs.readFileSync(up, 'utf8').split('\n') : [];
   const sha = (lines[0] || '').trim().slice(0, 7), date = (lines[1] || '').trim().slice(0, 10);
-  let h = 2166136261;
-  for (const line of out) for (let i = 0; i < line.length; i++) { h ^= line.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
   w('namespace ps {');
   w(`extern const char* const kWebBase; const char* const kWebBase = ${JSON.stringify(sha)};`);
   w(`extern const char* const kWebBaseDate; const char* const kWebBaseDate = ${JSON.stringify(date)};`);
-  w(`extern const uint32_t kDataHash; const uint32_t kDataHash = 0x${h.toString(16).padStart(8, '0')}u;`);
+  w(`extern uint32_t kDataHash; uint32_t kDataHash = 0x${dataHash.toString(16).padStart(8, '0')}u;`);
+  w(`extern const char* const kDataSchema; const char* const kDataSchema = ${JSON.stringify(schema)};`);
   w('}  // namespace ps');
+  // El paquete, si se pide (PS_PAQUETE=archivo.json).
+  if (process.env.PS_PAQUETE) {
+    const pack = `{"formato":1,"esquema":${JSON.stringify(schema)},"web":${JSON.stringify(sha)},"fecha":${JSON.stringify(date)},"huella":${dataHash},"datos":${datosTxt}}`;
+    fs.writeFileSync(process.env.PS_PAQUETE, pack);
+    console.log(`gen_data: paquete ${process.env.PS_PAQUETE} (${(pack.length / 1024).toFixed(0)} KB, esquema ${schema})`);
+  }
 }
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 const text = out.join('\n') + '\n';
