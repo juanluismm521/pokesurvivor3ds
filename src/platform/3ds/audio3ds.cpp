@@ -15,7 +15,9 @@ namespace audio {
 namespace {
 constexpr int MUSIC_CH = 0;
 constexpr int SFX_CH0 = 1, SFX_CHN = 16;
-constexpr int NBUF = 3, BUF_FRAMES = 4096;
+// 8 × 4096 muestras: casi un segundo de margen (con 3 se cortaba si la SD
+// estaba ocupada escribiendo un momento).
+constexpr int NBUF = 8, BUF_FRAMES = 4096;
 
 bool g_ok = false;
 float g_music_vol = 0.7f, g_sfx_vol = 0.8f;
@@ -80,8 +82,15 @@ void fill(ndspWaveBuf& wb) {
   ndspChnWaveBufAdd(MUSIC_CH, &wb);
 }
 
+void start_track(int t);
+// Cambio de tema pedido por el juego: lo hace el hilo de la música (abrir el
+// .ogg y decodificar los primeros búferes paraba el juego un momento).
+volatile int g_req_track = MU_NONE;
+volatile bool g_has_req = false;
+
 void music_thread(void*) {
   while (!g_quit) {
+    if (g_has_req) { g_has_req = false; start_track(g_req_track); }
     LightLock_Lock(&g_lock);
     if (g_vf_open) for (auto& wb : g_mwb) if (wb.status == NDSP_WBUF_DONE || wb.status == NDSP_WBUF_FREE) fill(wb);
     LightLock_Unlock(&g_lock);
@@ -188,7 +197,11 @@ void update(float dt) {
   // Fundido de 0,7 s al cambiar de tema (como la web).
   if (g_want_track != g_cur_track) {
     g_fade -= dt / 0.7f;
-    if (g_fade <= 0 || g_cur_track == MU_NONE) { g_fade = 0; start_track(g_want_track); }
+    if (g_fade <= 0 || g_cur_track == MU_NONE) {
+      g_fade = 0;
+      if (g_thread) { g_cur_track = g_want_track; g_req_track = g_want_track; g_has_req = true; LightEvent_Signal(&g_event); }
+      else start_track(g_want_track);
+    }
   } else if (g_fade < 1) {
     g_fade = std::fmin(1.0f, g_fade + dt / 0.8f);
   }

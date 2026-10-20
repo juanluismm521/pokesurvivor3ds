@@ -20,6 +20,7 @@
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/net3ds.h"
+#include "platform/3ds/saver3ds.h"
 
 namespace ps {
 
@@ -83,7 +84,7 @@ void App::apply_settings() {
 void App::save_now() {
   // (en la hora del servidor: el reloj de la 3DS va en hora local y la web en UTC)
   s_->updated = now_ms() + cloud3ds::account().delta;
-  save_write_file(dir_, *s_);
+  saver3ds::save(*s_);   // (en segundo plano: el juego no se para)
   g_->dirty = false;
 }
 
@@ -276,12 +277,14 @@ void App::update(const UiIn& in0, float dt) {
       tour_t_ = 0;
       const int i = tour_i_++;
       static bool pulled = false;
+      static int bought = 0;
       static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
       else if (scene == SC_RESULT) { cur_ = 0; in.down |= KEY_A; }        // acepta
       else if (scene == SC_GACHA && !pulled) { pulled = true; cur_ = 1; in.down |= KEY_A; }
+      else if (scene == SC_UPGRADES && bought < 3) { bought++; in.down |= KEY_A; }   // compra mejoras (el tirón al guardar)
       else if (scene == SC_PULL) { if (pull_done_) in.down |= KEY_A; else tour_i_--; }
       else {
         static int k = -1;

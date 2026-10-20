@@ -6,6 +6,7 @@
 // Al leer, si save.json está mal (apagón a mitad), se usa save.bak.
 #include "core/save_io.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -345,12 +346,20 @@ int save_read_file(const char* dir, Save& s) {
 }
 
 bool save_write_file(const char* dir, const Save& s) {
+  return save_write_text(dir, save_full_json(s).dump());
+}
+
+bool save_write_text(const char* dir, const std::string& text) {
   const std::string base = std::string(dir) + "/save";
-  const std::string text = save_full_json(s).dump();
   const std::string tmp = base + ".tmp", cur = base + ".json", bak = base + ".bak";
   FILE* f = std::fopen(tmp.c_str(), "wb");
   if (!f) return false;
-  const bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+  bool ok = true;
+  for (size_t at = 0; ok && at < text.size(); at += 16384) {
+    const size_t n = std::min<size_t>(16384, text.size() - at);
+    ok = std::fwrite(text.data() + at, 1, n, f) == n;
+    std::fflush(f);
+  }
   if (std::fclose(f) != 0 || !ok) { std::remove(tmp.c_str()); return false; }
   // El anterior pasa a copia de seguridad; el nuevo ocupa su sitio.
   std::remove(bak.c_str());

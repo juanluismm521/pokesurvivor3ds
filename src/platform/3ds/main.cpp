@@ -23,6 +23,7 @@
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/datos3ds.h"
+#include "platform/3ds/saver3ds.h"
 #include "platform/3ds/net3ds.h"
 #include "platform/3ds/render.h"
 
@@ -30,6 +31,9 @@ using namespace ps;
 
 namespace {
 constexpr const char* kDir = "sdmc:/3ds/pokesurvivor-3ds";
+int g_hitch_n = 0, g_hitch_max = 0;   // tirones (fotogramas de más de 50 ms)
+int g_ms_logic = 0, g_ms_ground = 0, g_ms_draw = 0;   // en qué se fue el fotograma anterior
+char g_hitch_where[24] = "-";
 
 struct Autotest {
   bool on = false;
@@ -111,6 +115,9 @@ int main() {
     gfxExit();
     return 1;
   }
+  // Sprites en segundo plano también en los menús (Pokédex, gacha, iniciales):
+  // abrirlos cargaba de golpe muchos Pokémon y el juego se quedaba pillado.
+  r.sprites.async = true;
 #ifdef PS_DEPURAR
   {   // rejilla.txt en la SD: depuración de colisiones (ver Renderer::debug_grid).
       // Sólo en las builds de pruebas (make DEPURAR=1), nunca en la del dueño.
@@ -129,6 +136,7 @@ int main() {
 
   cloud3ds::init(kDir);
   // Datos del juego: los de la SD (el último paquete bajado de la web) o los de fábrica.
+  saver3ds::init(kDir);
   const std::string datos_boot = datos3ds::init(kDir);
   std::unique_ptr<Game> g(new Game());
   static App app;
@@ -201,6 +209,7 @@ int main() {
       std::fclose(at.log);
       at.log = nullptr;
     }
+    saver3ds::shutdown();   // (la partida sincronizada, escrita antes de salir)
     cloud3ds::shutdown();
     audio::exit(); C2D_Fini(); C3D_Fini(); gfxExit(); romfsExit();
     return 0;
@@ -224,6 +233,7 @@ int main() {
   }
 
   u64 last = osGetTime();
+  const double boot_s = last / 1000.0;
   double acc = 0;
   u64 fps_t = last;
   int fps_frames = 0;
@@ -246,9 +256,17 @@ int main() {
 
     const u64 now = osGetTime();
     const double frame_ms = double(now - last);
+    // Vigilante de tirones: un fotograma de más de 50 ms se nota (el juego se
+    // queda «pillado» y la música puede cortarse). Se apunta en el log.
+    if (frame_ms > 50 && fps_frames + r.fps > 30) {
+      g_hitch_n++;
+      if (at.log && g_hitch_n <= 30) { std::fprintf(at.log, "tirón: %.0f ms en la pantalla %d (a los %.1f s) · el anterior: juego %d ms, suelo %d ms, dibujo %d ms\n", frame_ms, int(app.scene), osGetTime() / 1000.0 - boot_s, g_ms_logic, g_ms_ground, g_ms_draw); std::fflush(at.log); }
+      if (int(frame_ms) > g_hitch_max) { g_hitch_max = int(frame_ms); std::snprintf(g_hitch_where, sizeof(g_hitch_where), "pantalla %d", int(app.scene)); }
+    }
     acc += frame_ms;
     last = now;
     if (acc > 100) acc = 100;
+    const u64 tl0 = osGetTime();
     app.update(in, float(std::fmin(frame_ms, 100.0) / 1000.0));
 
     // --- paso fijo de la partida ---
@@ -263,7 +281,11 @@ int main() {
     audio::update(float(std::fmin(frame_ms, 100.0) / 1000.0));
 
     // --- dibujo ---
+    const u64 tg0 = osGetTime();
+    g_ms_logic = int(tg0 - tl0);
     r.begin_frame(*g);
+    const u64 td0 = osGetTime();
+    g_ms_ground = int(td0 - tg0);
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
     // 3D: con el deslizador subido (y el ajuste activado), una imagen por ojo.
     const float slider = settings.stereo ? osGet3DSliderState() : 0;
@@ -280,6 +302,7 @@ int main() {
     C2D_SceneBegin(bottom);
     app.draw_bottom();
     C3D_FrameEnd(0);
+    g_ms_draw = int(osGetTime() - td0);
 
     // --- FPS ---
     fps_frames++;
@@ -326,11 +349,14 @@ int main() {
                  (unsigned long)r.sprites.late_loads,
                  (unsigned long)(r.sprites.late_loads ? r.sprites.late_total_us / r.sprites.late_loads : 0),
                  (unsigned long)r.sprites.late_max_us, (unsigned long)(r.sprites.read_max_us / 1000));
+    std::fprintf(at.log, "tirones (fotogramas de más de 50 ms): %d · el peor %d ms (%s) · guardados %d, el más lento %d ms (en segundo plano)\n",
+                 g_hitch_n, g_hitch_max, g_hitch_where, saver3ds::saves_done(), saver3ds::slowest_ms());
     std::fprintf(at.log, "FIN · %.0f s de partida · FPS media %.1f · mín %d · nivel %d · derrotados %d · libre %lu KB\n", g->time,
                  at.fps_n ? at.fps_sum / at.fps_n : 0.0, at.min_fps == 999 ? 0 : at.min_fps, g->pl().level, g->pl().kills,
                  (unsigned long)(mem_free() / 1024));
     std::fclose(at.log);
   }
+  saver3ds::shutdown();   // (lo que quedara por escribir, antes de salir)
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
   datos3ds::shutdown();
   cloud3ds::shutdown();

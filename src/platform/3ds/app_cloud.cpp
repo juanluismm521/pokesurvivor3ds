@@ -16,6 +16,7 @@
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/qrcodegen.h"
+#include "platform/3ds/saver3ds.h"
 
 namespace ps {
 
@@ -135,8 +136,10 @@ void App::cloud_tick() {
       if (FILE* f = std::fopen((std::string(dir_) + "/nube.copia.json").c_str(), "wb")) { std::fwrite(cloud.data(), 1, cloud.size(), f); std::fclose(f); }
   }
   if (save_from_json(*s_, merged.dump())) {
+    saver3ds::lock_raw();
     save_set_raw(merged, *s_);
-    save_write_file(dir_, *s_);
+    saver3ds::unlock_raw();
+    saver3ds::save(*s_);
     g_->dirty = false;
     int owned = 0;
     for (int d = 1; d <= kMaxDex; ++d) if (s_->owned_at[d]) owned++;

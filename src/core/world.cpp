@@ -203,6 +203,17 @@ void World::make_prop(Chunk& c, int type, int32_t tx, int32_t ty, int kind) {
 }
 
 void World::place_props(Chunk& c) {
+  // El terreno del chunk con un borde de 1 casilla, calculado una vez: la
+  // comprobación de «suelo alrededor» de cada casilla miraba 9 vecinas con
+  // ruido cada vez (lo más caro de generar un chunk; al abrirse la arena de la
+  // Sentencia se generan muchos de golpe y el juego daba un tirón).
+  constexpr int R = kChunkTiles + 2;
+  uint8_t ring[R * R];
+  for (int b = -1; b <= kChunkTiles; ++b)
+    for (int a = -1; a <= kChunkTiles; ++a)
+      ring[(b + 1) * R + (a + 1)] = (a >= 0 && b >= 0 && a < kChunkTiles && b < kChunkTiles)
+                                        ? c.terr[b * kChunkTiles + a]
+                                        : terrain_raw(c.cx * kChunkTiles + a, c.cy * kChunkTiles + b);
   for (int j = 0; j < kChunkTiles; ++j)
     for (int i = 0; i < kChunkTiles; ++i) {
       if (c.terr[j * kChunkTiles + i] != TR_FLOOR) continue;
@@ -214,7 +225,7 @@ void World::place_props(Chunk& c) {
       bool open = true;
       for (int b = -1; b <= 1 && open; ++b)
         for (int a = -1; a <= 1; ++a)
-          if (terrain_raw(tx + a, ty + b) != TR_FLOOR) { open = false; break; }
+          if (ring[(j + b + 1) * R + (i + a + 1)] != TR_FLOOR) { open = false; break; }
 
       // Dentro de la arena: la decoración de su tipo (y nada en el pasillo).
       const double ad = arena_dist(tx, ty);

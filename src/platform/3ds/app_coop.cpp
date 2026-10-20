@@ -105,12 +105,18 @@ bool ask_text(const char* hint, const char* initial, char* out, int cap, bool nu
   return swkbdInputText(&kb, out, size_t(cap)) == SWKBD_BUTTON_CONFIRM && out[0];
 }
 constexpr int kRoomY = 150, kRoomStep = 18, kMaxRoomsShown = 4;   // 150 + 4·18 = 222: antes de la ayuda
+// Conectar con el servidor en otro hilo: 0 nada, 1 conectando, 2 terminado.
+Thread g_conn_thr = nullptr;
+volatile int g_conn_state = 0;
+volatile bool g_conn_ok = false;
 }  // namespace
 
 void App::in_coop(const UiIn& in) {
-  net3ds::set_server(st_->server, st_->server_port);
+  // (mientras el otro hilo conecta, no se cambia nada de la red: espera)
+  const bool connecting = g_conn_state == 1;
+  if (!connecting) net3ds::set_server(st_->server, st_->server_port);
   // Por internet: Y (o tocar la fila) cambia el servidor (IP o dominio y puerto).
-  if (coop_online_ && !auto_coop_ && ((in.down & KEY_Y) || in_rect(&in, 20, 118, 280, 16))) {
+  if (!connecting && coop_online_ && !auto_coop_ && ((in.down & KEY_Y) || in_rect(&in, 20, 118, 280, 16))) {
     char host[64], port[8], cur[8];
     std::snprintf(cur, sizeof(cur), "%d", st_->server_port);
     if (ask_text("IP o dominio del servidor", st_->server, host, sizeof(host), false)) {
@@ -132,18 +138,32 @@ void App::in_coop(const UiIn& in) {
   if (in.down & (KEY_L | KEY_R)) sw = true;
   if (in_rect(&in, 0, 24, 160, 20) && coop_online_) sw = true;
   if (in_rect(&in, 160, 24, 160, 20) && !coop_online_) sw = true;
-  if (sw && !auto_coop_) {
+  if (sw && !auto_coop_ && !connecting) {
     coop_online_ = !coop_online_;
     net3ds::set_online(coop_online_);
     nrooms_ = 0; scanned_ = false; coop_msg_[0] = 0; cur_ = 0; coop_retry_ = 0; coop_fails_ = 0; coop_err_init_ = false;
   }
   if (!net3ds::ready()) {
-    // Se reintenta cada 2 s (no en cada fotograma: buscar el servidor bloquea).
+    // Se reintenta cada 2 s. Por internet, conectar (DNS, sockets) va en otro
+    // hilo: hecho aquí, el juego se quedaba pillado mientras buscaba el servidor.
     const uint64_t now = osGetTime();
     bool ok = false;
-    if (now >= coop_retry_) {
+    bool tried = false;
+    if (coop_online_) {
+      if (g_conn_state == 2) { tried = true; ok = g_conn_ok; g_conn_state = 0; threadJoin(g_conn_thr, U64_MAX); threadFree(g_conn_thr); g_conn_thr = nullptr; coop_retry_ = now + (ok ? 0 : 2000); }
+      else if (g_conn_state == 0 && now >= coop_retry_) {
+        g_conn_state = 1;
+        s32 prio = 0x30;
+        svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+        g_conn_thr = threadCreate([](void*) { g_conn_ok = net3ds::init(); g_conn_state = 2; }, nullptr, 32 * 1024, prio + 1, -2, false);
+        if (!g_conn_thr) { g_conn_state = 0; tried = true; ok = net3ds::init(); coop_retry_ = now + 2000; }
+      }
+    } else if (now >= coop_retry_) {
+      tried = true;
       ok = net3ds::init();
       coop_retry_ = now + 2000;
+    }
+    if (tried) {
       if (!ok) {
         // Por internet, el primer fallo suele ser el DNS de la consola recién
         // conectada al wifi: se sigue intentando sin asustar; el error sólo
@@ -155,7 +175,7 @@ void App::in_coop(const UiIn& in) {
         }
       }
     }
-    if (!ok) {
+    if (!ok || !net3ds::ready()) {
       if (in.down & KEY_B) go(SC_MENU);
       return;
     }
