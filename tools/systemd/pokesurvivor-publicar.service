@@ -1,0 +1,13 @@
+# Publica la versión nueva del juego tras cada push a main (tools/publicar_programa.py auto):
+# compila en /root/pokesurvivor-publicar, pasa las pruebas, firma y publica en
+# https://pokesurvivor3ds.duckdns.org/datos/programa/. Instalar: tools/systemd/instalar.sh
+[Unit]
+Description=PokéSurvivor 3DS: publicar la versión nueva del juego
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+Nice=10
+Environment=HOME=/root
+ExecStart=/usr/bin/python3 /root/pokesurvivor-3ds/tools/publicar_programa.py auto
+TimeoutStartSec=3600

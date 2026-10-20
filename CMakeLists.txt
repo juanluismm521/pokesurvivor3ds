@@ -1,7 +1,7 @@
 # Compilación en PC (Linux) del núcleo del juego y de sus pruebas.
 # La 3DS se compila con el Makefile; esto es sólo src/core + tests/.
 cmake_minimum_required(VERSION 3.16)
-project(pokesurvivor_3ds_pc CXX)
+project(pokesurvivor_3ds_pc C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +12,7 @@ endif()
 
 option(PS_SANITIZE "AddressSanitizer + UBSan" ON)
 
-add_compile_options(-Wall -Wextra -fno-exceptions -fno-rtti)
+add_compile_options(-Wall -Wextra "$<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions;-fno-rtti>")
 if(PS_SANITIZE)
   add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer
                       -fno-sanitize-recover=undefined)
@@ -30,7 +30,7 @@ add_custom_command(OUTPUT ${GEN_DATA} ${GEN_PACK}
   DEPENDS ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
   COMMENT "Generando las tablas del juego")
 
-file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp)
+file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp src/core/*.c)
 add_library(ps_core STATIC ${CORE_SOURCES} ${GEN_DATA})
 target_include_directories(ps_core PUBLIC src)
 

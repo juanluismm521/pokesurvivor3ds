@@ -20,6 +20,7 @@
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/net3ds.h"
+#include "platform/3ds/prog3ds.h"
 #include "platform/3ds/saver3ds.h"
 
 namespace ps {
@@ -307,6 +308,10 @@ void App::update(const UiIn& in0, float dt) {
   cloud_tick();
   // Datos nuevos de la web: se aplican en el menú (nunca en plena partida ni en una sala).
   const bool calm = scene != SC_RUN && scene != SC_COOP && scene != SC_LOBBY && !coop_;
+  {   // versión nueva del juego descargada: se avisa una vez
+    static bool told = false;
+    if (!told && calm && prog3ds::state() == prog3ds::ST_READY) { told = true; g_notices.push("Versión nueva del juego lista", "Se instala al salir (Ajustes → Actualizaciones)", -1); }
+  }
   if (calm && datos3ds::pending()) {
     std::string m;
     if (datos3ds::apply_pending(m)) g_notices.push("Datos del juego al día", ("web del " + datapack_current().fecha).c_str(), -1);
@@ -343,6 +348,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_LOBBY: in_lobby(in, dt); break;
     case SC_ACCOUNT: in_account(in); break;
     case SC_CLOUDASK: in_cloudask(in); break;
+    case SC_UPDATE: in_update(in); break;
     case SC_CREDITS:
       if (in.rep & KEY_DDOWN) scroll_ = std::min(scroll_ + 1, std::max(0, credit_lines_ - 10));
       if (in.rep & KEY_DUP) scroll_ = std::max(0, scroll_ - 1);
@@ -1313,9 +1319,11 @@ void App::in_settings(const UiIn& in) {
       case 7: st_->stereo = !st_->stereo; break;
       case 8: settings_write(dir_, *st_); go(SC_ACCOUNT); return;
       case 9:
+        // A (o tocar): la pantalla de actualizaciones; izquierda/derecha: automáticas sí/no.
+        if ((in.down & KEY_A) || in.tap) { settings_write(dir_, *st_); go(SC_UPDATE); return; }
         st_->datos_auto = !st_->datos_auto;
         settings_write(dir_, *st_);
-        if (st_->datos_auto) datos3ds::start_check();   // (al activarlo, se mira ya)
+        if (st_->datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }   // (al activarlo, se mira ya)
         return;
     }
     apply_settings();
@@ -1326,7 +1334,7 @@ void App::in_settings(const UiIn& in) {
 void App::bottom_settings() {
   header("Ajustes");
   static const char* const L[10] = {"Idioma", "Calidad", "Números de daño", "Menos sacudidas", "Mostrar FPS", "Música", "Efectos", "3D", "Cuenta web",
-                                    "Comprobar actualizaciones automáticamente"};
+                                    "Actualizaciones (A: abrir)"};
   char v[10][24];
   std::snprintf(v[0], 24, "%s", st_->lang == 1 ? "English" : "Español");
   static const char* const Q[4] = {"Auto", "Baja", "Media", "Alta"};
@@ -1344,7 +1352,7 @@ void App::bottom_settings() {
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
   std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
   std::snprintf(v[8], 24, "%.23s", cloud3ds::account().on ? cloud3ds::account().name.c_str() : tr("Sin conectar"));
-  std::snprintf(v[9], 24, "%s", tr(st_->datos_auto ? "Sí" : "No"));
+  std::snprintf(v[9], 24, "%s %s", tr("Automáticas:"), tr(st_->datos_auto ? "Sí" : "No"));
   for (int i = 0; i < 10; ++i) {
     const float y = kSetY + i * kSetStep;
     C2D_DrawRectSolid(6, y, 0, 308, kSetH, i == cur_ ? C_SEL : C_PANEL);
@@ -1533,6 +1541,7 @@ void App::draw_bottom() {
     case SC_LOBBY: bottom_lobby(); break;
     case SC_ACCOUNT: bottom_account(); break;
     case SC_CLOUDASK: bottom_cloudask(); break;
+    case SC_UPDATE: bottom_update(); break;
     default: break;
   }
 }

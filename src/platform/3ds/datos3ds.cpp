@@ -109,6 +109,7 @@ void start_check() {
 }
 
 bool busy() { return g_busy; }
+const std::string& base() { return g_base; }
 bool pending() { return g_ready; }
 bool newer_program() { return g_newer; }
 

@@ -23,6 +23,8 @@
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/datos3ds.h"
+#include "gen/build.h"
+#include "platform/3ds/prog3ds.h"
 #include "platform/3ds/saver3ds.h"
 #include "platform/3ds/net3ds.h"
 #include "platform/3ds/render.h"
@@ -53,7 +55,8 @@ struct Autotest {
   bool die = false;                 // "morir": se deja caer y, cuando le levantan, se cierra
   int down_state = 0;               // 0 vivo, 1 caído, 2 levantado
   double revived_at = 0;
-  bool nube = false, https = false, datos = false;   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
+  bool nube = false, https = false, datos = false;
+  int programa = 0;   // "programa": busca, descarga y sale (se instala al salir) · "programa volver": vuelve a la anterior   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
   char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
   FILE* log = nullptr;
@@ -70,11 +73,12 @@ void read_autotest(Autotest& a) {
   if (!f) return;
   a.on = true;
   int imm = 1;
-  char first[8] = "";
+  char first[16] = "";
   char role[8] = "";
-  if (std::fscanf(f, "%7s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
+  if (std::fscanf(f, "%15s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
   else if (!std::strcmp(first, "https")) a.https = true;
   else if (!std::strcmp(first, "datos")) a.datos = true;
+  else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
     a.coop = true; a.host = !std::strcmp(role, "host"); a.look = !std::strcmp(role, "mirar"); a.immortal = imm != 0;
@@ -95,7 +99,26 @@ u32 mem_free() { return osGetMemRegionFree(MEMREGION_APPLICATION); }
 unsigned long heap_kb() { return (unsigned long)(mallinfo().uordblks / 1024); }
 }  // namespace
 
-int main() {
+// Pantalla de «Instalando…» al salir (la pinta prog3ds::apply).
+Renderer* g_show_r = nullptr;
+C3D_RenderTarget *g_show_top = nullptr, *g_show_bottom = nullptr;
+void show_install(const char* msg, int pct) {
+  if (!g_show_r) return;
+  C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+  C2D_TargetClear(g_show_top, C2D_Color32(16, 22, 34, 255));
+  C2D_SceneBegin(g_show_top);
+  C2D_TextBufClear(g_show_r->tbuf);
+  g_show_r->text("PokéSurvivor 3DS", 200, 90, 0.7f, C2D_Color32(255, 203, 61, 255), 1);
+  g_show_r->text(msg, 200, 124, 0.45f, C2D_Color32(234, 242, 255, 255), 1);
+  C2D_DrawRectSolid(80, 150, 0, 240, 10, C2D_Color32(0, 0, 0, 200));
+  C2D_DrawRectSolid(80, 150, 0, 240.0f * pct / 100, 10, C2D_Color32(255, 203, 61, 255));
+  g_show_r->text("No apagues la consola", 200, 172, 0.36f, C2D_Color32(160, 175, 200, 255), 1);
+  C2D_TargetClear(g_show_bottom, C2D_Color32(16, 22, 34, 255));
+  C2D_SceneBegin(g_show_bottom);
+  C3D_FrameEnd(0);
+}
+
+int main(int argc, char** argv) {
   const u64 boot_t0 = svcGetSystemTick();
   osSetSpeedupEnable(true);
   romfsInit();
@@ -143,6 +166,15 @@ int main() {
   // Datos del juego: los de la SD (el último paquete bajado de la web) o los de fábrica.
   saver3ds::init(kDir);
   const std::string datos_boot = datos3ds::init(kDir);
+  {   // Actualizaciones del programa: de qué .3dsx se ha cargado (en Azahar no lo
+      // dice: programa_ruta.txt en la SD, sólo para pruebas).
+    char ruta[128] = "";
+    if (argc > 0 && argv && argv[0]) std::snprintf(ruta, sizeof(ruta), "%s", argv[0]);
+    char rp[96];
+    std::snprintf(rp, sizeof(rp), "%s/programa_ruta.txt", kDir);
+    if (FILE* f = std::fopen(rp, "rb")) { if (std::fscanf(f, "%127s", ruta) != 1) ruta[0] = 0; std::fclose(f); }
+    prog3ds::init(kDir, ruta);
+  }
   std::unique_ptr<Game> g(new Game());
   static App app;
   app.init(&r, g.get(), save.get(), &settings, kDir);
@@ -161,7 +193,24 @@ int main() {
   }
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
-  if (at.datos) {
+  if (at.programa) {
+    // Actualizar el programa (o volver atrás): espera a que esté listo y sale;
+    // al salir se instala (como al cerrar el juego) y se apunta en programa.log.
+    const u64 t0 = osGetTime();
+    if (at.programa == 1) prog3ds::start_check(true); else prog3ds::start_rollback();
+    while (aptMainLoop() && osGetTime() - t0 < 240000) {
+      const int st = prog3ds::state();
+      if (st == prog3ds::ST_READY || st == prog3ds::ST_FAILED || st == prog3ds::ST_UPTODATE) break;
+      gspWaitForVBlank();
+    }
+    if (at.log) {
+      std::fprintf(at.log, "programa: build %d · %s · %s · pendiente: %s · %.1f s\n", PS_BUILD, prog3ds::supported() ? (prog3ds::is_cia() ? ".cia" : ".3dsx") : "sin ruta",
+                   prog3ds::status().c_str(), prog3ds::pending() ? prog3ds::pending_text().c_str() : "nada", (osGetTime() - t0) / 1000.0);
+      std::fclose(at.log); at.log = nullptr;
+    }
+    at.on = false;
+    app.quit = true;   // (al salir se instala)
+  } else if (at.datos) {
     // Busca datos nuevos, los aplica si los hay, lo apunta y se cierra.
     const u64 t0 = osGetTime();
     datos3ds::start_check();
@@ -220,7 +269,7 @@ int main() {
     return 0;
   } else if (!at.on && !at.tour) {
     app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
-    if (settings.datos_auto) datos3ds::start_check();   // (y, si está activado, los datos nuevos de la web)
+    if (settings.datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }   // (y, si está activado, datos y versión nueva)
   }
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
@@ -364,11 +413,22 @@ int main() {
   saver3ds::shutdown();   // (lo que quedara por escribir, antes de salir)
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
   datos3ds::shutdown();
-  cloud3ds::shutdown();
   audio::exit();
+  romfsExit();   // (el .3dsx se puede cambiar cuando ya no se lee de él)
+  // Versión nueva (o volver a la anterior) pendiente: se instala ahora.
+  if (prog3ds::pending()) {
+    g_show_r = &r; g_show_top = top; g_show_bottom = bottom;
+    const std::string res = prog3ds::apply(show_install);
+    show_install(res.c_str(), 100);
+    char lp[96];   // (lo que ha pasado, para mirarlo luego: programa.log)
+    std::snprintf(lp, sizeof(lp), "%s/programa.log", kDir);
+    if (FILE* lf = std::fopen(lp, "ab")) { std::fprintf(lf, "build %d → %s\n", PS_BUILD, res.c_str()); std::fclose(lf); }
+    for (int i = 0; i < 90 && aptMainLoop(); ++i) gspWaitForVBlank();   // (un momento para leerlo)
+  }
+  prog3ds::shutdown();
+  cloud3ds::shutdown();
   C2D_Fini();
   C3D_Fini();
   gfxExit();
-  romfsExit();
   return 0;
 }

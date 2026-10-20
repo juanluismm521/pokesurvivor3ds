@@ -10,6 +10,8 @@
 #include <cstring>
 #include <ctime>
 
+#include "core/update.h"
+
 namespace ps {
 // Configuración de Firebase de la web (js/core/firebase-config.js, la saca
 // tools/gen_data.js): no es secreta, va en la web; lo que protege las
@@ -356,6 +358,55 @@ bool http_get(const std::string& url, std::string& body, int& status, std::strin
   body.swap(rs.body);
   if (!ok) err = "Sin conexión con el servidor.";
   return ok && status == 200;
+}
+
+namespace {
+struct Dl { FILE* f; UpdateHasher h; uint64_t got, expect; volatile int* pct; volatile bool* cancel; bool too_big; };
+size_t dl_write(char* p, size_t sz, size_t n, void* ud) {
+  Dl& d = *static_cast<Dl*>(ud);
+  const size_t len = sz * n;
+  if ((d.cancel && *d.cancel) || d.got + len > d.expect) { d.too_big = d.got + len > d.expect; return 0; }   // (corta)
+  if (std::fwrite(p, 1, len, d.f) != len) return 0;
+  d.h.add(p, len);
+  d.got += len;
+  if (d.pct) *d.pct = int(d.got * 100 / (d.expect ? d.expect : 1));
+  return len;
+}
+}  // namespace
+
+bool http_download(const std::string& url, const std::string& path, uint64_t expect, const uint8_t hash[32],
+                   volatile int* pct, volatile bool* cancel, std::string& err) {
+  if (!net_up()) { err = "No hay conexión a internet."; return false; }
+  const std::string tmp = path + ".tmp";
+  Dl d{std::fopen(tmp.c_str(), "wb"), UpdateHasher(), 0, expect, pct, cancel, false};
+  if (!d.f) { err = "No se puede escribir en la SD."; return false; }
+  std::setvbuf(d.f, nullptr, _IOFBF, 64 * 1024);
+  CURL* c = curl_easy_init();
+  if (!c) { std::fclose(d.f); std::remove(tmp.c_str()); err = "Sin memoria."; return false; }
+  curl_easy_setopt(c, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, dl_write);
+  curl_easy_setopt(c, CURLOPT_WRITEDATA, &d);
+  curl_easy_setopt(c, CURLOPT_CAINFO, "romfs:/cacert.pem");
+  curl_easy_setopt(c, CURLOPT_USERAGENT, "PokeSurvivor3DS/1.0");
+  curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 15L);
+  curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 512L);   // (parada más de 30 s: se corta y se reintenta otro día)
+  curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 30L);
+  curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(c, CURLOPT_FAILONERROR, 1L);
+  const CURLcode r = curl_easy_perform(c);
+  curl_easy_cleanup(c);
+  const bool closed = std::fclose(d.f) == 0;
+  uint8_t got[32];
+  d.h.done(got);
+  if (r != CURLE_OK || !closed) {
+    std::remove(tmp.c_str());
+    err = (cancel && *cancel) ? "Cancelado." : d.too_big ? "El archivo no es el que debía." : "La descarga se ha cortado.";
+    return false;
+  }
+  if (d.got != expect || std::memcmp(got, hash, 32) != 0) { std::remove(tmp.c_str()); err = "El archivo ha llegado mal (la huella no cuadra)."; return false; }
+  std::remove(path.c_str());
+  if (std::rename(tmp.c_str(), path.c_str()) != 0) { std::remove(tmp.c_str()); err = "No se puede escribir en la SD."; return false; }
+  return true;
 }
 
 int probe_https(std::string& curl_error) {

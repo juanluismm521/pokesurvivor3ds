@@ -17,6 +17,8 @@ namespace datos3ds {
 
 // Lee y aplica el paquete de la SD (sin red). Devuelve el texto para el log.
 std::string init(const char* dir);
+// Dirección del servidor de datos (…/datos/, o la de datos_url.txt).
+const std::string& base();
 // Comprobación en segundo plano (una a la vez).
 void start_check();
 bool busy();

@@ -51,6 +51,11 @@ void shutdown();
 bool soc_up();
 // GET por HTTPS (para los paquetes de datos; se puede llamar desde otro hilo).
 bool http_get(const std::string& url, std::string& body, int& status, std::string& err);
+// Descarga grande a un archivo (para las versiones nuevas del juego): escribe en
+// `path`.tmp y, si llega entera (tamaño `expect` y huella `hash`), la pasa a
+// `path`. `pct` (0-100) para enseñar el avance; `cancel` la corta.
+bool http_download(const std::string& url, const std::string& path, uint64_t expect, const uint8_t hash[32],
+                   volatile int* pct, volatile bool* cancel, std::string& err);
 // Prueba de HTTPS (autotest): una renovación con un token inventado, que la
 // nube tiene que rechazar (400). Devuelve el código HTTP (0 = sin conexión) y
 // el error de curl si lo hay. No toca ningún dato.

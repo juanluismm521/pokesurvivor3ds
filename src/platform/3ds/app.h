@@ -19,7 +19,7 @@ namespace ps {
 
 enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_START, SC_GACHA, SC_PULL,
-  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK
+  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE
 };
 
 struct UiIn {
@@ -93,6 +93,8 @@ class App {
   void bottom_coop();
   void bottom_lobby();
   void bottom_account();
+  void in_update(const UiIn& in);   // Actualizaciones del juego (app_update.cpp)
+  void bottom_update();
   void bottom_cloudask();
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);

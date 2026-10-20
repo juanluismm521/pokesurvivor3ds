@@ -174,6 +174,7 @@ endif
 all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(T3XHFILES)
 	@mkdir -p $(ROMFS)
 	@node tools/gen_data.js $(GENDIR)/gamedata.cpp
+	@tools/gen_build.sh $(GENDIR)/build.h
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 $(BUILD):

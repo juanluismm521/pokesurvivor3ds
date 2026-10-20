@@ -153,7 +153,9 @@ El QR de «Entrar con Google» se hace con
 [QR Code generator](https://github.com/nayuki/QR-Code-generator) de Project Nayuki
 (licencia MIT, en `src/platform/3ds/qrcodegen.c`). La conexión con la web usa
 [curl](https://curl.se/) y [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/)
-de los paquetes de devkitPro.
+de los paquetes de devkitPro. Las actualizaciones del juego van firmadas con
+[Monocypher](https://monocypher.org/) de Loup Vaillant (BSD-2 / CC0, en
+`src/core/monocypher.c`).
 
 ## Marca
 

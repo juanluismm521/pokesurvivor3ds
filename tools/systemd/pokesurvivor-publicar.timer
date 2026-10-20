@@ -1,0 +1,11 @@
+# Cada 10 minutos se mira si hay commits nuevos en main.
+[Unit]
+Description=PokéSurvivor 3DS: mirar si hay versión nueva que publicar
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -79,6 +79,10 @@ o con «Sincronizar ahora». En la web, recarga la página para ver lo de la 3DS
      *Install CIA*. Sale en el menú principal; se borra desde Configuración
      de la consola → Gestión de datos → Programas, o con FBI → *Titles*.
    - **Desde el Homebrew Launcher:** copia `pokesurvivor-3ds.3dsx` a `sd:/3ds/`.
+   - **Actualizaciones:** Ajustes → Actualizaciones → «Buscar solas al
+     encender: Sí». El juego descarga solo las versiones nuevas (firmadas por
+     el proyecto) y se instalan **al salir del juego**. En la misma pantalla:
+     «Instalar ahora» y «Volver a la versión anterior».
 3. Para el sonido hace falta `sd:/3ds/dspfirm.cdc` (se saca una vez con DSP1).
 4. Para jugar por internet y sincronizar con la web, la consola necesita wifi.
 
@@ -118,6 +122,7 @@ tools/setup_vps.sh                       # devkitPro (imagen Docker oficial), No
 tools/build_assets.sh                    # recursos de la web → romfs/ (sprites, arte, fuente, sonido)
 source tools/env.sh && make              # → pokesurvivor-3ds.3dsx
 tools/make_cia.sh                        # → pokesurvivor-3ds.cia (menú HOME; baja makerom y bannertool)
+tools/publicar_programa.py publicar|volver|estado   # versiones para que las consolas se actualicen solas
 cmake -S . -B build-pc && cmake --build build-pc -j2 && (cd build-pc && ctest)   # pruebas en PC
 ```
 
