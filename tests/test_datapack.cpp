@@ -47,7 +47,14 @@ std::string numbers() {
   for (int i = 0; i < kDexCount; ++i) { const Mon& m = kDex[i]; s.append(reinterpret_cast<const char*>(&m.hp), sizeof(m.hp) * 2); s.append(reinterpret_cast<const char*>(&m.atk), sizeof(float) * 3 + 4); }
   for (int i = 0; i < kMoveCount; ++i) s.append(reinterpret_cast<const char*>(kMoves[i].v), sizeof(kMoves[i].v)), s.append(reinterpret_cast<const char*>(&kMoves[i].has), 4);
   s.append(reinterpret_cast<const char*>(kTypeChart), sizeof(kTypeChart));
-  for (int i = 0; i < kTierCount; ++i) s.append(reinterpret_cast<const char*>(&kTiers[i]), sizeof(Tier));
+  // (campo a campo: el relleno entre campos de la estructura no cuenta)
+  for (int i = 0; i < kTierCount; ++i) {
+    const Tier& t = kTiers[i];
+    const float f[4] = {t.hp, t.spd, t.dmg, t.xp};
+    const int16_t k[4] = {t.from, t.bst0, t.bst1, int16_t(t.cast)};
+    s.append(reinterpret_cast<const char*>(f), sizeof(f));
+    s.append(reinterpret_cast<const char*>(k), sizeof(k));
+  }
   s.append(reinterpret_cast<const char*>(kGachaRates), sizeof(kGachaRates));
   for (int i = 0; i < UP_COUNT; ++i) { s += char(kUpgrades[i].max); s.append(reinterpret_cast<const char*>(&kUpgrades[i].grow), 4); }
   for (int i = 0; i < kMissionCount; ++i) s.append(reinterpret_cast<const char*>(kMissions[i].goals), sizeof(kMissions[i].goals));
