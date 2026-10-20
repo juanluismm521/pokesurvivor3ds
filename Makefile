@@ -44,7 +44,7 @@ ROMFS		:=	romfs
 
 APP_TITLE	:=	PokéSurvivor 3DS
 APP_DESCRIPTION	:=	Bullet-heaven con Pokémon (proyecto de fans)
-APP_AUTHOR	:=	JPTER78
+APP_AUTHOR	:=	juanluismm520
 ICON		:=	assets-src/icon-48.png
 
 #---------------------------------------------------------------------------------
@@ -57,6 +57,10 @@ CFLAGS	:=	-g -Wall -Wextra -O2 -mword-relocations \
 			$(ARCH)
 
 CFLAGS	+=	$(INCLUDE) -D__3DS__
+# make DEPURAR=1: build de pruebas (rejilla.txt en la SD dibuja las colisiones)
+ifeq ($(DEPURAR),1)
+CFLAGS	+=	-DPS_DEPURAR
+endif
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
 

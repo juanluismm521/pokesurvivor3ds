@@ -72,8 +72,13 @@ o con «Sincronizar ahora». En la web, recarga la página para ver lo de la 3DS
   - antes de cada sincronización guarda copias en la SD.
 
 ## Instalar en la consola
-1. Una 3DS con *custom firmware* y el Homebrew Launcher.
-2. Copia `pokesurvivor-3ds.3dsx` a `sd:/3ds/` y ábrelo desde el Homebrew Launcher.
+1. Una 3DS con *custom firmware* (Luma3DS).
+2. Elige una de las dos formas (las dos usan la misma partida):
+   - **En el menú HOME, como un juego más** (con su icono, banner y sonido):
+     copia `pokesurvivor-3ds.cia` a la SD, abre **FBI** → *SD* → el archivo →
+     *Install CIA*. Sale en el menú principal; se borra desde Configuración
+     de la consola → Gestión de datos → Programas, o con FBI → *Titles*.
+   - **Desde el Homebrew Launcher:** copia `pokesurvivor-3ds.3dsx` a `sd:/3ds/`.
 3. Para el sonido hace falta `sd:/3ds/dspfirm.cdc` (se saca una vez con DSP1).
 4. Para jugar por internet y sincronizar con la web, la consola necesita wifi.
 
@@ -112,6 +117,7 @@ Todo se hace en Linux (en el proyecto, un VPS sin pantalla):
 tools/setup_vps.sh                       # devkitPro (imagen Docker oficial), Node, Python, Azahar...
 tools/build_assets.sh                    # recursos de la web → romfs/ (sprites, arte, fuente, sonido)
 source tools/env.sh && make              # → pokesurvivor-3ds.3dsx
+tools/make_cia.sh                        # → pokesurvivor-3ds.cia (menú HOME; baja makerom y bannertool)
 cmake -S . -B build-pc && cmake --build build-pc -j2 && (cd build-pc && ctest)   # pruebas en PC
 ```
 

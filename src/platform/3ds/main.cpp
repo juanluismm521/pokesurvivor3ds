@@ -111,11 +111,14 @@ int main() {
     gfxExit();
     return 1;
   }
-  {   // rejilla.txt en la SD: depuración de colisiones (ver Renderer::debug_grid)
+#ifdef PS_DEPURAR
+  {   // rejilla.txt en la SD: depuración de colisiones (ver Renderer::debug_grid).
+      // Sólo en las builds de pruebas (make DEPURAR=1), nunca en la del dueño.
     char rp[96];
     std::snprintf(rp, sizeof(rp), "%s/rejilla.txt", kDir);
     if (FILE* f = std::fopen(rp, "rb")) { std::fclose(f); r.debug_grid = true; r.chunks.debug_marks = true; }
   }
+#endif
 
   // Partida guardada y ajustes (en la SD).
   std::unique_ptr<Save> save(new Save());
