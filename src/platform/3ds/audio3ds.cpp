@@ -164,7 +164,9 @@ bool init() {
   ndspSetCallback(on_dsp, nullptr);
   s32 prio = 0x30;
   svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-  g_thread = threadCreate(music_thread, nullptr, 32 * 1024, prio - 1, -2, false);
+  // (128 KB: Vorbis pide mucha pila al decodificar y, en el .cia, leer del romfs
+  // pasa por más capas del sistema; con 32 KB el .cia se caía con «stack overflow»)
+  g_thread = threadCreate(music_thread, nullptr, 128 * 1024, prio - 1, -2, false);
   return true;
 }
 

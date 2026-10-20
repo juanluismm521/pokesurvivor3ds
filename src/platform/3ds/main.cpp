@@ -31,6 +31,11 @@ using namespace ps;
 
 namespace {
 constexpr const char* kDir = "sdmc:/3ds/pokesurvivor-3ds";
+}  // namespace
+// Pila del hilo principal (libctru la reserva al arrancar; por defecto 32 KB,
+// justa en el .cia, donde cada lectura del romfs pasa por más capas).
+extern "C" { u32 __stacksize__ = 256 * 1024; }
+namespace {
 int g_hitch_n = 0, g_hitch_max = 0;   // tirones (fotogramas de más de 50 ms)
 int g_ms_logic = 0, g_ms_ground = 0, g_ms_draw = 0;   // en qué se fue el fotograma anterior
 char g_hitch_where[24] = "-";

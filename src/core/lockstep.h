@@ -34,7 +34,7 @@ constexpr int kRing = 256;           // pasos guardados (más que kDelay + kRese
 constexpr int kHashEvery = 60;       // huella cada segundo
 constexpr int kTimeoutFrames = 60 * 20;   // 20 s sin noticias: se le da por ido
 constexpr int kMaxPacket = 1024;
-constexpr uint32_t kMagic = 0x50535334;   // 'PSS4' + versión del protocolo
+constexpr uint32_t kMagic = 0x50535335;   // 'PSS5' + versión del protocolo (5: retraso de cada uno)
 // Lo que va en cada paquete: la versión del protocolo mezclada con la huella
 // de los datos del juego (gen_data). Dos 3DS con datos distintos (otra versión
 // de la web) se ignoran: si jugaran juntas, sus partidas se separarían.
@@ -76,6 +76,9 @@ class Lockstep {
   // adelanto (en local kDelay; por internet, según el ping).
   void begin(int me, int n, int delay = kDelay);
   int delay() const { return delay_; }
+  // Anfitrión: el retraso que aconseja a cada jugador (lo mide él: con cuánta
+  // antelación le llegan sus entradas). Va en cada paquete de paso.
+  int advised(int p) const { return want_[p & (kMaxPlayers - 1)]; }
   bool active() const { return on_; }
   bool host() const { return me_ == 0; }
   int me() const { return me_; }
@@ -131,6 +134,13 @@ class Lockstep {
   uint32_t peer_hash_[kMaxPlayers][kHashRing];
   int64_t my_tick_[kHashRing];
   bool desync_ = false, lost_host_ = false;
+  // Retraso de cada uno (lo decide el anfitrión): el que tiene mucho ping se
+  // adelanta más con sus entradas y sólo él nota el retraso; los demás no le
+  // esperan. lead_min_: la menor antelación vista en el último segundo.
+  int want_[kMaxPlayers] = {};
+  int lead_min_[kMaxPlayers] = {};
+  int calm_[kMaxPlayers] = {};
+  int waited_[kMaxPlayers] = {};     // fotogramas que se le ha esperado en el último segundo
 
   void host_collect();               // anfitrión: pasa a "repartido" lo que ya está completo
   void check_hash(int who, int64_t t);

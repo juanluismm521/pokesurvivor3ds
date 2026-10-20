@@ -18,6 +18,7 @@ struct Account {
   std::string name, uid, refresh, dev;
   int64_t delta = 0;             // hora del servidor - hora de la consola
   int64_t last_sync = 0;         // (hora de la consola)
+  int synced_partner = -1;       // compañero en la última sincronización (cloud::partner_code)
 };
 
 enum JobState { JOB_IDLE, JOB_BUSY, JOB_DONE, JOB_FAILED };

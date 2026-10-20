@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "core/websave.h"
@@ -234,6 +235,22 @@ bool refresh(Client& c, Session& s) {
   return true;
 }
 
+int partner_code(const Json& s) {
+  const Json& p = s["partner"];
+  const int d = p.is_num() ? int(p.as_num()) : p.is_str() ? std::atoi(p.as_str().c_str()) : 0;
+  if (d <= 0) return -1;
+  return d * 2 + (s["partnerShiny"].as_bool() ? 1 : 0);
+}
+
+void set_partner_code(Json& s, int code) {
+  if (code < 0) return;
+  char k[16];
+  std::snprintf(k, sizeof(k), "%d", code / 2);
+  if (!s["owned"][k].is_obj() && !s["owned"][k].as_bool()) return;   // (sólo si lo tiene)
+  s.set("partner", Json::num(code / 2));
+  s.set("partnerShiny", Json::boolean((code & 1) && (s["shiny"][k].is_obj() || s["shiny"][k].as_bool())));
+}
+
 int64_t parse_timestamp(const std::string& t) {
   int y, mo, d, h, mi, se;
   if (t.size() < 20 || std::sscanf(t.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d", &y, &mo, &d, &h, &mi, &se) != 6) return 0;
@@ -329,6 +346,17 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     web::fold(local, dev);
     const Json rem = remote.is_obj() ? web::migrate(remote, "", now, false) : Json();
     merged = rem.is_obj() ? web::merge_safe(local, rem, now) : local;
+    // El compañero: la fusión de la web se queda con el de la copia más nueva,
+    // pero la consola guarda por cualquier cosa (una misión, un logro) y su
+    // copia suele parecer más nueva aunque el compañero se cambiara en la web.
+    // Se mira dónde se cambió desde la última sincronización de esta consola:
+    //   primera vez con esta cuenta → el de la web; sólo en la web → el de la
+    //   web; sólo aquí → el de aquí; en los dos → lo de la fusión.
+    if (rem.is_obj()) {
+      const int lp = partner_code(local), rp = partner_code(rem), base = c.base_partner;
+      if (rp >= 0 && (base < 0 || (lp == base && rp != base))) set_partner_code(merged, rp);
+      else if (lp >= 0 && lp != base && rp == base) set_partner_code(merged, lp);
+    }
     // Última red de seguridad: si la fusión perdiera algo, no se sube nada.
     std::string lost;
     if (web::loses_progress(rem, merged, lost) || web::loses_progress(local, merged, lost)) {

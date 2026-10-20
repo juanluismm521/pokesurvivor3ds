@@ -48,10 +48,12 @@ Input unpack_input(const uint8_t* b) {
 static void put_member(W& w, const RunConfig::Member& m) {
   w.u16(uint32_t(m.dex)); w.u8(m.shiny ? 1 : 0);
   w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.u8(uint8_t(m.pstart)); w.raw(m.name, 16);
+  w.u8(m.immortal ? 1 : 0);
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
   r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); m.pstart = int8_t(r.u8()); r.raw(m.name, 16);
+  m.immortal = r.u8() != 0;
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }
 }
@@ -82,7 +84,11 @@ bool read_config(const uint8_t* b, int len, RunConfig& c) {
 
 void Lockstep::begin(int me, int n, int delay) {
   on_ = true;
-  delay_ = delay < 2 ? 2 : delay > kRing / 4 ? kRing / 4 : delay;
+  delay = delay < 2 ? 2 : delay > kRing / 4 ? kRing / 4 : delay;
+  // El anfitrión, el mínimo (sus entradas no viajan); los invitados empiezan
+  // con el que se calculó al empezar y el anfitrión lo ajusta para cada uno.
+  delay_ = me == 0 ? std::min(delay, kDelay) : delay;
+  for (int i = 0; i < kMaxPlayers; ++i) { want_[i] = i == 0 ? delay_ : delay; lead_min_[i] = 1 << 20; calm_[i] = 0; waited_[i] = 0; }
   me_ = me; n_ = n;
   sim_ = local_ = bundled_ = 0;
   std::memset(have_, 0, sizeof(have_));
@@ -186,6 +192,10 @@ void Lockstep::on_packet(const uint8_t* data, int len, int from) {
       if (!have_[slot][p]) { in_[slot][p] = unpack_input(b); have_[slot][p] = true; }
     }
     if (!r.ok) return;
+    {   // antelación: cuántos pasos por delante de lo repartido trae su última entrada
+      const int lead = int(first + count - bundled_);
+      if (lead < lead_min_[p]) lead_min_[p] = lead;
+    }
     heard_[p] = 0;
     if (ack > acked_[p]) acked_[p] = ack;
     got_hash(p, ht, hh);
@@ -199,6 +209,9 @@ void Lockstep::on_packet(const uint8_t* data, int len, int from) {
     const uint32_t hh = r.u32();
     const uint32_t flags = r.u8();
     const uint8_t wait = uint8_t(r.u8());
+    int want = 0;
+    for (int p = 0; p < n; ++p) { const int v = int(r.u8()); if (p == me_) want = v; }
+    if (r.ok && want >= 2 && want <= kRing / 4) delay_ = want;   // (el que me aconseja el anfitrión)
     for (int k = 0; k < count && r.ok; ++k) {
       uint8_t b[kMaxPlayers][kInputBytes];
       for (int p = 0; p < n; ++p) r.raw(b[p], kInputBytes);
@@ -233,20 +246,25 @@ int Lockstep::outbox(Packet* out, int max) {
     if (from < bundled_ - kRing / 2) from = bundled_ - kRing / 2;
     const int per = n_ * kInputBytes;
     int count = int(bundled_ - from);
-    const int fit = (kMaxPacket - 24) / per;
+    const int fit = (kMaxPacket - 24 - kMaxPlayers) / per;   // (cabecera: 21 bytes + el retraso de cada uno)
     if (count > fit) count = fit;
     if (count > 255) count = 255;
     w.u8(MSG_BUNDLE); w.u8(uint32_t(n_)); w.u32(uint32_t(from)); w.u8(uint32_t(count));
     w.u32(uint32_t(int32_t(ht))); w.u32(hh);
     w.u8(desync_ ? 1 : 0); w.u8(waiting_mask());
+    for (int p = 0; p < n_; ++p) w.u8(uint32_t(want_[p]));
     for (int k = 0; k < count; ++k) {
       const int slot = int((from + k) % kRing);
       for (int p = 0; p < n_; ++p) { uint8_t b[kInputBytes]; pack_input(in_[slot][p], b); w.raw(b, kInputBytes); }
     }
     pk.to = -1;
   } else {
-    int64_t from = local_ - kResend;
-    if (from < bundled_) from = bundled_;        // (lo anterior ya lo tiene el anfitrión)
+    // Todo lo que el anfitrión aún no ha repartido (no sólo las últimas
+    // kResend: si el retraso sube, las entradas saltan varios pasos de golpe y
+    // las del hueco no llegarían nunca). Sin pasar de lo que cabe.
+    int64_t from = bundled_;                     // (lo anterior ya lo tiene el anfitrión)
+    const int fit = (kMaxPacket - 32) / kInputBytes;
+    if (from < local_ - fit) from = local_ - fit;
     if (from < 0) from = 0;
     const int count = int(local_ - from);
     w.u8(MSG_INPUT); w.u8(uint32_t(me_)); w.u32(uint32_t(from)); w.u8(uint32_t(count));
@@ -263,7 +281,28 @@ void Lockstep::tick_frame() {
   frames_++;
   for (int i = 0; i < kMaxPlayers; ++i) if (heard_[i] < 1 << 30) heard_[i]++;
   stall_ = ready() ? 0 : stall_ + 1;
-  if (host()) host_collect();
+  if (host()) {
+    // A quién se espera ahora mismo (sólo si el anfitrión está parado por él).
+    const uint8_t waiting = waiting_mask();
+    for (int p = 1; p < n_; ++p) if ((waiting & (1 << p)) && local_ >= sim_ + delay_) waited_[p]++;
+    if (frames_ % 60 == 0) {
+      for (int p = 1; p < n_; ++p) {
+        if (gone_[p]) continue;
+        const int lm = lead_min_[p] >= (1 << 20) ? 0 : lead_min_[p];
+        if (waited_[p] > 3) {                       // se le ha esperado: más antelación ya
+          want_[p] = std::min(kRing / 4, want_[p] + 2 + waited_[p] / 6);
+          calm_[p] = 0;
+        } else if (lm > 6 && waited_[p] == 0) {     // le sobra: se le quita (más deprisa cuanto más sobre)
+          if (++calm_[p] >= 2) { want_[p] = std::max(kDelay / 2, want_[p] - std::max(1, (lm - 6) / 3)); calm_[p] = 0; }
+        } else {
+          calm_[p] = 0;
+        }
+        lead_min_[p] = 1 << 20;
+        waited_[p] = 0;
+      }
+    }
+    host_collect();
+  }
   else if (heard_[0] > kTimeoutFrames) lost_host_ = true;
 }
 

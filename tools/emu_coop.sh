@@ -45,7 +45,10 @@ setup() {   # $1 = A|B, $2 = rol, $3 = dex
   sed -i 's/^Multiplayer\\ip=.*/Multiplayer\\ip=127.0.0.1/; s/^Multiplayer\\ip\\default=true/Multiplayer\\ip\\default=false/' "$D/config/azahar-emu/qt-config.ini"
   local SD="$D/data/azahar-emu/sdmc/3ds/pokesurvivor-3ds"
   mkdir -p "$SD"; rm -f "$SD/autotest.log"
-  echo "coop $2 $SECS $3 1${ONLINE:+ online}" > "$SD/autotest.txt"
+  # COOP_MORIR=1: el invitado no es inmortal y se deja matar (para ver al caído
+  # mirando a sus compañeros con L/R).
+  if [ "${COOP_MORIR:-0}" = 1 ] && [ "$2" = join ]; then echo "coop $2 $SECS $3 0${ONLINE:+ online} morir" > "$SD/autotest.txt"
+  else echo "coop $2 $SECS $3 1${ONLINE:+ online}" > "$SD/autotest.txt"; fi
 }
 setup A host 25
 setup B join 4
@@ -86,7 +89,7 @@ end=$((SECONDS + SECS * 3 + 120)); shot=0
 while [ $SECONDS -lt $end ]; do
   if grep -q FIN "$LA" 2>/dev/null && grep -q FIN "$LB" 2>/dev/null; then break; fi
   sleep 10
-  if grep -q "^t=" "$LA" 2>/dev/null && [ $shot -lt 3 ]; then
+  if grep -q "^t=" "$LA" 2>/dev/null && [ $shot -lt ${COOP_SHOTS:-3} ]; then
     shot=$((shot + 1))
     for d in 97 98; do   # (fuera las ventanas de la sala, que tapan el juego)
       for w in $(DISPLAY=:$d xdotool search --name "members|Direct Connect" 2>/dev/null); do DISPLAY=:$d xdotool windowmove $w 1300 900; done

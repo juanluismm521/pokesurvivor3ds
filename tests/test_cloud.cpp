@@ -340,3 +340,34 @@ TEST_CASE("entrar con Google: código en la consola, se acepta en el móvil y es
   CHECK(cloud::google_poll(c, d, s) == -1);
   CHECK(c.error.find("cancelado") != std::string::npos);
 }
+
+TEST_CASE("sincronizar: el compañero, de donde se cambió (no el de la copia más nueva)") {
+  // En la nube: Pikachu (25). En la consola, más nueva: Squirtle (7).
+  auto run = [](int base, int& partner_out) {
+    FakeFs fs;
+    fs.doc = Json::object();
+    fs.doc.set("save", web::to_firestore(future_web_save()));
+    fs.doc.set("v", web::to_firestore(Json::num(3)));
+    Json local = web::new_save("Ana", 1);
+    Json owned = Json::object(), e = Json::object();
+    e.set("at", Json::num(5)); e.set("from", Json::str("starter"));
+    owned.set("7", e);
+    local.set("owned", owned);
+    local.set("partner", Json::num(7));
+    local.set("updated", Json::num(1900000000000.0));   // (más nueva que la de la nube)
+    cloud::Client c;
+    c.http = fake_http; c.ctx = &fs;
+    c.base_partner = base;
+    cloud::Session ses;
+    REQUIRE(cloud::login(c, "Ana", "x", ses));
+    Json merged;
+    REQUIRE_MESSAGE(cloud::sync(c, ses, local, "ctrprueba", 1800000002000LL, merged), c.error);
+    partner_out = int(merged["partner"].as_num());
+    CHECK(int(web::from_firestore(fs.doc["save"])["partner"].as_num()) == partner_out);   // (y eso es lo que se sube)
+    save_raw() = Json();
+  };
+  int p = 0;
+  run(-1, p);     CHECK(p == 25);   // primera vez con esta cuenta: el de la web
+  run(25 * 2, p); CHECK(p == 7);    // sólo se cambió en la consola
+  run(7 * 2, p);  CHECK(p == 25);   // sólo se cambió en la web
+}

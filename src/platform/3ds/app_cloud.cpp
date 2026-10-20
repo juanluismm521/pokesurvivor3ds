@@ -96,12 +96,12 @@ void App::cloud_autostart() {
   // al final de cada partida se sube SIEMPRE lo último.
   if (cloud3ds::state() != cloud3ds::JOB_IDLE) { cloud_want_ = true; return; }
   cloud_want_ = false;
-  cloud_t0_updated_ = s_->updated;
+  cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
   cloud3ds::start_sync(save_full_json(*s_));
 }
 
 bool App::cloud_test(const char* user, const char* pass) {
-  cloud_t0_updated_ = s_->updated;
+  cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
   if (!std::strcmp(user, "google")) return cloud3ds::start_google(save_full_json(*s_));   // (autotest "nube google -")
   return cloud3ds::start_login(user, pass, save_full_json(*s_));
 }
@@ -125,7 +125,10 @@ void App::cloud_tick() {
     const int64_t now = now_ms() + cloud3ds::account().delta;
     mine = web::migrate(mine, "", now, false);
     web::fold(mine, cloud3ds::account().dev);
+    const int synced = cloud::partner_code(merged);
     merged = web::merge_safe(mine, merged, now);
+    // (si el compañero no se ha cambiado mientras, el que decidió la sincronización)
+    if (s_->partner * 2 + (s_->partner_shiny ? 1 : 0) == cloud_t0_partner_) cloud::set_partner_code(merged, synced);
   }
   // Copias de seguridad en la SD: la partida de aquí y la de la nube, como estaban.
   {
@@ -209,19 +212,19 @@ void App::in_account(const UiIn& in) {
   if (!a.on && pick == 1) {
     // Entrar con Google (QR a la página del servidor, o código de google.com/device).
     cloud_msg_[0] = 0;
-    cloud_t0_updated_ = s_->updated;
+    cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
     cloud3ds::start_google(save_full_json(*s_));
   } else if (!a.on) {
     char user[48], pass[64];
     if (!ask("Usuario de pokesurvivor.com", user, 17, false)) return;
     if (!ask("Contraseña", pass, 64, true)) return;
-    cloud_t0_updated_ = s_->updated;
+    cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
     cloud_msg_[0] = 0;
     cloud3ds::start_login(user, pass, save_full_json(*s_));
     std::memset(pass, 0, sizeof(pass));
   } else if (pick == 0) {
     cloud_msg_[0] = 0;
-    cloud_t0_updated_ = s_->updated;
+    cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
     cloud3ds::start_sync(save_full_json(*s_));
   } else {
     cloud3ds::logout();

@@ -208,7 +208,7 @@ void SpriteBank::init() {
   // SD, así que apenas quita tiempo a la partida.
   s32 prio = 0x30;
   svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-  thr_ = threadCreate(worker, this, 16 * 1024, prio - 1, -2, true);
+  thr_ = threadCreate(worker, this, 64 * 1024, prio - 1, -2, true);   // (lee y descomprime del romfs: pila de sobra)
 }
 
 void SpriteBank::unload(SpriteSet& s) {
@@ -365,7 +365,7 @@ void ChunkCache::init() {
   if (!n3ds) APT_SetAppCpuTimeLimit(30);   // la vieja: el núcleo 1 se comparte con el sistema
   s32 prio = 0x30;
   svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-  thr_ = threadCreate(worker, this, 32 * 1024, prio + 1, n3ds ? 2 : 1, false);
+  thr_ = threadCreate(worker, this, 64 * 1024, prio + 1, n3ds ? 2 : 1, false);
   for (auto& s : slots_) {
     s.used = s.ready = s.painting = false;
     C3D_TexInit(&s.tex, kChunkPx, kChunkPx, GPU_RGB565);

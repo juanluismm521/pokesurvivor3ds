@@ -56,6 +56,9 @@ struct Renderer {
   void text(const char* s, float x, float y, float size, u32 color, int align = 0, bool shadow = true);
   float text_wrap(const char* s, float x, float y, float size, u32 color, float width, int align = 0);
   float text_width(const char* s, float size);
+  // Texto que cabe en maxw (alineado a la izquierda): baja la letra hasta la
+  // pequeña y, si ni así, lo corta con «…». Devuelve el ancho dibujado.
+  float text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = false);
   void draw_sprite(const Animator& a, float sx, float sy, u32 flash_mode, float alpha);
   void draw_shape(int shape, int pal, int frame, float sx, float sy, float angle, float scale, float alpha);
 };

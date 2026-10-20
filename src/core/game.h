@@ -380,6 +380,10 @@ struct RunConfig {
     int8_t pban[3] = {-1, -1, -1};
     int8_t pstart = -1;
     char name[16] = {};
+    // Pruebas: la vida de ESTE jugador nunca baja de 1. Va con los datos de la
+    // sala para que todas las consolas lo simulen igual (debug_immortal es de
+    // la partida entera).
+    bool immortal = false;
   };
   int nplayers = 1;
   Member members[4];

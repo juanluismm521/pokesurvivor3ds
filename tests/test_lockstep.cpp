@@ -52,12 +52,13 @@ struct Net {
   int lat_min = 1, lat_max = 1;
   std::vector<Wire> q;
   bool cut[kMaxPlayers] = {};    // consola desconectada: ni manda ni recibe
+  int lag[kMaxPlayers] = {};     // fotogramas de más en todo lo que va o viene de esa consola (su ping)
   void send(int frame, int from, int to, const uint8_t* d, int len) {
     if (cut[from] || cut[to]) return;
     const int copies = rng.next() < dup ? 2 : 1;
     for (int c = 0; c < copies; ++c) {
       if (rng.next() < loss) continue;
-      q.push_back({frame + rng.range_int(lat_min, lat_max), from, to, std::vector<uint8_t>(d, d + len)});
+      q.push_back({frame + rng.range_int(lat_min, lat_max) + lag[from] + lag[to], from, to, std::vector<uint8_t>(d, d + len)});
     }
   }
 };
@@ -102,7 +103,8 @@ Result play(int n, uint32_t seed, int frames, Net& net, std::vector<Console>& cs
       Console& c = cs[size_t(i)];
       if (net.cut[i]) continue;   // (consola "apagada")
       while (c.ls.want_local()) { Input in; c.bot.decide(*c.g, in, i); c.ls.push_local(in); }
-      for (int s = 0; s < 2 && c.ls.ready(); ++s) {
+      // A 60 pasos por segundo, como la consola (se pone al día si va atrasada, hasta 3 por fotograma).
+      for (int s = 0; s < 3 && c.ls.ready() && c.ls.tick() <= f; ++s) {
         c.ls.step(*c.g);
         if (c.ls.tick() % kHashEvery == 0) c.hashes[c.ls.tick()] = c.g->state_hash();
         if (c.ls.want_local()) { Input in; c.bot.decide(*c.g, in, i); c.ls.push_local(in); }
@@ -167,6 +169,24 @@ TEST_CASE("lockstep: 4 consolas con retraso, pérdidas, duplicados y desorden") 
     CHECK(!r.desync);
     CHECK(r.min_tick > 60 * 120 * 0.3);
   }
+}
+
+TEST_CASE("lockstep: uno con mucho ping no frena a los demás (retraso de cada uno)") {
+  // Tres por internet; el invitado 2 con 200 ms por trayecto (400 ms ida y vuelta).
+  Net net;
+  net.lat_min = 2; net.lat_max = 4;
+  net.lag[2] = 12;
+  std::vector<Console> cs;
+  const Result r = play(3, 21, 60 * 120, net, cs, [](int) {});
+  CHECK(r.same);
+  CHECK(!r.desync);
+  MESSAGE("anfitrión " << cs[0].ls.tick() << " · invitado 1 " << cs[1].ls.tick() << " · invitado 2 " << cs[2].ls.tick()
+          << " pasos de " << 60 * 120 << " · retraso: anfitrión " << cs[0].ls.delay() << ", invitado 1 " << cs[1].ls.delay() << ", invitado 2 " << cs[2].ls.delay());
+  CHECK(cs[0].ls.tick() > 60 * 120 * 0.95);   // el anfitrión casi a velocidad normal
+  CHECK(cs[1].ls.tick() > 60 * 120 * 0.95);   // y el otro invitado también
+  CHECK(cs[2].ls.delay() >= 24);              // el del ping alto se adelanta más (su retraso, sólo suyo: ~400 ms)
+  CHECK(cs[1].ls.delay() <= 14);              // los demás, con el suyo pequeño
+  CHECK(cs[0].ls.delay() == kDelay);          // y el anfitrión, el mínimo
 }
 
 TEST_CASE("lockstep: si una consola se desconecta, el anfitrión la quita y los demás siguen") {

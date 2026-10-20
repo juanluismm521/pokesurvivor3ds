@@ -73,6 +73,7 @@ RunConfig::Member App::my_member() const {
   for (int k = 0; k < 4; ++k) m.pbind[k] = autotest ? -1 : s_->pbind[m.dex][k];
   for (int k = 0; k < 3; ++k) m.pban[k] = autotest ? -1 : s_->pban[m.dex][k];
   m.pstart = autotest ? -1 : s_->pstart[m.dex];
+  m.immortal = autotest && auto_immortal_;
   if (std::strcmp(s_->name, "Jugador") != 0) { std::memcpy(m.name, s_->name, sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0; }
   else console_name(m.name, sizeof(m.name));
   return m;
@@ -155,7 +156,7 @@ void App::in_coop(const UiIn& in) {
         g_conn_state = 1;
         s32 prio = 0x30;
         svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-        g_conn_thr = threadCreate([](void*) { g_conn_ok = net3ds::init(); g_conn_state = 2; }, nullptr, 32 * 1024, prio + 1, -2, false);
+        g_conn_thr = threadCreate([](void*) { g_conn_ok = net3ds::init(); g_conn_state = 2; }, nullptr, 64 * 1024, prio + 1, -2, false);
         if (!g_conn_thr) { g_conn_state = 0; tried = true; ok = net3ds::init(); coop_retry_ = now + 2000; }
       }
     } else if (now >= coop_retry_) {
@@ -444,8 +445,7 @@ void App::coop_begin(const RunConfig& cfg, int idx, int delay) {
   g_->local = idx;
   g_->now_ms = now_ms();
   g_->start_run(cfg, autotest ? nullptr : s_);
-  g_->debug_immortal = autotest && auto_immortal_;
-  apply_settings();
+  apply_settings();   // (la inmortalidad de las pruebas va por jugador, en cfg)
   r_->sprites.async = false;
   r_->preload_run(*g_);
   r_->sprites.async = true;
@@ -486,7 +486,7 @@ void App::coop_net() {
       uint8_t b[1024];
       int n = put_header(b, net::MSG_START);
       b[n++] = uint8_t(coop_cfg_.nplayers);
-      b[n++] = uint8_t(ls_.delay());
+      b[n++] = uint8_t(ls_.advised(1));   // (el retraso con el que empiezan los invitados; luego el anfitrión lo ajusta a cada uno)
       for (int i = 0; i < coop_cfg_.nplayers; ++i) { b[n++] = uint8_t(coop_nodes_[i]); b[n++] = uint8_t(coop_nodes_[i] >> 8); }
       const int w = net::write_config(coop_cfg_, b + n, int(sizeof(b)) - n);
       if (w > 0) net3ds::send(net3ds::kBroadcast, b, n + w);
@@ -577,6 +577,32 @@ void App::coop_overlay() {
     else std::snprintf(b, sizeof(b), "%s", ls_.host() ? "Esperando…" : "Esperando al anfitrión…");
     C2D_DrawRectSolid(0, 100, 0, TW, 30, C2D_Color32(0, 0, 0, 170));
     r_->text(b, 200, 108, 0.45f, C_GOLD, 1);
+  }
+  // Colores de cada jugador del grupo (los mismos que sus nombres en el mapa).
+static const uint32_t kTeamColor[4] = {0xffcb3d, 0x5fc8ff, 0x7ee07a, 0xff8ad8};
+// Caído: el equipo arriba (sprite y nombre de cada uno), el que ves resaltado.
+  if (coop_ && spect_ >= 0 && g_->me().dead && g_->state != ST_OVER) {
+    const Game& g = *g_;
+    const int n = g.nplayers;
+    const float bw = 62, x0 = 200 - n * bw / 2;
+    C2D_DrawRectSolid(x0 - 6, 16, 0, n * bw + 12, 62, C2D_Color32(8, 12, 22, 190));
+    for (int i = 0; i < n; ++i) {
+      const Player& p = g.players[i];
+      if (!p.active) continue;
+      const float x = x0 + i * bw;
+      const bool sel = i == spect_;
+      if (sel) {
+        C2D_DrawRectSolid(x + 2, 18, 0, bw - 4, 2, C_GOLD); C2D_DrawRectSolid(x + 2, 74, 0, bw - 4, 2, C_GOLD);
+        C2D_DrawRectSolid(x + 2, 18, 0, 2, 58, C_GOLD); C2D_DrawRectSolid(x + bw - 4, 18, 0, 2, 58, C_GOLD);
+      }
+      draw_mon(p.dex, p.shiny, x + bw / 2, 58, 1, p.dead ? 3 : 0);
+      if (p.dead) r_->text("X", x + bw - 12, 20, 0.42f, C2D_Color32(255, 95, 109, 255), 1);   // (caído)
+      const char* nm = i == g.local ? "Tú" : g.cfg.members[i].name;
+      r_->text(nm, x + bw / 2, 61, 0.3f, sel ? C_GOLD : rgb(kTeamColor[i & 3]), 1);
+    }
+    char b[64];
+    std::snprintf(b, sizeof(b), spect_ == g.local ? "Te ves a ti · L/R: ver a otro" : "Viendo a %s · L/R: cambiar", g.cfg.members[spect_].name);
+    r_->text(b, 200, 2, 0.34f, C_TEXT, 1);   // (arriba: en medio está el nombre del que sigues)
   }
   if (coop_ && paused_ && g_->state == ST_PLAYING) {
     C2D_DrawRectSolid(0, 60, 0, TW, 44, C2D_Color32(0, 0, 0, 170));

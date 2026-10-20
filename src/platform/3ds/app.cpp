@@ -96,7 +96,9 @@ void App::go(Scene sc) {
     if (g_->state != ST_UI) { g_->state = ST_UI; backdrop_init(); }
   }
   if (sc == SC_DEX) { gen_ = mon_by_dex(s_->partner) ? mon_by_dex(s_->partner)->gen : 1; view_shiny_ = false; }
-  if (sc == SC_UPGRADES && !s_->owns(up_dex_)) up_dex_ = s_->partner;
+  // Mejoras: siempre las de tu compañero de ahora (antes se quedaba el último
+  // que se miró aquí y, si habías elegido otro, salía el de antes).
+  if (sc == SC_UPGRADES) up_dex_ = s_->partner;
 }
 
 void App::start_run() {
@@ -278,6 +280,7 @@ void App::update(const UiIn& in0, float dt) {
       const int i = tour_i_++;
       static bool pulled = false;
       static int bought = 0;
+      static bool shinied = false;
       static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
@@ -285,6 +288,7 @@ void App::update(const UiIn& in0, float dt) {
       else if (scene == SC_RESULT) { cur_ = 0; in.down |= KEY_A; }        // acepta
       else if (scene == SC_GACHA && !pulled) { pulled = true; cur_ = 1; in.down |= KEY_A; }
       else if (scene == SC_UPGRADES && bought < 3) { bought++; in.down |= KEY_A; }   // compra mejoras (el tirón al guardar)
+      else if (scene == SC_DEX && !shinied) { shinied = true; cur_ = 1; in.down |= KEY_Y; }   // la lista en shiny (Y)
       else if (scene == SC_PULL) { if (pull_done_) in.down |= KEY_A; else tour_i_--; }
       else {
         static int k = -1;
@@ -354,6 +358,26 @@ void App::in_run(const UiIn& in) {
   Game& g = *g_;
   const Player& me = g.me();
   Input gi;
+  // Caído en grupo: la cámara pasa a un compañero vivo (L/R cambia, abajo);
+  // si cae él también, al siguiente; al levantarte, otra vez a ti.
+  if (me.dead && g.nplayers > 1 && g.state != ST_OVER) {
+    auto ok = [&](int i) { return i >= 0 && i < g.nplayers && g.players[i].active && (i == g.local || !g.players[i].dead); };
+    if (!ok(spect_)) {
+      spect_ = g.local;
+      for (int i = 0; i < g.nplayers; ++i) if (i != g.local && ok(i)) { spect_ = i; break; }
+    }
+  } else {
+    spect_ = -1;
+  }
+  // El cursor de las cartas/objeto/vínculo vuelve arriba sólo cuando aparece
+  // una elección NUEVA (antes volvía al elegir, y como la pantalla sigue unos
+  // fotogramas hasta que la partida usa la elección, se veía saltar arriba).
+  {
+    uint32_t sig = uint32_t(g.state) * 2654435761u ^ uint32_t(me.choice) * 40503u ^ uint32_t(me.item_next + 7) * 9176u;
+    for (int i = 0; i < me.ncards; ++i)
+      sig = sig * 31u + uint32_t(me.cards[i].type * 1000 + me.cards[i].move * 10 + me.cards[i].stat + 50);
+    if (sig != choice_sig_) { choice_sig_ = sig; r_->card_cursor = 0; }
+  }
   if (autotest) {
     bot.decide(g, gi, g.local);
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
@@ -374,8 +398,19 @@ void App::in_run(const UiIn& in) {
     const float m = std::hypot(ax, ay);
     if (m > 1) { ax /= m; ay /= m; }
     gi.ax = ax; gi.ay = ay;
-    if (in.down & (KEY_L | KEY_ZL)) gi.cycle = -1;
-    if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
+    if (me.dead && g.nplayers > 1) {
+      // Caído en grupo: L/R cambia a quién sigue la cámara (los vivos y tú).
+      auto ok = [&](int i) { return i >= 0 && i < g.nplayers && g.players[i].active && (i == g.local || !g.players[i].dead); };
+      const int dir = (in.down & (KEY_L | KEY_ZL)) ? -1 : (in.down & (KEY_R | KEY_X | KEY_ZR)) ? 1 : 0;
+      if (dir)
+        for (int k = 1; k <= g.nplayers; ++k) {
+          const int i = ((spect_ + dir * k) % g.nplayers + g.nplayers) % g.nplayers;
+          if (ok(i)) { spect_ = i; break; }
+        }
+    } else {
+      if (in.down & (KEY_L | KEY_ZL)) gi.cycle = -1;
+      if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
+    }
     // Tocar el minimapa: la leyenda (otra vez: se quita).
     if (in.tap && in.ty >= 44 && in.ty < 44 + Renderer::kMapH) r_->legend_t = r_->legend_t > 0 ? 0 : 5;
     if (in.tap && in.ty >= Renderer::kSlotY && in.ty < Renderer::kSlotY + Renderer::kSlotS) {
@@ -397,13 +432,13 @@ void App::in_run(const UiIn& in) {
     const int nc = me.ncards > 0 ? me.ncards : 1;
     if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + nc - 1) % nc;
     if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % nc;
-    if (in.tap && in.ty >= 92 && in.ty < 92 + 44 * me.ncards) { r_->card_cursor = (in.ty - 92) / 44; gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); r_->card_cursor = 0; }
-    else if (in.down & KEY_A) { gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); r_->card_cursor = 0; }
+    if (in.tap && in.ty >= 92 && in.ty < 92 + 44 * me.ncards) { r_->card_cursor = (in.ty - 92) / 44; gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); }
+    else if (in.down & KEY_A) { gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); }
     else if (in.down & KEY_Y) gi.cmd = CMD_REROLL;
   } else if (g.state == ST_CHOICE && me.choice == CH_ITEM) {
     if (in.rep & (KEY_DUP | KEY_DDOWN)) r_->card_cursor ^= 1;
-    if (in.tap && in.ty >= 96 && in.ty < 204) { r_->card_cursor = (in.ty - 96) / 54; gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; r_->card_cursor = 0; }
-    else if (in.down & KEY_A) { gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; r_->card_cursor = 0; }
+    if (in.tap && in.ty >= 96 && in.ty < 204) { r_->card_cursor = (in.ty - 96) / 54; gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; }
+    else if (in.down & KEY_A) { gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; }
   } else if (g.state == ST_CHOICE && me.choice == CH_BOND) {
     int8_t loose[4]; int nl, grow;
     const int mode = player_bond_options(me, loose, nl, grow);
@@ -414,9 +449,9 @@ void App::in_run(const UiIn& in) {
       if (touched) r_->card_cursor = (in.ty - 92) / 32;
       if ((in.down & KEY_A) || touched) {
         const int pick = loose[clamp(r_->card_cursor, 0, nl - 1)];
-        if (mode == 1) { gi.cmd = CMD_BOND; gi.arg = 1; gi.moves[0] = int8_t(pick); bond_first_ = -1; r_->card_cursor = 0; }
+        if (mode == 1) { gi.cmd = CMD_BOND; gi.arg = 1; gi.moves[0] = int8_t(pick); bond_first_ = -1; }
         else if (bond_first_ < 0) bond_first_ = pick;
-        else if (pick != bond_first_) { gi.cmd = CMD_BOND; gi.arg = 2; gi.moves[0] = int8_t(bond_first_); gi.moves[1] = int8_t(pick); bond_first_ = -1; r_->card_cursor = 0; }
+        else if (pick != bond_first_) { gi.cmd = CMD_BOND; gi.arg = 2; gi.moves[0] = int8_t(bond_first_); gi.moves[1] = int8_t(pick); bond_first_ = -1; }
       }
     }
   } else if (g.state == ST_OVER) {
@@ -633,7 +668,11 @@ void App::in_dex(const UiIn& in) {
     if (k >= n) break;
     if (in_rect(&in, 4 + (i % cols) * 52, 42 + (i / cols) * 44, 50, 42)) cur_ = k;
   }
-  if (n && (in.down & KEY_Y) && s_->owns_shiny(list[cur_])) view_shiny_ = !view_shiny_;
+  if (n && (in.down & KEY_Y)) {   // (toda la lista en shiny: los que tengas en shiny)
+    bool any = false;
+    for (int i = 0; i < n && !any; ++i) any = s_->owns_shiny(list[i]);
+    if (any) view_shiny_ = !view_shiny_;
+  }
   if (n && (in.down & KEY_A) && s_->owns(list[cur_])) {
     s_->partner = list[cur_];
     s_->partner_shiny = view_shiny_ && s_->owns_shiny(list[cur_]);
@@ -662,14 +701,48 @@ void App::bottom_dex() {
     const float x = 4 + (i % 6) * 52, y = 42 + (i / 6) * 44;
     const bool own = s_->owns(dex);
     C2D_DrawRectSolid(x, y, 0, 50, 42, k == cur_ ? C_SEL : C_PANEL);
-    draw_mon(dex, false, x + 25, y + 36, 1, own ? 0 : 3);
+    const bool sh = s_->owns_shiny(dex);
+    draw_mon(dex, view_shiny_ && sh, x + 25, y + 36, 1, own ? 0 : 3);
     std::snprintf(b, sizeof(b), "%03d", dex);
     r_->text(b, x + 2, y + 1, 0.28f, C2D_Color32(255, 255, 255, 150), 0, false);
-    if (dex == s_->partner) C2D_DrawRectSolid(x + 42, y + 3, 0, 5, 5, C_GOLD);
-    else if (s_->owns_shiny(dex)) C2D_DrawRectSolid(x + 42, y + 3, 0, 5, 5, C2D_Color32(0x9a, 0xe6, 0xff, 255));
+    // Tienes el shiny: la estrellita (como en la web). Tu compañero: punto dorado.
+    const int si = r_->ui_icon[7];
+    if (sh && si >= 0) C2D_DrawImageAt(r_->icons.image(si), x + 39, y + 1, 0, nullptr, 0.8f, 0.8f);
+    if (dex == s_->partner) C2D_DrawRectSolid(x + (sh ? 33 : 43), y + 3, 0, 4, 4, C_GOLD);
   }
   if (!n) r_->text("Ninguno con este filtro.", 160, 110, 0.4f, C_MUTED, 1);
-  r_->text("A: compañero · Y: normal/shiny · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  r_->text(view_shiny_ ? "A: compañero · Y: ver normales · B: volver" : "A: compañero · Y: ver shinys · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+}
+
+void App::fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow) {
+  static const float kSizes[] = {0.36f, 0.32f, 0.28f};
+  float sz = size;
+  for (float k : kSizes) { if (r_->text_width(s, sz) <= maxw || sz <= k) break; sz = k; }
+  if (r_->text_width(s, sz) <= maxw) { r_->text(s, x, y + (size - sz) * 18, sz, color, 0, shadow); return; }
+  // Ni con la letra pequeña: se corta (por letras enteras de UTF-8) y «…».
+  std::string t = tr(s);
+  while (!t.empty() && r_->text_width((t + "…").c_str(), sz) > maxw) {
+    t.pop_back();
+    while (!t.empty() && (uint8_t(t.back()) & 0xC0) == 0x80) t.pop_back();
+  }
+  r_->text((t + "…").c_str(), x, y + (size - sz) * 18, sz, color, 0, shadow);
+}
+
+// El botón Y de la consola, verde, que se pulsa solo cada poco, con
+// «Normal · Shiny» y el que se ve resaltado.
+void App::y_hint(float x, float y, bool shiny) {
+  const bool down = std::fmod(t_, 1.4f) < 0.22f;
+  const float dy = down ? 2 : 0;
+  C2D_DrawCircleSolid(x + 9, y + 11, 0, 9, C2D_Color32(20, 60, 30, 255));                       // sombra
+  C2D_DrawCircleSolid(x + 9, y + 9 + dy, 0, 9, down ? C2D_Color32(70, 170, 90, 255) : C2D_Color32(95, 205, 115, 255));
+  r_->text("Y", x + 9, y + 2 + dy, 0.42f, C2D_Color32(255, 255, 255, 255), 1, false);
+  const u32 on = C_GOLD, off = C2D_Color32(170, 180, 200, 200);
+  r_->text("Normal", x + 24, y + 3, 0.38f, shiny ? off : on);
+  const float w = r_->text_width("Normal", 0.38f);
+  r_->text("·", x + 28 + w, y + 3, 0.38f, off);
+  const int si = r_->ui_icon[7];
+  if (si >= 0) C2D_DrawImageAt(r_->icons.image(si), x + 37 + w, y + 4, 0, nullptr, 1, 1);
+  r_->text("Shiny", x + 51 + w, y + 3, 0.38f, shiny ? C2D_Color32(255, 140, 150, 255) : off);
 }
 
 void App::top_detail(int dex, bool shiny, bool own) {
@@ -678,7 +751,8 @@ void App::top_detail(int dex, bool shiny, bool own) {
   C2D_DrawRectSolid(0, 0, 0, TW, TH, C2D_Color32(8, 12, 20, 170));
   const uint32_t tc = kTypeColor[p->types[0]];
   C2D_DrawEllipseSolid(40, 150, 0, 140, 34, rgbf(own ? (shiny ? 0x9ae6ff : tc) : 0x5b83d6, 0.35f));
-  draw_mon(dex, own && shiny, 110, 170, 3, own ? 0 : 3);
+  draw_mon(dex, own && shiny && s_->owns_shiny(dex), 110, 170, 3, own ? 0 : 3);
+  if (own && s_->owns_shiny(dex)) y_hint(12, 214, shiny);
   char b[128];
   std::snprintf(b, sizeof(b), "Nº %03d · %s", p->dex, GEN_NAMES[p->gen - 1]);
   r_->text(b, 300, 14, 0.38f, C_MUTED, 1);
@@ -1160,7 +1234,7 @@ void App::bottom_goals() {
       C2D_DrawRectSolid(6, y, 0, 308, 34, i == cur_ ? C_SEL : C_PANEL);
       if (m.def < 0) continue;
       mission_text(m, b, sizeof(b));
-      r_->text(b, 12, y + 1, 0.4f, m.claimed ? C_MUTED : C_TEXT);
+      fit_text(b, 12, y + 1, 296, 0.4f, m.claimed ? C_MUTED : C_TEXT);
       const float f = std::min(1.0f, float(m.prog) / std::max(1, int(m.goal)));
       C2D_DrawRectSolid(12, y + 22, 0, 180, 6, C2D_Color32(0, 0, 0, 140));
       C2D_DrawRectSolid(12, y + 22, 0, 180 * f, 6, mission_done(m) ? C2D_Color32(0x5f, 0xe0, 0x8a, 255) : C_GOLD);
@@ -1188,8 +1262,8 @@ void App::bottom_goals() {
       std::snprintf(medal, sizeof(medal), "medal%d", s_->ach[k] ? a.tier : 0);
       const int ic = r_->icons.find(s_->ach[k] ? medal : "medalOff");
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 2, 0, nullptr, 2, 2);
-      r_->text(a.name, 38, y, 0.4f, s_->ach[k] ? C_TEXT : C_MUTED);
-      r_->text(a.desc, 38, y + 16, 0.28f, C_MUTED, 0, false);
+      fit_text(a.name, 38, y, 230, 0.4f, s_->ach[k] ? C_TEXT : C_MUTED);
+      fit_text(a.desc, 38, y + 16, 230, 0.28f, C_MUTED, false);
       std::snprintf(b, sizeof(b), "%d/%d", std::min(ach_value(*s_, k), int(a.goal)), int(a.goal));
       r_->text(b, 308, y + 8, 0.32f, s_->ach[k] ? C_GOLD : C_MUTED, 2, false);
     }
@@ -1334,6 +1408,12 @@ void App::bottom_credits() {
 
 void App::draw_top(float eye) {
   if (scene == SC_RUN) {
+    // Caído en grupo: la cámara sigue al compañero elegido con L/R (sólo en
+    // esta consola: el núcleo la vuelve a poner en ti en cada paso).
+    if (spect_ >= 0 && spect_ < g_->nplayers && spect_ != g_->local && g_->me().dead) {
+      g_->camera.x = g_->players[spect_].view_x;
+      g_->camera.y = g_->players[spect_].view_y;
+    }
     r_->draw_top(*g_, eye); coop_overlay();
     if (g_->state == ST_OVER) top_cloud_badge();   // (se sube a la nube al acabar: que se vea)
   }
@@ -1372,6 +1452,7 @@ void App::draw_top(float eye) {
         std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(dex)->name, sh ? " ★" : "");
         r_->text(b, 200, 10, 0.7f, C_TEXT, 1);
         r_->text("PokéSurvivor 3DS · port de juanluismm520", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 140), 1, false);
+        if (s_->owns_shiny(dex)) y_hint(276, 8, sh);
         top_cloud_badge();
         break;
       }

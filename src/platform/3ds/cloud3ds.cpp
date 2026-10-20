@@ -70,6 +70,7 @@ void save_account() {
   o.set("dev", Json::str(g_acc.dev));
   o.set("delta", Json::num(double(g_acc.delta)));
   o.set("lastSync", Json::num(double(g_acc.last_sync)));
+  o.set("syncedPartner", Json::num(double(g_acc.synced_partner)));
   const std::string t = o.dump();
   const std::string tmp = path("cuenta.tmp"), cur = path("cuenta.json");
   FILE* f = std::fopen(tmp.c_str(), "wb");
@@ -155,6 +156,8 @@ void worker(void*) {
       c.http = http;
       c.sleep_ms = [](int ms, void*) { for (int k = 0; k < ms / 100 && !g_quit; ++k) svcSleepThread(100000000ll); };
       c.clock_delta = g_acc.delta;
+      // Entrar (otra cuenta, o la misma de nuevo): como la primera vez.
+      c.base_partner = g_kind == 2 ? g_acc.synced_partner : -1;
       cloud::Session s;
       s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
       bool in = true;
@@ -224,6 +227,7 @@ void worker(void*) {
         g_acc.name = s.name; g_acc.uid = s.uid; g_acc.refresh = s.refresh_token;
         g_acc.delta = c.clock_delta;
         g_acc.last_sync = now_ms();
+        g_acc.synced_partner = cloud::partner_code(merged);
         save_account();
         g_result = merged;
         g_remote = c.last_remote;
@@ -284,6 +288,7 @@ void init(const char* dir) {
     g_acc.name = o["name"].as_str(); g_acc.uid = o["uid"].as_str(); g_acc.refresh = o["refresh"].as_str();
     g_acc.dev = o["dev"].as_str();
     g_acc.delta = int64_t(o["delta"].as_num(0)); g_acc.last_sync = int64_t(o["lastSync"].as_num(0));
+    g_acc.synced_partner = int(o["syncedPartner"].as_num(-1));
     g_acc.on = !g_acc.refresh.empty();
   }
   if (g_acc.dev.empty()) {

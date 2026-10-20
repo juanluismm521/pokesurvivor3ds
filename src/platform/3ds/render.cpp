@@ -6,6 +6,7 @@
 #include "platform/3ds/render.h"
 #include "core/stats.h"
 
+#include <string>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -188,6 +189,21 @@ float Renderer::text_wrap(const char* s, float x, float y, float size, u32 color
   // Alto aproximado: líneas según el ancho.
   const int lines = int(w / width) + 1;
   return h * lines;
+}
+
+float Renderer::text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow) {
+  std::string t = i18n_lang() != LANG_ES ? tr(s) : s;
+  float sz = size;
+  for (float k : {0.32f, 0.28f}) { if (text_width(t.c_str(), sz) <= maxw || sz <= k) break; sz = k; }
+  if (text_width(t.c_str(), sz) > maxw) {
+    while (!t.empty() && text_width((t + "…").c_str(), sz) > maxw) {
+      t.pop_back();
+      while (!t.empty() && (uint8_t(t.back()) & 0xC0) == 0x80) t.pop_back();   // (letras enteras de UTF-8)
+    }
+    t += "…";
+  }
+  text(t.c_str(), x, y, sz, color, 0, shadow);
+  return text_width(t.c_str(), sz);
 }
 
 float Renderer::text_width(const char* s, float size) {
@@ -1073,9 +1089,13 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     std::snprintf(b, sizeof(b), "Ataque ×%.2f · At. Esp. ×%.2f · Defensa %d · Def. Esp. %d", ap, as, p.mon->df, p.mon->sd);
     for (char* c = b; *c; ++c) if (*c == '.' && c[1] >= '0' && c[1] <= '9' && c > b && c[-1] >= '0' && c[-1] <= '9') *c = ',';
     text(b, 160, 186, 0.3f, rgb(0xb7c4dc), 1);
+    if (p.item >= 0) {   // el objeto que llevas, con lo que hace (entero)
+      std::snprintf(b, sizeof(b), "%s: %s", kItems[p.item].name, kItems[p.item].desc);
+      text_fit(b, 8, 209, 304, 0.3f, rgb(0xffd23f));
+    }
     std::snprintf(b, sizeof(b), "Velocidad %d · Reducción %d %% · Regeneración %.1f/s", int(jsround(player_spd(g, p))), int(jsround(player_reduction(p) * 100)), player_regen(p));
     text(b, 160, 199, 0.3f, rgb(0xb7c4dc), 1);
-    text("START: seguir · SELECT: abandonar la partida", 160, 220, 0.36f, rgb(0xeaf2ff), 1);
+    text("START: seguir · SELECT: abandonar la partida", 160, 224, 0.34f, rgb(0xeaf2ff), 1);
   } else if (g.state == ST_OVER) {
     const RunSummary& s = g.summary;
     text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);
@@ -1115,8 +1135,19 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       text(b, MX + MW - 3, MY + 1, 0.32f, rgb(0xffd23f), 2, false);
     }
     {
-      // Abajo a la izquierda: clima y poder de altar; a la derecha: objeto y vínculos.
+      // Abajo del todo, a lo ancho: el objeto que llevas y lo que hace. Encima,
+      // a la izquierda clima y poder de altar; a la derecha, los vínculos.
       float ly = MY + MH - 11;
+      if (p.item >= 0) {
+        C2D_DrawRectSolid(MX, ly, 0, MW, 11, strip);
+        const int ic = icons.find(kItems[p.item].id);
+        if (ic >= 0) C2D_DrawImageAt(icons.image(ic), MX + 2, ly - 2, 0, nullptr, 0.8f, 0.8f);
+        const float nw = text_width(kItems[p.item].name, 0.32f);
+        text(kItems[p.item].name, MX + 14, ly + 1, 0.32f, rgb(0xffd23f), 0, false);
+        text_fit(kItems[p.item].desc, MX + 18 + nw, ly + 1, MW - 22 - nw, 0.32f, rgb(0xeaf2ff));
+        ly -= 11;
+      }
+      const float row0 = ly;
       if (g.weather.kind >= 0 && weather_level(g) > 0) {
         std::snprintf(b, sizeof(b), "%s · %ds", kWeather[g.weather.kind].name, int(std::ceil(g.weather.dur - g.weather.t)));
         C2D_DrawRectSolid(MX, ly, 0, text_width(b, 0.32f) + 6, 11, strip);
@@ -1128,15 +1159,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         C2D_DrawRectSolid(MX, ly, 0, text_width(b, 0.32f) + 6, 11, strip);
         text(b, MX + 3, ly + 1, 0.32f, rgb(kPowers[p.power.def].color), 0, false);
       }
-      float ry = MY + MH - 11;
-      if (p.item >= 0) {
-        const float tw = text_width(kItems[p.item].name, 0.32f);
-        C2D_DrawRectSolid(MX + MW - tw - 18, ry, 0, tw + 18, 11, strip);
-        const int ic = icons.find(kItems[p.item].id);
-        if (ic >= 0) C2D_DrawImageAt(icons.image(ic), MX + MW - tw - 16, ry - 2, 0, nullptr, 0.8f, 0.8f);
-        text(kItems[p.item].name, MX + MW - 3, ry + 1, 0.32f, rgb(0xeaf2ff), 2, false);
-        ry -= 11;
-      }
+      float ry = row0;
       if (p.bonds > 0) {
         std::snprintf(b, sizeof(b), "Vínculos: %d", p.bonds);
         C2D_DrawRectSolid(MX + MW - text_width(b, 0.32f) - 6, ry, 0, text_width(b, 0.32f) + 6, 11, strip);

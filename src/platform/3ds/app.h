@@ -96,6 +96,9 @@ class App {
   void bottom_cloudask();
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
+  void y_hint(float x, float y, bool shiny);
+  // Texto que cabe en `maxw`: baja la letra si hace falta y, si ni así, lo corta con «…».
+  void fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = true);   // botón Y que se pulsa solo · «Normal · Shiny»
   void top_pull();
   void top_cloud_badge();          // pantalla de arriba: con quién has entrado y la última sincronización
   void top_tickets_badge(float cx, float y);   // pantalla de arriba: los tickets que te quedan
@@ -185,6 +188,9 @@ class App {
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
   char cloud_msg_[128] = {};
   bool over_synced_ = false;
+  uint32_t choice_sig_ = 0;
+  int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
+  int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)     // la elección que hay en pantalla (cartas, objeto, vínculo)
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)
   bool cloud_asked_ = false;     // ya se ha preguntado al abrir
   bool login_now_ = false;

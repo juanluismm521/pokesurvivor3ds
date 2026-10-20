@@ -293,7 +293,7 @@ void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat)
     g.fx.dmg_text(p.x, p.y - p.body_h - 16, "¡Banda Focus!", 0xff9a3d, true);
     g.fx.ring(p.x, p.y, 6, 70, 0xff9a3d, 0.5f, 4);
   }
-  if (g.debug_immortal && p.hp < 1) p.hp = 1;
+  if ((g.debug_immortal || g.cfg.members[int(&p - g.players) & 3].immortal) && p.hp < 1) p.hp = 1;
   if (p.hp <= 0) {
     p.hp = 0; p.dead = true;
     p.anim.play(A_FAINT, 1, true);

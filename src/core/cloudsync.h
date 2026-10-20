@@ -58,10 +58,18 @@ struct Client {
   std::string error;                  // último error, en español
   int64_t clock_delta = 0;            // hora del servidor - hora de esta consola (ms)
   Json last_remote;                   // la partida de la nube tal como estaba (copia de seguridad)
+  // Compañero en la última sincronización de esta consola (partner_code), o -1
+  // si es la primera con esta cuenta. Sirve para saber DÓNDE se cambió el
+  // compañero (ver partner_code y sync).
+  int base_partner = -1;
   // Esperar (lo pone la plataforma; null = no se espera y se avisa). Para el
   // tope de pokesurvivor.com entre dos guardados de la misma partida.
   void (*sleep_ms)(int ms, void* ctx) = nullptr;
 };
+
+// Compañero de una partida como un número: dex·2 + shiny (-1 si no tiene).
+int partner_code(const Json& save);
+void set_partner_code(Json& save, int code);
 
 // pokesurvivor.com no deja guardar la partida dos veces en menos de ~20 s
 // (medido: a los 18 s se rechaza, a los 22 s se acepta; la web espera 65 s,
