@@ -5,6 +5,10 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.4.2 — 2026-10-21
+- En el menú, debajo de las megapiedras de tu compañero: la probabilidad de
+  que un objeto sea su megapiedra y el nivel de la mejora «Megapiedra».
+
 ## 0.4.1 — 2026-10-21
 - **Cada megapiedra con su dibujo de verdad** (Charizardita X azul y negra, la
   Y naranja, Gengarita, Lucarita…), en la partida (suelo, elección de objeto y

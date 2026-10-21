@@ -216,7 +216,7 @@ void App::top_news(float eye) {
 void App::mega_badge(int dex) {
   const int nm = mega_count(dex);
   if (!nm) return;
-  const float S = 26, gap = 14, w = std::max(70.0f, nm * S + (nm - 1) * gap + 24), h = 58;
+  const float S = 26, gap = 14, w = std::max(92.0f, nm * S + (nm - 1) * gap + 24), h = 82;
   const float x0 = TW - 8 - w, y0 = 214 - h;
   C2D_DrawRectSolid(x0, y0, 0, w, h, C2D_Color32(14, 18, 32, 190));
   for (int s = 0; s < 6; ++s) C2D_DrawRectSolid(x0 + w * s / 6, y0, 0, w / 6, 2, rgb(kRainbow[(s + int(t_ * 3)) % 6]));
@@ -234,6 +234,15 @@ void App::mega_badge(int dex) {
       r_->text(l, x + S, y + S - 12, 0.5f, C_GOLD, 1);
     }
   }
+  // La probabilidad de que un objeto sea su megapiedra y la mejora que la sube.
+  const int lv = s_->pmega[dex];
+  char b[48];
+  std::snprintf(b, sizeof(b), "Probabilidad %d %%", int(mega_chance(lv) * 100 + 0.5f));
+  r_->text(b, x0 + w / 2, y0 + 49, 0.3f, C_TEXT, 1, false);
+  const float pw = kMegaUpMax * 7 - 2, px = x0 + w / 2 - (r_->text_width("Mejora", 0.28f) + 4 + pw) / 2;
+  r_->text("Mejora", px, y0 + 63, 0.28f, C_MUTED, 0, false);
+  const float qx = px + r_->text_width("Mejora", 0.28f) + 4;
+  for (int p = 0; p < kMegaUpMax; ++p) C2D_DrawRectSolid(qx + p * 7, y0 + 67, 0, 5, 5, p < lv ? C_GOLD : C2D_Color32(60, 70, 96, 255));
 }
 
 }  // namespace ps
