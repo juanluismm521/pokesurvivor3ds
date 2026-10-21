@@ -202,7 +202,7 @@ float Renderer::text_wrap(const char* s, float x, float y, float size, u32 color
   return h * lines;
 }
 
-float Renderer::text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow) {
+float Renderer::text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow, int align) {
   std::string t = i18n_lang() != LANG_ES ? tr(s) : s;
   float sz = size;
   for (float k : {0.32f, 0.28f}) { if (text_width(t.c_str(), sz) <= maxw || sz <= k) break; sz = k; }
@@ -213,8 +213,25 @@ float Renderer::text_fit(const char* s, float x, float y, float maxw, float size
     }
     t += "…";
   }
-  text(t.c_str(), x, y, sz, color, 0, shadow);
+  text(t.c_str(), x, y + (size - sz) * 14, sz, color, align, shadow);
   return text_width(t.c_str(), sz);
+}
+
+int Renderer::text_fit2(const char* s, float x, float y, float maxw, float size, u32 color) {
+  std::string t = i18n_lang() != LANG_ES ? tr(s) : s;
+  if (text_width(t.c_str(), size) <= maxw) { text(t.c_str(), x, y + 4, size, color, 0, false); return 1; }
+  // La primera línea: hasta el último espacio que quepa.
+  const float sz = 0.28f;
+  size_t cut = 0;
+  for (size_t i = 0; i < t.size(); ++i) {
+    if (t[i] != ' ') continue;
+    if (text_width(t.substr(0, i).c_str(), sz) > maxw) break;
+    cut = i;
+  }
+  if (cut == 0) { text_fit(t.c_str(), x, y + 4, maxw, size, color); return 1; }
+  text(t.substr(0, cut).c_str(), x, y, sz, color, 0, false);
+  text_fit(t.substr(cut + 1).c_str(), x, y + 10, maxw, sz, color);
+  return 2;
 }
 
 void Renderer::draw_mega_stone(float x, float y, float s) {
@@ -1091,10 +1108,11 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         else std::snprintf(tag, sizeof(tag), "Mejora");
       }
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + 6, 0, nullptr, 28.0f / icons.sub(ic).width, 28.0f / icons.sub(ic).width);
-      text(title, 50, y + 3, 0.45f, C2D_Color32(240, 244, 255, 255), 0);
+      const float tw = std::fmax(text_width(tag, 0.34f), fit[0] ? text_width(fit, 0.3f) : 0);
+      text_fit(title, 50, y + 3, 254 - tw - 6, 0.45f, C2D_Color32(240, 244, 255, 255), true);
       text(tag, 304, y + 4, 0.34f, rgb(col), 2);
       if (fit[0]) text(fit, 304, y + 14, 0.3f, rgb(0xff8a8a), 2);
-      text(desc ? desc : "", 50, y + 21, 0.32f, rgb(0xb7c4dc), 0, false);
+      text_fit2(desc ? desc : "", 50, y + 18, 256, 0.32f, rgb(0xb7c4dc));
     }
     const int left = 1 + p.reroll_bonus - p.rerolls;
     std::snprintf(b, sizeof(b), "A: elegir · Y: cambiar cartas (%d)", left > 0 ? left : 0);
@@ -1112,9 +1130,10 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         continue;
       }
       draw_item_icon(it, 16, y + 8, 30);
-      text(item_name(it, p.dex), 54, y + 4, 0.46f, C2D_Color32(240, 244, 255, 255), 0);
-      text(i == 0 ? "El que llevas" : p.item_cur < 0 ? "Cogerlo" : "El nuevo", 304, y + 4, 0.34f, rgb(0x8fa3c4), 2);
-      text_fit(item_desc(it, p.dex), 54, y + 24, 250, 0.32f, rgb(0xb7c4dc));
+      const char* who = i == 0 ? "El que llevas" : p.item_cur < 0 ? "Cogerlo" : "El nuevo";
+      text_fit(item_name(it, p.dex), 54, y + 4, 250 - text_width(who, 0.34f) - 6, 0.46f, C2D_Color32(240, 244, 255, 255), true);
+      text(who, 304, y + 4, 0.34f, rgb(0x8fa3c4), 2);
+      text_fit2(item_desc(it, p.dex), 54, y + 22, 250, 0.32f, rgb(0xb7c4dc));
     }
     text("A: quedarte con el elegido", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_CHOICE && p.choice == CH_BOND) {
@@ -1128,7 +1147,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       C2D_DrawRectSolid(10, y, 0, 300, 28, sel ? C2D_Color32(80, 52, 90, 255) : C2D_Color32(30, 40, 62, 255));
       if (move_icon[m.def] >= 0) C2D_DrawImageAt(icons.image(move_icon[m.def]), 16, y + 4, 0, nullptr, 1.25f, 1.25f);
       std::snprintf(b, sizeof(b), "%s  Nv.%d", m.name(), m.lvl);
-      text(b, 44, y + 6, 0.42f, C2D_Color32(240, 244, 255, 255), 0);
+      text_fit(b, 44, y + 6, 260, 0.42f, C2D_Color32(240, 244, 255, 255), true);
     }
     text("A: elegir", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_PAUSED) {
@@ -1144,7 +1163,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       const int ic = move_icon[m.def];
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 10, y, 0, nullptr, 0.75f, 0.75f);
       std::snprintf(b, sizeof(b), "%s Nv.%d", m.name(), m.lvl);
-      text(b, 24, y, 0.32f, rgb(0xeaf2ff), 0);
+      text_fit(b, 24, y, 118, 0.32f, rgb(0xeaf2ff), true);
       const int cat = m.cat();
       text(cat == CAT_PHYSICAL ? "Físico" : cat == CAT_SPECIAL ? "Especial" : "Mejora", 168, y, 0.3f, rgb(cat < 0 ? 0x8fa3c4 : kTypeColor[m.type()]), 1);
       if (cat >= 0) {
@@ -1160,13 +1179,13 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     const float as = player_atk(p) * stats_fit(p.mon, CAT_SPECIAL) * (1 + p.buffs[BS_SATK].n * p.buffs[BS_SATK].amount);
     std::snprintf(b, sizeof(b), "Ataque ×%.2f · At. Esp. ×%.2f · Defensa %d · Def. Esp. %d", ap, as, p.mon->df, p.mon->sd);
     for (char* c = b; *c; ++c) if (*c == '.' && c[1] >= '0' && c[1] <= '9' && c > b && c[-1] >= '0' && c[-1] <= '9') *c = ',';
-    text(b, 160, 186, 0.3f, rgb(0xb7c4dc), 1);
+    text_fit(b, 160, 186, 304, 0.3f, rgb(0xb7c4dc), true, 1);
     if (p.item >= 0) {   // el objeto que llevas, con lo que hace (entero)
       std::snprintf(b, sizeof(b), "%s: %s", item_name(p.item, p.dex), item_desc(p.item, p.dex));
       text_fit(b, 8, 209, 304, 0.3f, rgb(0xffd23f));
     }
     std::snprintf(b, sizeof(b), "Velocidad %d · Reducción %d %% · Regeneración %.1f/s", int(jsround(player_spd(g, p))), int(jsround(player_reduction(p) * 100)), player_regen(p));
-    text(b, 160, 199, 0.3f, rgb(0xb7c4dc), 1);
+    text_fit(b, 160, 199, 304, 0.3f, rgb(0xb7c4dc), true, 1);
     text("START: seguir · SELECT: abandonar la partida", 160, 224, 0.34f, rgb(0xeaf2ff), 1);
   } else if (g.state == ST_OVER) {
     const RunSummary& s = g.summary;
@@ -1191,7 +1210,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         std::snprintf(one, sizeof(one), " %s%s", mon_by_dex(s.caught_dex[i])->name, s.caught_new[i] ? "" : " (+300)");
         std::strncat(sh, one, sizeof(sh) - std::strlen(sh) - 1);
       }
-      text(sh, 160, 184, 0.36f, rgb(0x9ae6ff), 1);
+      text_fit(sh, 160, 184, 304, 0.36f, rgb(0x9ae6ff), true, 1);
     }
     text("A: otra partida · B: menú", 160, 206, 0.45f, rgb(0xeaf2ff), 1);
   } else {
@@ -1291,11 +1310,76 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     }
     if (p.nslots) {
       const MoveInst& m = p.moves[p.slots[p.active_slot][0]];
-      text(m.name(), 160, kSlotY + S + 3, 0.36f, rgb(kTypeColor[m.type()]), 1);
+      text_fit(m.name(), 160, kSlotY + S + 3, 300, 0.36f, rgb(kTypeColor[m.type()]), true, 1);
     }
   }
   std::snprintf(b, sizeof(b), "%d FPS%s", fps, autotest ? " · AUTOTEST" : "");
   if (show_fps || autotest) text(b, 316, 214, 0.32f, fps >= 50 ? rgb(0x5fe08a) : fps >= 30 ? rgb(0xffd23f) : rgb(0xff5f6d), 2, false);
+}
+
+}  // namespace ps
+
+namespace ps {
+
+// Autotest "textos": mide con la letra de la consola todos los textos de
+// movimientos, objetos y megas en los huecos donde se dibujan.
+int Renderer::check_texts(FILE* log) {
+  int bad = 0, n = 0;
+  auto fits1 = [&](const char* s, float maxw) { return text_width(s, 0.28f) <= maxw; };
+  auto fits2 = [&](const char* s, float maxw) {   // (como text_fit2)
+    std::string t = s;
+    if (text_width(s, 0.32f) <= maxw) return true;
+    size_t cut = 0;
+    for (size_t i = 0; i < t.size(); ++i) {
+      if (t[i] != ' ') continue;
+      if (text_width(t.substr(0, i).c_str(), 0.28f) > maxw) break;
+      cut = i;
+    }
+    return cut > 0 && text_width(t.substr(cut + 1).c_str(), 0.28f) <= maxw;
+  };
+  auto chk = [&](bool ok, const char* where, const char* s) {
+    if ((++n & 31) == 0) C2D_TextBufClear(tbuf);
+    if (ok) return;
+    bad++;
+    if (log) std::fprintf(log, "texto: no cabe (%s): %s\n", where, s);
+  };
+  char b[160];
+  const float tagw = text_width("Psíquico · Especial", 0.34f);
+  for (int i = 0; i < kMoveCount; ++i) {
+    const MoveDef& d = kMoves[i];
+    chk(fits1(d.name, 254 - tagw - 6), "carta", d.name);
+    chk(fits2(d.desc, 256), "carta", d.desc);
+    MoveInst m = move_instance(i);
+    for (int l = 1; l < move_max_lvl(); ++l) {
+      const char* u = move_next_up_text(m);
+      if (u) chk(fits2(u, 256), "carta", u);
+      move_level_up(m);
+    }
+    if (d.evo_name) {
+      std::snprintf(b, sizeof(b), "%s → %s", d.name, d.evo_name);
+      chk(fits1(b, 254 - text_width("EVOLUCIÓN", 0.34f) - 6), "carta", b);
+      chk(fits2(kEvoMods[d.kind].text, 256), "carta", kEvoMods[d.kind].text);
+      std::snprintf(b, sizeof(b), "%s Nv.5", d.evo_name);
+      chk(fits1(b, 118), "pausa", b);
+    }
+    std::snprintf(b, sizeof(b), "%s Nv.5", d.name);
+    chk(fits1(b, 118), "pausa", b);
+    chk(fits1(d.name, 150), "atajos", d.name);
+  }
+  for (int i = 0; i < LS_COUNT; ++i) chk(fits2(kLevelStats[i].desc, 256), "carta", kLevelStats[i].desc);
+  const float whow = text_width("El que llevas", 0.34f);
+  for (int i = 0; i < IT_COUNT; ++i) {
+    chk(fits1(item_name(i, 1), 250 - whow - 6), "objeto", item_name(i, 1));
+    chk(fits2(item_desc(i, 1), 250), "objeto", item_desc(i, 1));
+  }
+  for (int k = 0; k < kMegaCount; ++k) {
+    const int it = IT_MEGA_A + kMegas[k].slot;
+    chk(fits1(item_name(it, kMegas[k].base), 250 - whow - 6), "objeto", item_name(it, kMegas[k].base));
+    chk(fits2(item_desc(it, kMegas[k].base), 250), "objeto", item_desc(it, kMegas[k].base));
+  }
+  C2D_TextBufClear(tbuf);
+  if (log) std::fprintf(log, "textos: %d medidos, %d no caben\n", n, bad);
+  return bad;
 }
 
 }  // namespace ps

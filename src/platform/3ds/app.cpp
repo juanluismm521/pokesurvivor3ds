@@ -1,4 +1,5 @@
 // app.cpp — ver app.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
 
 #include <algorithm>
@@ -336,6 +337,8 @@ void App::update(const UiIn& in0, float dt) {
     if (in.down & KEY_B) audio::play("back");
     if (in.down & (KEY_L | KEY_R)) audio::play("select");
   }
+  // El aviso de que la vez anterior se rompió: se va con cualquier botón.
+  if (crash3ds::last()[0] && scene != SC_RUN && (in.down & (KEY_A | KEY_B | KEY_X | KEY_Y | KEY_START))) { crash_seen_ = true; if (scene == SC_MENU) return; }
   switch (scene) {
     case SC_RUN: in_run(in); break;
     case SC_TEST: case SC_RESULT: case SC_STARTERS: in_test(in); break;
@@ -805,7 +808,7 @@ void App::top_detail(int dex, bool shiny, bool own) {
   stat("Ataque", p->atk, 1.55f, t2, 112);
   stat("Velocidad", float(p->spd), 137, t3, 126);
   std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0)].name);
-  r_->text(b, 300, 144, 0.36f, C_GOLD, 1);
+  r_->text_fit(b, 300, 144, 196, 0.36f, C_GOLD, true, 1);
   int16_t pool[kMaxMoves];
   const int np = move_pool_for(p->types, pool, kMaxMoves);
   for (int i = 0; i < np && i < 20; ++i) {
@@ -995,7 +998,7 @@ void App::bottom_upgrades() {
       std::snprintf(b, sizeof(b), "%d", i + 1);
       r_->text(b, 20, y + 7, 0.42f, C_GOLD);
       const int id = s_->pbind[up_dex_][i];
-      r_->text(id >= 0 ? kMoves[id].name : "Libre", 160, y + 7, 0.42f, C_TEXT, 1);
+      r_->text_fit(id >= 0 ? kMoves[id].name : "Libre", 200, y + 7, 150, 0.42f, C_TEXT, true, 1);
       if (i == cur_) { r_->text("<", 120, y + 7, 0.42f, C_MUTED, 1); r_->text(">", 280, y + 7, 0.42f, C_MUTED, 1); }
     }
     r_->text("Arriba/abajo: hueco · izquierda/derecha: movimiento · B: volver", 160, 226, 0.3f, C_MUTED, 1);
@@ -1012,7 +1015,7 @@ void App::bottom_upgrades() {
       C2D_DrawRectSolid(10, y, 0, 300, 18, scroll_ + i == cur_ ? C_SEL : C_PANEL);
       const int ic = r_->move_icon[id];
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 14, y + 1, 0);
-      r_->text(kMoves[id].name, 36, y + 2, 0.36f, id == cur ? C_GOLD : C_TEXT);
+      r_->text_fit(kMoves[id].name, 36, y + 2, id == base ? 160 : 210, 0.36f, id == cur ? C_GOLD : C_TEXT, true);
       if (id == base) r_->text("(de serie)", 250, y + 3, 0.3f, C_MUTED, 2);
       if (id == cur) r_->text("ELEGIDO", 304, y + 2, 0.32f, C_GOLD, 2);
     }
@@ -1036,7 +1039,7 @@ void App::bottom_upgrades() {
       C2D_DrawRectSolid(10, y, 0, 300, 18, scroll_ + i == cur_ ? C_SEL : C_PANEL);
       const int ic = r_->move_icon[id];
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 14, y + 1, 0);
-      r_->text(kMoves[id].name, 36, y + 2, 0.36f, on ? C2D_Color32(255, 95, 109, 255) : C_TEXT);
+      r_->text_fit(kMoves[id].name, 36, y + 2, 210, 0.36f, on ? C2D_Color32(255, 95, 109, 255) : C_TEXT, true);
       if (on) r_->text("VETADO", 304, y + 2, 0.32f, C2D_Color32(255, 95, 109, 255), 2);
     }
     r_->text("A: vetar / quitar · B: volver", 160, 226, 0.32f, C_MUTED, 1);
@@ -1066,8 +1069,8 @@ void App::bottom_upgrades() {
     const int lv = s_->pupg[up_dex_][k];
     const int ic = r_->icons.find(u.icon);
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 1, 0, nullptr, 2, 2);
-    r_->text(u.name, 38, y + 1, 0.38f, C_TEXT);
-    r_->text(u.unit, 38, y + 13, 0.28f, C_MUTED, 0, false);
+    r_->text_fit(u.name, 38, y + 1, 168, 0.38f, C_TEXT, true);
+    r_->text_fit(u.unit, 38, y + 13, 168, 0.28f, C_MUTED);
     for (int p = 0; p < u.max; ++p) C2D_DrawRectSolid(210 + p * 6 - (u.max > 8 ? 12 : 0), y + 18, 0, 4, 4, p < lv ? C_GOLD : C2D_Color32(60, 70, 96, 255));
     if (lv >= u.max) r_->text("Máx.", 308, y + 4, 0.36f, C_MUTED, 2);
     else {
@@ -1494,7 +1497,7 @@ void App::draw_top(float eye) {
           const StarterDef& s = kStarters[cur_];
           char b[128];
           std::snprintf(b, sizeof(b), "Empieza con %s · %s, %s", kMoves[s.start].name, s.traits[0], s.traits[1]);
-          r_->text(b, 200, 44, 0.38f, C_GOLD, 1);
+          r_->text_fit(b, 200, 44, 390, 0.38f, C_GOLD, true, 1);
         }
         break;
       }
@@ -1575,6 +1578,14 @@ void App::draw_top(float eye) {
       case SC_PULL: top_pull(); break;
       default: break;
     }
+  }
+  // La vez anterior el juego se rompió: qué pasó (para una foto) y dónde está el log.
+  if (crash3ds::last()[0] && !crash_seen_ && scene != SC_RUN) {
+    C2D_DrawRectSolid(10, 150, 0, 380, 82, C2D_Color32(60, 16, 24, 240));
+    C2D_DrawRectSolid(10, 150, 0, 3, 82, C2D_Color32(255, 95, 109, 255));
+    r_->text("La última vez el juego se cerró por un fallo", 200, 154, 0.42f, C_TEXT, 1);
+    r_->text_wrap(crash3ds::last(), 200, 172, 0.32f, C_GOLD, 370, 1);
+    r_->text("Haz una foto de esto (o manda fallo_anterior.log de la SD) · A: seguir", 200, 216, 0.3f, C_MUTED, 1);
   }
   // Avisos de misiones y logros (arriba, encima de todo).
   if (g_notices.n) {

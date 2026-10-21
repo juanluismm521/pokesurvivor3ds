@@ -1,4 +1,5 @@
 // audio3ds.cpp — ver audio3ds.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/audio3ds.h"
 
 #include <3ds.h>
@@ -89,6 +90,7 @@ volatile int g_req_track = MU_NONE;
 volatile bool g_has_req = false;
 
 void music_thread(void*) {
+  crash3ds::guard("música");
   while (!g_quit) {
     if (g_has_req) { g_has_req = false; start_track(g_req_track); }
     LightLock_Lock(&g_lock);

@@ -30,8 +30,10 @@ inline bool finite_all(const Game& g) {
 using SimHook = std::function<void(Game&)>;
 
 // Juega hasta `max_seconds` de partida (o hasta que acabe).
-inline SimStats sim_run(Game& g, uint32_t seed, int dex, double max_seconds, bool immortal, SimHook* hook = nullptr) {
-  RunConfig cfg;
+// `base`: la configuración de la partida (mejoras…); si no, la de serie.
+inline SimStats sim_run(Game& g, uint32_t seed, int dex, double max_seconds, bool immortal, SimHook* hook = nullptr,
+                        const RunConfig* base = nullptr) {
+  RunConfig cfg = base ? *base : RunConfig();
   cfg.dex = dex;
   cfg.seed = seed;
   cfg.judged = 1;

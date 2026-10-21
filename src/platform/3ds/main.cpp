@@ -22,6 +22,7 @@
 #include "platform/3ds/app.h"
 #include "platform/3ds/audio3ds.h"
 #include "platform/3ds/cloud3ds.h"
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/datos3ds.h"
 #include "gen/build.h"
 #include "platform/3ds/prog3ds.h"
@@ -58,6 +59,8 @@ struct Autotest {
   bool nube = false, https = false, datos = false;
   int programa = 0;
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
+  bool textos = false;      // "textos": mide los textos de movimientos, objetos y megas (los que no caben, al log)
+  int fallo = 0;            // "fallo [hilo]": se rompe a propósito (prueba de fallo.log), en el principal o en un hilo
   bool galeria = false;     // "galeria": las megas, una página tras otra (y si cargan)   // "programa": busca, descarga y sale (se instala al salir) · "programa volver": vuelve a la anterior   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
   char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
@@ -81,6 +84,8 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "https")) a.https = true;
   else if (!std::strcmp(first, "datos")) a.datos = true;
   else if (!std::strcmp(first, "galeria")) a.galeria = true;
+  else if (!std::strcmp(first, "textos")) a.textos = true;
+  else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
@@ -124,21 +129,26 @@ void show_install(const char* msg, int pct) {
 
 int main(int argc, char** argv) {
   const u64 boot_t0 = svcGetSystemTick();
+  mkdir("sdmc:/3ds", 0777);
+  mkdir(kDir, 0777);
+  crash3ds::init(kDir);   // (si se rompe: fallo.log y arranque.log en la SD)
   osSetSpeedupEnable(true);
+  crash3ds::step("romfs");
   romfsInit();
+  crash3ds::step("gráficos");
   gfxInitDefault();
   C3D_Init(C3D_DEFAULT_CMDBUF_SIZE * 2);
   C2D_Init(8192);
   C2D_Prepare();
-  mkdir("sdmc:/3ds", 0777);
-  mkdir(kDir, 0777);
   hidSetRepeatParameters(18, 5);
 
   C3D_RenderTarget* top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
   C3D_RenderTarget* top_r = C2D_CreateScreenTarget(GFX_TOP, GFX_RIGHT);
   C3D_RenderTarget* bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
+  crash3ds::step("sonido");
   audio::init();   // (si no hay dspfirm.cdc, sin sonido)
+  crash3ds::step("recursos (romfs)");
   static Renderer r;
   if (!r.init()) {
     consoleInit(GFX_BOTTOM, nullptr);
@@ -160,13 +170,16 @@ int main(int argc, char** argv) {
 #endif
 
   // Partida guardada y ajustes (en la SD).
+  crash3ds::step("partida guardada");
   std::unique_ptr<Save> save(new Save());
   const int loaded = save_read_file(kDir, *save);
   if (!loaded) new_save(*save, "Jugador", int64_t(osGetTime()) - 2208988800000LL);
   static Settings settings;
   settings_read(kDir, settings);
 
+  crash3ds::step("nube");
   cloud3ds::init(kDir);
+  crash3ds::step("guardado y datos");
   // Datos del juego: los de la SD (el último paquete bajado de la web) o los de fábrica.
   saver3ds::init(kDir);
   const std::string datos_boot = datos3ds::init(kDir);
@@ -177,8 +190,10 @@ int main(int argc, char** argv) {
     char rp[96];
     std::snprintf(rp, sizeof(rp), "%s/programa_ruta.txt", kDir);
     if (FILE* f = std::fopen(rp, "rb")) { if (std::fscanf(f, "%127s", ruta) != 1) ruta[0] = 0; std::fclose(f); }
+    crash3ds::step(ruta[0] ? ruta : "actualizaciones (sin ruta)");
     prog3ds::init(kDir, ruta);
   }
+  crash3ds::step("pantallas");
   std::unique_ptr<Game> g(new Game());
   static App app;
   app.init(&r, g.get(), save.get(), &settings, kDir);
@@ -197,7 +212,43 @@ int main(int argc, char** argv) {
   }
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
-  if (at.galeria) {
+  if (at.fallo) {
+    if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
+    auto boom = [](void*) { crash3ds::guard("prueba"); __builtin_trap(); };
+    if (at.fallo == 2) { threadCreate(boom, nullptr, 16 * 1024, 0x30, -2, true); for (int i = 0; i < 300; ++i) gspWaitForVBlank(); }
+    else boom(nullptr);
+  }
+  if (at.textos) {
+    r.check_texts(at.log);
+    // Y para las capturas: cartas de nivel con la descripción más larga y la
+    // elección de objeto con una megapiedra.
+    RunConfig cfg;
+    cfg.dex = 6; cfg.seed = 1;
+    g->start_run(cfg);
+    Player& p = g->players[0];
+    int longest = 0;
+    for (int i = 1; i < kMoveCount; ++i) if (r.text_width(kMoves[i].desc, 0.32f) > r.text_width(kMoves[longest].desc, 0.32f)) longest = i;
+    C2D_TextBufClear(r.tbuf);
+    p.ncards = 3;
+    p.cards[0] = Card(); p.cards[0].type = CT_NEW; p.cards[0].move = int16_t(longest);
+    p.cards[1] = Card(); p.cards[1].type = CT_UP; p.cards[1].move = 0;
+    p.cards[2] = Card(); p.cards[2].type = CT_STAT; p.cards[2].stat = LS_DEF;
+    for (int k = 0; k < 2 && aptMainLoop(); ++k) {
+      if (k == 0) { g->state = ST_LEVELUP; p.picked = false; }
+      else { g->state = ST_CHOICE; p.choice = CH_ITEM; p.item_cur = IT_MEGA_A; p.item_next = IT_SHELLBELL; }
+      for (int f = 0; f < 240 && aptMainLoop(); ++f) {
+        C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+        C2D_TargetClear(top, C2D_Color32(16, 22, 34, 255));
+        C2D_TargetClear(bottom, C2D_Color32(16, 22, 34, 255));
+        C2D_SceneBegin(bottom);
+        r.draw_bottom(*g, false);
+        C3D_FrameEnd(0);
+      }
+    }
+    if (at.log) { std::fclose(at.log); at.log = nullptr; }
+    app.quit = true;
+    at.on = false;
+  } else if (at.galeria) {
     // Todas las megas, 8 por página (3 s cada una), en normal y en shiny,
     // andando y girando por las 8 direcciones: para verlas en las capturas y
     // comprobar que cada sprite carga (los fallos, al log).
@@ -351,6 +402,7 @@ int main(int argc, char** argv) {
   u64 fps_t = last;
   int fps_frames = 0;
 
+  int frames_shown = 0;
   while (aptMainLoop() && !app.quit) {
     hidScanInput();
     UiIn in;
@@ -415,6 +467,7 @@ int main(int argc, char** argv) {
     C2D_SceneBegin(bottom);
     app.draw_bottom();
     C3D_FrameEnd(0);
+    if (++frames_shown == 120) crash3ds::boot_done();   // (2 s en pantalla: el arranque ha ido bien)
     g_ms_draw = int(osGetTime() - td0);
 
     // --- FPS ---

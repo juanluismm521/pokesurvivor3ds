@@ -18,6 +18,7 @@
 #include <cstring>
 
 #include "core/settings.h"
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
@@ -165,7 +166,7 @@ void App::in_coop(const UiIn& in) {
         g_conn_state = 1;
         s32 prio = 0x30;
         svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-        g_conn_thr = threadCreate([](void*) { g_conn_ok = net3ds::init(); g_conn_state = 2; }, nullptr, 64 * 1024, prio + 1, -2, false);
+        g_conn_thr = threadCreate([](void*) { crash3ds::guard("conectar"); g_conn_ok = net3ds::init(); g_conn_state = 2; }, nullptr, 64 * 1024, prio + 1, -2, false);
         if (!g_conn_thr) { g_conn_state = 0; tried = true; ok = net3ds::init(); coop_retry_ = now + 2000; }
       }
     } else if (now >= coop_retry_) {
@@ -210,7 +211,7 @@ void App::in_coop(const UiIn& in) {
       g_scan_state = 1;
       s32 prio = 0x30;
       svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-      g_scan_thr = threadCreate([](void*) { net3ds::Room r[kMaxRoomsShown]; const int k = net3ds::scan(r, kMaxRoomsShown); for (int i = 0; i < k; ++i) g_scan_rooms[i] = r[i]; g_scan_n = k; g_scan_state = 2; },
+      g_scan_thr = threadCreate([](void*) { crash3ds::guard("buscar salas"); net3ds::Room r[kMaxRoomsShown]; const int k = net3ds::scan(r, kMaxRoomsShown); for (int i = 0; i < k; ++i) g_scan_rooms[i] = r[i]; g_scan_n = k; g_scan_state = 2; },
                                 nullptr, 64 * 1024, prio + 1, -2, false);
       if (!g_scan_thr) { g_scan_state = 0; g_scan_next = now + 3000; }
     }

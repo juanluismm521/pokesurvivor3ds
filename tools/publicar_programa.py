@@ -149,6 +149,11 @@ def publicar(repo=ROOT, notas=''):
         shutil.copyfile(src, os.path.join(dest, f'pokesurvivor-3ds.{ext}'))
         e[ext] = {'url': f'b{build}/pokesurvivor-3ds.{ext}', 'tam': os.path.getsize(src),
                   'huella': out(f'{firmar_bin(repo)} huella {src}')}
+    # El .elf de cada build (no se publica): con él, las direcciones de un
+    # fallo.log de la consola se traducen a líneas del código (tools/fallo.sh).
+    elfs = os.path.expanduser('~/pokesurvivor-elfs')
+    os.makedirs(elfs, exist_ok=True)
+    shutil.copyfile(os.path.join(repo, 'pokesurvivor-3ds.elf'), os.path.join(elfs, f'b{build}.elf'))
     publicar_entrada(e, repo)
 
 

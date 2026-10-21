@@ -5,6 +5,22 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.3.2 — 2026-10-21
+- **La mega se nota más.** Además de sus estadísticas, mientras dura: +25 % de
+  ataque (físico y especial), +15 % de velocidad, recarga de los ataques un
+  25 % más rápida, regeneras un 1,5 % de tu vida por segundo y recibes un 15 %
+  menos de daño. Sigue durando 20 s con 45 s de recarga. Medido con el bot
+  (`ps_balance`): antes la megapiedra rendía menos que la Cinta Elección; ahora
+  queda a la par del mejor objeto.
+- Textos que se salían de la pantalla: nombres y descripciones de movimientos
+  en las cartas de nivel (la descripción larga pasa a dos líneas), en la pausa,
+  los vínculos, los atajos, el movimiento inicial y las mejoras. Todos medidos
+  con la letra de la consola (autotest `textos`: 1328 textos, ninguno se sale).
+- Si el juego se rompe en la consola, guarda en la SD qué pasó (`fallo.log`) y
+  hasta dónde llegó al arrancar (`arranque.log`); al abrirlo otra vez lo
+  enseña en pantalla. Para encontrar el fallo del .cia.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.3.1 — 2026-10-21
 - Si cambias la megapiedra por la otra (de la X a la Y) con la mega puesta, la
   mega se acaba (antes seguías con la X llevando la Y).

@@ -195,6 +195,7 @@ class App {
   uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
+  bool crash_seen_ = false;     // ya se ha visto el aviso del fallo de la vez anterior
   int auto_mega_up_ = 0;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
  public:
   bool auto_mega = false;       // autotest "… mega": el bot con su megapiedra

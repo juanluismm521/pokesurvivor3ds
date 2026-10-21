@@ -1,4 +1,5 @@
 // prog3ds.cpp — ver prog3ds.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/prog3ds.h"
 
 #include <3ds.h>
@@ -129,6 +130,7 @@ bool download(const UpdateEntry& e, const char* name, bool back) {
 }
 
 void worker(void*) {
+  crash3ds::guard("actualizar");
   std::string why;
   const int job = g_job;
   g_state = ST_CHECKING;

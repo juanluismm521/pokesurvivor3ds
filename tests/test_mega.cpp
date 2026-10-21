@@ -57,6 +57,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   const float hp0 = p.max_hp, spd0 = p.base_spd, atk0 = p.base_atk;
   CHECK(!mega_ready(p));                // sin la piedra, nada
   player_equip(*g, p, IT_MEGA_A);
+  const float am = p.atk_mul, sm = p.spd_mul, cm = p.cd_mul, dr = p.dmg_reduce, rf = p.regen_flat;
   CHECK(mega_ready(p));
   mega_start(*g, p);
   const MegaDef& d = kMegas[mega_index(94, 0)];
@@ -68,6 +69,18 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   CHECK(p.anim.dex == d.sprite);
   CHECK(p.invuln >= kMegaTransform - 0.01f);
   CHECK(!mega_ready(p));                // ya está
+  // El empujón de la mega: más ataque, velocidad, recarga, regeneración y defensa.
+  CHECK(p.atk_mul == doctest::Approx(am * kMegaAtk));
+  CHECK(p.spd_mul == doctest::Approx(sm * kMegaSpd));
+  CHECK(p.cd_mul == doctest::Approx(cm * kMegaCd));
+  CHECK(p.dmg_reduce == doctest::Approx(dr + kMegaArmor));
+  CHECK(p.regen_flat == doctest::Approx(rf + p.max_hp * kMegaRegen));
+  // Subir defensa durante la mega no la pierde al acabar (el tope es sin la mega).
+  p.dmg_reduce = dr + 0.68f + kMegaArmor;
+  Card c; c.type = CT_STAT; c.stat = LS_DEF;
+  levelup_apply(*g, p, c);
+  CHECK(p.dmg_reduce == doctest::Approx(0.7f + kMegaArmor));
+  p.dmg_reduce = dr + kMegaArmor;
   // Pasa el tiempo: se acaba sola, vuelve todo y empieza la recarga.
   for (int i = 0; i < int(kMegaTime * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);
   CHECK(p.mega == -1);
@@ -76,6 +89,11 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   CHECK(p.base_atk == doctest::Approx(atk0));
   CHECK(p.max_hp == doctest::Approx(hp0));
   CHECK(p.anim.dex == 94);
+  CHECK(p.atk_mul == doctest::Approx(am));
+  CHECK(p.spd_mul == doctest::Approx(sm));
+  CHECK(p.cd_mul == doctest::Approx(cm));
+  CHECK(p.dmg_reduce == doctest::Approx(dr));
+  CHECK(p.regen_flat == doctest::Approx(rf));
   CHECK(p.mega_cd > kMegaCooldown - 1);
   mega_start(*g, p);
   CHECK(p.mega == -1);                  // en recarga, no

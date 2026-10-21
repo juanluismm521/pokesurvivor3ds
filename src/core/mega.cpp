@@ -37,9 +37,10 @@ const char* item_name(int id, int dex) {
 const char* item_desc(int id, int dex) {
   if (id >= 0 && id < IT_COUNT) return kItems[id].desc;
   if (is_mega_stone(id)) {
-    static char b[96];
+    static char b[160];
     const int k = mega_index(dex, id - IT_MEGA_A);
-    std::snprintf(b, sizeof(b), "Y: %s durante %d s (recarga %d s)", k >= 0 ? kMegas[k].mon.name : "megaevolución", int(kMegaTime), int(kMegaCooldown));
+    std::snprintf(b, sizeof(b), "Y: %s %d s. +25 %% ataque, +15 %% velocidad, -25 %% recarga, regeneras y aguantas más",
+                  k >= 0 ? kMegas[k].mon.name : "megaevolución", int(kMegaTime));
     return b;
   }
   return "";
@@ -98,6 +99,13 @@ void mega_start(Game& g, Player& p) {
   // su aura al dibujarlo (el shiny nunca se pierde).
   const bool own = d.own_sprite && (!p.shiny || has_shiny(d.sprite));
   set_form(p, &d.mon, own ? d.sprite : p.dex, own ? p.scale : p.scale * 1.15f);
+  // El empujón de la mega (se deshace igual al acabar).
+  p.atk_mul *= kMegaAtk;
+  p.spd_mul *= kMegaSpd;
+  p.cd_mul *= kMegaCd;
+  p.mega_regen = p.max_hp * kMegaRegen;
+  p.regen_flat += p.mega_regen;
+  p.dmg_reduce += kMegaArmor;
   p.invuln = std::fmax(p.invuln, kMegaTransform);
   p.flash = 0.3f;
   // La animación: anillos de colores que se cierran y una explosión de luz.
@@ -120,6 +128,12 @@ void mega_end(Game& g, Player& p) {
   if (p.hp > p.max_hp) p.hp = p.max_hp;
   if (!p.dead && p.hp < 1) p.hp = 1;   // (acabar la mega nunca te deja KO)
   set_form(p, base, p.dex, player_scale(p.dex));
+  p.atk_mul /= kMegaAtk;
+  p.spd_mul /= kMegaSpd;
+  p.cd_mul /= kMegaCd;
+  p.regen_flat -= p.mega_regen;
+  p.mega_regen = 0;
+  p.dmg_reduce -= kMegaArmor;
   p.mega = -1;
   p.mega_t = p.mega_tf = 0;
   p.mega_dhp = 0;

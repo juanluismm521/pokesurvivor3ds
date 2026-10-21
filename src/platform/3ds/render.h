@@ -56,9 +56,14 @@ struct Renderer {
   void text(const char* s, float x, float y, float size, u32 color, int align = 0, bool shadow = true);
   float text_wrap(const char* s, float x, float y, float size, u32 color, float width, int align = 0);
   float text_width(const char* s, float size);
-  // Texto que cabe en maxw (alineado a la izquierda): baja la letra hasta la
-  // pequeña y, si ni así, lo corta con «…». Devuelve el ancho dibujado.
-  float text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = false);
+  // Texto que cabe en maxw: baja la letra hasta la pequeña y, si ni así, lo
+  // corta con «…». `align` como en text(). Devuelve el ancho dibujado.
+  float text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = false, int align = 0);
+  // Igual, pero si no cabe en una línea lo parte en dos (letra pequeña, la
+  // segunda a y + 10). Devuelve cuántas líneas ha usado.
+  int text_fit2(const char* s, float x, float y, float maxw, float size, u32 color);
+  // Autotest "textos": cuántos textos no caben (y los apunta en `log`).
+  int check_texts(FILE* log);
   // Megapiedra (no hay icono en los atlas): esfera con el símbolo mega, de lado `s`.
   void draw_mega_stone(float x, float y, float s);
   // Icono de un objeto (los de la web o la megapiedra), de lado `s`.

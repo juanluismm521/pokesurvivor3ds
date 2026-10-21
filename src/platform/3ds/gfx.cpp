@@ -1,4 +1,5 @@
 // gfx.cpp — ver gfx.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/gfx.h"
 
 #include <cstdio>
@@ -179,6 +180,7 @@ bool SpriteBank::build(SpriteSet& s, int dex, bool shiny, const Files& fl) {
 }
 
 void SpriteBank::worker(void* arg) {
+  crash3ds::guard("sprites");
   SpriteBank* b = static_cast<SpriteBank*>(arg);
   for (;;) {
     LightEvent_Wait(&b->ev_);
@@ -334,6 +336,7 @@ static void marks(uint32_t* b) {
 }
 
 void ChunkCache::worker(void* arg) {
+  crash3ds::guard("suelo");
   ChunkCache& c = *static_cast<ChunkCache*>(arg);
   while (!c.quit_) {
     LightEvent_Wait(&c.ev_);

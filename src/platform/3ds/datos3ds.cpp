@@ -1,4 +1,5 @@
 // datos3ds.cpp — ver datos3ds.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/datos3ds.h"
 
 #include <3ds.h>
@@ -52,6 +53,7 @@ void set_status(const std::string& s) { LightLock_Lock(&g_lock); g_status = s; L
 std::string describe(const DataPackInfo& i) { return "web del " + i.fecha + " (" + i.web + ")"; }
 
 void worker(void*) {
+  crash3ds::guard("datos");
   std::string body, err;
   int st = 0;
   // ¿Pide la web ya un programa nuevo? (el índice dice el esquema más reciente)

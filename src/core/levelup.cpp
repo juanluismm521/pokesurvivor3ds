@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "core/game.h"
+#include "core/mega.h"
 #include "core/stats.h"
 
 namespace ps {
@@ -142,7 +143,11 @@ static void apply_stat(Game& g, Player& p, int s) {
     case LS_ATK: p.atk_mul *= 1.10f; break;
     case LS_SPD: p.spd_mul *= 1.07f; break;
     case LS_CD: p.cd_mul *= 0.92f; break;
-    case LS_DEF: p.dmg_reduce = std::fmin(0.7f, p.dmg_reduce + 0.06f); break;
+    case LS_DEF: {   // (el tope es sin la mega, que se quita al acabar)
+      const float mega = p.mega >= 0 ? kMegaArmor : 0;
+      p.dmg_reduce = std::fmin(0.7f, p.dmg_reduce - mega + 0.06f) + mega;
+      break;
+    }
     case LS_RGN: p.regen_flat += 0.9f; break;
     case LS_MAG: p.magnet *= 1.30f; break;
     case LS_XP: p.xp_mul *= 1.12f; break;

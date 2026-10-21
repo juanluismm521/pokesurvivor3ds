@@ -1,4 +1,5 @@
 // saver3ds.cpp — ver saver3ds.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/saver3ds.h"
 
 #include <3ds.h>
@@ -31,6 +32,7 @@ void write_now(const Save& s) {
 }
 
 void worker(void*) {
+  crash3ds::guard("guardar");
   while (true) {
     LightEvent_Wait(&g_ev);
     while (true) {

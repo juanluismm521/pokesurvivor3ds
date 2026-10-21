@@ -26,6 +26,12 @@ inline bool is_mega_stone(int id) { return id == IT_MEGA_A || id == IT_MEGA_B; }
 
 constexpr float kMegaTime = 20, kMegaCooldown = 45, kMegaTransform = 1.2f;
 constexpr float kMegaChanceBase = 0.10f, kMegaChanceUp = 0.06f;
+// Además de sus estadísticas, mientras dura (se nota, pero sin romper el juego):
+constexpr float kMegaAtk = 1.25f;      // ataque (físico y especial)
+constexpr float kMegaSpd = 1.15f;      // velocidad
+constexpr float kMegaCd = 0.75f;       // recarga de los ataques (un 25 % más rápida)
+constexpr float kMegaRegen = 0.015f;   // vida por segundo (fracción de la vida máxima)
+constexpr float kMegaArmor = 0.15f;    // menos daño recibido
 constexpr int kMegaUpMax = 5;
 // Coste de la mejora «Megapiedra» (nivel actual → siguiente).
 int mega_up_cost(int level);

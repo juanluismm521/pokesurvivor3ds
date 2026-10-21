@@ -121,6 +121,7 @@ struct Player {
   uint8_t mega_up = 0;          // nivel de la mejora «Megapiedra» (probabilidad)
   float mega_t = 0, mega_cd = 0, mega_tf = 0;
   float mega_dhp = 0;           // vida máxima que da la mega (se quita al acabar)
+  float mega_regen = 0;         // regeneración que da la mega (se quita al acabar)
   const Mon* mega_prev = nullptr;
   float aim = kPi / 2, move_angle = kPi / 2;
   bool walking = false, in_liquid = false;

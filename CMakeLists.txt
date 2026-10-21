@@ -62,6 +62,11 @@ add_executable(ps_sim tests/sim_main.cpp)
 target_include_directories(ps_sim PRIVATE tests)
 target_link_libraries(ps_sim PRIVATE ps_core)
 
+# Herramienta: balanceo de la megapiedra frente a los objetos (ps_balance)
+add_executable(ps_balance tests/balance_main.cpp)
+target_include_directories(ps_balance PRIVATE tests)
+target_link_libraries(ps_balance PRIVATE ps_core)
+
 enable_testing()
 add_test(NAME ps_tests COMMAND ps_tests)
 

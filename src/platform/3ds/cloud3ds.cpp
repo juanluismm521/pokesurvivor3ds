@@ -1,4 +1,5 @@
 // cloud3ds.cpp — ver cloud3ds.h.
+#include "platform/3ds/crash3ds.h"
 #include "platform/3ds/cloud3ds.h"
 
 #include <3ds.h>
@@ -146,6 +147,7 @@ bool soc_up_impl() {
 }
 
 void worker(void*) {
+  crash3ds::guard("nube");
   while (!g_quit) {
     LightEvent_Wait(&g_ev);
     if (g_quit) break;
