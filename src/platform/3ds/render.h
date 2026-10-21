@@ -28,6 +28,7 @@ struct Renderer {
   int fps = 60;
   int props_drawn = 0;   // objetos del escenario dibujados en el último fotograma (autotest)
   bool show_fps = false;
+  bool trailer_mark = false;   // autotest "… marca": para grabar el tráiler (ver draw_bottom)
   // Depuración (rejilla.txt en la SD): casillas de colisión (rojo pared, azul
   // líquido) y los pies y el círculo de choque de los jugadores, encima de todo.
   bool debug_grid = false;

@@ -378,6 +378,10 @@ struct RunConfig {
   int8_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
   uint32_t seed = 1;
   int judged = 0;                        // veces que ha visto la Sentencia (saltar animación)
+  // Para grabar (tráiler, también en grupo): empezar con el reloj adelantado y
+  // el equipo subido a este nivel (las cartas se eligen como siempre).
+  uint16_t demo_time = 0;
+  uint8_t demo_level = 0;
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
   // Cooperativo: cada jugador con su Pokémon y sus mejoras (el 0 es el
   // anfitrión). Con nplayers == 1 se usan los campos de arriba.

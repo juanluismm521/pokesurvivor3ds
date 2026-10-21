@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 
@@ -59,7 +60,10 @@ struct Autotest {
   bool nube = false, https = false, datos = false;
   int programa = 0;
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
-  bool news = false;        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
+  int level = 0, stone = 0;
+  bool mark = false;          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
+  float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
+  bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
   bool textos = false;      // "textos": mide los textos de movimientos, objetos y megas (los que no caben, al log)
   int fallo = 0;            // "fallo [hilo]": se rompe a propósito (prueba de fallo.log), en el principal o en un hilo
   bool galeria = false;     // "galeria": las megas, una página tras otra (y si cargan)   // "programa": busca, descarga y sale (se instala al salir) · "programa volver": vuelve a la anterior   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
@@ -86,6 +90,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "datos")) a.datos = true;
   else if (!std::strcmp(first, "galeria")) a.galeria = true;
   else if (!std::strcmp(first, "textos")) a.textos = true;
+  else if (!std::strcmp(first, "actualizar")) a.update_demo = true;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
@@ -97,9 +102,21 @@ void read_autotest(Autotest& a) {
       if (!std::strcmp(extra, "online")) a.online = true;
       if (!std::strcmp(extra, "morir")) a.die = true;
       if (!std::strcmp(extra, "mega")) a.coop_mega = true;
+      if (!std::strncmp(extra, "desde=", 6)) a.warp = float(std::atof(extra + 6));
+      if (!std::strncmp(extra, "nivel=", 6)) a.level = std::atoi(extra + 6);
     }
   }
-  else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f %23s", &a.seconds, &a.dex, &imm, &a.warp, a.move) >= 1) a.immortal = imm != 0; }
+  else {
+    std::rewind(f);
+    if (std::fscanf(f, "%f %d %d %f %23s", &a.seconds, &a.dex, &imm, &a.warp, a.move) >= 1) a.immortal = imm != 0;
+    char w[24];   // (para grabar: nivel=N megaen=S piedra=b)
+    while (std::fscanf(f, "%23s", w) == 1) {
+      if (!std::strncmp(w, "nivel=", 6)) a.level = std::atoi(w + 6);
+      else if (!std::strncmp(w, "megaen=", 7)) a.mega_at = float(std::atof(w + 7));
+      else if (!std::strcmp(w, "piedra=b")) a.stone = 1;
+      else if (!std::strcmp(w, "marca")) a.mark = true;
+    }
+  }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
   a.log = std::fopen(path, "w");
@@ -215,6 +232,7 @@ int main(int argc, char** argv) {
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
   if (at.news) { app.start_news_demo(at.dex); at.on = false; }
+  if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
     auto boom = [](void*) { crash3ds::guard("prueba"); __builtin_trap(); };
@@ -382,6 +400,8 @@ int main(int argc, char** argv) {
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
+    app.auto_coop_time = int(at.warp);
+    app.auto_level = at.level;
     app.auto_look = at.look;
     if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {
@@ -389,6 +409,10 @@ int main(int argc, char** argv) {
     const bool mega = !std::strcmp(at.move, "mega") || !std::strcmp(at.move, "megashiny");
     app.auto_shiny = !std::strcmp(at.move, "megashiny");
     app.auto_mega = mega;
+    app.auto_level = at.level;
+    app.auto_mega_at = at.mega_at;
+    app.auto_stone = at.stone;
+    r.trailer_mark = at.mark;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
     if (at.log && at.move[0]) std::fprintf(at.log, "empieza con %s (%d): %s\n", at.move, move_index(at.move), kMoves[g->pl().moves[0].def].id);

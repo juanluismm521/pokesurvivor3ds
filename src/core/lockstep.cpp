@@ -70,6 +70,7 @@ int write_config(const RunConfig& c, uint8_t* out, int cap) {
   w.u32(c.seed); w.u32(uint32_t(c.judged)); w.u8(uint32_t(c.nplayers));
   w.raw(c.legends_beaten, int(sizeof(c.legends_beaten)));
   for (int i = 0; i < c.nplayers && i < kMaxPlayers; ++i) put_member(w, c.members[i]);
+  w.u32(c.demo_time); w.u8(c.demo_level);
   return w.ok ? w.n : -1;
 }
 
@@ -80,6 +81,7 @@ bool read_config(const uint8_t* b, int len, RunConfig& c) {
   if (c.nplayers < 1 || c.nplayers > kMaxPlayers) return false;
   r.raw(c.legends_beaten, int(sizeof(c.legends_beaten)));
   for (int i = 0; i < c.nplayers; ++i) get_member(r, c.members[i]);
+  c.demo_time = uint16_t(r.u32()); c.demo_level = uint8_t(r.u8());
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
   return r.ok;
 }

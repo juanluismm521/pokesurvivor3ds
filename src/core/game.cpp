@@ -161,6 +161,11 @@ void Game::start_run(const RunConfig& c, Save* s) {
   views_snap(); camera.shake = 0;
   music = MU_FOREST;
   state = ST_PLAYING;
+  if (c.demo_time) time = c.demo_time;
+  if (c.demo_level) {
+    Player& team = pl();
+    while (team.level < c.demo_level) pending_levels += player_gain_xp(team, (team.xp_next - team.xp) / std::fmax(0.01f, team.xp_mul) + 0.01f);
+  }
 }
 
 void Game::quit_run() {

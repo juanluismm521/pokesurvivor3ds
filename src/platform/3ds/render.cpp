@@ -1325,7 +1325,15 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     }
   }
   std::snprintf(b, sizeof(b), "%d FPS%s", fps, autotest ? " · AUTOTEST" : "");
-  if (show_fps || autotest) text(b, 316, 214, 0.32f, fps >= 50 ? rgb(0x5fe08a) : fps >= 30 ? rgb(0xffd23f) : rgb(0xff5f6d), 2, false);
+  // Grabaciones del tráiler: sin la etiqueta y con la posición de tu Pokémon en
+  // la pantalla de arriba codificada en un cuadradito (R = x/2, G = y).
+  if (trailer_mark) {
+    const Player& me = g.me();
+    // (el mundo va al doble de la pantalla: a píxeles de la pantalla de arriba)
+    const float sx = (me.x - g.camera.left()) * 0.5f, sy = (me.y - me.body_h * 0.5f - g.camera.top()) * 0.5f;
+    C2D_DrawRectSolid(0, 236, 0, 4, 4, C2D_Color32(u8(clamp(sx / 2, 0.0f, 255.0f)), u8(clamp(sy, 0.0f, 255.0f)), 255, 255));
+  }
+  if ((show_fps || autotest) && !trailer_mark) text(b, 316, 214, 0.32f, fps >= 50 ? rgb(0x5fe08a) : fps >= 30 ? rgb(0xffd23f) : rgb(0xff5f6d), 2, false);
 }
 
 }  // namespace ps

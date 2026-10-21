@@ -43,13 +43,27 @@ setup() {   # $1 = A|B, $2 = rol, $3 = dex
   cp -r ~/.config/azahar-emu "$D/config/"
   cp -r ~/.local/share/azahar-emu "$D/data/"
   sed -i 's/^Multiplayer\\ip=.*/Multiplayer\\ip=127.0.0.1/; s/^Multiplayer\\ip\\default=true/Multiplayer\\ip\\default=false/' "$D/config/azahar-emu/qt-config.ini"
+  # COOP_DUMP=carpeta: graba las dos consolas en vídeo (RGB sin pérdidas) en carpeta/A.mkv y B.mkv
+  if [ -n "${COOP_DUMP:-}" ]; then
+    python3 - "$D/config/azahar-emu/qt-config.ini" <<'PY'
+import re, sys
+p = sys.argv[1]; s = open(p).read()
+# (la tasa alta hace que salga casi sin pérdidas: Azahar no deja pasar opciones con comas al códec)
+for k, v in {'output_format': 'matroska', 'video_encoder': 'libx264rgb', 'video_bitrate': '400000000',
+             'audio_encoder': 'pcm_s16le', 'audio_encoder_options': ''}.items():
+    s = re.sub(r'(?m)^' + k + r'=.*$', k + '=' + v, s).replace(k + '\\default=true', k + '\\default=false')
+open(p, 'w').write(s)
+PY
+  fi
   local SD="$D/data/azahar-emu/sdmc/3ds/pokesurvivor-3ds"
   mkdir -p "$SD"; rm -f "$SD/autotest.log"
   # COOP_MORIR=1: el invitado no es inmortal y se deja matar (para ver al caído
   # mirando a sus compañeros con L/R).
   if [ "${COOP_MORIR:-0}" = 1 ] && [ "$2" = join ]; then echo "coop $2 $SECS $3 0${ONLINE:+ online} morir" > "$SD/autotest.txt"
-  else echo "coop $2 $SECS $3 1${ONLINE:+ online}${COOP_MEGA:+ mega}" > "$SD/autotest.txt"; fi
+  else echo "coop $2 $SECS $3 1${ONLINE:+ online}${COOP_MEGA:+ mega}${COOP_EXTRA:+ $COOP_EXTRA}" > "$SD/autotest.txt"; fi
 }
+# COOP_EXTRA="desde=1300 nivel=40": reloj adelantado y nivel (para grabar; SECS es el tiempo
+# total de partida, así que súmale el «desde»)
 # COOP_MEGA=1: Gengar y Charizard, cada uno con su megapiedra (el bot megaevoluciona)
 if [ -n "${COOP_MEGA:-}" ]; then DA=94; DB=6; else DA=25; DB=4; fi
 setup A host ${COOP_DEX_A:-$DA}
@@ -70,7 +84,7 @@ EOF
 launch() {   # $1 = A|B, $2 = display
   pgrep -f "Xvfb :$2" >/dev/null || { Xvfb :$2 -screen 0 1280x800x24 >/dev/null 2>&1 & sleep 2; }
   DISPLAY=:$2 XDG_CONFIG_HOME="$W/$1/config" XDG_DATA_HOME="$W/$1/data" LIBGL_ALWAYS_SOFTWARE=1 \
-    "$APP" "$W/game.3dsx" >"$W/$1.log" 2>&1 &
+    "$APP" ${COOP_DUMP:+-d "$COOP_DUMP/$1.mkv"} "$W/game.3dsx" >"$W/$1.log" 2>&1 &
 }
 join_room() {   # $1 = display
   DISPLAY=:$1 xdotool mousemove 410 188 click 1; sleep 1          # Multiplayer

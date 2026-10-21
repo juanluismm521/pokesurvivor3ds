@@ -59,6 +59,7 @@ void App::set_autotest(int dex, bool immortal, float warp, int move) {
   auto_immortal_ = immortal;
   bot.init(12345);
   start_run();
+  auto_warp_ = warp;
   if (warp > 0) g_->time = warp;
 }
 
@@ -78,6 +79,13 @@ void App::start_news_demo(int dex) {
   news_checked_ = cloud_asked_ = true;
   if (mon_by_dex(dex)) s_->partner = int16_t(dex);
   go(SC_NEWS);
+}
+
+void App::start_update_demo() {
+  update_demo_ = true;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  go(SC_UPDATE);
 }
 
 void App::apply_settings() {
@@ -284,6 +292,12 @@ void App::notices(float dt) {
 void App::update(const UiIn& in0, float dt) {
   t_ += dt;
   UiIn in = in0;
+  if (update_demo_) {   // autotest "actualizar": la pantalla de Actualizaciones buscando y bajando
+    const float t0 = news_t_;
+    news_t_ += dt;
+    if (t0 < 2 && news_t_ >= 2) prog3ds::start_check(true);
+    if (news_t_ > 40) quit = true;
+  }
   if (news_demo_) {   // autotest "novedades": baja por la lista, va al menú y sale
     news_t_ += dt;
     if (scene == SC_NEWS && news_t_ > 5 && int(news_t_ / 0.7f) != int((news_t_ - dt) / 0.7f)) in.rep |= KEY_DDOWN;
@@ -415,7 +429,13 @@ void App::in_run(const UiIn& in) {
   }
   if (autotest) {
     bot.decide(g, gi, g.local);
-    if (auto_mega && g.time > 5 && g.state == ST_PLAYING && g.players[g.local].item < 0) player_equip(g, g.players[g.local], IT_MEGA_A);
+    if (auto_level > 0 && !auto_leveled_ && !coop_ && g.state == ST_PLAYING) {   // (tráiler: con nivel y ataques; en grupo lo hace la sala)
+      auto_leveled_ = true;
+      Player& p = g.players[g.local];
+      while (p.level < auto_level) g.pending_levels += player_gain_xp(p, (p.xp_next - p.xp) / std::fmax(0.01f, p.xp_mul) + 0.01f);
+    }
+    if (auto_mega && g.time - auto_warp_ > auto_mega_at && g.state == ST_PLAYING && g.players[g.local].item < 0)
+      player_equip(g, g.players[g.local], auto_stone ? IT_MEGA_B : IT_MEGA_A);
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
     // Con un movimiento elegido: pausa 6 s (de verdad) para ver el resumen.
     if (auto_move_ >= 0 && !auto_paused_ && g.state == ST_PLAYING && g.time > 95) { gi.cmd = CMD_PAUSE; auto_paused_ = true; auto_pause_ = float(osGetTime() % 100000000); }

@@ -31,6 +31,7 @@ TEST_CASE("lockstep: entradas y sala ida y vuelta") {
   c.legends_beaten[5] = 0x81;
   for (int i = 0; i < 3; ++i) { c.members[i].dex = 100 + i; c.members[i].upgrades[1] = uint8_t(i); std::snprintf(c.members[i].name, 16, "Jugador%d", i); }
   c.members[2].shiny = true; c.members[1].pbind[2] = 7;
+  c.demo_time = 1300; c.demo_level = 40;
   uint8_t buf[1024];
   const int n = write_config(c, buf, sizeof(buf));
   REQUIRE(n > 0);
@@ -40,7 +41,17 @@ TEST_CASE("lockstep: entradas y sala ida y vuelta") {
   CHECK(d.legends_beaten[5] == 0x81);
   CHECK(d.members[1].dex == 101); CHECK(d.members[2].shiny); CHECK(d.members[1].pbind[2] == 7);
   CHECK(std::string(d.members[2].name) == "Jugador2");
+  CHECK(d.demo_time == 1300); CHECK(d.demo_level == 40);
   CHECK(!read_config(buf, n - 5, d));   // cortado: no vale
+}
+
+TEST_CASE("partida de grabación: reloj adelantado y el equipo subido de nivel") {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig c; c.dex = 6; c.seed = 3; c.judged = 1; c.demo_time = 900; c.demo_level = 20;
+  g->start_run(c);
+  CHECK(g->time == doctest::Approx(900));
+  CHECK(g->pl().level == 20);
+  CHECK(g->pending_levels == 19);   // (las cartas, una a una, como siempre)
 }
 
 namespace {

@@ -451,6 +451,7 @@ void App::coop_host_start() {
   c.nplayers = nlobby_;
   for (int i = 0; i < nlobby_; ++i) { c.members[i] = lobby_[i].m; coop_nodes_[i] = lobby_[i].node; }
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
+  if (autotest) { c.demo_time = uint16_t(auto_coop_time); c.demo_level = uint8_t(auto_level); }   // (para grabar)
   for (int i = 0; i < kMaxPlayers; ++i) start_acked_[i] = i == 0;
   // Retraso de los controles: en local, el fijo; por internet, lo que tarda en
   // ir y volver lo de cada uno por el servidor (con margen).

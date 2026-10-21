@@ -40,7 +40,8 @@ class App {
   void set_coop_autotest(bool host, int dex, bool immortal, bool online = false, bool suicidal = false);
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
-  void start_news_demo(int dex);   // autotest "novedades [dex]": las novedades y el menú con ese compañero
+  void start_news_demo(int dex);
+  void start_update_demo();        // autotest "actualizar": busca y baja la versión nueva (para grabarlo)   // autotest "novedades [dex]": las novedades y el menú con ese compañero
   bool tour = false;
   void update(const UiIn& in, float dt);
   void draw_top(float eye = 0);
@@ -205,12 +206,19 @@ class App {
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
   bool crash_seen_ = false;
   bool news_checked_ = false;
-  bool news_demo_ = false;
+  bool news_demo_ = false, update_demo_ = false;
   float news_t_ = 0;   // ya se ha mirado si hay novedades sin ver     // ya se ha visto el aviso del fallo de la vez anterior
-  int auto_mega_up_ = 0;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
+  int auto_mega_up_ = 0;
+  float auto_warp_ = 0;         // (dónde empezó el reloj del autotest)
+  bool auto_leveled_ = false;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
  public:
   bool auto_mega = false;       // autotest "… mega": el bot con su megapiedra
   bool auto_shiny = false;      // autotest "… megashiny": y en shiny
+  // Autotest para grabar (tráiler): "… mega nivel=40 megaen=6 piedra=b"
+  int auto_level = 0;           // sube a este nivel al empezar (el bot elige las cartas)
+  float auto_mega_at = 5;       // segundos de partida (desde el principio, aunque se adelante el reloj) hasta darle la piedra
+  int auto_stone = 0;
+  int auto_coop_time = 0;       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
  private:
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)
   bool cloud_asked_ = false;     // ya se ha preguntado al abrir

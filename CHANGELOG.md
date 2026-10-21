@@ -5,6 +5,11 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.4.3 — 2026-10-21
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+- Por dentro: modos de prueba para grabar el tráiler (partida con nivel y reloj
+  adelantado, también en grupo).
+
 ## 0.4.2 — 2026-10-21
 - En el menú, debajo de las megapiedras de tu compañero: la probabilidad de
   que un objeto sea su megapiedra y el nivel de la mejora «Megapiedra».
