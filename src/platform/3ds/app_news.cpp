@@ -35,7 +35,7 @@ const NewsItem kNews[] = {
      "91 megas, también las nuevas de Pokémon Leyendas Z-A: Mega-Raichu X e Y, Mega-Garchomp Z, Mega-Lucario Z, Mega-Absol Z, "
      "Mega-Greninja, Mega-Zeraora…"},
     {nullptr, NI_STONE, "Consigue su megapiedra",
-     "Sale como un objeto más en cofres y jefes, y siempre la de tu Pokémon. Si tiene dos megas, puede salir cualquiera."},
+     "Sale en cofres y jefes, siempre la de tu Pokémon y cada una con su dibujo. Si tiene dos megas, puede salir cualquiera."},
     {nullptr, NI_Y, "Pulsa Y para megaevolucionar",
      "20 segundos con su forma y su tipo: más ataque, velocidad y recarga, recuperas vida y aguantas más. Luego, a descansar."},
     {nullptr, NI_UP, "Mejora «Megapiedra»",
@@ -134,7 +134,8 @@ void App::bottom_news() {
     switch (n.icon) {
       case NI_STONE:
         C2D_DrawCircleSolid(ix, iy, 0, 14 + std::sin(t_ * 3 + i) * 1.5f, rgbf(kRainbow[(i + int(t_ * 2)) % 6], 0.25f));
-        r_->draw_mega_stone(ix - 11, iy - 11 + bob, 22);
+        // (van pasando todas las megapiedras, cada tarjeta por su lado)
+        r_->draw_mega_stone((int(t_ / 1.2f) + i * 37) % kMegaCount, ix - 12, iy - 12 + bob, 24);
         break;
       case NI_Y:
         C2D_DrawCircleSolid(ix, iy + bob, 0, 11, C2D_Color32(40, 50, 70, 255));
@@ -224,7 +225,7 @@ void App::mega_badge(int dex) {
     const int k = mega_index(dex, i);
     const float x = x0 + (w - (nm * S + (nm - 1) * gap)) / 2 + i * (S + gap), y = y0 + 18 + std::sin(t_ * 2.5f + i * 1.7f) * 2;
     C2D_DrawCircleSolid(x + S / 2, y + S / 2, 0, S / 2 + 3 + std::sin(t_ * 3 + i) * 1.5f, rgbf(kRainbow[(i * 3 + int(t_ * 2)) % 6], 0.3f));
-    r_->draw_mega_stone(x, y, S);
+    r_->draw_mega_stone(k, x, y, S);
     // Cuál es: X, Y, Z (o nada si sólo tiene una).
     const char* nm_ = k >= 0 ? kMegas[k].mon.name : "";
     const size_t L = std::strlen(nm_);

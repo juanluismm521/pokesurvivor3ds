@@ -40,6 +40,8 @@ struct Renderer {
   int vfx_idx[SH_COUNT][PAL_COUNT][3];
   int type_icon[T_COUNT];
   int move_icon[kMaxMoves];
+  static constexpr int kMegaMax = 160;   // (más que megas hay: kMegaCount)
+  int16_t stone_icon[kMegaMax];   // icono de cada megapiedra (-1: sin dibujo)
   int ui_icon[16];
 
   bool init();
@@ -64,10 +66,11 @@ struct Renderer {
   int text_fit2(const char* s, float x, float y, float maxw, float size, u32 color);
   // Autotest "textos": cuántos textos no caben (y los apunta en `log`).
   int check_texts(FILE* log);
-  // Megapiedra (no hay icono en los atlas): esfera con el símbolo mega, de lado `s`.
-  void draw_mega_stone(float x, float y, float s);
-  // Icono de un objeto (los de la web o la megapiedra), de lado `s`.
-  void draw_item_icon(int id, float x, float y, float s);
+  // Megapiedra de la mega `k` (kMegas), con su dibujo ("stone:k" en el atlas de
+  // iconos); sin dibujo o con k < 0, una genérica con el símbolo mega. Lado `s`.
+  void draw_mega_stone(int k, float x, float y, float s);
+  // Icono de un objeto (los de la web o la megapiedra de `dex`), de lado `s`.
+  void draw_item_icon(int id, float x, float y, float s, int dex = -1);
   void draw_sprite(const Animator& a, float sx, float sy, u32 flash_mode, float alpha);
   void draw_shape(int shape, int pal, int frame, float sx, float sy, float angle, float scale, float alpha);
 };

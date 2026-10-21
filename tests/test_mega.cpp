@@ -46,6 +46,17 @@ TEST_CASE("megas: los datos") {
   CHECK(mega_count(491) == 1);          // Mega-Darkrai (Z-A)
   CHECK(kMegas[mega_index(491, 0)].own_sprite);
   CHECK(!has_mega(25));                 // Pikachu no tiene
+  // Cada una con su megapiedra de verdad (nombre del juego y su dibujo).
+  for (int i = 0; i < kMegaCount; ++i) CHECK_MESSAGE(std::strncmp(kMegas[i].stone, "Megapiedra de", 13) != 0, kMegas[i].mon.name);
+  CHECK(std::string(kMegas[mega_index(94, 0)].stone) == "Gengarita");
+  CHECK(std::string(kMegas[mega_index(384, 0)].stone) == "Meteorito");   // (Rayquaza no tiene piedra)
+  if (FILE* f = std::fopen(PS_SOURCE_DIR "/romfs/gfx/icons.idx", "r")) {   // (si ya se ha generado el romfs)
+    std::string idx;
+    char line[128];
+    while (std::fgets(line, sizeof(line), f)) idx += line;
+    std::fclose(f);
+    for (int i = 0; i < kMegaCount; ++i) CHECK_MESSAGE(idx.find("stone:" + std::to_string(i) + " ") != std::string::npos, kMegas[i].mon.name);
+  }
 }
 
 TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {

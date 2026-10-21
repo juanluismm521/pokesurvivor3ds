@@ -20,7 +20,8 @@
    "stone": "Venusaurita",
    "slot": 0,
    "name": "Mega-Venusaur",
-   "id": 3000
+   "id": 3000,
+   "stone_item": "venusaurite"
   },
   {
    "form": "charizard-mega-x",
@@ -244,7 +245,8 @@
      "G〜",
      "Kevin"
     ]
-   }
+   },
+   "stone_item": "charizardite-x"
   },
   {
    "form": "charizard-mega-y",
@@ -265,7 +267,8 @@
    "stone": "Charizardita Y",
    "slot": 1,
    "name": "Mega-Charizard Y",
-   "id": 3002
+   "id": 3002,
+   "stone_item": "charizardite-y"
   },
   {
    "form": "blastoise-mega",
@@ -282,10 +285,11 @@
    "df": 120,
    "sd": 115,
    "bst": 630,
-   "stone": "Megapiedra de Blastoise",
+   "stone": "Blastoisita",
    "slot": 0,
    "name": "Mega-Blastoise",
-   "id": 3003
+   "id": 3003,
+   "stone_item": "blastoisinite"
   },
   {
    "form": "beedrill-mega",
@@ -306,7 +310,8 @@
    "stone": "Beedrillita",
    "slot": 0,
    "name": "Mega-Beedrill",
-   "id": 3004
+   "id": 3004,
+   "stone_item": "beedrillite"
   },
   {
    "form": "pidgeot-mega",
@@ -327,7 +332,8 @@
    "stone": "Pidgeotita",
    "slot": 0,
    "name": "Mega-Pidgeot",
-   "id": 3005
+   "id": 3005,
+   "stone_item": "pidgeotite"
   },
   {
    "form": "raichu-mega-x",
@@ -344,10 +350,11 @@
    "df": 95,
    "sd": 95,
    "bst": 585,
-   "stone": "Megapiedra de Raichu X",
+   "stone": "Raichunita X",
    "slot": 0,
    "name": "Mega-Raichu X",
-   "id": 3006
+   "id": 3006,
+   "stone_item": "raichunite-x"
   },
   {
    "form": "raichu-mega-y",
@@ -364,10 +371,11 @@
    "df": 55,
    "sd": 80,
    "bst": 585,
-   "stone": "Megapiedra de Raichu Y",
+   "stone": "Raichunita Y",
    "slot": 1,
    "name": "Mega-Raichu Y",
-   "id": 3007
+   "id": 3007,
+   "stone_item": "raichunite-y"
   },
   {
    "form": "clefable-mega",
@@ -385,10 +393,11 @@
    "df": 93,
    "sd": 110,
    "bst": 583,
-   "stone": "Megapiedra de Clefable",
+   "stone": "Clefablita",
    "slot": 0,
    "name": "Mega-Clefable",
-   "id": 3008
+   "id": 3008,
+   "stone_item": "clefablite"
   },
   {
    "form": "alakazam-mega",
@@ -405,7 +414,7 @@
    "df": 65,
    "sd": 105,
    "bst": 600,
-   "stone": "Megapiedra de Alakazam",
+   "stone": "Alakazamita",
    "slot": 0,
    "name": "Mega-Alakazam",
    "id": 3009,
@@ -542,7 +551,8 @@
      "Michael12",
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "alakazite"
   },
   {
    "form": "victreebel-mega",
@@ -563,7 +573,8 @@
    "stone": "Victreebelita",
    "slot": 0,
    "name": "Mega-Victreebel",
-   "id": 3010
+   "id": 3010,
+   "stone_item": "victreebelite"
   },
   {
    "form": "slowbro-mega",
@@ -581,7 +592,7 @@
    "df": 180,
    "sd": 80,
    "bst": 590,
-   "stone": "Megapiedra de Slowbro",
+   "stone": "Slowbronita",
    "slot": 0,
    "name": "Mega-Slowbro",
    "id": 3011,
@@ -722,7 +733,8 @@
      "Soulja",
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "slowbronite"
   },
   {
    "form": "gengar-mega",
@@ -874,7 +886,8 @@
      "Emboarger",
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "gengarite"
   },
   {
    "form": "kangaskhan-mega",
@@ -1026,7 +1039,8 @@
     "autores": [
      "Deeshura"
     ]
-   }
+   },
+   "stone_item": "kangaskhanite"
   },
   {
    "form": "starmie-mega",
@@ -1044,10 +1058,11 @@
    "df": 105,
    "sd": 105,
    "bst": 620,
-   "stone": "Megapiedra de Starmie",
+   "stone": "Starmita",
    "slot": 0,
    "name": "Mega-Starmie",
-   "id": 3014
+   "id": 3014,
+   "stone_item": "starminite"
   },
   {
    "form": "pinsir-mega",
@@ -1068,7 +1083,8 @@
    "stone": "Pinsirita",
    "slot": 0,
    "name": "Mega-Pinsir",
-   "id": 3015
+   "id": 3015,
+   "stone_item": "pinsirite"
   },
   {
    "form": "gyarados-mega",
@@ -1089,7 +1105,8 @@
    "stone": "Gyaradosita",
    "slot": 0,
    "name": "Mega-Gyarados",
-   "id": 3016
+   "id": 3016,
+   "stone_item": "gyaradosite"
   },
   {
    "form": "aerodactyl-mega",
@@ -1241,7 +1258,8 @@
     "autores": [
      "Caitemis"
     ]
-   }
+   },
+   "stone_item": "aerodactylite"
   },
   {
    "form": "dragonite-mega",
@@ -1259,10 +1277,11 @@
    "df": 115,
    "sd": 125,
    "bst": 700,
-   "stone": "Megapiedra de Dragonite",
+   "stone": "Dragonitita",
    "slot": 0,
    "name": "Mega-Dragonite",
-   "id": 3018
+   "id": 3018,
+   "stone_item": "dragoninite"
   },
   {
    "form": "mewtwo-mega-x",
@@ -1280,10 +1299,11 @@
    "df": 100,
    "sd": 100,
    "bst": 780,
-   "stone": "Megapiedra de Mewtwo X",
+   "stone": "Mewtwoita X",
    "slot": 0,
    "name": "Mega-Mewtwo X",
-   "id": 3019
+   "id": 3019,
+   "stone_item": "mewtwonite-x"
   },
   {
    "form": "mewtwo-mega-y",
@@ -1300,7 +1320,7 @@
    "df": 70,
    "sd": 120,
    "bst": 780,
-   "stone": "Megapiedra de Mewtwo Y",
+   "stone": "Mewtwoita Y",
    "slot": 1,
    "name": "Mega-Mewtwo Y",
    "id": 3020,
@@ -1431,7 +1451,8 @@
     "autores": [
      "JFain"
     ]
-   }
+   },
+   "stone_item": "mewtwonite-y"
   },
   {
    "form": "meganium-mega",
@@ -1452,7 +1473,8 @@
    "stone": "Meganiumita",
    "slot": 0,
    "name": "Mega-Meganium",
-   "id": 3021
+   "id": 3021,
+   "stone_item": "meganiumite"
   },
   {
    "form": "feraligatr-mega",
@@ -1470,10 +1492,11 @@
    "df": 125,
    "sd": 93,
    "bst": 630,
-   "stone": "Megapiedra de Feraligatr",
+   "stone": "Feraligatrita",
    "slot": 0,
    "name": "Mega-Feraligatr",
-   "id": 3022
+   "id": 3022,
+   "stone_item": "feraligite"
   },
   {
    "form": "ampharos-mega",
@@ -1494,7 +1517,8 @@
    "stone": "Ampharosita",
    "slot": 0,
    "name": "Mega-Ampharos",
-   "id": 3023
+   "id": 3023,
+   "stone_item": "ampharosite"
   },
   {
    "form": "steelix-mega",
@@ -1640,7 +1664,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "steelixite"
   },
   {
    "form": "scizor-mega",
@@ -1661,7 +1686,8 @@
    "stone": "Scizorita",
    "slot": 0,
    "name": "Mega-Scizor",
-   "id": 3025
+   "id": 3025,
+   "stone_item": "scizorite"
   },
   {
    "form": "heracross-mega",
@@ -1679,10 +1705,11 @@
    "df": 115,
    "sd": 105,
    "bst": 600,
-   "stone": "Megapiedra de Heracross",
+   "stone": "Heracrossita",
    "slot": 0,
    "name": "Mega-Heracross",
-   "id": 3026
+   "id": 3026,
+   "stone_item": "heracronite"
   },
   {
    "form": "skarmory-mega",
@@ -1700,7 +1727,7 @@
    "df": 110,
    "sd": 100,
    "bst": 565,
-   "stone": "Megapiedra de Skarmory",
+   "stone": "Skarmorita",
    "slot": 0,
    "name": "Mega-Skarmory",
    "id": 3027,
@@ -1834,7 +1861,8 @@
     "autores": [
      "Johanne2"
     ]
-   }
+   },
+   "stone_item": "skarmorite"
   },
   {
    "form": "houndoom-mega",
@@ -1852,7 +1880,7 @@
    "df": 90,
    "sd": 90,
    "bst": 600,
-   "stone": "Megapiedra de Houndoom",
+   "stone": "Houndoomita",
    "slot": 0,
    "name": "Mega-Houndoom",
    "id": 3028,
@@ -1989,7 +2017,8 @@
     "autores": [
      "Top_Kec"
     ]
-   }
+   },
+   "stone_item": "houndoominite"
   },
   {
    "form": "tyranitar-mega",
@@ -2135,7 +2164,8 @@
     "autores": [
      "JFain"
     ]
-   }
+   },
+   "stone_item": "tyranitarite"
   },
   {
    "form": "sceptile-mega",
@@ -2153,7 +2183,7 @@
    "df": 75,
    "sd": 85,
    "bst": 630,
-   "stone": "Megapiedra de Sceptile",
+   "stone": "Sceptilita",
    "slot": 0,
    "name": "Mega-Sceptile",
    "id": 3030,
@@ -2252,7 +2282,8 @@
     "autores": [
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "sceptilite"
   },
   {
    "form": "blaziken-mega",
@@ -2273,7 +2304,8 @@
    "stone": "Blazikenita",
    "slot": 0,
    "name": "Mega-Blaziken",
-   "id": 3031
+   "id": 3031,
+   "stone_item": "blazikenite"
   },
   {
    "form": "swampert-mega",
@@ -2294,7 +2326,8 @@
    "stone": "Swampertita",
    "slot": 0,
    "name": "Mega-Swampert",
-   "id": 3032
+   "id": 3032,
+   "stone_item": "swampertite"
   },
   {
    "form": "gardevoir-mega",
@@ -2437,7 +2470,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "gardevoirite"
   },
   {
    "form": "sableye-mega",
@@ -2455,7 +2489,7 @@
    "df": 125,
    "sd": 115,
    "bst": 480,
-   "stone": "Megapiedra de Sableye",
+   "stone": "Sableynita",
    "slot": 0,
    "name": "Mega-Sableye",
    "id": 3034,
@@ -2578,7 +2612,8 @@
     "autores": [
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "sablenite"
   },
   {
    "form": "mawile-mega",
@@ -2596,7 +2631,7 @@
    "df": 125,
    "sd": 95,
    "bst": 480,
-   "stone": "Megapiedra de Mawile",
+   "stone": "Mawilita",
    "slot": 0,
    "name": "Mega-Mawile",
    "id": 3035,
@@ -2737,7 +2772,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "mawilite"
   },
   {
    "form": "aggron-mega",
@@ -2757,7 +2793,8 @@
    "stone": "Aggronita",
    "slot": 0,
    "name": "Mega-Aggron",
-   "id": 3036
+   "id": 3036,
+   "stone_item": "aggronite"
   },
   {
    "form": "medicham-mega",
@@ -2906,7 +2943,8 @@
     "autores": [
      "JFain"
     ]
-   }
+   },
+   "stone_item": "medichamite"
   },
   {
    "form": "manectric-mega",
@@ -2923,7 +2961,7 @@
    "df": 80,
    "sd": 80,
    "bst": 575,
-   "stone": "Megapiedra de Manectric",
+   "stone": "Manectricita",
    "slot": 0,
    "name": "Mega-Manectric",
    "id": 3038,
@@ -3062,7 +3100,8 @@
     "autores": [
      "Top_Kec"
     ]
-   }
+   },
+   "stone_item": "manectite"
   },
   {
    "form": "sharpedo-mega",
@@ -3080,7 +3119,7 @@
    "df": 70,
    "sd": 65,
    "bst": 560,
-   "stone": "Megapiedra de Sharpedo",
+   "stone": "Sharpedonita",
    "slot": 0,
    "name": "Mega-Sharpedo",
    "id": 3039,
@@ -3207,7 +3246,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "sharpedonite"
   },
   {
    "form": "camerupt-mega",
@@ -3351,7 +3391,8 @@
     "autores": [
      "Caitemis"
     ]
-   }
+   },
+   "stone_item": "cameruptite"
   },
   {
    "form": "altaria-mega",
@@ -3369,7 +3410,7 @@
    "df": 110,
    "sd": 105,
    "bst": 590,
-   "stone": "Megapiedra de Altaria",
+   "stone": "Altarianita",
    "slot": 0,
    "name": "Mega-Altaria",
    "id": 3041,
@@ -3513,7 +3554,8 @@
     "autores": [
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "altarianite"
   },
   {
    "form": "banette-mega",
@@ -3530,7 +3572,7 @@
    "df": 75,
    "sd": 83,
    "bst": 555,
-   "stone": "Megapiedra de Banette",
+   "stone": "Banettita",
    "slot": 0,
    "name": "Mega-Banette",
    "id": 3042,
@@ -3660,7 +3702,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "banettite"
   },
   {
    "form": "chimecho-mega",
@@ -3678,10 +3721,11 @@
    "df": 110,
    "sd": 120,
    "bst": 555,
-   "stone": "Megapiedra de Chimecho",
+   "stone": "Chimechita",
    "slot": 0,
    "name": "Mega-Chimecho",
-   "id": 3043
+   "id": 3043,
+   "stone_item": "chimechite"
   },
   {
    "form": "absol-mega",
@@ -3821,7 +3865,8 @@
     "autores": [
      "Emboarger"
     ]
-   }
+   },
+   "stone_item": "absolite"
   },
   {
    "form": "absol-mega-z",
@@ -3842,7 +3887,8 @@
    "stone": "Absolita Z",
    "slot": 1,
    "name": "Mega-Absol Z",
-   "id": 3045
+   "id": 3045,
+   "stone_item": "absolite-z"
   },
   {
    "form": "glalie-mega",
@@ -3859,7 +3905,7 @@
    "df": 80,
    "sd": 80,
    "bst": 580,
-   "stone": "Megapiedra de Glalie",
+   "stone": "Glalita",
    "slot": 0,
    "name": "Mega-Glalie",
    "id": 3046,
@@ -3993,7 +4039,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "glalitite"
   },
   {
    "form": "salamence-mega",
@@ -4011,10 +4058,11 @@
    "df": 130,
    "sd": 90,
    "bst": 700,
-   "stone": "Megapiedra de Salamence",
+   "stone": "Salamencita",
    "slot": 0,
    "name": "Mega-Salamence",
-   "id": 3047
+   "id": 3047,
+   "stone_item": "salamencite"
   },
   {
    "form": "metagross-mega",
@@ -4035,7 +4083,8 @@
    "stone": "Metagrossita",
    "slot": 0,
    "name": "Mega-Metagross",
-   "id": 3048
+   "id": 3048,
+   "stone_item": "metagrossite"
   },
   {
    "form": "latias-mega",
@@ -4191,7 +4240,8 @@
     "autores": [
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "latiasite"
   },
   {
    "form": "latios-mega",
@@ -4347,7 +4397,8 @@
     "autores": [
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "latiosite"
   },
   {
    "form": "rayquaza-mega",
@@ -4365,7 +4416,7 @@
    "df": 100,
    "sd": 100,
    "bst": 780,
-   "stone": "Megapiedra de Rayquaza",
+   "stone": "Meteorito",
    "slot": 0,
    "name": "Mega-Rayquaza",
    "id": 3051,
@@ -4497,7 +4548,8 @@
     "autores": [
      "Top_Kec"
     ]
-   }
+   },
+   "stone_item": "meteorite"
   },
   {
    "form": "staraptor-mega",
@@ -4515,10 +4567,11 @@
    "df": 100,
    "sd": 90,
    "bst": 585,
-   "stone": "Megapiedra de Staraptor",
+   "stone": "Staraptorita",
    "slot": 0,
    "name": "Mega-Staraptor",
-   "id": 3052
+   "id": 3052,
+   "stone_item": "staraptite"
   },
   {
    "form": "lopunny-mega",
@@ -4536,7 +4589,7 @@
    "df": 94,
    "sd": 96,
    "bst": 580,
-   "stone": "Megapiedra de Lopunny",
+   "stone": "Lopunnita",
    "slot": 0,
    "name": "Mega-Lopunny",
    "id": 3053,
@@ -4671,7 +4724,8 @@
     "autores": [
      "JFain"
     ]
-   }
+   },
+   "stone_item": "lopunnite"
   },
   {
    "form": "garchomp-mega",
@@ -4692,7 +4746,8 @@
    "stone": "Garchompita",
    "slot": 0,
    "name": "Mega-Garchomp",
-   "id": 3054
+   "id": 3054,
+   "stone_item": "garchompite"
   },
   {
    "form": "garchomp-mega-z",
@@ -4712,7 +4767,8 @@
    "stone": "Garchompita Z",
    "slot": 1,
    "name": "Mega-Garchomp Z",
-   "id": 3055
+   "id": 3055,
+   "stone_item": "garchompite-z"
   },
   {
    "form": "lucario-mega",
@@ -4730,7 +4786,7 @@
    "df": 88,
    "sd": 70,
    "bst": 625,
-   "stone": "Megapiedra de Lucario",
+   "stone": "Lucarita",
    "slot": 0,
    "name": "Mega-Lucario",
    "id": 3056,
@@ -4867,7 +4923,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "lucarionite"
   },
   {
    "form": "lucario-mega-z",
@@ -4885,10 +4942,11 @@
    "df": 70,
    "sd": 70,
    "bst": 625,
-   "stone": "Megapiedra de Lucario Z",
+   "stone": "Lucarita Z",
    "slot": 1,
    "name": "Mega-Lucario Z",
-   "id": 3057
+   "id": 3057,
+   "stone_item": "lucarionite-z"
   },
   {
    "form": "abomasnow-mega",
@@ -4906,10 +4964,11 @@
    "df": 105,
    "sd": 105,
    "bst": 594,
-   "stone": "Megapiedra de Abomasnow",
+   "stone": "Abomasnowita",
    "slot": 0,
    "name": "Mega-Abomasnow",
-   "id": 3058
+   "id": 3058,
+   "stone_item": "abomasite"
   },
   {
    "form": "gallade-mega",
@@ -4927,7 +4986,7 @@
    "df": 95,
    "sd": 115,
    "bst": 618,
-   "stone": "Megapiedra de Gallade",
+   "stone": "Galladita",
    "slot": 0,
    "name": "Mega-Gallade",
    "id": 3059,
@@ -5058,7 +5117,8 @@
     "autores": [
      "JFain"
     ]
-   }
+   },
+   "stone_item": "galladite"
   },
   {
    "form": "froslass-mega",
@@ -5079,7 +5139,8 @@
    "stone": "Froslassita",
    "slot": 0,
    "name": "Mega-Froslass",
-   "id": 3060
+   "id": 3060,
+   "stone_item": "froslassite"
   },
   {
    "form": "heatran-mega",
@@ -5100,7 +5161,8 @@
    "stone": "Heatranita",
    "slot": 0,
    "name": "Mega-Heatran",
-   "id": 3061
+   "id": 3061,
+   "stone_item": "heatranite"
   },
   {
    "form": "darkrai-mega",
@@ -5117,7 +5179,7 @@
    "df": 130,
    "sd": 130,
    "bst": 700,
-   "stone": "Megapiedra de Darkrai",
+   "stone": "Darkrainita",
    "slot": 0,
    "name": "Mega-Darkrai",
    "id": 3062,
@@ -5252,7 +5314,8 @@
     "autores": [
      "Johanne2"
     ]
-   }
+   },
+   "stone_item": "darkranite"
   },
   {
    "form": "emboar-mega",
@@ -5273,7 +5336,8 @@
    "stone": "Emboarita",
    "slot": 0,
    "name": "Mega-Emboar",
-   "id": 3063
+   "id": 3063,
+   "stone_item": "emboarite"
   },
   {
    "form": "excadrill-mega",
@@ -5291,7 +5355,7 @@
    "df": 100,
    "sd": 65,
    "bst": 608,
-   "stone": "Megapiedra de Excadrill",
+   "stone": "Excadrillita",
    "slot": 0,
    "name": "Mega-Excadrill",
    "id": 3064,
@@ -5422,7 +5486,8 @@
      "pi3.14",
      "DeltaL"
     ]
-   }
+   },
+   "stone_item": "excadrite"
   },
   {
    "form": "audino-mega",
@@ -5440,10 +5505,11 @@
    "df": 126,
    "sd": 126,
    "bst": 545,
-   "stone": "Megapiedra de Audino",
+   "stone": "Audinita",
    "slot": 0,
    "name": "Mega-Audino",
-   "id": 3065
+   "id": 3065,
+   "stone_item": "audinite"
   },
   {
    "form": "scolipede-mega",
@@ -5461,10 +5527,11 @@
    "df": 149,
    "sd": 99,
    "bst": 585,
-   "stone": "Megapiedra de Scolipede",
+   "stone": "Scolipedita",
    "slot": 0,
    "name": "Mega-Scolipede",
-   "id": 3066
+   "id": 3066,
+   "stone_item": "scolipite"
   },
   {
    "form": "scrafty-mega",
@@ -5482,7 +5549,7 @@
    "df": 135,
    "sd": 135,
    "bst": 588,
-   "stone": "Megapiedra de Scrafty",
+   "stone": "Scraftita",
    "slot": 0,
    "name": "Mega-Scrafty",
    "id": 3067,
@@ -5603,7 +5670,8 @@
      "Soulja",
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "scraftinite"
   },
   {
    "form": "eelektross-mega",
@@ -5763,7 +5831,8 @@
     "autores": [
      "Top_Kec"
     ]
-   }
+   },
+   "stone_item": "eelektrossite"
   },
   {
    "form": "chandelure-mega",
@@ -5781,10 +5850,11 @@
    "df": 110,
    "sd": 110,
    "bst": 620,
-   "stone": "Megapiedra de Chandelure",
+   "stone": "Chandelurita",
    "slot": 0,
    "name": "Mega-Chandelure",
-   "id": 3069
+   "id": 3069,
+   "stone_item": "chandelurite"
   },
   {
    "form": "golurk-mega",
@@ -5805,7 +5875,8 @@
    "stone": "Golurkita",
    "slot": 0,
    "name": "Mega-Golurk",
-   "id": 3070
+   "id": 3070,
+   "stone_item": "golurkite"
   },
   {
    "form": "chesnaught-mega",
@@ -5826,7 +5897,8 @@
    "stone": "Chesnaughtita",
    "slot": 0,
    "name": "Mega-Chesnaught",
-   "id": 3071
+   "id": 3071,
+   "stone_item": "chesnaughtite"
   },
   {
    "form": "delphox-mega",
@@ -5847,7 +5919,8 @@
    "stone": "Delphoxita",
    "slot": 0,
    "name": "Mega-Delphox",
-   "id": 3072
+   "id": 3072,
+   "stone_item": "delphoxite"
   },
   {
    "form": "greninja-mega",
@@ -5865,10 +5938,11 @@
    "df": 77,
    "sd": 81,
    "bst": 630,
-   "stone": "Megapiedra de Greninja",
+   "stone": "Greninjanita",
    "slot": 0,
    "name": "Mega-Greninja",
-   "id": 3073
+   "id": 3073,
+   "stone_item": "greninjite"
   },
   {
    "form": "floette-mega",
@@ -5885,7 +5959,7 @@
    "df": 87,
    "sd": 148,
    "bst": 651,
-   "stone": "Megapiedra de Floette",
+   "stone": "Floettita",
    "slot": 0,
    "name": "Mega-Floette",
    "id": 3074,
@@ -6039,7 +6113,8 @@
      "pi3.14",
      "DeltaL"
     ]
-   }
+   },
+   "stone_item": "floettite"
   },
   {
    "form": "meowstic-female-mega",
@@ -6059,7 +6134,8 @@
    "stone": "Meowsticita",
    "slot": 0,
    "name": "Mega-Meowstic",
-   "id": 3075
+   "id": 3075,
+   "stone_item": "meowsticite"
   },
   {
    "form": "malamar-mega",
@@ -6080,7 +6156,8 @@
    "stone": "Malamarita",
    "slot": 0,
    "name": "Mega-Malamar",
-   "id": 3076
+   "id": 3076,
+   "stone_item": "malamarite"
   },
   {
    "form": "barbaracle-mega",
@@ -6098,10 +6175,11 @@
    "df": 130,
    "sd": 106,
    "bst": 600,
-   "stone": "Megapiedra de Barbaracle",
+   "stone": "Barbaraclita",
    "slot": 0,
    "name": "Mega-Barbaracle",
-   "id": 3077
+   "id": 3077,
+   "stone_item": "barbaracite"
   },
   {
    "form": "dragalge-mega",
@@ -6119,7 +6197,7 @@
    "df": 105,
    "sd": 163,
    "bst": 594,
-   "stone": "Megapiedra de Dragalge",
+   "stone": "Dragalgita",
    "slot": 0,
    "name": "Mega-Dragalge",
    "id": 3078,
@@ -6254,7 +6332,8 @@
      "pi3.14",
      "DeltaL"
     ]
-   }
+   },
+   "stone_item": "dragalgite"
   },
   {
    "form": "hawlucha-mega",
@@ -6272,7 +6351,7 @@
    "df": 100,
    "sd": 93,
    "bst": 600,
-   "stone": "Megapiedra de Hawlucha",
+   "stone": "Hawluchanita",
    "slot": 0,
    "name": "Mega-Hawlucha",
    "id": 3079,
@@ -6399,7 +6478,8 @@
      "Emmuffin",
      "Soulja"
     ]
-   }
+   },
+   "stone_item": "hawluchanite"
   },
   {
    "form": "zygarde-mega",
@@ -6417,7 +6497,7 @@
    "df": 91,
    "sd": 85,
    "bst": 778,
-   "stone": "Megapiedra de Zygarde",
+   "stone": "Zygardita",
    "slot": 0,
    "name": "Mega-Zygarde",
    "id": 3080,
@@ -6563,7 +6643,8 @@
      "pi3.14",
      "DeltaL"
     ]
-   }
+   },
+   "stone_item": "zygardite"
   },
   {
    "form": "diancie-mega",
@@ -6581,7 +6662,7 @@
    "df": 110,
    "sd": 110,
    "bst": 700,
-   "stone": "Megapiedra de Diancie",
+   "stone": "Diancita",
    "slot": 0,
    "name": "Mega-Diancie",
    "id": 3081,
@@ -6717,7 +6798,8 @@
     "autores": [
      "baronessfaron"
     ]
-   }
+   },
+   "stone_item": "diancite"
   },
   {
    "form": "crabominable-mega",
@@ -6735,10 +6817,11 @@
    "df": 122,
    "sd": 107,
    "bst": 578,
-   "stone": "Megapiedra de Crabominable",
+   "stone": "Crabominablita",
    "slot": 0,
    "name": "Mega-Crabominable",
-   "id": 3082
+   "id": 3082,
+   "stone_item": "crabominite"
   },
   {
    "form": "golisopod-mega",
@@ -6756,10 +6839,11 @@
    "df": 175,
    "sd": 120,
    "bst": 630,
-   "stone": "Megapiedra de Golisopod",
+   "stone": "Golisopodita",
    "slot": 0,
    "name": "Mega-Golisopod",
-   "id": 3083
+   "id": 3083,
+   "stone_item": "golisopite"
   },
   {
    "form": "drampa-mega",
@@ -6777,7 +6861,7 @@
    "df": 110,
    "sd": 116,
    "bst": 585,
-   "stone": "Megapiedra de Drampa",
+   "stone": "Drampanita",
    "slot": 0,
    "name": "Mega-Drampa",
    "id": 3084,
@@ -6921,7 +7005,8 @@
      "Soulja",
      "DeltaL"
     ]
-   }
+   },
+   "stone_item": "drampanite"
   },
   {
    "form": "magearna-mega",
@@ -6939,10 +7024,11 @@
    "df": 115,
    "sd": 115,
    "bst": 700,
-   "stone": "Megapiedra de Magearna",
+   "stone": "Magearnita",
    "slot": 0,
    "name": "Mega-Magearna",
-   "id": 3085
+   "id": 3085,
+   "stone_item": "magearnite"
   },
   {
    "form": "zeraora-mega",
@@ -6959,7 +7045,7 @@
    "df": 75,
    "sd": 80,
    "bst": 700,
-   "stone": "Megapiedra de Zeraora",
+   "stone": "Zeraoranita",
    "slot": 0,
    "name": "Mega-Zeraora",
    "id": 3086,
@@ -7101,7 +7187,8 @@
      "pi3.14",
      "DeltaL"
     ]
-   }
+   },
+   "stone_item": "zeraorite"
   },
   {
    "form": "scovillain-mega",
@@ -7122,7 +7209,8 @@
    "stone": "Scovillainita",
    "slot": 0,
    "name": "Mega-Scovillain",
-   "id": 3087
+   "id": 3087,
+   "stone_item": "scovillainite"
   },
   {
    "form": "glimmora-mega",
@@ -7140,10 +7228,11 @@
    "df": 105,
    "sd": 96,
    "bst": 625,
-   "stone": "Megapiedra de Glimmora",
+   "stone": "Glimmoranita",
    "slot": 0,
    "name": "Mega-Glimmora",
-   "id": 3088
+   "id": 3088,
+   "stone_item": "glimmoranite"
   },
   {
    "form": "tatsugiri-curly-mega",
@@ -7161,7 +7250,7 @@
    "df": 90,
    "sd": 125,
    "bst": 575,
-   "stone": "Megapiedra de Tatsugiri",
+   "stone": "Tatsugirita",
    "slot": 0,
    "name": "Mega-Tatsugiri",
    "id": 3089,
@@ -7295,7 +7384,8 @@
     "autores": [
      "Emmuffin"
     ]
-   }
+   },
+   "stone_item": "tatsugirinite"
   },
   {
    "form": "baxcalibur-mega",
@@ -7313,10 +7403,11 @@
    "df": 117,
    "sd": 101,
    "bst": 700,
-   "stone": "Megapiedra de Baxcalibur",
+   "stone": "Baxcaliburita",
    "slot": 0,
    "name": "Mega-Baxcalibur",
-   "id": 3090
+   "id": 3090,
+   "stone_item": "baxcalibrite"
   }
  ]
 }

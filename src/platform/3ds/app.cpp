@@ -1077,7 +1077,8 @@ void App::bottom_upgrades() {
     if (k == atajos_row()) { r_->text("Atajos de movimientos", 160, y + 6, 0.4f, C_TEXT, 1); continue; }
     if (k == UP_COUNT) {   // «Megapiedra» (del port, sólo con mega)
       const int ml = s_->pmega[up_dex_];
-      r_->draw_mega_stone(10, y + 1, 24);
+      r_->draw_mega_stone(mega_index(up_dex_, 0), 10, y + 1, 24);
+      if (mega_count(up_dex_) > 1) r_->draw_mega_stone(mega_index(up_dex_, 1), 22, y + 11, 14);   // (y la otra, pequeña)
       r_->text("Megapiedra", 38, y + 1, 0.38f, C_TEXT);
       std::snprintf(b, sizeof(b), "%d %% de que un objeto sea su megapiedra", int(mega_chance(ml) * 100 + 0.5f));
       r_->text(b, 38, y + 13, 0.28f, C_MUTED, 0, false);

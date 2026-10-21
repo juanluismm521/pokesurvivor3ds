@@ -5,6 +5,14 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.4.1 — 2026-10-21
+- **Cada megapiedra con su dibujo de verdad** (Charizardita X azul y negra, la
+  Y naranja, Gengarita, Lucarita…), en la partida (suelo, elección de objeto y
+  barra de abajo), en el menú, en Mejoras y en Novedades. Rayquaza, como en
+  los juegos, megaevoluciona con el **Meteorito**.
+- Las megapiedras se llaman como en los juegos (Blastoisita, Alakazamita,
+  Lucarita…; antes muchas salían como «Megapiedra de …»).
+
 ## 0.4.0 — 2026-10-21
 - **Novedades**: pantalla nueva con lo último del juego (SELECT en el menú; se
   abre sola la primera vez). Arriba, un desfile de megas con su aura; abajo,

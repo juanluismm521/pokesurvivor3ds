@@ -11,6 +11,10 @@ reference/web/tools/fetch_sprites.py: mismo formato y anclas) y sus autores.
 
 Escribe assets-src/megas/megas.json (lo leen gen_data.js y gen_sprites.py) y
 los sprites en assets-src/pokemon/<id>/ (id = 3000 + número de la mega). Las
+megapiedras, cada una con su dibujo (los objetos de PokeAPI), van a
+assets-src/megas/piedras/ (las mete gen_art.js en el atlas de iconos):
+  python3 tools/fetch_megas.py piedras   sólo las piedras (nombres y dibujos)
+Las
 megas sin sprite en SpriteCollab funcionan igual (el juego usa el de la forma
 normal, más grande y con aura); al volver a lanzarlo se recogen las nuevas.
 """
@@ -176,6 +180,7 @@ def main():
         for r, m in ex.map(sprite, out):
             if m:
                 r['sprite'] = m
+    piedras(out)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump({'fuente': 'PokeAPI (estadísticas con la fórmula de la web) + SpriteCollab (CC BY-NC 4.0)', 'megas': out},
@@ -193,7 +198,7 @@ def creditos(megas):
     filas = [f"| {m['name']} | {', '.join(m['sprite']['autores']) or '—'} |" for m in megas if 'sprite' in m]
     sec = (ini + '\n## Sprites de las megaevoluciones\n\nDe [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) '
            '(CC BY-NC 4.0), por sus autores:\n\n| Mega | Autores |\n|---|---|\n' + '\n'.join(filas) +
-           '\n\nLas megas sin sprite en SpriteCollab usan el de su forma normal.\n' + fin)
+           '\n\nLas megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de\n[PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).\n' + fin)
     if ini in txt:
         txt = txt[:txt.index(ini)] + sec + txt[txt.index(fin) + len(fin):]
     else:
@@ -201,5 +206,74 @@ def creditos(megas):
     open(path, 'w', encoding='utf-8').write(txt)
 
 
+PIEDRAS = os.path.join(ROOT, 'assets-src', 'megas', 'piedras')
+
+
+def piedras(megas=None):
+    """Cada megapiedra con su nombre en español y su dibujo (categoría
+    «mega-stones» de PokeAPI). Rayquaza no tiene: en los juegos megaevoluciona
+    con Ascenso del Dragón; aquí, con el Meteorito."""
+    from PIL import Image
+    import io
+    guardar = megas is None
+    if megas is None:
+        megas = json.load(open(OUT, encoding='utf-8'))
+    lista = megas['megas'] if isinstance(megas, dict) else megas
+    items = [i['name'] for i in get(f'{API}/item-category/mega-stones')['items']]
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        info = {n: d for n, d in zip(items, ex.map(lambda n: get(f'{API}/item/{n}'), items)) if d}
+
+    def partes(n):
+        m = re.match(r'(.*?)(?:-([xyz]))?$', n)
+        return m.group(1), m.group(2) or ''
+
+    def comun(a, b):
+        i = 0
+        while i < min(len(a), len(b)) and a[i] == b[i]:
+            i += 1
+        return i
+    os.makedirs(PIEDRAS, exist_ok=True)
+    for r in lista:
+        especie = r['form'].split('-mega')[0].split('-')[0]
+        letra = r['letter'].lower()
+        mejor = max(((comun(especie, partes(n)[0]), n) for n in info if partes(n)[1] == letra), default=(0, None))
+        item = mejor[1] if mejor[0] >= 4 else None
+        if especie == 'rayquaza':
+            item = 'meteorite'
+            info[item] = get(f'{API}/item/{item}')
+        if not item or not info.get(item):
+            print('sin piedra:', r['name'])
+            continue
+        d = info[item]
+        es = next((n['name'] for n in d.get('names', []) if n['language']['name'] == 'es'), None)
+        if es:
+            r['stone'] = es
+        url = (d.get('sprites') or {}).get('default')
+        if not url:
+            continue
+        req = urllib.request.Request(url, headers={'User-Agent': 'pokesurvivor3ds/1.0'})
+        img = Image.open(io.BytesIO(urllib.request.urlopen(req, timeout=40).read())).convert('RGBA')
+        img = img.crop(img.getbbox())   # (sin el borde transparente)
+        # Todas a 28×28: las pixeladas (14 px) a tamaño entero, las grandes suavizadas.
+        T = 28
+        if max(img.size) <= T // 2:
+            k = T // max(img.size)
+            img = img.resize((img.width * k, img.height * k), Image.NEAREST)
+        elif max(img.size) > T:
+            k = T / max(img.size)
+            img = img.resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS)
+        lienzo = Image.new('RGBA', (T, T), (0, 0, 0, 0))
+        lienzo.alpha_composite(img, ((T - img.width) // 2, (T - img.height) // 2))
+        lienzo.save(os.path.join(PIEDRAS, item + '.png'))
+        r['stone_item'] = item
+    if guardar:
+        with open(OUT, 'w', encoding='utf-8') as f:
+            json.dump(megas, f, ensure_ascii=False, indent=1)
+    print(f"piedras: {sum(1 for r in lista if r.get('stone_item'))} de {len(lista)} con dibujo")
+
+
 if __name__ == '__main__':
-    main()
+    if sys.argv[1:] == ['piedras']:
+        piedras()
+    else:
+        main()

@@ -107,6 +107,10 @@ bool Renderer::init() {
       }
   for (int t = 0; t < T_COUNT; ++t) { std::snprintf(name, sizeof(name), "type:%s", kTypeId[t]); type_icon[t] = icons.find(name); }
   for (int m = 0; m < kMoveCount; ++m) { std::snprintf(name, sizeof(name), "move:%s", kMoves[m].id); move_icon[m] = icons.find(name); }
+  for (int k = 0; k < kMegaMax; ++k) {
+    std::snprintf(name, sizeof(name), "stone:%d", k);
+    stone_icon[k] = int16_t(k < kMegaCount ? icons.find(name) : -1);
+  }
   static const char* const UI[16] = {"heart", "coin", "ticket", "ticket10", "berry", "magnet", "bomb", "shiny", "shield", "friends", "clock", "star", "bond", "cards", "up", "book"};
   for (int i = 0; i < 16; ++i) ui_icon[i] = icons.find(UI[i]);
   return true;
@@ -234,7 +238,13 @@ int Renderer::text_fit2(const char* s, float x, float y, float maxw, float size,
   return 2;
 }
 
-void Renderer::draw_mega_stone(float x, float y, float s) {
+void Renderer::draw_mega_stone(int k, float x, float y, float s) {
+  const int ic = k >= 0 && k < kMegaCount ? stone_icon[k] : -1;
+  if (ic >= 0) {
+    const float sc = s / icons.sub(ic).width;
+    C2D_DrawImageAt(icons.image(ic), std::floor(x), std::floor(y), 0, nullptr, sc, sc);
+    return;
+  }
   const float r = s / 2, cx = x + r, cy = y + r;
   C2D_DrawCircleSolid(cx, cy, 0, r, C2D_Color32(40, 20, 64, 255));
   C2D_DrawCircleSolid(cx, cy, 0, r - std::fmax(1.0f, s * 0.08f), C2D_Color32(150, 100, 255, 255));
@@ -249,8 +259,8 @@ void Renderer::draw_mega_stone(float x, float y, float s) {
   C2D_DrawCircleSolid(cx - r * 0.38f, cy - r * 0.38f, 0, std::fmax(1.0f, r * 0.2f), C2D_Color32(255, 255, 255, 200));
 }
 
-void Renderer::draw_item_icon(int id, float x, float y, float s) {
-  if (is_mega_stone(id)) { draw_mega_stone(x, y, s); return; }
+void Renderer::draw_item_icon(int id, float x, float y, float s, int dex) {
+  if (is_mega_stone(id)) { draw_mega_stone(dex >= 0 ? mega_index(dex, id - IT_MEGA_A) : -1, x, y, s); return; }
   const char* name = item_icon(id);
   const int ic = name ? icons.find(name) : -1;
   if (ic < 0) return;
@@ -516,7 +526,8 @@ void Renderer::draw_top(Game& g, float eye) {
         case PK_TICKET10: ic = ui_icon[3]; break;
         case PK_ITEM: {
           ellipse(x, y, 9, 9, rgbf(is_mega_stone(int(p.value)) ? 0xc47bff : 0xffe14d, 0.35f + std::sin(p.t * 1.5f) * 0.15f));
-          if (is_mega_stone(int(p.value))) { draw_mega_stone(std::floor(x - 6), std::floor(y - 6), 12); break; }
+          // (la megapiedra: la de tu Pokémon, que es la que te llevarías)
+          if (is_mega_stone(int(p.value))) { draw_item_icon(int(p.value), std::floor(x - 7), std::floor(y - 7), 14, g.me().dex); break; }
           ic = icons.find(kItems[int(p.value)].id);
           break;
         }
@@ -1129,7 +1140,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         text("Sigues sin objeto (puedes coger otro luego)", 54, y + 24, 0.32f, rgb(0xb7c4dc), 0, false);
         continue;
       }
-      draw_item_icon(it, 16, y + 8, 30);
+      draw_item_icon(it, 16, y + 8, 30, p.dex);
       const char* who = i == 0 ? "El que llevas" : p.item_cur < 0 ? "Cogerlo" : "El nuevo";
       text_fit(item_name(it, p.dex), 54, y + 4, 250 - text_width(who, 0.34f) - 6, 0.46f, C2D_Color32(240, 244, 255, 255), true);
       text(who, 304, y + 4, 0.34f, rgb(0x8fa3c4), 2);
@@ -1231,7 +1242,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       float ly = MY + MH - 11;
       if (p.item >= 0) {
         C2D_DrawRectSolid(MX, ly, 0, MW, 11, strip);
-        draw_item_icon(p.item, MX + 2, ly, 10);
+        draw_item_icon(p.item, MX + 2, ly, 10, p.dex);
         const float nw = text_width(item_name(p.item, p.dex), 0.32f);
         text(item_name(p.item, p.dex), MX + 14, ly + 1, 0.32f, rgb(0xffd23f), 0, false);
         text_fit(item_desc(p.item, p.dex), MX + 18 + nw, ly + 1, MW - 22 - nw, 0.32f, rgb(0xeaf2ff));

@@ -180,7 +180,8 @@ De [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) (CC BY-NC 4.0), por
 | Mega-Zeraora | pi3.14, DeltaL |
 | Mega-Tatsugiri | Emmuffin |
 
-Las megas sin sprite en SpriteCollab usan el de su forma normal.
+Las megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de
+[PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).
 <!-- /megas -->
 
 ## Datos
