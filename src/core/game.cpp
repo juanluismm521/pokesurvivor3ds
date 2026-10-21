@@ -154,6 +154,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       pc.pstart = m.pstart;
     }
     init_player(*this, players[i], pc);
+    if (nplayers > 1 && c.members[i].test_stone) player_equip(*this, players[i], IT_MEGA_A);   // (pruebas)
     // En grupo, en fila (coop.js begin).
     if (nplayers > 1) { players[i].x = (i - (nplayers - 1) / 2.0f) * 34; players[i].y = 0; }
   }
@@ -335,7 +336,8 @@ void Game::pick_item(Player& p, bool take_new) {
     if (&p == &players[local] && got < IT_COUNT) progress_event(*this, EV_ITEM, got);
     if (is_mega_stone(got) && &p == &players[local]) say_to(*this, p, "¡Megapiedra! Pulsa Y para megaevolucionar", 3.2f);
   }
-  if (p.mega >= 0 && !is_mega_stone(p.item)) mega_end(*this, p);   // (sin la piedra, se acaba)
+  // Sin la piedra (o con la otra: de la X a la Y), la mega de ahora se acaba.
+  if (p.mega >= 0 && (!is_mega_stone(p.item) || kMegas[p.mega].slot != p.item - IT_MEGA_A)) mega_end(*this, p);
   p.choice = CH_NONE;
   if (state == ST_CHOICE && !anyone_choosing()) state = ST_PLAYING;
   after_choice(*this, p);

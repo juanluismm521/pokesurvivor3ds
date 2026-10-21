@@ -56,7 +56,9 @@ struct Autotest {
   int down_state = 0;               // 0 vivo, 1 caído, 2 levantado
   double revived_at = 0;
   bool nube = false, https = false, datos = false;
-  int programa = 0;   // "programa": busca, descarga y sale (se instala al salir) · "programa volver": vuelve a la anterior   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
+  int programa = 0;
+  bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
+  bool galeria = false;     // "galeria": las megas, una página tras otra (y si cargan)   // "programa": busca, descarga y sale (se instala al salir) · "programa volver": vuelve a la anterior   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
   char user[32] = "", pass[64] = "";
   long long hash_logged = -1;   // "coop host|join segundos dex inmortal": cooperativo con otro emulador
   FILE* log = nullptr;
@@ -78,6 +80,7 @@ void read_autotest(Autotest& a) {
   if (std::fscanf(f, "%15s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
   else if (!std::strcmp(first, "https")) a.https = true;
   else if (!std::strcmp(first, "datos")) a.datos = true;
+  else if (!std::strcmp(first, "galeria")) a.galeria = true;
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
@@ -86,6 +89,7 @@ void read_autotest(Autotest& a) {
     while (std::fscanf(f, "%15s", extra) == 1) {
       if (!std::strcmp(extra, "online")) a.online = true;
       if (!std::strcmp(extra, "morir")) a.die = true;
+      if (!std::strcmp(extra, "mega")) a.coop_mega = true;
     }
   }
   else { std::rewind(f); if (std::fscanf(f, "%f %d %d %f %23s", &a.seconds, &a.dex, &imm, &a.warp, a.move) >= 1) a.immortal = imm != 0; }
@@ -193,7 +197,57 @@ int main(int argc, char** argv) {
   }
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
-  if (at.programa) {
+  if (at.galeria) {
+    // Todas las megas, 8 por página (3 s cada una), en normal y en shiny,
+    // andando y girando por las 8 direcciones: para verlas en las capturas y
+    // comprobar que cada sprite carga (los fallos, al log).
+    int bad = 0, checked = 0;
+    constexpr int kPer = 8;
+    const int pages = (kMegaCount + kPer - 1) / kPer;
+    for (int sh = 0; sh < 2 && aptMainLoop(); ++sh)
+      for (int pg = 0; pg < pages && aptMainLoop(); ++pg) {
+        Animator an[kPer];
+        int n = 0;
+        for (int k = 0; k < kPer && pg * kPer + k < kMegaCount; ++k, ++n) {
+          const MegaDef& d = kMegas[pg * kPer + k];
+          const bool own = d.own_sprite && (!sh || has_shiny(d.sprite));
+          an[k].init(own ? d.sprite : d.base, own ? 1.0f : 1.15f, sh != 0);
+          an[k].loop(A_WALK);
+        }
+        for (int f = 0; f < 180 && aptMainLoop(); ++f) {
+          r.sprites.poll();
+          for (int k = 0; k < n; ++k) { an[k].update(1.0f / 60); an[k].dir = int8_t((f / 22) % 8); }
+          C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+          C2D_TargetClear(top, C2D_Color32(30, 44, 36, 255));
+          C2D_SceneBegin(top);
+          C2D_TextBufClear(r.tbuf);
+          char b[64];
+          std::snprintf(b, sizeof(b), "Megas %d/%d · %s", pg + 1, pages, sh ? "shiny" : "normal");
+          r.text(b, 200, 2, 0.4f, C2D_Color32(255, 203, 61, 255), 1);
+          for (int k = 0; k < n; ++k) {
+            const MegaDef& d = kMegas[pg * kPer + k];
+            const float x = 50 + (k % 4) * 100, y = 98 + (k / 4) * 112;
+            C2D_DrawEllipseSolid(x - 16, y - 5, 0, 32, 10, C2D_Color32(0, 0, 0, 70));
+            r.draw_sprite(an[k], x, y, 0, 1);
+            r.text_fit(d.mon.name, x - 48, y + 4, 96, 0.3f, C2D_Color32(255, 255, 255, 255));
+            if (an[k].dex == d.base) r.text("(sprite normal)", x, y + 15, 0.28f, C2D_Color32(170, 180, 200, 255), 1, false);
+          }
+          C2D_TargetClear(bottom, C2D_Color32(16, 22, 34, 255));
+          C2D_SceneBegin(bottom);
+          C3D_FrameEnd(0);
+        }
+        for (int k = 0; k < n; ++k) {   // ¿ha cargado cada uno?
+          checked++;
+          if (!r.sprites.get(an[k].dex, an[k].shiny) || !anim_meta(an[k].dex, A_WALK, an[k].shiny) || !anim_meta(an[k].dex, A_IDLE, an[k].shiny)) {
+            bad++;
+            if (at.log) std::fprintf(at.log, "galería: FALLA %s (%s, sprite %d)\n", kMegas[pg * kPer + k].mon.name, sh ? "shiny" : "normal", an[k].dex);
+          }
+        }
+      }
+    if (at.log) { std::fprintf(at.log, "galería: %d megas · %d comprobadas · %d fallos\n", kMegaCount, checked, bad); std::fclose(at.log); at.log = nullptr; }
+    app.quit = true;
+    at.on = false;
+  } else if (at.programa) {
     // Actualizar el programa (o volver atrás): espera a que esté listo y sale;
     // al salir se instala (como al cerrar el juego) y se apunta en programa.log.
     const u64 t0 = osGetTime();
@@ -273,6 +327,7 @@ int main(int argc, char** argv) {
   }
   if (at.on && at.coop) {
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
+    app.auto_mega = at.coop_mega;
     app.auto_look = at.look;
     if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {

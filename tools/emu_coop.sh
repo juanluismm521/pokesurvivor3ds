@@ -48,10 +48,12 @@ setup() {   # $1 = A|B, $2 = rol, $3 = dex
   # COOP_MORIR=1: el invitado no es inmortal y se deja matar (para ver al caído
   # mirando a sus compañeros con L/R).
   if [ "${COOP_MORIR:-0}" = 1 ] && [ "$2" = join ]; then echo "coop $2 $SECS $3 0${ONLINE:+ online} morir" > "$SD/autotest.txt"
-  else echo "coop $2 $SECS $3 1${ONLINE:+ online}" > "$SD/autotest.txt"; fi
+  else echo "coop $2 $SECS $3 1${ONLINE:+ online}${COOP_MEGA:+ mega}" > "$SD/autotest.txt"; fi
 }
-setup A host 25
-setup B join 4
+# COOP_MEGA=1: Gengar y Charizard, cada uno con su megapiedra (el bot megaevoluciona)
+if [ -n "${COOP_MEGA:-}" ]; then DA=94; DB=6; else DA=25; DB=4; fi
+setup A host ${COOP_DEX_A:-$DA}
+setup B join ${COOP_DEX_B:-$DB}
 # B: otro nombre, otra MAC y otro id de consola.
 echo "40:F4:07:12:34:56" > "$W/B/data/azahar-emu/sysdata/mac.txt"
 python3 - "$W/B/data/azahar-emu/nand/data/00000000000000000000000000000000/sysdata/00010017/00000000/config" <<'EOF'

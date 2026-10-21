@@ -393,6 +393,7 @@ struct RunConfig {
     // sala para que todas las consolas lo simulen igual (debug_immortal es de
     // la partida entera).
     bool immortal = false;
+    bool test_stone = false;   // pruebas: empieza con su megapiedra puesta
   };
   int nplayers = 1;
   Member members[4];

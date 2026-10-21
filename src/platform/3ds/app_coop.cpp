@@ -75,6 +75,7 @@ RunConfig::Member App::my_member() const {
   m.pstart = autotest ? -1 : s_->pstart[m.dex];
   m.immortal = autotest && auto_immortal_;
   m.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[m.dex];
+  m.test_stone = autotest && auto_mega;
   if (std::strcmp(s_->name, "Jugador") != 0) { std::memcpy(m.name, s_->name, sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0; }
   else console_name(m.name, sizeof(m.name));
   return m;

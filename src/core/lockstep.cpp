@@ -50,12 +50,14 @@ static void put_member(W& w, const RunConfig::Member& m) {
   w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.u8(uint8_t(m.pstart)); w.raw(m.name, 16);
   w.u8(m.immortal ? 1 : 0);
   w.u8(m.mega_up);
+  w.u8(m.test_stone ? 1 : 0);
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
   r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); m.pstart = int8_t(r.u8()); r.raw(m.name, 16);
   m.immortal = r.u8() != 0;
   m.mega_up = uint8_t(r.u8());
+  m.test_stone = r.u8() != 0;
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }
 }

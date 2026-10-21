@@ -34,7 +34,7 @@ constexpr int kRing = 256;           // pasos guardados (más que kDelay + kRese
 constexpr int kHashEvery = 60;       // huella cada segundo
 constexpr int kTimeoutFrames = 60 * 20;   // 20 s sin noticias: se le da por ido
 constexpr int kMaxPacket = 1024;
-constexpr uint32_t kMagic = 0x50535336;   // 'PSS6' + versión del protocolo (6: megaevoluciones)
+constexpr uint32_t kMagic = 0x50535337;   // 'PSS7' + versión del protocolo (7: megas y piedra de prueba en la sala)
 // Lo que va en cada paquete: la versión del protocolo mezclada con la huella
 // de los datos del juego (gen_data). Dos 3DS con datos distintos (otra versión
 // de la web) se ignoran: si jugaran juntas, sus partidas se separarían.

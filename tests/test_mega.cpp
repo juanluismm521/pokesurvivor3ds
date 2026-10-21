@@ -97,6 +97,38 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   CHECK(p.mon == mon_by_dex(94));
 }
 
+TEST_CASE("megas: la vida máxima vuelve a la de antes (aunque subas vida en medio)") {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig cfg;
+  cfg.dex = 6; cfg.seed = 5; cfg.judged = 1;   // (las megas tienen los PS de su forma normal, como en los juegos)
+  g->start_run(cfg);
+  Player& p = g->players[0];
+  const float before = p.max_hp;
+  player_equip(*g, p, IT_MEGA_A);
+  mega_start(*g, p);
+  const float dhp = float(kMegas[mega_index(6, 0)].mon.hp - mon_by_dex(6)->hp);
+  CHECK(dhp == 0);
+  CHECK(p.max_hp == doctest::Approx(before + dhp));
+  player_add_max_hp(p, 20);                     // (una carta de vida en plena mega)
+  for (int i = 0; i < int(kMegaTime * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);
+  CHECK(p.mega == -1);
+  CHECK(p.max_hp == doctest::Approx(before + 20));
+  CHECK(p.hp <= p.max_hp);
+  // Cambiar de la X a la Y con la X puesta: se acaba la X (y vuelve todo).
+  for (int i = 0; i < int(kMegaCooldown * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);
+  mega_start(*g, p);
+  REQUIRE(p.mega == mega_index(6, 0));
+  p.item_cur = p.item; p.item_next = IT_MEGA_B; p.choice = CH_ITEM; g->state = ST_CHOICE;
+  g->pick_item(p, true);
+  CHECK(p.item == IT_MEGA_B);
+  CHECK(p.mega == -1);
+  CHECK(p.max_hp == doctest::Approx(before + 20));
+  for (int i = 0; i < int(kMegaCooldown * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);
+  mega_start(*g, p);
+  CHECK(p.mega == mega_index(6, 1));            // ahora, Mega-Charizard Y
+  CHECK(std::string(p.mon->name) == "Mega-Charizard Y");
+}
+
 TEST_CASE("megas: los shinys megaevolucionados siguen siendo shiny") {
   std::unique_ptr<Game> g(new Game());
   RunConfig cfg;
@@ -215,4 +247,40 @@ TEST_CASE("megas: en grupo, la mejora viaja con la sala") {
   RunConfig::Member r;
   REQUIRE(net::read_member(buf, n, r));
   CHECK(r.mega_up == 4);
+}
+
+TEST_CASE("megas: las 91, en normal y en shiny, megaevolucionan y juegan sin errores") {
+  std::unique_ptr<Game> g(new Game());
+  int done = 0;
+  for (int i = 0; i < kMegaCount; ++i) {
+    const MegaDef& d = kMegas[i];
+    for (int sh = 0; sh < 2; ++sh) {
+      RunConfig cfg;
+      cfg.dex = d.base; cfg.seed = uint32_t(100 + i); cfg.judged = 1; cfg.shiny = sh != 0;
+      g->debug_immortal = true;
+      g->start_run(cfg);
+      Player& p = g->players[0];
+      player_equip(*g, p, IT_MEGA_A + d.slot);
+      mega_start(*g, p);
+      REQUIRE_MESSAGE(p.mega == i, d.mon.name);
+      CHECK(p.mon == &d.mon);
+      CHECK(anim_meta(p.anim.dex, A_WALK, p.anim.shiny) != nullptr);
+      CHECK(p.body_h > 0);
+      if (p.shiny) CHECK(p.anim.shiny);   // (el shiny nunca se pierde)
+      Bot bot;
+      bot.init(7 + i);
+      for (int f = 0; f < 60 * 8; ++f) {   // 8 s de partida con la mega
+        Input in;
+        if (!bot.decide(*g, in)) continue;
+        g->step(&in);
+      }
+      CHECK(finite_all(*g));
+      CHECK(p.max_hp > 0);
+      mega_end(*g, p);
+      CHECK(p.mon == mon_by_dex(d.base));
+      CHECK(p.anim.dex == d.base);
+      done++;
+    }
+  }
+  CHECK(done == kMegaCount * 2);
 }

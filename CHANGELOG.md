@@ -5,6 +5,13 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.3.1 — 2026-10-21
+- Si cambias la megapiedra por la otra (de la X a la Y) con la mega puesta, la
+  mega se acaba (antes seguías con la X llevando la Y).
+- Las megas de tu Pokémon se cargan al empezar la partida: al megaevolucionar
+  ya no desaparece un instante mientras carga su sprite.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.3.0 — 2026-10-21
 - **Megaevoluciones** (91, también las de Leyendas Z-A y su expansión: Mega-Darkrai,
   Mega-Zeraora, Mega-Raichu X/Y, Mega-Garchomp Z…).

@@ -115,6 +115,16 @@ bool Renderer::init() {
 // Precarga los Pokémon de la partida (el tuyo, el elenco y los jefes).
 void Renderer::preload_run(Game& g) {
   for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) sprites.get(g.players[i].dex, g.players[i].shiny);
+  // Sus megas (las dos formas, y en shiny si es shiny y la hay): cargadas ya,
+  // para que al megaevolucionar no desaparezca un momento mientras carga.
+  for (int i = 0; i < g.nplayers; ++i) {
+    const Player& p = g.players[i];
+    if (!p.active) continue;
+    for (int s = 0; s < 2; ++s) {
+      const int k = mega_index(p.dex, s);
+      if (k >= 0 && kMegas[k].own_sprite) sprites.get(kMegas[k].sprite, p.shiny && has_shiny(kMegas[k].sprite));
+    }
+  }
   for (int t = 0; t < g.ncast; ++t)
     for (int i = 0; i < g.cast[t].n; ++i) sprites.get(g.cast[t].list[i].dex, false);
   for (int b = 0; b < g.nbosses; ++b) sprites.get(g.bosses[b].dex, false);
