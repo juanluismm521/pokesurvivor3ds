@@ -105,6 +105,10 @@ bool refresh(Client& c, Session& s);
 // este aparato en la libreta; `local_now_ms`, la hora de la consola. Deja en
 // `merged` la partida fusionada (la que queda en la nube).
 bool sync(Client& c, Session& s, const Json& local, const std::string& dev, int64_t local_now_ms, Json& merged);
+// El apodo de jugador de la cuenta (profiles/{uid}.name: el que se ve en
+// pokesurvivor.com). Vacío si no tiene (o no se puede leer). Tras sync (usa
+// su id_token).
+std::string profile_name(Client& c, const Session& s);
 
 }  // namespace cloud
 }  // namespace ps

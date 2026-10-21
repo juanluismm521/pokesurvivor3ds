@@ -19,6 +19,7 @@ struct Account {
   int64_t delta = 0;             // hora del servidor - hora de la consola
   int64_t last_sync = 0;         // (hora de la consola)
   int synced_partner = -1;       // compañero en la última sincronización (cloud::partner_code)
+  bool google = false;           // se entró con Google (para el logo)
 };
 
 enum JobState { JOB_IDLE, JOB_BUSY, JOB_DONE, JOB_FAILED };

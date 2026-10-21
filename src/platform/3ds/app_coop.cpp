@@ -105,7 +105,14 @@ bool ask_text(const char* hint, const char* initial, char* out, int cap, bool nu
   out[0] = 0;
   return swkbdInputText(&kb, out, size_t(cap)) == SWKBD_BUTTON_CONFIRM && out[0];
 }
-constexpr int kRoomY = 150, kRoomStep = 18, kMaxRoomsShown = 4;   // 150 + 4·18 = 222: antes de la ayuda
+constexpr int kRoomY = 116, kRoomStep = 21, kMaxRoomsShown = 5;   // 116 + 5·21 = 221: antes de la ayuda
+// Buscar salas en otro hilo, cada pocos segundos (bloquea mientras espera
+// respuesta): 0 nada, 1 buscando, 2 terminado.
+Thread g_scan_thr = nullptr;
+volatile int g_scan_state = 0;
+net3ds::Room g_scan_rooms[kMaxRoomsShown];
+volatile int g_scan_n = 0;
+uint64_t g_scan_next = 0;
 // Conectar con el servidor en otro hilo: 0 nada, 1 conectando, 2 terminado.
 Thread g_conn_thr = nullptr;
 volatile int g_conn_state = 0;
@@ -114,10 +121,10 @@ volatile bool g_conn_ok = false;
 
 void App::in_coop(const UiIn& in) {
   // (mientras el otro hilo conecta, no se cambia nada de la red: espera)
-  const bool connecting = g_conn_state == 1;
+  const bool connecting = g_conn_state == 1 || g_scan_state == 1;   // (o buscando salas)
   if (!connecting) net3ds::set_server(st_->server, st_->server_port);
   // Por internet: Y (o tocar la fila) cambia el servidor (IP o dominio y puerto).
-  if (!connecting && coop_online_ && !auto_coop_ && ((in.down & KEY_Y) || in_rect(&in, 20, 118, 280, 16))) {
+  if (!connecting && coop_online_ && !auto_coop_ && ((in.down & KEY_Y) || in_rect(&in, 20, 86, 280, 12))) {
     char host[64], port[8], cur[8];
     std::snprintf(cur, sizeof(cur), "%d", st_->server_port);
     if (ask_text("IP o dominio del servidor", st_->server, host, sizeof(host), false)) {
@@ -184,23 +191,43 @@ void App::in_coop(const UiIn& in) {
   // Ya conectado: fuera el aviso del intento fallido.
   coop_fails_ = 0;
   if (coop_err_init_) { coop_msg_[0] = 0; coop_err_init_ = false; }
-  const int n = 2 + nrooms_;
+  // Las salas se buscan solas (en otro hilo, cada 3 s).
+  {
+    const uint64_t now = osGetTime();
+    if (g_scan_state == 2) {
+      threadJoin(g_scan_thr, U64_MAX); threadFree(g_scan_thr); g_scan_thr = nullptr;
+      nrooms_ = g_scan_n;
+      for (int i = 0; i < nrooms_; ++i) rooms_[i] = g_scan_rooms[i];
+      scanned_ = true;
+      g_scan_state = 0;
+      g_scan_next = now + 3000;
+      if (cur_ > nrooms_) cur_ = nrooms_;
+      if (!nrooms_ && coop_online_ && net3ds::last_error()[0]) std::snprintf(coop_msg_, sizeof(coop_msg_), "%s", net3ds::last_error());
+      else if (coop_msg_[0] && !coop_err_init_) coop_msg_[0] = 0;
+    } else if (g_scan_state == 0 && now >= g_scan_next) {
+      g_scan_state = 1;
+      s32 prio = 0x30;
+      svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+      g_scan_thr = threadCreate([](void*) { net3ds::Room r[kMaxRoomsShown]; const int k = net3ds::scan(r, kMaxRoomsShown); for (int i = 0; i < k; ++i) g_scan_rooms[i] = r[i]; g_scan_n = k; g_scan_state = 2; },
+                                nullptr, 64 * 1024, prio + 1, -2, false);
+      if (!g_scan_thr) { g_scan_state = 0; g_scan_next = now + 3000; }
+    }
+  }
+  const bool scanning = g_scan_state == 1;
+  const int n = 1 + nrooms_;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
   int pick = -1;
-  if (in_rect(&in, 20, 50, 280, 30)) pick = 0;
-  if (in_rect(&in, 20, 84, 280, 30)) pick = 1;
-  for (int i = 0; i < nrooms_; ++i) if (in_rect(&in, 20, kRoomY + i * kRoomStep, 280, kRoomStep - 1)) pick = 2 + i;
+  if (in_rect(&in, 20, 50, 280, 34)) pick = 0;
+  for (int i = 0; i < nrooms_; ++i) if (in_rect(&in, 20, kRoomY + i * kRoomStep, 280, kRoomStep - 2)) pick = 1 + i;
   if (in.down & KEY_A) pick = cur_;
-  if (in.down & KEY_B) { coop_leave(); go(SC_MENU); return; }
-  // Autotest: el anfitrión crea la sala; el otro busca hasta encontrarla.
+  if (in.down & KEY_B) { if (!scanning) { coop_leave(); go(SC_MENU); } return; }
+  // Autotest: el anfitrión crea la sala; el otro espera a que salga en la lista.
   if (auto_coop_) {
-    auto_t_ += 1.0f / 60;
     if (auto_host_) pick = 0;
-    else if (nrooms_ > 0 && !auto_look) pick = 2;
-    else if (auto_t_ > 2) { auto_t_ = 0; pick = 1; }
+    else if (nrooms_ > 0 && !auto_look) pick = 1;
   }
-  if (pick < 0) return;
+  if (pick < 0 || scanning) return;   // (mientras busca, no se toca la red: un momento)
   cur_ = pick;
   coop_msg_[0] = 0;
   const RunConfig::Member me = my_member();
@@ -212,13 +239,8 @@ void App::in_coop(const UiIn& in) {
     lobby_[0].m = me;
     lobby_t_ = 0;
     go(SC_LOBBY);
-  } else if (pick == 1) {
-    nrooms_ = net3ds::scan(rooms_, kMaxRoomsShown);
-    scanned_ = true;
-    cur_ = nrooms_ ? 2 : 1;
-    if (!nrooms_ && coop_online_ && net3ds::last_error()[0]) std::snprintf(coop_msg_, sizeof(coop_msg_), "%s", net3ds::last_error());
   } else {
-    const net3ds::Room& rm = rooms_[pick - 2];
+    const net3ds::Room& rm = rooms_[pick - 1];
     if (!net3ds::join(rm.index)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido entrar en la sala de %s. %s", rm.host, coop_online_ ? net3ds::last_error() : ""); return; }
     nlobby_ = 0;
     lobby_t_ = 0;
@@ -235,36 +257,36 @@ void App::bottom_coop() {
     if (on) C2D_DrawRectSolid(t * 160 + 4, 42, 0, 152, 2, C_GOLD);
     r_->text(t ? "Por internet" : "Cerca (juego local)", t * 160 + 80, 28, 0.36f, on ? C_GOLD : C_MUTED, 1);
   }
-  button(20, 50, 280, 30, "Crear sala", cur_ == 0);
-  button(20, 84, 280, 30, "Buscar salas", cur_ == 1);
+  button(20, 50, 280, 34, "Crear sala", cur_ == 0);
   char b[96];
-  // Una línea de estado (el aviso en rojo si lo hay) y debajo las salas: nada
-  // se pisa aunque salgan las 4.
+  // El servidor (por internet), una línea de estado (el aviso en rojo si lo
+  // hay) y debajo las salas, que se buscan solas: nada se pisa con 5.
   const char* status = nullptr;
   if (coop_online_) {
     // Servidor (se cambia con Y o tocando aquí).
     std::snprintf(b, sizeof(b), "Servidor: %s:%d  (Y: cambiar)", st_->server, st_->server_port);
-    r_->text(b, 160, 119, 0.32f, C2D_Color32(154, 230, 255, 255), 1);
+    r_->text(b, 160, 88, 0.32f, C2D_Color32(154, 230, 255, 255), 1);
     static char conn[48];
     std::snprintf(conn, sizeof(conn), coop_fails_ ? "Conectando con el servidor… (intento %d)" : "Conectando con el servidor…", coop_fails_ + 1);
     if (!net3ds::ready() && !coop_msg_[0]) status = conn;
-    else if (scanned_) status = nrooms_ ? "Salas abiertas:" : "No hay salas abiertas. Crea una y avisa.";
+    else if (!scanned_) status = "Buscando salas…";
+    else status = nrooms_ ? "Salas abiertas (se actualizan solas):" : "No hay salas abiertas. Crea una y avisa.";
   } else {
-    if (!scanned_) status = "Hasta 4 consolas cerca, cada una con el juego.";
-    else status = nrooms_ ? "Salas cerca:" : "No hay salas cerca. Pide a alguien que cree una.";
+    if (!scanned_) status = "Buscando salas cerca…";
+    else status = nrooms_ ? "Salas cerca (se actualizan solas):" : "No hay salas cerca. Pide a alguien que cree una.";
   }
-  if (coop_msg_[0]) r_->text_wrap(coop_msg_, 160, 132, 0.32f, C2D_Color32(255, 138, 150, 255), 290, 1);
-  else if (status) r_->text(status, nrooms_ ? 24 : 160, 132, 0.32f, C_MUTED, nrooms_ ? 0 : 1);
+  if (coop_msg_[0]) r_->text_wrap(coop_msg_, 160, 100, 0.32f, C2D_Color32(255, 138, 150, 255), 290, 1);
+  else if (status) r_->text(status, nrooms_ ? 24 : 160, 100, 0.32f, C_MUTED, nrooms_ ? 0 : 1);
   for (int i = 0; i < nrooms_; ++i) {
     const float y = kRoomY + i * kRoomStep;
-    C2D_DrawRectSolid(20, y, 0, 280, kRoomStep - 2, cur_ == 2 + i ? C_SEL : C_PANEL);
-    if (cur_ == 2 + i) C2D_DrawRectSolid(20, y, 0, 3, kRoomStep - 2, C_GOLD);
+    C2D_DrawRectSolid(20, y, 0, 280, kRoomStep - 2, cur_ == 1 + i ? C_SEL : C_PANEL);
+    if (cur_ == 1 + i) C2D_DrawRectSolid(20, y, 0, 3, kRoomStep - 2, C_GOLD);
     std::snprintf(b, sizeof(b), "Sala de %s", rooms_[i].host);
     r_->text(b, 30, y + 3, 0.34f, C_TEXT, 0);
     std::snprintf(b, sizeof(b), "%d / 4", rooms_[i].players);
     r_->text(b, 292, y + 3, 0.34f, C_MUTED, 2);
   }
-  r_->text("A: elegir · L/R: cerca o por internet · B: volver", 160, 228, 0.32f, C_MUTED, 1);
+  r_->text("A: crear o entrar · L/R: cerca o por internet · B: volver", 160, 228, 0.32f, C_MUTED, 1);
 }
 
 // ---------------- sala ----------------

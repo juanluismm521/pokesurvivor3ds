@@ -73,6 +73,7 @@ void save_account() {
   o.set("delta", Json::num(double(g_acc.delta)));
   o.set("lastSync", Json::num(double(g_acc.last_sync)));
   o.set("syncedPartner", Json::num(double(g_acc.synced_partner)));
+  o.set("google", Json::boolean(g_acc.google));
   const std::string t = o.dump();
   const std::string tmp = path("cuenta.tmp"), cur = path("cuenta.json");
   FILE* f = std::fopen(tmp.c_str(), "wb");
@@ -227,6 +228,11 @@ void worker(void*) {
       Json merged;
       if (in && cloud::sync(c, s, g_local, g_acc.dev, now_ms(), merged)) {
         g_acc.on = true;
+        // El nombre: tu apodo de jugador de pokesurvivor.com si lo tienes (con
+        // Google, el de la cuenta de Google sería «Juan»); si no, el de la cuenta.
+        const std::string apodo = cloud::profile_name(c, s);
+        if (!apodo.empty()) s.name = apodo;
+        if (g_kind != 2) g_acc.google = g_kind == 3;
         g_acc.name = s.name; g_acc.uid = s.uid; g_acc.refresh = s.refresh_token;
         g_acc.delta = c.clock_delta;
         g_acc.last_sync = now_ms();
@@ -296,6 +302,7 @@ void init(const char* dir) {
     g_acc.dev = o["dev"].as_str();
     g_acc.delta = int64_t(o["delta"].as_num(0)); g_acc.last_sync = int64_t(o["lastSync"].as_num(0));
     g_acc.synced_partner = int(o["syncedPartner"].as_num(-1));
+    g_acc.google = o["google"].as_bool();
     g_acc.on = !g_acc.refresh.empty();
   }
   if (g_acc.dev.empty()) {

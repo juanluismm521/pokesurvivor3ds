@@ -382,7 +382,11 @@ void App::in_run(const UiIn& in) {
     uint32_t sig = uint32_t(g.state) * 2654435761u ^ uint32_t(me.choice) * 40503u ^ uint32_t(me.item_next + 7) * 9176u;
     for (int i = 0; i < me.ncards; ++i)
       sig = sig * 31u + uint32_t(me.cards[i].type * 1000 + me.cards[i].move * 10 + me.cards[i].stat + 50);
-    if (sig != choice_sig_) { choice_sig_ = sig; r_->card_cursor = 0; }
+    if (sig != choice_sig_) {
+      choice_sig_ = sig;
+      // (el primer objeto: el cursor ya en «cogerlo»)
+      r_->card_cursor = g.state == ST_CHOICE && me.choice == CH_ITEM && me.item_cur < 0 ? 1 : 0;
+    }
   }
   if (autotest) {
     bot.decide(g, gi, g.local);
@@ -593,6 +597,8 @@ void App::in_menu(const UiIn& in) {
   if (in.down & KEY_A) pick = cur_;
   // Y: alterna normal / shiny del compañero (si tienes su shiny).
   if ((in.down & KEY_Y) && s_->owns_shiny(s_->partner)) { s_->partner_shiny = !s_->partner_shiny; save_now(); }
+  // X: la cuenta de pokesurvivor.com (sincronizar, entrar, salir).
+  if (in.down & KEY_X) { account_back_ = SC_MENU; go(SC_ACCOUNT); return; }
   if (pick < 0) return;
   cur_ = pick;
   switch (pick) {
@@ -732,6 +738,10 @@ void App::fit_text(const char* s, float x, float y, float maxw, float size, u32 
     while (!t.empty() && (uint8_t(t.back()) & 0xC0) == 0x80) t.pop_back();
   }
   r_->text((t + "…").c_str(), x, y + (size - sz) * 18, sz, color, 0, shadow);
+}
+
+float App::y_hint_w() {
+  return 51 + r_->text_width("Normal", 0.38f) + r_->text_width("Shiny", 0.38f);
 }
 
 // El botón Y de la consola, verde, que se pulsa solo cada poco, con
@@ -1458,9 +1468,10 @@ void App::draw_top(float eye) {
         draw_mon(dex, sh, 200, 204, 3);
         char b[64];
         std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(dex)->name, sh ? " ★" : "");
-        r_->text(b, 200, 10, 0.7f, C_TEXT, 1);
+        // (con la insignia de la cuenta arriba a la izquierda, el nombre más abajo)
+        r_->text(b, 200, cloud3ds::account().on ? 54 : 10, 0.7f, C_TEXT, 1);
         r_->text("PokéSurvivor 3DS · port de juanluismm520", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 140), 1, false);
-        if (s_->owns_shiny(dex)) y_hint(276, 8, sh);
+        if (s_->owns_shiny(dex)) y_hint(TW - 6 - y_hint_w(), 8, sh);   // (arriba a la derecha, sin salirse)
         top_cloud_badge();
         break;
       }

@@ -270,6 +270,21 @@ int64_t parse_timestamp(const std::string& t) {
   return ((days * 24 + h) * 60 + mi) * 60000 + int64_t(se) * 1000 + ms;
 }
 
+std::string profile_name(Client& c, const Session& s) {
+  if (s.uid.empty() || s.id_token.empty()) return "";
+  HttpReq rq;
+  rq.method = "GET";
+  rq.url = c.cfg.fs_base + "/v1/projects/" + c.cfg.project + "/databases/(default)/documents/profiles/" + s.uid;
+  rq.headers = {"Authorization: Bearer " + s.id_token};
+  HttpResp rs;
+  const std::string keep = c.error;
+  if (!call(c, rq, rs) || rs.status != 200) { c.error = keep; return ""; }
+  Json j;
+  if (!j.parse(rs.body)) return "";
+  const std::string n = j["fields"]["name"]["stringValue"].as_str();
+  return n.size() <= 40 ? n : "";
+}
+
 bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, int64_t local_now_ms, Json& merged) {
   if (!refresh(c, s)) return false;
   const std::string auth = "Authorization: Bearer " + s.id_token;

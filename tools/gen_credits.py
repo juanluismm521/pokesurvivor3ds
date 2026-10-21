@@ -18,10 +18,10 @@ def plain(s):
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'romfs', 'credits.txt')
-    lines = ['# Gracias', 'Ante todo, a JPTER78, creador de PokéSurvivor:',
-             'github.com/JPTER78/pokesurvivor', '',
-             'Port a la 3DS: juanluismm520, creador de PokéSurvivor 3DS:',
+    lines = ['# Autores', 'PokéSurvivor 3DS: juanluismm520 (creador del port)',
              'github.com/juanluismm521/pokesurvivor3ds', '',
+             'PokéSurvivor: JPTER78 (creador del juego original)',
+             'github.com/JPTER78/pokesurvivor', '',
              '# PokéSurvivor 3DS', 'Port para Nintendo 3DS de PokéSurvivor (pokesurvivor.com).',
              'Proyecto de fans sin ánimo de lucro, sin relación con',
              'Nintendo, Game Freak ni The Pokémon Company. Gratis siempre.',

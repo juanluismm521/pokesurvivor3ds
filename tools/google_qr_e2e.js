@@ -51,6 +51,9 @@ const vinc = spawn('python3', [VINC], { env: Object.assign({}, process.env, {
       for (const k of Object.keys(localStorage)) if (k.startsWith('ps.cloudok.')) localStorage.removeItem(k);
       G.DB.save.updated = Date.now(); await G.DB.flush();
     });
+    // Su apodo de jugador en la web (el que se ve en pokesurvivor.com), con la función de la web.
+    const nick = await page.evaluate(async () => { await G.Social.start(); return G.Social.claimNick('AnaJuega'); });
+    check(nick && nick.ok, 'web: apodo AnaJuega (' + JSON.stringify(nick) + ')');
     check(true, 'web: cuenta de Google con un Pikachu en la nube');
     // La 3DS pide código y espera.
     const save = path.join(fs.mkdtempSync('/tmp/ps-qr-'), 'save.json');
@@ -79,7 +82,7 @@ const vinc = spawn('python3', [VINC], { env: Object.assign({}, process.env, {
     const m = code === 0 ? JSON.parse(fs.readFileSync(out, 'utf8')) : null;
     check(code === 0 && log.includes('uid=' + uid), '3DS: entra sola en la MISMA cuenta de Google');
     check(m && m.owned['25'] && m.owned['7'], '3DS: tiene el Pikachu de la web y su Squirtle');
-    check(/entra como Ana/.test(log), '3DS: con su nombre (Ana)');
+    check(/apodo: AnaJuega/.test(log), '3DS: con su apodo de jugador (AnaJuega), no el nombre de Google');
   } catch (e) { console.log('  ✘ ' + e.message); ok = false; }
   await browser.close(); web.close(); vinc.kill();
   console.log(ok ? 'google_qr_e2e: TODO BIEN' : 'google_qr_e2e: FALLA');

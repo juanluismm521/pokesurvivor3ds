@@ -98,7 +98,8 @@ class App {
   void bottom_cloudask();
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
-  void y_hint(float x, float y, bool shiny);
+  void y_hint(float x, float y, bool shiny);   // botón Y que se pulsa solo · «Normal · Shiny»
+  float y_hint_w();                            // (su ancho)
   // Texto que cabe en `maxw`: baja la letra si hace falta y, si ni así, lo corta con «…».
   void fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = true);   // botón Y que se pulsa solo · «Normal · Shiny»
   void top_pull();

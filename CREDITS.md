@@ -2,10 +2,10 @@
 
 ## Gracias
 
-- Ante todo, a **JPTER78**, creador de PokéSurvivor:
-  [github.com/JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
-- **Port a la 3DS: juanluismm520**, creador de PokéSurvivor 3DS:
+- **PokéSurvivor 3DS: juanluismm520**, creador del port:
   [github.com/juanluismm521/pokesurvivor3ds](https://github.com/juanluismm521/pokesurvivor3ds)
+- **PokéSurvivor: JPTER78**, creador del juego original:
+  [github.com/JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
 
 ## Sprites
 

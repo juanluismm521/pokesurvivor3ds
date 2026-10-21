@@ -1032,16 +1032,21 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     std::snprintf(b, sizeof(b), "A: elegir · Y: cambiar cartas (%d)", left > 0 ? left : 0);
     text(b, 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_CHOICE && p.choice == CH_ITEM) {
-    text("Sólo puedes llevar un objeto", 160, 74, 0.48f, rgb(0xffcb3d), 1);
+    text(p.item_cur < 0 ? "¿Te lo quedas?" : "Sólo puedes llevar un objeto", 160, 74, 0.48f, rgb(0xffcb3d), 1);
     for (int i = 0; i < 2; ++i) {
       const int it = i == 0 ? p.item_cur : p.item_next;
       const float y = 96 + i * 54;
       const bool sel = i == card_cursor;
       C2D_DrawRectSolid(10, y, 0, 300, 48, sel ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(30, 40, 62, 255));
+      if (it < 0) {   // (no llevas ninguno: dejarlo)
+        text("Dejarlo", 54, y + 4, 0.46f, C2D_Color32(240, 244, 255, 255), 0);
+        text("Sigues sin objeto (puedes coger otro luego)", 54, y + 24, 0.32f, rgb(0xb7c4dc), 0, false);
+        continue;
+      }
       const int ic = icons.find(kItems[it].id);
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + 8, 0, nullptr, 2.5f, 2.5f);
       text(kItems[it].name, 54, y + 4, 0.46f, C2D_Color32(240, 244, 255, 255), 0);
-      text(i == 0 ? "El que llevas" : "El nuevo", 304, y + 4, 0.34f, rgb(0x8fa3c4), 2);
+      text(i == 0 ? "El que llevas" : p.item_cur < 0 ? "Cogerlo" : "El nuevo", 304, y + 4, 0.34f, rgb(0x8fa3c4), 2);
       text(kItems[it].desc, 54, y + 24, 0.32f, rgb(0xb7c4dc), 0, false);
     }
     text("A: quedarte con el elegido", 160, 226, 0.34f, rgb(0x8fa3c4), 1);

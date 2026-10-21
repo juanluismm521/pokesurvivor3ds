@@ -305,20 +305,15 @@ static void say_to(Game& g, const Player& p, const char* text, float secs) {
   if (&p == &g.players[g.local]) g.say(text, secs);
 }
 
-// Has cogido un objeto: si no llevas ninguno te lo pones; si no, eliges.
+// Has cogido un objeto: eliges si te lo quedas (aunque no lleves ninguno:
+// lo pidió el dueño del port; la web se lo pone sin preguntar). Si ya llevas
+// otro, con cuál te quedas.
 static void offer_item(Game& g, Player& p, int id) {
   if (id < 0 || id >= IT_COUNT) return;
   if (g.state == ST_LEVELUP || p.choice != CH_NONE) { if (p.nlater < 8) p.later_items[p.nlater++] = int8_t(id); return; }
   char b[96];
-  if (p.item < 0) {
-    player_equip(g, p, id);
-    std::snprintf(b, sizeof(b), "¡Llevas %s!", kItems[id].name);
-    say_to(g, p, b, 2.6f);
-    if (&p == &g.players[g.local]) progress_event(g, EV_ITEM, id);
-    return;
-  }
   if (p.item == id) { std::snprintf(b, sizeof(b), "Ya llevas %s", kItems[id].name); say_to(g, p, b, 2); return; }
-  // Se para el juego (para todos) mientras eliges.
+  // Se para el juego (para todos) mientras eliges. (item_cur -1: «dejarlo»)
   p.item_cur = p.item; p.item_next = int8_t(id);
   p.choice = CH_ITEM;
   if (g.state == ST_PLAYING) g.state = ST_CHOICE;
@@ -327,7 +322,8 @@ static void offer_item(Game& g, Player& p, int id) {
 void Game::pick_item(Player& p, bool take_new) {
   if (p.choice != CH_ITEM) return;
   const int got = take_new ? p.item_next : p.item_cur;
-  if (got != p.item) {
+  if (got < 0) say_to(*this, p, "Lo dejas en el suelo", 2);
+  else if (got != p.item) {
     player_equip(*this, p, got);
     char b[96];
     std::snprintf(b, sizeof(b), "¡Llevas %s!", kItems[got].name);

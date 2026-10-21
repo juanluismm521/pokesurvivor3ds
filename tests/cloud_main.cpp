@@ -116,6 +116,7 @@ int main(int argc, char** argv) {
   const std::string out = merged.dump();
   if (argc > 5) { FILE* f = std::fopen(argv[5], "wb"); if (f) { std::fwrite(out.data(), 1, out.size(), f); std::fclose(f); } }
   std::printf("ok uid=%s monedas=%g reloj=%lld\n", s.uid.c_str(), merged["coins"].as_num(), (long long)c.clock_delta);
+  { const std::string ap = cloud::profile_name(c, s); if (!ap.empty()) std::printf("apodo: %s\n", ap.c_str()); }   // (el nombre que pone la consola)
   curl_global_cleanup();
   return 0;
 }

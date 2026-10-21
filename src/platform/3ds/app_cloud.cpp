@@ -4,6 +4,8 @@
 // aplica fusionándolo otra vez con lo que haya cambiado mientras (como la web).
 #include <3ds.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -71,6 +73,33 @@ static void cloud_icon(float x, float y, u32 c) {
   C2D_DrawRectSolid(x + 5, y + 8, 0, 10, 4.5f, c);
 }
 
+// La «G» de Google a cuatro colores (anillo abierto arriba a la derecha y la
+// barra azul), dibujada con puntitos: no hay icono de Google en los atlas.
+static void google_g(float cx, float cy, float r) {
+  C2D_DrawCircleSolid(cx, cy, 0, r + 1.5f, C2D_Color32(255, 255, 255, 255));
+  const float t = std::max(1.5f, r * 0.42f), rr = r - t / 2;
+  for (int d = -180; d < 180; d += 5) {
+    if (d > -40 && d < 0) continue;   // (la abertura de la G)
+    const u32 c = d >= 0 && d < 40 ? C2D_Color32(66, 133, 244, 255)       // azul
+                : d >= 40 && d < 140 ? C2D_Color32(52, 168, 83, 255)      // verde
+                : d >= 140 || d < -150 ? C2D_Color32(251, 188, 5, 255)    // amarillo
+                : C2D_Color32(234, 67, 53, 255);                           // rojo
+    const float a = d * 3.14159265f / 180;
+    C2D_DrawRectSolid(cx + std::cos(a) * rr - t / 2, cy + std::sin(a) * rr - t / 2, 0, t, t, c);
+  }
+  C2D_DrawRectSolid(cx, cy - t / 2, 0, r, t, C2D_Color32(66, 133, 244, 255));
+}
+
+// El botón X de la consola (azul), que se pulsa solo cada poco.
+static void x_button(Renderer* r, float cx, float cy, float t) {
+  const float ph = std::fmod(t, 1.4f);
+  const bool down = ph > 0.7f && ph < 0.92f;
+  const float dy = down ? 1.5f : 0;
+  C2D_DrawCircleSolid(cx, cy + 1.5f, 0, 7.5f, C2D_Color32(15, 30, 70, 255));
+  C2D_DrawCircleSolid(cx, cy + dy, 0, 7.5f, down ? C2D_Color32(60, 110, 200, 255) : C2D_Color32(85, 140, 235, 255));
+  r->text("X", cx, cy - 6 + dy, 0.36f, C2D_Color32(255, 255, 255, 255), 1, false);
+}
+
 void App::top_cloud_badge() {
   const cloud3ds::Account& a = cloud3ds::account();
   if (!a.on) return;
@@ -79,15 +108,19 @@ void App::top_cloud_badge() {
   std::snprintf(name, sizeof(name), "%.16s", a.name.c_str());
   if (busy) std::snprintf(when, sizeof(when), "Sincronizando%.*s", int(osGetTime() / 300) % 4, "...");
   else { ago(a.last_sync, t, sizeof(t)); std::snprintf(when, sizeof(when), "Sincronizado %s", t); }
-  const float w = 30 + std::max(r_->text_width(name, 0.38f), r_->text_width(when, 0.3f)) + 8;
-  C2D_DrawRectSolid(4, 4, 0, w, 30, C2D_Color32(12, 18, 32, 200));
-  C2D_DrawRectSolid(4, 4, 0, 2, 30, busy ? C_GOLD : C2D_Color32(126, 224, 122, 255));
-  cloud_icon(10, 8, C2D_Color32(220, 236, 255, 255));
+  const float tw = std::max(std::max(r_->text_width(name, 0.38f), r_->text_width(when, 0.3f)), r_->text_width("pokesurvivor.com", 0.3f));
+  const float w = 34 + tw + 26;   // (nube · textos · botón X)
+  C2D_DrawRectSolid(4, 4, 0, w, 42, C2D_Color32(12, 18, 32, 200));
+  C2D_DrawRectSolid(4, 4, 0, 2, 42, busy ? C_GOLD : C2D_Color32(126, 224, 122, 255));
+  cloud_icon(10, 10, C2D_Color32(220, 236, 255, 255));
   // Marquita: ✔ verde al día; puntos dorados sincronizando.
-  if (busy) C2D_DrawCircleSolid(25, 24, 0, 2.5f, C_GOLD);
-  else { C2D_DrawRectSolid(19, 23, 0, 3, 2, C2D_Color32(80, 200, 90, 255)); C2D_DrawRectSolid(21, 21, 0, 2, 4, C2D_Color32(80, 200, 90, 255)); C2D_DrawRectSolid(22, 18, 0, 2, 4, C2D_Color32(80, 200, 90, 255)); }
-  r_->text(name, 34, 5, 0.38f, C_GOLD);
-  r_->text(when, 34, 20, 0.3f, C2D_Color32(200, 212, 235, 255));
+  if (busy) C2D_DrawCircleSolid(25, 26, 0, 2.5f, C_GOLD);
+  else { C2D_DrawRectSolid(19, 25, 0, 3, 2, C2D_Color32(80, 200, 90, 255)); C2D_DrawRectSolid(21, 23, 0, 2, 4, C2D_Color32(80, 200, 90, 255)); C2D_DrawRectSolid(22, 20, 0, 2, 4, C2D_Color32(80, 200, 90, 255)); }
+  if (a.google) google_g(14, 36, 5);   // entraste con Google
+  r_->text(name, 36, 5, 0.38f, C_GOLD);
+  r_->text(when, 36, 20, 0.3f, C2D_Color32(200, 212, 235, 255));
+  r_->text("pokesurvivor.com", 36, 31, 0.3f, C_GOLD);
+  x_button(r_, 4 + w - 13, 25, t_);
 }
 
 void App::cloud_autostart() {
