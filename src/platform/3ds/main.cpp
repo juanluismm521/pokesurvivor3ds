@@ -59,6 +59,7 @@ struct Autotest {
   bool nube = false, https = false, datos = false;
   int programa = 0;
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
+  bool news = false;        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
   bool textos = false;      // "textos": mide los textos de movimientos, objetos y megas (los que no caben, al log)
   int fallo = 0;            // "fallo [hilo]": se rompe a propósito (prueba de fallo.log), en el principal o en un hilo
   bool galeria = false;     // "galeria": las megas, una página tras otra (y si cargan)   // "programa": busca, descarga y sale (se instala al salir) · "programa volver": vuelve a la anterior   // "datos": busca datos nuevos de la web y lo apunta            // "nube usuario contraseña": entra y sincroniza (pruebas)
@@ -85,6 +86,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "datos")) a.datos = true;
   else if (!std::strcmp(first, "galeria")) a.galeria = true;
   else if (!std::strcmp(first, "textos")) a.textos = true;
+  else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
@@ -212,6 +214,7 @@ int main(int argc, char** argv) {
   }
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
+  if (at.news) { app.start_news_demo(at.dex); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
     auto boom = [](void*) { crash3ds::guard("prueba"); __builtin_trap(); };

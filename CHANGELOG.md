@@ -5,6 +5,14 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.4.0 — 2026-10-21
+- **Novedades**: pantalla nueva con lo último del juego (SELECT en el menú; se
+  abre sola la primera vez). Arriba, un desfile de megas con su aura; abajo,
+  qué hay de nuevo.
+- En el menú, si tu compañero puede megaevolucionar, abajo a la derecha salen
+  sus megapiedras (una por mega: Charizard, Mewtwo, Raichu, Absol, Garchomp y
+  Lucario tienen dos).
+
 ## 0.3.3 — 2026-10-21
 - **Arreglado el .cia** (instalado en el menú HOME se rompía nada más abrirlo,
   en la New 3DS y en la vieja): le faltaba el permiso para usar la memoria del

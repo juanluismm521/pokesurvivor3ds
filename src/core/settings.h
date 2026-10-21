@@ -20,6 +20,7 @@ struct Settings {
   // «Comprobar actualizaciones automáticamente»: al encender (con wifi) baja los
   // datos nuevos de la web (datos3ds). Desactivado de serie (decisión del dueño).
   bool datos_auto = false;
+  char news_seen[16] = "";    // últimas novedades vistas (las de ahora se abren solas una vez)
 };
 // ¿Vale como IP o dominio? (letras, cifras, '.', '-'; sin espacios)
 bool settings_valid_host(const char* h);

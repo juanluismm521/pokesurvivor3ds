@@ -72,6 +72,14 @@ void App::start_tour() {
   go(SC_TEST);
 }
 
+void App::start_news_demo(int dex) {
+  news_demo_ = true;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  if (mon_by_dex(dex)) s_->partner = int16_t(dex);
+  go(SC_NEWS);
+}
+
 void App::apply_settings() {
   i18n_set(st_->lang == 1 ? LANG_EN : LANG_ES);
   // Calidad automática según el modelo: alta en la New 3DS, media en la vieja.
@@ -276,6 +284,12 @@ void App::notices(float dt) {
 void App::update(const UiIn& in0, float dt) {
   t_ += dt;
   UiIn in = in0;
+  if (news_demo_) {   // autotest "novedades": baja por la lista, va al menú y sale
+    news_t_ += dt;
+    if (scene == SC_NEWS && news_t_ > 5 && int(news_t_ / 0.7f) != int((news_t_ - dt) / 0.7f)) in.rep |= KEY_DDOWN;
+    if (scene == SC_NEWS && news_t_ > 12) go(SC_MENU);
+    if (news_t_ > 18) quit = true;
+  }
   if (tour) {
     // Cada 3 s, el paso siguiente del recorrido (como si se pulsara).
     tour_t_ += dt;
@@ -285,7 +299,7 @@ void App::update(const UiIn& in0, float dt) {
       static bool pulled = false;
       static int bought = 0;
       static bool shinied = false;
-      static const Scene ORDER[] = {SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_UPDATE, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
+      static const Scene ORDER[] = {SC_NEWS, SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_UPDATE, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
@@ -323,6 +337,11 @@ void App::update(const UiIn& in0, float dt) {
     newer_told_ = true;
     g_notices.push("Hay una versión nueva del juego", "con lo último de la web", -1);
   }
+  // Novedades sin ver: se abren solas una vez (antes de preguntar por la cuenta).
+  if (scene == SC_MENU && !news_checked_ && !autotest && !tour) {
+    news_checked_ = true;
+    if (news_unseen()) { open_news(); return; }
+  }
   // Al abrir: ¿conectar con pokesurvivor.com? (una vez; no si ya hay cuenta o dijo «Nunca»)
   if (scene == SC_MENU && !cloud_asked_ && !autotest && !tour && !st_->cloud_never && !cloud3ds::account().on) {
     cloud_asked_ = true;
@@ -354,6 +373,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_ACCOUNT: in_account(in); break;
     case SC_CLOUDASK: in_cloudask(in); break;
     case SC_UPDATE: in_update(in); break;
+    case SC_NEWS: in_news(in); break;
     case SC_CREDITS:
       if (in.rep & KEY_DDOWN) scroll_ = std::min(scroll_ + 1, std::max(0, credit_lines_ - 10));
       if (in.rep & KEY_DUP) scroll_ = std::max(0, scroll_ - 1);
@@ -607,6 +627,7 @@ void App::in_menu(const UiIn& in) {
   if ((in.down & KEY_Y) && s_->owns_shiny(s_->partner)) { s_->partner_shiny = !s_->partner_shiny; save_now(); }
   // X: la cuenta de pokesurvivor.com (sincronizar, entrar, salir).
   if (in.down & KEY_X) { account_back_ = SC_MENU; go(SC_ACCOUNT); return; }
+  if (in.down & KEY_SELECT) { audio::play("select"); open_news(); return; }
   if (pick < 0) return;
   cur_ = pick;
   switch (pick) {
@@ -644,7 +665,10 @@ void App::bottom_menu() {
     button(x, y, 96, 46, L[i], i == cur_);
     if (i == 5 && pend) { std::snprintf(b, sizeof(b), "%d", pend); C2D_DrawCircleSolid(x + 86, y + 8, 0, 7, C2D_Color32(255, 95, 109, 255)); r_->text(b, x + 86, y + 1, 0.34f, C_TEXT, 1, false); }
   }
-  r_->text(s_->owns_shiny(s_->partner) ? "Y: normal / shiny" : "", 160, 228, 0.32f, C_MUTED, 1);
+  // Abajo: novedades (con un punto si hay sin ver) y el cambio a shiny.
+  r_->text("SELECT: ¡Novedades!", 10, 226, 0.34f, C_GOLD, 0);
+  if (news_unseen()) C2D_DrawCircleSolid(14 + r_->text_width("SELECT: ¡Novedades!", 0.34f), 228, 0, 3, C2D_Color32(255, 95, 109, 255));
+  if (s_->owns_shiny(s_->partner)) r_->text("Y: normal / shiny", 310, 226, 0.32f, C_MUTED, 2);
 }
 
 // ---------------- colección ----------------
@@ -1521,6 +1545,7 @@ void App::draw_top(float eye) {
         }
         r_->text("PokéSurvivor 3DS · port de juanluismm520", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 140), 1, false);
         if (s_->owns_shiny(dex)) y_hint(TW - 6 - y_hint_w(), 8, sh);   // (arriba a la derecha, sin salirse)
+        mega_badge(dex);
         top_cloud_badge();
         break;
       }
@@ -1576,6 +1601,7 @@ void App::draw_top(float eye) {
         break;
       }
       case SC_PULL: top_pull(); break;
+      case SC_NEWS: top_news(eye); break;
       default: break;
     }
   }
@@ -1616,6 +1642,7 @@ void App::draw_bottom() {
     case SC_ACCOUNT: bottom_account(); break;
     case SC_CLOUDASK: bottom_cloudask(); break;
     case SC_UPDATE: bottom_update(); break;
+    case SC_NEWS: bottom_news(); break;
     default: break;
   }
 }

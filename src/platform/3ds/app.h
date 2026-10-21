@@ -19,7 +19,7 @@ namespace ps {
 
 enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_START, SC_GACHA, SC_PULL,
-  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE
+  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE, SC_NEWS
 };
 
 struct UiIn {
@@ -40,6 +40,7 @@ class App {
   void set_coop_autotest(bool host, int dex, bool immortal, bool online = false, bool suicidal = false);
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
+  void start_news_demo(int dex);   // autotest "novedades [dex]": las novedades y el menú con ese compañero
   bool tour = false;
   void update(const UiIn& in, float dt);
   void draw_top(float eye = 0);
@@ -96,6 +97,13 @@ class App {
   void in_update(const UiIn& in);   // Actualizaciones del juego (app_update.cpp)
   void bottom_update();
   void bottom_cloudask();
+  // Novedades (app_news.cpp): SELECT en el menú; se abren solas una vez.
+  void in_news(const UiIn& in);
+  void bottom_news();
+  void top_news(float eye);
+  bool news_unseen() const;
+  void open_news();
+  void mega_badge(int dex);     // menú: las megapiedras de tu compañero
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
   void y_hint(float x, float y, bool shiny);   // botón Y que se pulsa solo · «Normal · Shiny»
@@ -195,7 +203,10 @@ class App {
   uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
-  bool crash_seen_ = false;     // ya se ha visto el aviso del fallo de la vez anterior
+  bool crash_seen_ = false;
+  bool news_checked_ = false;
+  bool news_demo_ = false;
+  float news_t_ = 0;   // ya se ha mirado si hay novedades sin ver     // ya se ha visto el aviso del fallo de la vez anterior
   int auto_mega_up_ = 0;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
  public:
   bool auto_mega = false;       // autotest "… mega": el bot con su megapiedra
