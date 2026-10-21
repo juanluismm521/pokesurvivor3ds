@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "core/game.h"
+#include "core/mega.h"
 
 namespace ps {
 
@@ -57,6 +58,7 @@ struct Bot {
       return true;
     }
     if (g.state == ST_PAUSED) { in.cmd = CMD_PAUSE; return true; }
+    if (g.state == ST_PLAYING && mega_ready(me)) in.cmd = CMD_MEGA;   // (megaevoluciona en cuanto puede)
     if (g.judg.phase == 1 && rng.next() < 0.01f) in.cmd = CMD_SKIP;
     move(g, in, me);
     return true;

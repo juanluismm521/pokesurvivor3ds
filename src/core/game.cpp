@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "core/save.h"
+#include "core/mega.h"
 #include "core/upgrades.h"
 
 namespace ps {
@@ -147,6 +148,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       const RunConfig::Member& m = c.members[i];
       pc.dex = m.dex; pc.shiny = m.shiny;
       std::memcpy(pc.upgrades, m.upgrades, sizeof(pc.upgrades));
+      pc.mega_up = m.mega_up;
       std::memcpy(pc.pbind, m.pbind, sizeof(pc.pbind));
       std::memcpy(pc.pban, m.pban, sizeof(pc.pban));
       pc.pstart = m.pstart;
@@ -233,7 +235,7 @@ void Game::on_prop_destroyed(const Prop& p) {
       for (int i = 0; i < n; ++i) pickup_drop(*this, PK_COIN, p.x + rng.range(-14, 14), p.y + rng.range(-10, 10), 3);
       pickup_drop(*this, rng.next() < 0.5f ? PK_HEAL : PK_MAGNET, p.x, p.y);
       pickup_drop_xp(*this, p.x, p.y, 20);
-      if (rng.next() < 0.08f) pickup_drop(*this, PK_ITEM, p.x, p.y - 12, float(rng.range_int(0, IT_COUNT - 1)));
+      if (rng.next() < 0.08f) pickup_drop(*this, PK_ITEM, p.x, p.y - 12, float(roll_item(*this)));
       break;
     }
     case PR_BIGCHEST: {
@@ -245,7 +247,7 @@ void Game::on_prop_destroyed(const Prop& p) {
       const int tk = rng.range_int(1, 3);
       for (int i = 0; i < tk; ++i) pickup_drop(*this, PK_TICKET, p.x + rng.range(-16, 16), p.y + rng.range(-10, 10), 1);
       if (rng.next() < 0.15f) pickup_drop(*this, PK_TICKET10, p.x, p.y - 10, 1);
-      if (rng.next() < 0.5f) pickup_drop(*this, PK_ITEM, p.x + 14, p.y - 14, float(rng.range_int(0, IT_COUNT - 1)));
+      if (rng.next() < 0.5f) pickup_drop(*this, PK_ITEM, p.x + 14, p.y - 14, float(roll_item(*this)));
       pickup_drop_xp(*this, p.x, p.y, level_xp());
       progress_event(*this, EV_CHEST);
       break;
@@ -277,6 +279,7 @@ uint32_t Game::state_hash() const {
     f.v(p.active); f.v(p.dead); f.v(p.x); f.v(p.y); f.v(p.hp); f.v(p.max_hp);
     f.v(p.level); f.v(p.xp); f.v(p.kills); f.v(p.coins); f.v(p.nmoves); f.v(p.active_slot);
     f.v(p.choice); f.v(p.picked); f.v(p.item); f.v(p.bonds);
+    f.v(p.mega); f.v(p.mega_t); f.v(p.mega_cd);
   }
   f.v(enemies.n);
   for (const Enemy& e : enemies) { f.v(e.id); f.v(e.x); f.v(e.y); f.v(e.hp); }
@@ -309,10 +312,11 @@ static void say_to(Game& g, const Player& p, const char* text, float secs) {
 // lo pidió el dueño del port; la web se lo pone sin preguntar). Si ya llevas
 // otro, con cuál te quedas.
 static void offer_item(Game& g, Player& p, int id) {
-  if (id < 0 || id >= IT_COUNT) return;
+  if (id < 0 || id >= kItemTotal) return;
+  id = mega_stone_for(g, p, id);   // (la megapiedra: la de tu Pokémon)
   if (g.state == ST_LEVELUP || p.choice != CH_NONE) { if (p.nlater < 8) p.later_items[p.nlater++] = int8_t(id); return; }
   char b[96];
-  if (p.item == id) { std::snprintf(b, sizeof(b), "Ya llevas %s", kItems[id].name); say_to(g, p, b, 2); return; }
+  if (p.item == id) { std::snprintf(b, sizeof(b), "Ya llevas %s", item_name(id, p.dex)); say_to(g, p, b, 2); return; }
   // Se para el juego (para todos) mientras eliges. (item_cur -1: «dejarlo»)
   p.item_cur = p.item; p.item_next = int8_t(id);
   p.choice = CH_ITEM;
@@ -326,10 +330,12 @@ void Game::pick_item(Player& p, bool take_new) {
   else if (got != p.item) {
     player_equip(*this, p, got);
     char b[96];
-    std::snprintf(b, sizeof(b), "¡Llevas %s!", kItems[got].name);
+    std::snprintf(b, sizeof(b), "¡Llevas %s!", item_name(got, p.dex));
     say_to(*this, p, b, 2.6f);
-    if (&p == &players[local]) progress_event(*this, EV_ITEM, got);
+    if (&p == &players[local] && got < IT_COUNT) progress_event(*this, EV_ITEM, got);
+    if (is_mega_stone(got) && &p == &players[local]) say_to(*this, p, "¡Megapiedra! Pulsa Y para megaevolucionar", 3.2f);
   }
+  if (p.mega >= 0 && !is_mega_stone(p.item)) mega_end(*this, p);   // (sin la piedra, se acaba)
   p.choice = CH_NONE;
   if (state == ST_CHOICE && !anyone_choosing()) state = ST_PLAYING;
   after_choice(*this, p);
@@ -567,6 +573,7 @@ static void apply_cmd(Game& g, int i, const Input& in) {
       break;
     case CMD_SKIP: if (i == 0) g.skip_judgment(); break;   // (en grupo, el anfitrión)
     case CMD_QUIT: g.leave(i); break;
+    case CMD_MEGA: mega_start(g, p); break;
     default: break;
   }
 }

@@ -33,9 +33,18 @@ def main():
             l = raw.rstrip('\n')
             if l.startswith('## '): skip = l.strip() == '## Gracias'
             if skip: continue
+            if '<!--' in l:   # (marcadores de secciones generadas)
+                l = re.sub(r'<!--.*?-->', '', l)
+                if not l.strip():
+                    continue
             if l.startswith('|'):
                 cells = [c.strip() for c in l.strip('|').split('|')]
-                if len(cells) < 3 or cells[0] in ('Artista', '---') or set(cells[0]) <= set('-'):
+                if not cells or cells[0] in ('Artista', 'Mega', '---') or set(cells[0]) <= set('-'):
+                    continue
+                if len(cells) == 2:   # (sprites de las megas: «Mega-X: autores»)
+                    lines.append(f'{plain(cells[0])}: {plain(cells[1])}')
+                    continue
+                if len(cells) < 3:
                     continue
                 n = len([x for x in cells[2].split(',') if x.strip()])
                 lines.append(f'{plain(cells[0])} · {n} Pokémon')

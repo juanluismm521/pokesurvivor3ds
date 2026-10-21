@@ -59,6 +59,10 @@ struct Renderer {
   // Texto que cabe en maxw (alineado a la izquierda): baja la letra hasta la
   // pequeña y, si ni así, lo corta con «…». Devuelve el ancho dibujado.
   float text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = false);
+  // Megapiedra (no hay icono en los atlas): esfera con el símbolo mega, de lado `s`.
+  void draw_mega_stone(float x, float y, float s);
+  // Icono de un objeto (los de la web o la megapiedra), de lado `s`.
+  void draw_item_icon(int id, float x, float y, float s);
   void draw_sprite(const Animator& a, float sx, float sy, u32 flash_mode, float alpha);
   void draw_shape(int shape, int pal, int frame, float sx, float sy, float angle, float scale, float alpha);
 };

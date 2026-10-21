@@ -100,6 +100,7 @@ class App {
   void top_detail(int dex, bool shiny, bool owned);
   void y_hint(float x, float y, bool shiny);   // botón Y que se pulsa solo · «Normal · Shiny»
   float y_hint_w();                            // (su ancho)
+  int atajos_row() const;                      // Mejoras: fila de «Atajos» (tras «Megapiedra» si tiene mega)
   // Texto que cabe en `maxw`: baja la letra si hace falta y, si ni así, lo corta con «…».
   void fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = true);   // botón Y que se pulsa solo · «Normal · Shiny»
   void top_pull();
@@ -191,13 +192,18 @@ class App {
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
   char cloud_msg_[128] = {};
   bool over_synced_ = false;
-  uint32_t choice_sig_ = 0;
+  uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
-  int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)     // la elección que hay en pantalla (cartas, objeto, vínculo)
+  int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
+  int auto_mega_up_ = 0;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
+ public:
+  bool auto_mega = false;       // autotest "… mega": el bot con su megapiedra
+  bool auto_shiny = false;      // autotest "… megashiny": y en shiny
+ private:
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)
   bool cloud_asked_ = false;     // ya se ha preguntado al abrir
-  bool login_now_ = false;
-  Scene account_back_ = SC_SETTINGS;   // a dónde vuelve B desde la cuenta       // abrir el teclado para entrar (desde la pregunta)
+  bool login_now_ = false;             // abrir el teclado para entrar (desde la pregunta)
+  Scene account_back_ = SC_SETTINGS;   // a dónde vuelve B desde la cuenta
   float auto_t_ = 0;
   uint64_t coop_retry_ = 0;     // próximo intento de conectar con el servidor (ms)
   bool coop_err_init_ = false;  // el mensaje es del intento de conectar

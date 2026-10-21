@@ -10,6 +10,7 @@
 
 #include "core/i18n.h"
 #include "core/progress.h"
+#include "core/mega.h"
 #include "core/save_io.h"
 #include "core/version.h"
 #include "core/datapack.h"
@@ -106,8 +107,9 @@ void App::start_run() {
   over_synced_ = false;
   RunConfig cfg;
   cfg.dex = autotest ? auto_dex_ : s_->partner;
-  cfg.shiny = !autotest && s_->partner_shiny && s_->owns_shiny(cfg.dex);
+  cfg.shiny = autotest ? auto_shiny : s_->partner_shiny && s_->owns_shiny(cfg.dex);
   for (int k = 0; k < UP_COUNT; ++k) cfg.upgrades[k] = autotest ? 0 : s_->pupg[cfg.dex][k];
+  cfg.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[cfg.dex];
   for (int k = 0; k < 4; ++k) cfg.pbind[k] = autotest ? -1 : s_->pbind[cfg.dex][k];
   for (int k = 0; k < 3; ++k) cfg.pban[k] = autotest ? -1 : s_->pban[cfg.dex][k];
   cfg.pstart = autotest ? int8_t(auto_move_) : s_->pstart[cfg.dex];
@@ -390,6 +392,7 @@ void App::in_run(const UiIn& in) {
   }
   if (autotest) {
     bot.decide(g, gi, g.local);
+    if (auto_mega && g.time > 5 && g.state == ST_PLAYING && g.players[g.local].item < 0) player_equip(g, g.players[g.local], IT_MEGA_A);
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
     // Con un movimiento elegido: pausa 6 s (de verdad) para ver el resumen.
     if (auto_move_ >= 0 && !auto_paused_ && g.state == ST_PLAYING && g.time > 95) { gi.cmd = CMD_PAUSE; auto_paused_ = true; auto_pause_ = float(osGetTime() % 100000000); }
@@ -420,6 +423,8 @@ void App::in_run(const UiIn& in) {
     } else {
       if (in.down & (KEY_L | KEY_ZL)) gi.cycle = -1;
       if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
+      // Y: megaevolucionar (con la megapiedra puesta y sin recarga).
+      if ((in.down & KEY_Y) && mega_ready(me)) gi.cmd = CMD_MEGA;
     }
     // Tocar el minimapa: la leyenda (otra vez: se quita).
     if (in.tap && in.ty >= 44 && in.ty < 44 + Renderer::kMapH) r_->legend_t = r_->legend_t > 0 ? 0 : 5;
@@ -740,6 +745,8 @@ void App::fit_text(const char* s, float x, float y, float maxw, float size, u32 
   r_->text((t + "…").c_str(), x, y + (size - sz) * 18, sz, color, 0, shadow);
 }
 
+int App::atajos_row() const { return UP_COUNT + (has_mega(up_dex_) ? 1 : 0); }
+
 float App::y_hint_w() {
   return 51 + r_->text_width("Normal", 0.38f) + r_->text_width("Shiny", 0.38f);
 }
@@ -879,7 +886,7 @@ void App::in_upgrades(const UiIn& in) {
       slot = int8_t(id);
       g_->dirty = true;
     }
-    if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_COUNT; }
+    if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = atajos_row(); }
     return;
   }
   if (scene == SC_START) {
@@ -930,14 +937,30 @@ void App::in_upgrades(const UiIn& in) {
     if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_BAN; }
     return;
   }
-  const int n = UP_COUNT + 1;   // + Atajos
+  const int n = atajos_row() + 1;   // las de la web, «Megapiedra» (si tiene mega) y Atajos
+  if (cur_ >= n) cur_ = n - 1;      // (al cambiar a un Pokémon sin mega)
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
   if (cur_ < scroll_) scroll_ = cur_;
   if (cur_ >= scroll_ + 7) scroll_ = cur_ - 6;
   for (int i = 0; i < 7; ++i) if (in_rect(&in, 6, 28 + i * 28, 308, 26)) { if (cur_ == scroll_ + i) { /* toque doble: comprar */ } cur_ = scroll_ + i; }
   if (in.down & KEY_A) {
-    if (cur_ == UP_COUNT) { scene = SC_BIND; cur_ = 0; return; }
+    if (cur_ == atajos_row()) { scene = SC_BIND; cur_ = 0; return; }
+    if (cur_ == UP_COUNT) {   // «Megapiedra» (del port)
+      uint8_t& ml = s_->pmega[up_dex_];
+      const int price = mega_up_cost(ml);
+      if (ml < kMegaUpMax && s_->coins >= price) {
+        s_->coins -= price;
+        ml++;
+        audio::play("coin");
+        audio::play("buy");
+        save_now();
+        char b[96];
+        std::snprintf(b, sizeof(b), "%s · Megapiedra: nivel %d (%d %%)", mon_by_dex(up_dex_)->name, ml, int(mega_chance(ml) * 100 + 0.5f));
+        g_notices.push(b, "", -1);
+      }
+      return;
+    }
     uint8_t& lv = s_->pupg[up_dex_][cur_];
     // Movimiento inicial ya comprado: A abre la lista para elegirlo.
     if (cur_ == UP_START && lv >= kUpgrades[cur_].max) { scene = SC_START; cur_ = 0; scroll_ = 0; return; }
@@ -1021,10 +1044,24 @@ void App::bottom_upgrades() {
   }
   for (int i = 0; i < 7; ++i) {
     const int k = scroll_ + i;
-    if (k > UP_COUNT) break;
+    if (k > atajos_row()) break;
     const float y = 28 + i * 28;
     C2D_DrawRectSolid(6, y, 0, 308, 26, k == cur_ ? C_SEL : C_PANEL);
-    if (k == UP_COUNT) { r_->text("Atajos de movimientos", 160, y + 6, 0.4f, C_TEXT, 1); continue; }
+    if (k == atajos_row()) { r_->text("Atajos de movimientos", 160, y + 6, 0.4f, C_TEXT, 1); continue; }
+    if (k == UP_COUNT) {   // «Megapiedra» (del port, sólo con mega)
+      const int ml = s_->pmega[up_dex_];
+      r_->draw_mega_stone(10, y + 1, 24);
+      r_->text("Megapiedra", 38, y + 1, 0.38f, C_TEXT);
+      std::snprintf(b, sizeof(b), "%d %% de que un objeto sea su megapiedra", int(mega_chance(ml) * 100 + 0.5f));
+      r_->text(b, 38, y + 13, 0.28f, C_MUTED, 0, false);
+      for (int p = 0; p < kMegaUpMax; ++p) C2D_DrawRectSolid(210 + p * 6, y + 18, 0, 4, 4, p < ml ? C_GOLD : C2D_Color32(60, 70, 96, 255));
+      if (ml >= kMegaUpMax) r_->text("Máx.", 308, y + 4, 0.36f, C_MUTED, 2);
+      else {
+        std::snprintf(b, sizeof(b), "%d", mega_up_cost(ml));
+        r_->text(b, 308, y + 2, 0.38f, s_->coins >= mega_up_cost(ml) ? C_GOLD : C2D_Color32(140, 110, 70, 255), 2);
+      }
+      continue;
+    }
     const UpgradeDef& u = kUpgrades[k];
     const int lv = s_->pupg[up_dex_][k];
     const int ic = r_->icons.find(u.icon);
@@ -1495,6 +1532,12 @@ void App::draw_top(float eye) {
         draw_mon(up_dex_, sh, 200, 200, 3);
         r_->text(mon_by_dex(up_dex_)->name, 200, 14, 0.6f, C_TEXT, 1);
         if (scene == SC_UPGRADES && cur_ < UP_COUNT) r_->text_wrap(kUpgrades[cur_].unit, 200, 44, 0.42f, C_GOLD, 340, 1);
+        else if (scene == SC_UPGRADES && cur_ == UP_COUNT && has_mega(up_dex_)) {
+          // (sus megas: con dos, X e Y o normal y Z)
+          std::string ms;
+          for (int k = 0; k < 2; ++k) { const int mi = mega_index(up_dex_, k); if (mi >= 0) { if (!ms.empty()) ms += " o "; ms += kMegas[mi].mon.name; } }
+          r_->text_wrap(("Su megapiedra: Y en la partida y se convierte en " + ms + " durante 20 s").c_str(), 200, 44, 0.42f, C_GOLD, 340, 1);
+        }
         break;
       }
       case SC_GACHA: {

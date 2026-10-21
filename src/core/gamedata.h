@@ -67,6 +67,24 @@ extern const SpriteMeta kSpriteMeta[];          // mismo orden que kDex
 struct ShinyAlt { AnimMeta a[A_COUNT]; };
 extern const ShinyAlt kShinyAlt[];
 
+// ---------------- megaevoluciones (propias del port; la web no las tiene) ----------------
+// De assets-src/megas/megas.json (tools/fetch_megas.py: PokeAPI con la fórmula
+// de estadísticas de la web + sprites de SpriteCollab). Como mucho dos por
+// Pokémon (slot 0 y 1: X/Y o normal/Z). sprite = número de sprite propio
+// (kMegaSpriteBase + i) si SpriteCollab lo tiene; si no, el de la forma normal.
+struct MegaDef {
+  int16_t base;        // dex de la forma normal
+  int8_t slot;         // 0 o 1
+  int16_t sprite;      // número de sprite (kMegaSpriteBase + i) o el dex normal si no tiene
+  bool own_sprite;
+  const char* stone;   // nombre de su megapiedra
+  Mon mon;             // ficha de la mega (dex = el normal; nombre «Mega-…»)
+};
+constexpr int kMegaSpriteBase = 3000;
+extern const MegaDef kMegas[];
+extern const int kMegaCount;
+extern const SpriteMeta kMegaSpriteMeta[];      // mismo orden que kMegas (n = 0 si no tiene)
+
 // ---------------- movimientos ----------------
 enum Kind : int8_t {
   K_PROJECTILE, K_MELEE, K_BEAM, K_ORBIT, K_NOVA, K_AURA, K_BOOMERANG, K_CHAIN,

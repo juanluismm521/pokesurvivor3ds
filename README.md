@@ -102,7 +102,7 @@ Archivos que el juego usa en `sd:/3ds/pokesurvivor-3ds/`:
 | L / R (o X, ZL/ZR) | Cambiar de ataque (o tocar el hueco abajo) |
 | START | Pausa (SELECT en la pausa: abandonar la partida) |
 | Arriba/abajo + A, o tocar | Elegir carta de nivel, objeto o vínculo |
-| Y | Cambiar las cartas de nivel |
+| Y | Megaevolucionar (con la megapiedra puesta) · en las cartas de nivel: cambiarlas |
 | Tocar el minimapa | Leyenda del mapa |
 | START + SELECT | Salir del juego |
 

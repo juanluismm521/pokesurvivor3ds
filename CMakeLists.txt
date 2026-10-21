@@ -28,6 +28,7 @@ set(GEN_PACK ${CMAKE_BINARY_DIR}/gen/paquete.json)   # paquete de datos (lo que 
 add_custom_command(OUTPUT ${GEN_DATA} ${GEN_PACK}
   COMMAND ${CMAKE_COMMAND} -E env PS_PAQUETE=${GEN_PACK} ${NODE} ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${GEN_DATA}
   DEPENDS ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
+          ${CMAKE_SOURCE_DIR}/assets-src/megas/megas.json
   COMMENT "Generando las tablas del juego")
 
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp src/core/*.c)

@@ -131,6 +131,58 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+<!-- megas -->
+## Sprites de las megaevoluciones
+
+De [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) (CC BY-NC 4.0), por sus autores:
+
+| Mega | Autores |
+|---|---|
+| Mega-Charizard X | Kevin0itachi, G〜, Kevin |
+| Mega-Alakazam | Michael12, baronessfaron |
+| Mega-Slowbro | Soulja, Emmuffin |
+| Mega-Gengar | Michael12, Emboarger, baronessfaron |
+| Mega-Kangaskhan | Deeshura |
+| Mega-Aerodactyl | Caitemis |
+| Mega-Mewtwo Y | JFain |
+| Mega-Steelix | baronessfaron |
+| Mega-Skarmory | Johanne2 |
+| Mega-Houndoom | Top_Kec |
+| Mega-Tyranitar | JFain |
+| Mega-Sceptile | Emmuffin |
+| Mega-Gardevoir | baronessfaron |
+| Mega-Sableye | Emmuffin |
+| Mega-Mawile | baronessfaron |
+| Mega-Medicham | JFain |
+| Mega-Manectric | Top_Kec |
+| Mega-Sharpedo | baronessfaron |
+| Mega-Camerupt | Caitemis |
+| Mega-Altaria | Emmuffin |
+| Mega-Banette | baronessfaron |
+| Mega-Absol | Emboarger |
+| Mega-Glalie | baronessfaron |
+| Mega-Latias | Emmuffin |
+| Mega-Latios | Emmuffin |
+| Mega-Rayquaza | Top_Kec |
+| Mega-Lopunny | JFain |
+| Mega-Lucario | baronessfaron |
+| Mega-Gallade | JFain |
+| Mega-Darkrai | Johanne2 |
+| Mega-Excadrill | Soulja, pi3.14, DeltaL |
+| Mega-Scrafty | pi3.14, Soulja, Emmuffin |
+| Mega-Eelektross | Top_Kec |
+| Mega-Floette | pi3.14, DeltaL |
+| Mega-Dragalge | Soulja, pi3.14, DeltaL |
+| Mega-Hawlucha | Emmuffin, Soulja |
+| Mega-Zygarde | pi3.14, DeltaL |
+| Mega-Diancie | baronessfaron |
+| Mega-Drampa | pi3.14, Soulja, DeltaL |
+| Mega-Zeraora | pi3.14, DeltaL |
+| Mega-Tatsugiri | Emmuffin |
+
+Las megas sin sprite en SpriteCollab usan el de su forma normal.
+<!-- /megas -->
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

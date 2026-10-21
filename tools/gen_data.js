@@ -149,9 +149,33 @@ for (const p of G.DEX) {
   if (m.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(m.sa[a]))) + '},'); }
   metaRows.push(`  {${m.s}, ${!!m.sh}, ${!!m.hv}, ${alt}, ${arr(ANIMS.map(a => animMeta(m.a[a])))}},`);
 }
+// Megaevoluciones (del port): sus animaciones (y las de su shiny, si
+// SpriteCollab lo tiene) van a las mismas tablas.
+const MEGAS_FILE = path.join(ROOT, 'assets-src', 'megas', 'megas.json');
+const MEGAS = fs.existsSync(MEGAS_FILE) ? JSON.parse(fs.readFileSync(MEGAS_FILE, 'utf8')).megas : [];
+const durDex = durs.length;
+const megaMeta = MEGAS.map(m => {
+  if (!m.sprite) return `  {1, false, false, -1, ${arr(ANIMS.map(() => animMeta(null)))}},`;
+  let alt = -1;
+  if (m.sprite.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(m.sprite.sa[a]))) + '},'); }
+  return `  {${m.sprite.s}, ${!!m.sprite.sh}, false, ${alt}, ${arr(ANIMS.map(a => animMeta(m.sprite.a[a])))}},`;
+});
 w('const SpriteMeta kSpriteMeta[] = {'); metaRows.forEach(w); w('};');
 w('const ShinyAlt kShinyAlt[] = {'); altRows.forEach(w); if (!altRows.length) w('  {}'); w('};');
 w(`const uint8_t kAnimDur[] = ${arr(durs)};`);
+
+// ---------------- megaevoluciones ----------------
+w('const SpriteMeta kMegaSpriteMeta[] = {'); megaMeta.forEach(w); if (!megaMeta.length) w('  {}'); w('};');
+w('const MegaDef kMegas[] = {');
+MEGAS.forEach((m, i) => {
+  const b = G.DEX.find(p => p.dex === m.dex);
+  if (!b) fail('mega de un Pokémon que no está: ' + m.form);
+  if (m.id !== 3000 + i) fail('número de sprite de mega desordenado: ' + m.form);
+  w(`  {${m.dex}, ${m.slot}, ${m.sprite ? m.id : m.dex}, ${!!m.sprite}, ${esc(m.stone)}, {${m.dex}, ${esc(m.name)}, {${T(m.types[0])}, ${T(m.types[1])}}, ${m.hp}, ${m.spd}, ${fl(m.atk)}, ${fl(m.pa)}, ${fl(m.sa)}, ${m.df}, ${m.sd}, ${b.rarity}, ${m.bst}, ${b.gen}, false, ${!!b.leg}}},`);
+});
+if (!MEGAS.length) w('  {}');
+w('};');
+w(`const int kMegaCount = ${MEGAS.length};`);
 
 // ---------------- movimientos ----------------
 w(`const char* const kKindId[K_COUNT] = ${arr(KINDS, esc)};`);
@@ -322,7 +346,7 @@ const check = {
 };
 if (check.pokemon !== 966) fail('Se esperaban 966 Pokémon');
 const expDur = G.DEX.reduce((a, p) => { const m = G.SPRITE_META[p.dex]; let n = 0; for (const k of ANIMS) if (m.a[k]) n += m.a[k].d.length; if (m.sa) for (const k of ANIMS) if (m.sa[k]) n += m.sa[k].d.length; return a + n; }, 0);
-if (expDur !== durs.length) fail('duraciones perdidas');
+if (expDur !== durDex) fail('duraciones perdidas');
 
 // Configuración pública de Firebase de la web (para sincronizar la partida con
 // pokesurvivor.com desde la 3DS; no es secreta: va en la web).

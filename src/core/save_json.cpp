@@ -193,6 +193,10 @@ std::string save_to_json(const Save& s) {
   }
   o.set("pstart", std::move(pst));
   o.set("pused", std::move(pus));
+  // Del port (la web no lo conoce y lo deja tal cual): la mejora «Megapiedra».
+  Json pmg = Json::object();
+  for (int d = 0; d <= kMaxDex; ++d) if (s.pmega[d] > 0) pmg.set(num_key(d), Json::num(s.pmega[d]));
+  if (pmg.size()) o.set("pmega", std::move(pmg));   // (sólo si hay: si no, la partida de la web queda idéntica)
   return o.dump();
 }
 
@@ -287,6 +291,10 @@ bool save_from_json(Save& s, const std::string& text) {
   for (const auto& kv : o["pused"].items()) {
     const int d = std::atoi(kv.first.c_str());
     if (d >= 0 && d <= kMaxDex) s.pused[d] = n0(kv.second);
+  }
+  for (const auto& kv : o["pmega"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d >= 0 && d <= kMaxDex) s.pmega[d] = uint8_t(std::min(5, std::max(0, int(n0(kv.second)))));
   }
   return true;
 }

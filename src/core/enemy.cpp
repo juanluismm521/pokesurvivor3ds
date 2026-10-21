@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/mega.h"
 #include "core/stats.h"
 
 namespace ps {
@@ -158,7 +159,7 @@ void enemy_die(Game& g, Enemy& e) {
     g.camera.kick(0.9f);
     for (int i = 0; i < 10; ++i) pickup_drop(g, PK_COIN, e.x + g.rng.range(-40, 40), e.y + g.rng.range(-30, 30), 5);
     // Los jefes siempre sueltan un objeto equipable.
-    pickup_drop(g, PK_ITEM, e.x - 26, e.y - 10, float(g.rng.range_int(0, IT_COUNT - 1)));
+    pickup_drop(g, PK_ITEM, e.x - 26, e.y - 10, float(roll_item(g)));
   }
   pickup_drop_xp(g, e.x, e.y, e.xp, e.boss, e.legend, e.judge);
   if (e.golden && g.rng.next() < 0.35f) pickup_drop(g, PK_COIN, e.x + 6, e.y - 4, 3);

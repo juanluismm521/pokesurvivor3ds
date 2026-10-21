@@ -43,7 +43,7 @@ constexpr int kMaxHazards = 160;
 // Órdenes de la interfaz. Todo lo que cambia la partida entra como orden en
 // la entrada del jugador (y no llamando al juego desde la interfaz): así, en
 // el cooperativo, basta con mandar las entradas de cada paso.
-enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT };
+enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA };
 
 struct Input {
   float ax = 0, ay = 0;     // movimiento (-1..1), ya normalizado si hace falta
@@ -115,6 +115,13 @@ struct Player {
   double dmg_dealt = 0;
 
   float invuln = 0, flash = 0;
+  // Megaevolución (core/mega): índice en kMegas mientras dura (-1 si no), lo
+  // que queda, la recarga, la transformación y lo que hay que deshacer.
+  int8_t mega = -1;
+  uint8_t mega_up = 0;          // nivel de la mejora «Megapiedra» (probabilidad)
+  float mega_t = 0, mega_cd = 0, mega_tf = 0;
+  float mega_dhp = 0;           // vida máxima que da la mega (se quita al acabar)
+  const Mon* mega_prev = nullptr;
   float aim = kPi / 2, move_angle = kPi / 2;
   bool walking = false, in_liquid = false;
   float lava_tick = 0, attack_face = 0;
@@ -364,6 +371,7 @@ struct RunConfig {
   int dex = 1;
   bool shiny = false;
   uint8_t upgrades[UP_COUNT] = {};
+  uint8_t mega_up = 0;                   // mejora «Megapiedra» (del port: Save::pmega)
   int8_t pbind[4] = {-1, -1, -1, -1};   // movimientos con hueco fijo
   int8_t pban[3] = {-1, -1, -1};
   int8_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
@@ -376,6 +384,7 @@ struct RunConfig {
     int dex = 1;
     bool shiny = false;
     uint8_t upgrades[UP_COUNT] = {};
+  uint8_t mega_up = 0;                   // mejora «Megapiedra» (del port: Save::pmega)
     int8_t pbind[4] = {-1, -1, -1, -1};
     int8_t pban[3] = {-1, -1, -1};
     int8_t pstart = -1;

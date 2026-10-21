@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/mega.h"
 #include "core/stats.h"
 #include "core/upgrades.h"
 
@@ -39,6 +40,7 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
   p.xp_next = xp_for(1);
   p.reroll_bonus = k.rerolls;
   p.crit = k.crit;
+  p.mega_up = cfg.mega_up;
   for (auto& b : p.bind) b = -1;
   for (int s = 0; s < 4; ++s) for (int j = 0; j < 4; ++j) p.slots[s][j] = -1;
 }
@@ -399,6 +401,7 @@ void player_add_buff(Player& p, int stat, float amount, float dur, int max_stack
 // ---------------- ciclo ----------------
 void player_update(Game& g, Player& p, const Input& in, float dt) {
   p.anim.update(dt);
+  mega_update(g, p, dt);   // (también caído: la mega se acaba al caer)
   if (p.dead) return;
   if (p.invuln > 0) p.invuln -= dt;
   if (p.flash > 0) p.flash -= dt;

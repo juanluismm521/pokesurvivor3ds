@@ -276,7 +276,11 @@ int main(int argc, char** argv) {
     app.auto_look = at.look;
     if (at.log) { std::fprintf(at.log, "cooperativo: %s%s\n", at.host ? "anfitrión" : "invitado", at.online ? " · por internet" : ""); std::fflush(at.log); }
   } else if (at.on) {
-    app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] ? move_index(at.move) : -1);
+    // (movimiento "mega": el bot recibe la megapiedra a los 5 s y megaevoluciona)
+    const bool mega = !std::strcmp(at.move, "mega") || !std::strcmp(at.move, "megashiny");
+    app.auto_shiny = !std::strcmp(at.move, "megashiny");
+    app.auto_mega = mega;
+    app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
     if (at.log && at.move[0]) std::fprintf(at.log, "empieza con %s (%d): %s\n", at.move, move_index(at.move), kMoves[g->pl().moves[0].def].id);
     if (at.log) {

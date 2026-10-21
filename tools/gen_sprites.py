@@ -187,6 +187,12 @@ def main():
     tmp = os.path.join(ROOT, 'build', 'spr_tmp')
     os.makedirs(tmp, exist_ok=True)
     meta = load_meta()
+    # Megaevoluciones (del port): sus sprites, con el número 3000 + i (megas.json).
+    mf = os.path.join(ROOT, 'assets-src', 'megas', 'megas.json')
+    if os.path.exists(mf):
+        for m in json.load(open(mf, encoding='utf-8'))['megas']:
+            if 'sprite' in m:
+                meta[str(m['id'])] = {k: m['sprite'][k] for k in ('s', 'a', 'sh', 'sa') if k in m['sprite']}
     dexes = sorted(int(d) for d in meta) if not a.only else [int(x) for x in a.only.split(',')]
     with Pool(a.jobs) as pool:
         results = [r for rs in pool.imap_unordered(job, [(d, meta, a.out, tmp) for d in dexes]) for r in rs]

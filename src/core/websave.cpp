@@ -346,6 +346,14 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
     if (older["pused"].is_obj() && ru.is_obj())
       for (const auto& kv : older["pused"].items())
         ru.set(kv.first, Json::num(std::fmax(plus0(ru[kv.first.c_str()]), plus0(kv.second))));
+    // Del port: la mejora «Megapiedra» (pmega), el mayor de los dos (la web no
+    // la conoce y podría no traerla: así nunca se pierde lo comprado).
+    if (older["pmega"].is_obj()) {
+      Json& rm = r.ref("pmega");
+      if (!rm.is_obj()) rm = Json::object();
+      for (const auto& kv : older["pmega"].items())
+        rm.set(kv.first, Json::num(std::fmax(plus0(rm[kv.first.c_str()]), plus0(kv.second))));
+    }
     // Movimiento inicial: el de la versión más reciente; si no lo tenía elegido, el de la otra.
     Json& rs = r.ref("pstart");
     if (!truthy(rs)) rs = Json::object();
@@ -437,7 +445,7 @@ namespace {
 bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
-                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart"};
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }

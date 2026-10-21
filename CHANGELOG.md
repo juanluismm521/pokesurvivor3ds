@@ -5,6 +5,23 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.3.0 — 2026-10-21
+- **Megaevoluciones** (91, también las de Leyendas Z-A y su expansión: Mega-Darkrai,
+  Mega-Zeraora, Mega-Raichu X/Y, Mega-Garchomp Z…).
+  - La megapiedra sale como un objeto más (cofres, cofres con candado, jefes)
+    y sólo la de tu Pokémon (con Gengar, la Gengarita). Con dos megas
+    (Charizard X/Y, Absol/Absol Z…) sale una u otra.
+  - Con ella puesta, **Y** megaevoluciona durante **20 s** (estadísticas y tipo
+    de la mega) y luego hay **45 s** de recarga. Transformación con luces de
+    colores y destello (1,2 s invulnerable), aura mientras dura, y su barra y
+    la recarga en la pantalla de abajo.
+  - Mejora nueva **Megapiedra** (sólo en los que tienen mega): 10 % de que un
+    objeto sea su megapiedra, +6 % por nivel (hasta 40 %).
+  - Sprites de SpriteCollab (41 megas, 37 con shiny). Las que aún no tienen
+    dibujo usan el de su forma normal, más grande y con aura. Los shinys
+    siguen siendo shiny al megaevolucionar.
+  - En grupo también: cada uno con su mega.
+
 ## 0.2.1 — 2026-10-21
 - En el menú, debajo del nombre de tu compañero, su tipo (o sus dos tipos).
 

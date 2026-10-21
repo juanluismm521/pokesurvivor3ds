@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "core/i18n.h"
+#include "core/mega.h"
 #include "core/util.h"
 
 namespace ps {
@@ -204,6 +205,30 @@ float Renderer::text_fit(const char* s, float x, float y, float maxw, float size
   }
   text(t.c_str(), x, y, sz, color, 0, shadow);
   return text_width(t.c_str(), sz);
+}
+
+void Renderer::draw_mega_stone(float x, float y, float s) {
+  const float r = s / 2, cx = x + r, cy = y + r;
+  C2D_DrawCircleSolid(cx, cy, 0, r, C2D_Color32(40, 20, 64, 255));
+  C2D_DrawCircleSolid(cx, cy, 0, r - std::fmax(1.0f, s * 0.08f), C2D_Color32(150, 100, 255, 255));
+  C2D_DrawCircleSolid(cx + r * 0.12f, cy + r * 0.12f, 0, r * 0.62f, C2D_Color32(110, 60, 220, 255));
+  // El símbolo mega: un anillo de colores.
+  static const uint32_t C[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
+  const float rr = r * 0.48f, d = std::fmax(1.0f, s * 0.11f);
+  for (int k = 0; k < 12; ++k) {
+    const float a = k * kTau / 12;
+    C2D_DrawRectSolid(cx + std::cos(a) * rr - d / 2, cy + std::sin(a) * rr - d / 2, 0, d, d, rgb(C[k % 6]));
+  }
+  C2D_DrawCircleSolid(cx - r * 0.38f, cy - r * 0.38f, 0, std::fmax(1.0f, r * 0.2f), C2D_Color32(255, 255, 255, 200));
+}
+
+void Renderer::draw_item_icon(int id, float x, float y, float s) {
+  if (is_mega_stone(id)) { draw_mega_stone(x, y, s); return; }
+  const char* name = item_icon(id);
+  const int ic = name ? icons.find(name) : -1;
+  if (ic < 0) return;
+  const float k = s / icons.sub(ic).width;
+  C2D_DrawImageAt(icons.image(ic), std::floor(x), std::floor(y), 0, nullptr, k, k);
 }
 
 float Renderer::text_width(const char* s, float size) {
@@ -463,7 +488,8 @@ void Renderer::draw_top(Game& g, float eye) {
         case PK_TICKET: ic = ui_icon[2]; break;
         case PK_TICKET10: ic = ui_icon[3]; break;
         case PK_ITEM: {
-          ellipse(x, y, 9, 9, rgbf(0xffe14d, 0.35f + std::sin(p.t * 1.5f) * 0.15f));
+          ellipse(x, y, 9, 9, rgbf(is_mega_stone(int(p.value)) ? 0xc47bff : 0xffe14d, 0.35f + std::sin(p.t * 1.5f) * 0.15f));
+          if (is_mega_stone(int(p.value))) { draw_mega_stone(std::floor(x - 6), std::floor(y - 6), 12); break; }
           ic = icons.find(kItems[int(p.value)].id);
           break;
         }
@@ -544,10 +570,42 @@ void Renderer::draw_top(Game& g, float eye) {
           dot_ring(x, y, r * 1.5f, r * 0.6f, 1, rgbf(kTypeColor[p.moves[p.slots[p.active_slot][0]].type()], 0.4f));
         const float sr = (shadow_size(p.dex) == 0 ? 5 : shadow_size(p.dex) == 1 ? 8 : 12) * p.scale;
         ellipse(x, y, sr, sr * 0.42f, C2D_Color32(0, 0, 0, 87));
+        // Megaevolucionado: aura de colores que late a sus pies (más fuerte si
+        // no tiene sprite propio: así se nota que es la mega).
+        static const uint32_t RB[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
+        if (p.mega >= 0) {
+          const float pu = 0.5f + 0.5f * std::sin(now * 5);
+          const bool own = p.anim.dex != p.dex;   // (con su sprite de mega o con el suyo y aura)
+          const uint32_t c = RB[int(now * 4) % 6];
+          ellipse(x, y, r * (2.4f + pu * 0.4f), r * (0.9f + pu * 0.15f), rgbf(c, own ? 0.22f : 0.35f));
+          dot_ring(x, y, r * (2.6f + pu * 0.5f), r * (1.0f + pu * 0.2f), 1, rgbf(RB[(int(now * 4) + 3) % 6], 0.7f));
+          if (!own) ellipse(x, y - p.body_h * 0.25f, r * 1.9f, p.body_h * 0.42f, rgbf(c, 0.12f + pu * 0.08f));
+        }
         if (p.power.def >= 0 && !p.dead)
           dot_ring(x, y, r * 2.1f, r * 0.85f, 2, rgbf(kPowers[p.power.def].color, 0.35f + std::sin(now * 8.3f) * 0.15f));
         const float alpha = p.invuln > 0 && !p.dead ? (int(std::floor(p.invuln * 18)) % 2 ? 0.45f : 1) : 1;
-        draw_sprite(p.anim, x, y, p.flash > 0 ? 2 : 0, alpha);
+        // Transformándose: el Pokémon en blanco brillante.
+        draw_sprite(p.anim, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
+        if (p.mega >= 0) {
+          const float cy = y - p.body_h * 0.5f;
+          if (p.mega_tf > 0) {
+            // Rayos de luz de colores que giran y un círculo que se abre.
+            const float k = 1 - p.mega_tf / kMegaTransform;
+            for (int ray = 0; ray < 8; ++ray) {
+              const float a = now * 3 + ray * kTau / 8;
+              quad(x, cy, a, 6, 26 + k * 40, -1.5f, 1.5f, rgbf(RB[ray % 6], 0.75f * (1 - k)));
+            }
+            dot_ring(x, cy, 10 + k * 70, 10 + k * 60, 2, rgbf(0xffffff, 0.9f * (1 - k)));
+            dot_ring(x, cy, 6 + k * 50, 6 + k * 42, 1, rgbf(RB[int(now * 10) % 6], 0.9f * (1 - k)));
+          }
+          // El símbolo mega sobre la cabeza.
+          const float hy = y - p.body_h - 9 + std::sin(now * 3) * 1.5f;
+          for (int q = 0; q < 6; ++q) {
+            const float a = now * 2 + q * kTau / 6;
+            C2D_DrawRectSolid(x + std::cos(a) * 4 - 1, hy + std::sin(a) * 4 - 1, 0, 2, 2, rgb(RB[q]));
+          }
+          C2D_DrawRectSolid(x - 1, hy - 1, 0, 2, 2, C2D_Color32(255, 255, 255, 255));
+        }
         // (atk, patk, satk, spd, def, regen)
         static const uint32_t BC[BS_COUNT] = {0xff6b4d, 0xff6b4d, 0xc47bff, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
         int bi = 0;
@@ -1043,11 +1101,10 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         text("Sigues sin objeto (puedes coger otro luego)", 54, y + 24, 0.32f, rgb(0xb7c4dc), 0, false);
         continue;
       }
-      const int ic = icons.find(kItems[it].id);
-      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + 8, 0, nullptr, 2.5f, 2.5f);
-      text(kItems[it].name, 54, y + 4, 0.46f, C2D_Color32(240, 244, 255, 255), 0);
+      draw_item_icon(it, 16, y + 8, 30);
+      text(item_name(it, p.dex), 54, y + 4, 0.46f, C2D_Color32(240, 244, 255, 255), 0);
       text(i == 0 ? "El que llevas" : p.item_cur < 0 ? "Cogerlo" : "El nuevo", 304, y + 4, 0.34f, rgb(0x8fa3c4), 2);
-      text(kItems[it].desc, 54, y + 24, 0.32f, rgb(0xb7c4dc), 0, false);
+      text_fit(item_desc(it, p.dex), 54, y + 24, 250, 0.32f, rgb(0xb7c4dc));
     }
     text("A: quedarte con el elegido", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_CHOICE && p.choice == CH_BOND) {
@@ -1095,7 +1152,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     for (char* c = b; *c; ++c) if (*c == '.' && c[1] >= '0' && c[1] <= '9' && c > b && c[-1] >= '0' && c[-1] <= '9') *c = ',';
     text(b, 160, 186, 0.3f, rgb(0xb7c4dc), 1);
     if (p.item >= 0) {   // el objeto que llevas, con lo que hace (entero)
-      std::snprintf(b, sizeof(b), "%s: %s", kItems[p.item].name, kItems[p.item].desc);
+      std::snprintf(b, sizeof(b), "%s: %s", item_name(p.item, p.dex), item_desc(p.item, p.dex));
       text_fit(b, 8, 209, 304, 0.3f, rgb(0xffd23f));
     }
     std::snprintf(b, sizeof(b), "Velocidad %d · Reducción %d %% · Regeneración %.1f/s", int(jsround(player_spd(g, p))), int(jsround(player_reduction(p) * 100)), player_regen(p));
@@ -1145,12 +1202,32 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       float ly = MY + MH - 11;
       if (p.item >= 0) {
         C2D_DrawRectSolid(MX, ly, 0, MW, 11, strip);
-        const int ic = icons.find(kItems[p.item].id);
-        if (ic >= 0) C2D_DrawImageAt(icons.image(ic), MX + 2, ly - 2, 0, nullptr, 0.8f, 0.8f);
-        const float nw = text_width(kItems[p.item].name, 0.32f);
-        text(kItems[p.item].name, MX + 14, ly + 1, 0.32f, rgb(0xffd23f), 0, false);
-        text_fit(kItems[p.item].desc, MX + 18 + nw, ly + 1, MW - 22 - nw, 0.32f, rgb(0xeaf2ff));
+        draw_item_icon(p.item, MX + 2, ly, 10);
+        const float nw = text_width(item_name(p.item, p.dex), 0.32f);
+        text(item_name(p.item, p.dex), MX + 14, ly + 1, 0.32f, rgb(0xffd23f), 0, false);
+        text_fit(item_desc(p.item, p.dex), MX + 18 + nw, ly + 1, MW - 22 - nw, 0.32f, rgb(0xeaf2ff));
         ly -= 11;
+        // Megaevolución: lista (Y), en marcha (lo que queda) o en recarga.
+        if (is_mega_stone(p.item)) {
+          C2D_DrawRectSolid(MX, ly, 0, MW, 11, strip);
+          if (p.mega >= 0) {
+            const float k = clamp(p.mega_t / kMegaTime, 0.0f, 1.0f);
+            static const uint32_t RB[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
+            const float bw = (MW - 4) * k;
+            for (int s = 0; s < 6; ++s) C2D_DrawRectSolid(MX + 2 + bw * s / 6, ly + 2, 0, bw / 6 + 0.5f, 7, rgbf(RB[(s + int(g.time * 6)) % 6], 0.75f));
+            std::snprintf(b, sizeof(b), "%s · %d s", kMegas[p.mega].mon.name, int(std::ceil(p.mega_t)));
+            text(b, MX + MW / 2, ly + 1, 0.32f, rgb(0xffffff), 1);
+          } else if (p.mega_cd > 0) {
+            const float k = 1 - clamp(p.mega_cd / kMegaCooldown, 0.0f, 1.0f);
+            C2D_DrawRectSolid(MX + 2, ly + 2, 0, (MW - 4) * k, 7, C2D_Color32(110, 80, 170, 200));
+            std::snprintf(b, sizeof(b), "Megaevolución: recarga %d s", int(std::ceil(p.mega_cd)));
+            text(b, MX + MW / 2, ly + 1, 0.32f, rgb(0xc9bde8), 1, false);
+          } else {
+            const float pulse = 0.6f + 0.4f * std::sin(float(g.time) * 6);
+            text("Y: ¡Megaevolucionar!", MX + MW / 2, ly + 1, 0.32f, rgbf(0xffd23f, pulse), 1);
+          }
+          ly -= 11;
+        }
       }
       const float row0 = ly;
       if (g.weather.kind >= 0 && weather_level(g) > 0) {

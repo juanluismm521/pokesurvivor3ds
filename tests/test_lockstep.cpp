@@ -12,6 +12,7 @@
 #include "core/bot.h"
 #include "core/game.h"
 #include "core/lockstep.h"
+#include "core/mega.h"
 
 using namespace ps;
 using namespace ps::net;
@@ -74,10 +75,11 @@ struct Result { bool same = true; int compared = 0; int64_t min_tick = 0; bool d
 
 // Juega `frames` fotogramas con n consolas. `on_frame` puede tocar la red.
 template <class F>
-Result play(int n, uint32_t seed, int frames, Net& net, std::vector<Console>& cs, F on_frame) {
+Result play(int n, uint32_t seed, int frames, Net& net, std::vector<Console>& cs, F on_frame, const int* dexes = nullptr, bool stones = false) {
   RunConfig cfg;
   cfg.seed = seed; cfg.judged = 1; cfg.nplayers = n;
-  static const int DEX[4] = {25, 4, 7, 1};
+  static const int DEF[4] = {25, 4, 7, 1};
+  const int* DEX = dexes ? dexes : DEF;
   for (int i = 0; i < n; ++i) { cfg.members[i].dex = DEX[i]; std::snprintf(cfg.members[i].name, 16, "J%d", i); }
   cs.clear();
   cs.resize(size_t(n));
@@ -86,6 +88,8 @@ Result play(int n, uint32_t seed, int frames, Net& net, std::vector<Console>& cs
     c.g->local = i;
     c.g->debug_immortal = true;
     c.g->start_run(cfg);
+    // (con megapiedra: todos se la ponen igual antes de empezar, en todas las consolas)
+    if (stones) for (int k = 0; k < n; ++k) player_equip(*c.g, c.g->players[k], IT_MEGA_A);
     c.ls.begin(i, n);
     c.bot.init(seed + 17 * i);
   }
@@ -169,6 +173,22 @@ TEST_CASE("lockstep: 4 consolas con retraso, pérdidas, duplicados y desorden") 
     CHECK(!r.desync);
     CHECK(r.min_tick > 60 * 120 * 0.3);
   }
+}
+
+TEST_CASE("lockstep: 4 consolas megaevolucionando a la vez van a la par") {
+  Net net;
+  net.loss = 0.15f; net.lat_min = 1; net.lat_max = 4;
+  std::vector<Console> cs;
+  static const int MEGAS[4] = {94, 6, 491, 807};   // Gengar, Charizard, Darkrai, Zeraora
+  int megas = 0;
+  const Result r = play(4, 31, 60 * 150, net, cs, [&](int) {
+    for (int k = 0; k < 4; ++k) if (cs.size() == 4 && cs[0].g->players[k].mega_tf > kMegaTransform - 0.02f) megas++;
+  }, MEGAS, true);
+  MESSAGE("megaevoluciones vistas en la consola 0: " << megas << " · huellas comparadas " << r.compared);
+  CHECK(r.same);
+  CHECK(!r.desync);
+  CHECK(r.compared > 300);
+  CHECK(megas >= 8);
 }
 
 TEST_CASE("lockstep: uno con mucho ping no frena a los demás (retraso de cada uno)") {
