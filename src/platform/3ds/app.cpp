@@ -1469,7 +1469,16 @@ void App::draw_top(float eye) {
         char b[64];
         std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(dex)->name, sh ? " ★" : "");
         // (con la insignia de la cuenta arriba a la izquierda, el nombre más abajo)
-        r_->text(b, 200, cloud3ds::account().on ? 54 : 10, 0.7f, C_TEXT, 1);
+        const float ny = cloud3ds::account().on ? 54 : 10;
+        r_->text(b, 200, ny, 0.7f, C_TEXT, 1);
+        // Su tipo (o sus dos tipos), como en la Pokédex.
+        const Mon* pm = mon_by_dex(dex);
+        for (int k = 0; k < 2; ++k) {
+          if (pm->types[k] < 0) continue;
+          const float x = pm->types[1] >= 0 ? 150 + k * 52 : 177;
+          C2D_DrawRectSolid(x, ny + 26, 0, 46, 14, rgb(kTypeColor[pm->types[k]]));
+          r_->text(kTypeName[pm->types[k]], x + 23, ny + 26, 0.32f, C_TEXT, 1);
+        }
         r_->text("PokéSurvivor 3DS · port de juanluismm520", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 140), 1, false);
         if (s_->owns_shiny(dex)) y_hint(TW - 6 - y_hint_w(), 8, sh);   // (arriba a la derecha, sin salirse)
         top_cloud_badge();

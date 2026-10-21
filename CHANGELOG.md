@@ -5,6 +5,9 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.2.1 — 2026-10-21
+- En el menú, debajo del nombre de tu compañero, su tipo (o sus dos tipos).
+
 ## 0.2.0 — 2026-10-21
 - Cuenta en el menú: el logo de Google si entraste con Google, «pokesurvivor.com»
   en amarillo y el botón X, que lleva a la cuenta (sincronizar, entrar, salir).
