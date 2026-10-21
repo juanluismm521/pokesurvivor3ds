@@ -5,6 +5,12 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.3.3 — 2026-10-21
+- **Arreglado el .cia** (instalado en el menú HOME se rompía nada más abrirlo,
+  en la New 3DS y en la vieja): le faltaba el permiso para usar la memoria del
+  sonido. Hay que instalarlo a mano una vez (el que tenías no llegaba a
+  actualizarse); desde ahí se actualiza solo.
+
 ## 0.3.2 — 2026-10-21
 - **La mega se nota más.** Además de sus estadísticas, mientras dura: +25 % de
   ataque (físico y especial), +15 % de velocidad, recarga de los ataques un
