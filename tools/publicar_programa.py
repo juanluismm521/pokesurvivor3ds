@@ -94,6 +94,22 @@ def publicar_entrada(e, repo=ROOT):
     return e
 
 
+# Lo que tiene que haber en romfs/ (si falta algo, el juego publicado va mal:
+# el 2026-10-21 salió una sin cacert.pem ni sonido y no sincronizaba ni sonaba).
+ROMFS_NECESARIO = ['cacert.pem', 'credits.txt', 'snd/sfx.bin',
+                   'gfx/font.bcfnt', 'gfx/font_small.bcfnt', 'gfx/icons.t3x', 'gfx/props.t3x', 'gfx/vfx.t3x'] + \
+                  [f'snd/music_{m}.ogg' for m in ('forest', 'cave', 'volcano', 'boss', 'rift', 'judgment', 'village')]
+
+
+def romfs_falta(repo):
+    r = os.path.join(repo, 'romfs')
+    falta = [f for f in ROMFS_NECESARIO if not os.path.isfile(os.path.join(r, f)) or os.path.getsize(os.path.join(r, f)) == 0]
+    spr = os.path.join(r, 'spr')
+    if not os.path.isdir(spr) or len(os.listdir(spr)) < 3000:
+        falta.append('spr/ (sprites)')
+    return falta
+
+
 def publicar(repo=ROOT, notas=''):
     os.makedirs(DIR, exist_ok=True)
     build = int(os.environ.get('PS_BUILD_N') or out('git rev-list --count HEAD', repo))   # (PS_BUILD_N: sólo pruebas)
@@ -105,7 +121,7 @@ def publicar(repo=ROOT, notas=''):
         return
     # Recursos (romfs/) si faltan o han cambiado sus fuentes desde la última.
     last = ult.get('actual', {}).get('commit')
-    tocar = not os.path.isdir(os.path.join(repo, 'romfs', 'spr'))
+    tocar = bool(romfs_falta(repo))
     if not tocar and last:
         cambios = subprocess.run(['git', 'diff', '--name-only', last, 'HEAD'], cwd=repo, capture_output=True, text=True).stdout
         tocar = any(p.startswith(('assets-src/', 'tools/gen_', 'tools/build_assets', 'reference/web/')) for p in cambios.split())
@@ -118,6 +134,9 @@ def publicar(repo=ROOT, notas=''):
             sh('PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --no-audit --no-fund', cwd=os.path.join(repo, 'tools'))
     if tocar:
         sh('tools/build_assets.sh', cwd=repo)
+    falta = romfs_falta(repo)
+    if falta:
+        raise SystemExit('no se publica: al romfs le falta ' + ', '.join(falta))
     # Pruebas de PC: si no pasan, no se publica nada.
     sh('cmake -S . -B build-pc > /dev/null && cmake --build build-pc -j2 && cd build-pc && ctest --output-on-failure', cwd=repo)
     # El juego: .3dsx y .cia (make_cia.sh también hace make).

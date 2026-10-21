@@ -150,6 +150,7 @@ void worker(void*) {
     if (g_quit) break;
     if (g_state != JOB_BUSY) continue;
     bool ok = false;
+    g_curl_err.clear();
     if (!net_up()) {
       g_err = "No hay conexión a internet (¿wifi apagado?).";
     } else {
@@ -236,6 +237,10 @@ void worker(void*) {
         ok = true;
       } else {
         g_err = c.error.empty() ? "No se ha podido sincronizar." : c.error;
+        // (curl dice por qué: si es la conexión segura, no es que no haya internet)
+        if (g_curl_err.find("SSL") != std::string::npos || g_curl_err.find("certificate") != std::string::npos ||
+            g_curl_err.find("CA ") != std::string::npos || g_curl_err.find("peer") != std::string::npos)
+          g_err = "No se puede comprobar la conexión segura (" + g_curl_err + "). Prueba a actualizar el juego.";
         if (g_kind == 2 && c.error.find("caducado") != std::string::npos) { g_acc.on = false; save_account(); }
       }
     }
