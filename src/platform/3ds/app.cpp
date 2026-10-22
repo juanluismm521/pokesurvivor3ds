@@ -441,6 +441,13 @@ void App::in_run(const UiIn& in) {
     // (para grabar) con la piedra puesta, espera antes de pulsar Y: se ve el aviso abajo
     if (gi.cmd == CMD_MEGA && auto_mega_wait > 0 && float(g.time) - auto_stone_t_ < auto_mega_wait) gi.cmd = CMD_NONE;
     if (auto_peace && !coop_) g.enemies.clear();   // (para grabar) tu Pokémon solo, sin enemigos
+    // (para grabar) quieto mirando hacia abajo hasta 3 s después de megaevolucionar; luego anda
+    if (auto_still && !coop_) {
+      const Player& me2 = g.players[g.local];
+      if (me2.mega >= 0 && auto_mega_t0_ < 0) auto_mega_t0_ = float(g.time);
+      if (auto_mega_t0_ < 0 || float(g.time) - auto_mega_t0_ < 3) { gi.ax = gi.ay = 0; still_now_ = true; }
+      else still_now_ = false;
+    }
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
     // Con un movimiento elegido: pausa 6 s (de verdad) para ver el resumen.
     if (auto_move_ >= 0 && !auto_paused_ && g.state == ST_PLAYING && g.time > 95) { gi.cmd = CMD_PAUSE; auto_paused_ = true; auto_pause_ = float(osGetTime() % 100000000); }
@@ -1522,6 +1529,7 @@ void App::draw_top(float eye) {
       g_->camera.x = g_->players[spect_].view_x;
       g_->camera.y = g_->players[spect_].view_y;
     }
+    if (still_now_) g_->players[g_->local].anim.dir = int8_t(dir_from_angle(kPi / 2));   // (grabación: mirando abajo)
     r_->draw_top(*g_, eye); coop_overlay();
     if (g_->state == ST_OVER) top_cloud_badge();   // (se sube a la nube al acabar: que se vea)
   }

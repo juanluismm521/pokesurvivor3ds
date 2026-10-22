@@ -2,7 +2,7 @@
 B_J = 60 / 140 * 4      # compás de «La Sentencia» (140 BPM)
 B_R = 60 / 164 * 4      # compás de «Grieta» (164 BPM)
 B_B = 60 / 150 * 4      # compás de «Jefe» (150 BPM)
-N_R = 18                            # compases de Grieta en la parte de las megas (la pista da la vuelta a los 16)
+N_R = 19                            # compases de Grieta en la parte de las megas (la pista da la vuelta a los 16)
 T_DROP = 4 * B_J                    # 6.857: entra la Grieta
 T_SENT = T_DROP + N_R * B_R         # la Sentencia
 T_FEAT = T_SENT + 4 * B_J           # cooperativo, nube, actualizaciones (Jefe)

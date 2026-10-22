@@ -3,10 +3,10 @@ import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-F = '/root/docker/pokesurvivor/trailer/fonts/'
+F = '/root/trailer/fonts/'
 POKE = F + 'Pokemon Solid.ttf'
 ANTON = F + 'Anton.ttf'
-PIXEL = '/root/docker/pokesurvivor/juego/assets-src/fonts/PixelifyPS-700.ttf'
+PIXEL = '/root/pokesurvivor-3ds/assets-src/fonts/PixelifyPS-700.ttf'
 
 _cache = {}
 def font(path, size):

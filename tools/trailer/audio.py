@@ -2,7 +2,7 @@
 import subprocess, numpy as np
 from tiempos import *
 SR = 48000
-SND = '/root/docker/pokesurvivor/juego/romfs/snd/'
+SND = '/root/pokesurvivor-3ds/romfs/snd/'
 
 def load(name):
     p = subprocess.run(['ffmpeg', '-v', 'error', '-i', SND + 'music_%s.ogg' % name, '-f', 'f32le', '-ac', '2', '-ar', str(SR), '-'], capture_output=True)
@@ -81,7 +81,7 @@ def drone(dur, vol=0.35):
     s = s * e * vol
     return np.stack([s, s], 1)
 
-def build(path='/root/docker/pokesurvivor/trailer/banda.wav'):
+def build(path='/root/trailer/banda.wav'):
     N = int(T_TOTAL * SR) + SR
     mix = np.zeros((N, 2))
     def add(x, t, g=1.0):
@@ -110,10 +110,11 @@ def build(path='/root/docker/pokesurvivor/trailer/banda.wav'):
     add(chime(1.2, 1100, 0.3), r(6) + 1.4)                  # su nombre
     for b in (8, 10):                                       # Charizard X y Darkrai
         add(whoosh(0.4, 0.3), r(b) - 0.4); add(boom(1.6, 160, 40), r(b) + 0.35, 0.7); add(chime(1.4, 880, 0.35), r(b) + 0.35)
-    add(whoosh(0.5, 0.3), r(12) - 0.5); add(boom(1.4, 150, 40), r(12), 0.6)
-    for k in range(12): add(chime(0.25, 1200 + 60 * k, 0.08), r(12) + 0.08 * k)   # las casillas
-    add(whoosh(0.4, 0.3), r(14) - 0.4); add(boom(1.2, 160, 45), r(14), 0.5)
-    for k in range(4): add(whoosh(0.25, 0.25, False), r(16) + k * B_R * 0.5)
+    add(whoosh(0.3, 0.25), r(12) - 0.3)   # Darkrai echa a andar
+    add(whoosh(0.5, 0.3), r(13) - 0.5); add(boom(1.4, 150, 40), r(13), 0.6)
+    for k in range(12): add(chime(0.25, 1200 + 60 * k, 0.08), r(13) + 0.08 * k)   # las casillas
+    add(whoosh(0.4, 0.3), r(15) - 0.4); add(boom(1.2, 160, 45), r(15), 0.5)
+    for k in range(4): add(whoosh(0.25, 0.25, False), r(17) + k * B_R * 0.5)
     # --- la Sentencia ---
     add(whoosh(0.9, 0.5), T_SENT - 0.9)
     add(boom(3.0, 100, 26), T_SENT, 1.2); add(braam(3.2, 1.0), T_SENT + B_J)

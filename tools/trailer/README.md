@@ -27,3 +27,5 @@ Cómo se hizo `PokeSurvivor3DS_trailer.mp4` (carpeta de trabajo: `/root/docker/p
    con la piedra antes de pulsar Y (`megaespera=2.5`).
 
 Necesita: ffmpeg, Python con numpy, pillow, scipy (y librosa para medir), Azahar bajo Xvfb.
+
+7. v3 (1:08,6): las megas quietas mirando abajo (`quieto`: hasta 3 s después de megaevolucionar) y un compás más de Mega-Darkrai andando.

@@ -3,7 +3,7 @@
 import cv2, numpy as np
 from PIL import Image
 
-REAL = '/root/docker/pokesurvivor/trailer/real/'
+REAL = '/root/trailer/real/'
 _d = {}
 
 def _load():

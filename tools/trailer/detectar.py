@@ -1,7 +1,7 @@
 # detectar.py NOMBRE… — segundo del vídeo en que empieza la megaevolución (el nombre de abajo se alarga con «Mega-»)
 import sys, subprocess, numpy as np
 for n in sys.argv[1:]:
-    p = subprocess.run(['ffmpeg', '-v', 'error', '-i', '/root/docker/pokesurvivor/trailer/raw/%s.mkv' % n, '-vf', 'crop=200:16:44:246',
+    p = subprocess.run(['ffmpeg', '-v', 'error', '-i', '/root/trailer/raw/%s.mkv' % n, '-vf', 'crop=200:16:44:246',
                         '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], capture_output=True)
     a = np.frombuffer(p.stdout, np.uint8).reshape(-1, 16, 200)
     bright = a > 180

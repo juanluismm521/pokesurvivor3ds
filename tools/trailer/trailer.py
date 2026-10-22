@@ -11,7 +11,7 @@ from consola import consola
 from tiempos import *
 
 W, H, FPS = 1080, 1920, 60
-OUT = '/root/docker/pokesurvivor/trailer/'
+OUT = '/root/trailer/'
 
 # ---------------------------------------------------------------- utilidades
 _txt = {}
@@ -150,7 +150,7 @@ def chip(text, size=44, bg=(255, 203, 5), fg=(20, 30, 80)):
 # ---------------------------------------------------------------- escenas
 # Momentos de las grabaciones (segundos del vídeo): MEGA = el destello de la transformación.
 MEGA = {'gengar': 12.85, 'charx': 12.817, 'darkrai': 12.85, 'absolz': 12.85,
-        'gengar_paz': 12.85, 'charx_paz': 11.90, 'darkrai_paz': 11.95}   # (las «_paz»: sin enemigos)
+        'gengar_paz': 12.983, 'charx_paz': 11.933, 'darkrai_paz': 11.933}   # (las «_paz»: sin enemigos)
 CX, CY = 200, 132      # dónde suele estar tu Pokémon en la pantalla de arriba
 
 def track(name, st, dur, lt, cx=CX, cy=CY):
@@ -318,8 +318,22 @@ def s_mega(name, bar):
 # Megas con dibujo propio para «y muchas más» (n.º en kMegas; la galería las enseña de 8 en 8)
 MORE = [51, 20, 50, 80, 59, 29, 56, 33, 17, 79, 74, 81]
 ZA = {80, 79, 74, 81}
-def s_more(c, t):
+def s_darkrai_anda(c, t):
+    """Mega-Darkrai ya transformado, andando (para ver su sprite en movimiento)."""
     lt = t - r(12)
+    st, sp = 15.0, 1.4
+    fr = clip('darkrai_paz', st, B_R + 0.3, speed=sp); f = frame(fr, lt)
+    w, h = 150, 168.75
+    px, py = track('darkrai_paz', st, B_R + 0.3, lt)
+    px = min(400 - w / 2, max(w / 2, px)); py = min(240 - h / 2, max(h / 2, py))
+    background(c, t)
+    sparkles(c, t, 31, 30, (0, 400, W, 1700), (255, 255, 255))
+    panel(c, zoom(top(f), px, py, w, h, 960, 1080), W / 2, 1040, border=8, glow=MEGA_INFO['darkrai_paz'][1])
+    put(c, T('poke', 'Mega-Darkrai', 104), W / 2, 290)
+    put(c, chip('NUEVA · LEYENDAS Z-A', 40, (196, 123, 255), (255, 255, 255)), W / 2, 418)
+
+def s_more(c, t):
+    lt = t - r(13)
     background(c, t)
     sparkles(c, t, 41, 50)
     cols, rows = 3, 4
@@ -342,7 +356,7 @@ def s_more(c, t):
     flash(c, 0.7 * clamp(1 - lt / 0.12))
 
 def s_stone(c, t):
-    lt = t - r(14)
+    lt = t - r(15)
     background(c, t)
     fr = clip('novedades', 14.6, 2 * B_R + 0.2); f = frame(fr, lt)
     z = 1 + 0.15 * ease_io(lt / (2 * B_R))
@@ -354,7 +368,7 @@ def s_stone(c, t):
     flash(c, 0.6 * clamp(1 - lt / 0.1))
 
 def s_power(c, t):
-    lt = t - r(16)
+    lt = t - r(17)
     im, f = game_wide('charx', MEGA['charx'] + 2.0, lt, 250, 1.1, 1.0, 2 * B_R, out=(1080, 1080))
     background(c, t)
     panel(c, im, W / 2, 940, border=8, glow=(40, 90, 220))
@@ -479,7 +493,7 @@ _logo3 = None
 def logo3ds(width):
     """El logo original de 3DS (el «3» rojo y «DS» en blanco, para fondo oscuro)."""
     global _logo3
-    if _logo3 is None: _logo3 = Image.open('/root/docker/pokesurvivor/trailer/real/logo_3ds_blanco.png').convert('RGBA')
+    if _logo3 is None: _logo3 = Image.open('/root/trailer/real/logo_3ds_blanco.png').convert('RGBA')
     k = width / _logo3.width
     return _logo3.resize((int(_logo3.width * k), int(_logo3.height * k)), Image.LANCZOS)
 
@@ -537,9 +551,10 @@ SCENES = [
     (r(4), r(8), s_how),
     (r(8), r(10), s_mega('charx_paz', 8)),
     (r(10), r(12), s_mega('darkrai_paz', 10)),
-    (r(12), r(14), s_more),
-    (r(14), r(16), s_stone),
-    (r(16), T_SENT, s_power),
+    (r(12), r(13), s_darkrai_anda),
+    (r(13), r(15), s_more),
+    (r(15), r(17), s_stone),
+    (r(17), T_SENT, s_power),
     (T_SENT, T_FEAT, s_sentencia),
     (f(0), f(2), s_coop_local),
     (f(2), f(4), s_coop_online),
