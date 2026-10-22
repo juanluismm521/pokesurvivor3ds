@@ -49,6 +49,8 @@ for slug, name, t in CAPS:
     im = Image.new('RGBA', (800, 480 + 24 + 480), (0, 0, 0, 0))
     im.paste(top, (0, 0)); im.paste(bot, (80, 504))
     im.save('%s/capturas/%s.webp' % (OUT, slug), lossless=True, quality=90)
+    # miniatura para la galería (4 por fila): reducida con Lanczos, más legible que dejar que la encoja el navegador
+    im.resize((560, round(im.height * 560 / 800)), Image.LANCZOS).save('%s/capturas/%s-mini.webp' % (OUT, slug), quality=92)
     top.save('%s/capturas/%s-arriba.webp' % (OUT, slug), lossless=True, quality=90)
 
 # ---------------- logos, piedras, QR, tráiler ----------------
