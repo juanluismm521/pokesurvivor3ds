@@ -130,6 +130,7 @@ void App::start_run() {
   for (int k = 0; k < 4; ++k) cfg.pbind[k] = autotest ? -1 : s_->pbind[cfg.dex][k];
   for (int k = 0; k < 3; ++k) cfg.pban[k] = autotest ? -1 : s_->pban[cfg.dex][k];
   cfg.pstart = autotest ? int8_t(auto_move_) : s_->pstart[cfg.dex];
+  cfg.pmove2 = autotest ? int8_t(-1) : s_->pmove2[cfg.dex];
   if (autotest && auto_move_ >= 0) cfg.upgrades[UP_START] = 1;
   cfg.seed = autotest ? 12345u : uint32_t(osGetTime());
   cfg.judged = autotest ? 1 : s_->stats.judged;
@@ -313,7 +314,7 @@ void App::update(const UiIn& in0, float dt) {
       static bool pulled = false;
       static int bought = 0;
       static bool shinied = false;
-      static const Scene ORDER[] = {SC_NEWS, SC_DEX, SC_UPGRADES, SC_START, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_UPDATE, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
+      static const Scene ORDER[] = {SC_NEWS, SC_DEX, SC_UPGRADES, SC_START, SC_MOVE2, SC_GACHA, SC_GOALS, SC_GOALS, SC_GOALS, SC_SETTINGS, SC_UPDATE, SC_CREDITS, SC_COOP, SC_COOP, SC_COOP};
       if (scene == SC_TEST) in.down |= KEY_A;                              // responde
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
@@ -377,7 +378,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: in_test(in); break;
     case SC_MENU: in_menu(in); break;
     case SC_DEX: in_dex(in); break;
-    case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: in_upgrades(in); break;
+    case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: in_upgrades(in); break;
     case SC_GACHA: in_gacha(in); break;
     case SC_PULL: in_pull(in, dt); break;
     case SC_GOALS: in_goals(in); break;
@@ -912,6 +913,18 @@ int start_choices_sorted(int dex, int16_t* out) {
   }
   return n;
 }
+// «Repertorio»: candidatos al segundo movimiento, por nombre (el inicial no).
+int move2_choices_sorted(const Save& s, int dex, int16_t* out) {
+  const int st = move_start_for(dex, s.pstart[dex], s.pupg[dex][UP_START] > 0);
+  const int n = move_second_choices(dex, st, out, kMaxMoves);
+  for (int a = 1; a < n; ++a) {
+    const int16_t v = out[a];
+    int b = a - 1;
+    while (b >= 0 && es_cmp(kMoves[out[b]].name, kMoves[v].name) > 0) { out[b + 1] = out[b]; --b; }
+    out[b + 1] = v;
+  }
+  return n;
+}
 }  // namespace
 
 void App::in_upgrades(const UiIn& in) {
@@ -973,6 +986,33 @@ void App::in_upgrades(const UiIn& in) {
     if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_START; }
     return;
   }
+  if (scene == SC_MOVE2) {
+    // «Repertorio» comprado: el segundo movimiento (fila 0 = al azar, como en la web).
+    int16_t ids[kMaxMoves];
+    const int n = move2_choices_sorted(*s_, up_dex_, ids) + 1;
+    if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - 1);
+    if (in.rep & KEY_DDOWN) cur_ = std::min(n - 1, cur_ + 1);
+    if (cur_ < scroll_) scroll_ = cur_;
+    if (cur_ >= scroll_ + 9) scroll_ = cur_ - 8;
+    bool tap = false;
+    for (int i = 0; i < 9 && scroll_ + i < n; ++i) if (in_rect(&in, 10, 40 + i * 20, 300, 18)) { cur_ = scroll_ + i; tap = true; }
+    if ((in.down & KEY_A) || tap) {
+      const int id = cur_ == 0 ? -1 : ids[cur_ - 1];
+      s_->pmove2[up_dex_] = int8_t(id);
+      if (id >= 0) {   // (el elegido no puede estar vetado)
+        int8_t* l = s_->pban[up_dex_];
+        for (int k = 0; k < 3; ++k) if (l[k] == id) { for (int q = k; q < 2; ++q) l[q] = l[q + 1]; l[2] = -1; break; }
+      }
+      g_->dirty = true;
+      audio::play("select");
+      char b[96];
+      if (id >= 0) std::snprintf(b, sizeof(b), "%s empezará también con %s", mon_by_dex(up_dex_)->name, kMoves[id].name);
+      else std::snprintf(b, sizeof(b), "%s: segundo movimiento al azar", mon_by_dex(up_dex_)->name);
+      g_notices.push(b, "", -1);
+    }
+    if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_MOVES; }
+    return;
+  }
   if (scene == SC_BAN) {
     int16_t pool[kMaxMoves];
     int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
@@ -1023,6 +1063,8 @@ void App::in_upgrades(const UiIn& in) {
     uint8_t& lv = s_->pupg[up_dex_][cur_];
     // Movimiento inicial ya comprado: A abre la lista para elegirlo.
     if (cur_ == UP_START && lv >= kUpgrades[cur_].max) { scene = SC_START; cur_ = 0; scroll_ = 0; return; }
+    // Repertorio ya comprado: A abre la lista para elegir el segundo movimiento.
+    if (cur_ == UP_MOVES && lv >= kUpgrades[cur_].max) { scene = SC_MOVE2; cur_ = 0; scroll_ = 0; return; }
     if (lv < kUpgrades[cur_].max) {
       const int price = upgrade_cost(cur_, lv);
       if (s_->coins >= price) {
@@ -1078,6 +1120,27 @@ void App::bottom_upgrades() {
     r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
     return;
   }
+  if (scene == SC_MOVE2) {
+    int16_t ids[kMaxMoves];
+    const int n = move2_choices_sorted(*s_, up_dex_, ids) + 1;
+    const int cur = s_->pmove2[up_dex_];
+    r_->text("Elige tu segundo movimiento (gratis, cuando quieras)", 160, 25, 0.34f, C_MUTED, 1);
+    for (int i = 0; i < 9 && scroll_ + i < n; ++i) {
+      const int row = scroll_ + i, id = row == 0 ? -1 : ids[row - 1];
+      const float y = 40 + i * 20;
+      C2D_DrawRectSolid(10, y, 0, 300, 18, row == cur_ ? C_SEL : C_PANEL);
+      const bool on = id == cur || (row == 0 && (cur < 0 || cur >= kMoveCount));
+      if (id < 0) r_->text("Al azar (como en la web)", 36, y + 2, 0.36f, on ? C_GOLD : C_TEXT);
+      else {
+        const int ic = r_->move_icon[id];
+        if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 14, y + 1, 0);
+        r_->text_fit(kMoves[id].name, 36, y + 2, 210, 0.36f, on ? C_GOLD : C_TEXT, true);
+      }
+      if (on) r_->text("ELEGIDO", 304, y + 2, 0.32f, C_GOLD, 2);
+    }
+    r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+    return;
+  }
   if (scene == SC_BAN) {
     int16_t pool[kMaxMoves];
     int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
@@ -1127,7 +1190,11 @@ void App::bottom_upgrades() {
     const int ic = r_->icons.find(u.icon);
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 1, 0, nullptr, 2, 2);
     r_->text_fit(u.name, 38, y + 1, 168, 0.38f, C_TEXT, true);
-    r_->text_fit(u.unit, 38, y + 13, 168, 0.28f, C_MUTED);
+    if (k == UP_MOVES && lv >= u.max) {   // comprada: cuál es el segundo y que se cambia con A
+      const int m2 = s_->pmove2[up_dex_];
+      std::snprintf(b, sizeof(b), "2.º: %s · A: elegir", m2 >= 0 && m2 < kMoveCount ? kMoves[m2].name : "al azar");
+      r_->text_fit(b, 38, y + 13, 168, 0.28f, C_GOLD);
+    } else r_->text_fit(u.unit, 38, y + 13, 168, 0.28f, C_MUTED);
     for (int p = 0; p < u.max; ++p) C2D_DrawRectSolid(210 + p * 6 - (u.max > 8 ? 12 : 0), y + 18, 0, 4, 4, p < lv ? C_GOLD : C2D_Color32(60, 70, 96, 255));
     if (lv >= u.max) r_->text("Máx.", 308, y + 4, 0.36f, C_MUTED, 2);
     else {
@@ -1589,7 +1656,7 @@ void App::draw_top(float eye) {
         if (n) top_detail(list[std::min(cur_, n - 1)], view_shiny_, s_->owns(list[std::min(cur_, n - 1)]));
         break;
       }
-      case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: {
+      case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: {
         const bool sh = up_dex_ == s_->partner && s_->partner_shiny && s_->owns_shiny(up_dex_);
         draw_mon(up_dex_, sh, 200, 200, 3);
         r_->text(mon_by_dex(up_dex_)->name, 200, 14, 0.6f, C_TEXT, 1);
@@ -1665,7 +1732,7 @@ void App::draw_bottom() {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: bottom_test(); break;
     case SC_MENU: bottom_menu(); break;
     case SC_DEX: bottom_dex(); break;
-    case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: bottom_upgrades(); break;
+    case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: bottom_upgrades(); break;
     case SC_GACHA: bottom_gacha(); break;
     case SC_PULL: bottom_pull(); break;
     case SC_GOALS: bottom_goals(); break;

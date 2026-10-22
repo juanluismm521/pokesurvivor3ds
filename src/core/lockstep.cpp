@@ -47,14 +47,14 @@ Input unpack_input(const uint8_t* b) {
 
 static void put_member(W& w, const RunConfig::Member& m) {
   w.u16(uint32_t(m.dex)); w.u8(m.shiny ? 1 : 0);
-  w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.u8(uint8_t(m.pstart)); w.raw(m.name, 16);
+  w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.u8(uint8_t(m.pstart)); w.u8(uint8_t(m.pmove2)); w.raw(m.name, 16);
   w.u8(m.immortal ? 1 : 0);
   w.u8(m.mega_up);
   w.u8(m.test_stone ? 1 : 0);
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
-  r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); m.pstart = int8_t(r.u8()); r.raw(m.name, 16);
+  r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); m.pstart = int8_t(r.u8()); m.pmove2 = int8_t(r.u8()); r.raw(m.name, 16);
   m.immortal = r.u8() != 0;
   m.mega_up = uint8_t(r.u8());
   m.test_stone = r.u8() != 0;

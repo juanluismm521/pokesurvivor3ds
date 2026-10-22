@@ -80,6 +80,13 @@ float Game::level_xp() {
 
 // ---------------- partida ----------------
 
+static bool in_type_pool(const Player& p, int id) {
+  int16_t all[kMaxMoves];
+  const int na = move_pool_for(p.mon->types, all, kMaxMoves);
+  for (int i = 0; i < na; ++i) if (all[i] == id) return true;
+  return false;
+}
+
 // Un jugador al empezar: Pokémon, atajos, vetos y mejora "Repertorio".
 static void init_player(Game& g, Player& p, const RunConfig& c) {
   player_init(g, p, c.dex, c.shiny, c);
@@ -89,8 +96,13 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
   // Mejora "Veto": movimientos que no quieres que te salgan.
   const Perks perks = upgrade_perks(c.upgrades);
   for (int i = 0; i < 3 && i < perks.bans; ++i) if (c.pban[i] >= 0) p.banned.set(c.pban[i]);
-  // Mejora "Repertorio": un segundo movimiento de ataque al azar.
-  if (perks.start_moves >= 2) {
+  // Mejora "Repertorio": un segundo movimiento de ataque, el elegido (del port:
+  // Mejoras → Repertorio) si sigue valiendo, o al azar como en la web.
+  if (perks.start_moves >= 2 && c.pmove2 >= 0 && c.pmove2 < kMoveCount && !player_has_move(p, c.pmove2) &&
+      !p.banned.has(c.pmove2) && kMoves[c.pmove2].kind != K_BUFF && in_type_pool(p, c.pmove2)) {
+    player_add_move(g, p, c.pmove2);
+    player_set_active(g, p, 0);
+  } else if (perks.start_moves >= 2) {
     int16_t all[kMaxMoves], pool[kMaxMoves];
     const int na = move_pool_for(p.mon->types, all, kMaxMoves);
     int np = 0;
@@ -152,6 +164,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       std::memcpy(pc.pbind, m.pbind, sizeof(pc.pbind));
       std::memcpy(pc.pban, m.pban, sizeof(pc.pban));
       pc.pstart = m.pstart;
+      pc.pmove2 = m.pmove2;
     }
     init_player(*this, players[i], pc);
     if (nplayers > 1 && c.members[i].test_stone) player_equip(*this, players[i], IT_MEGA_A);   // (pruebas)

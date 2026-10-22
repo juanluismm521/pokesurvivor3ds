@@ -376,6 +376,7 @@ struct RunConfig {
   int8_t pbind[4] = {-1, -1, -1, -1};   // movimientos con hueco fijo
   int8_t pban[3] = {-1, -1, -1};
   int8_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
+  int8_t pmove2 = -1;                    // segundo movimiento con «Repertorio» (-1: al azar, como la web)
   uint32_t seed = 1;
   int judged = 0;                        // veces que ha visto la Sentencia (saltar animación)
   // Para grabar (tráiler, también en grupo): empezar con el reloj adelantado y
@@ -393,6 +394,7 @@ struct RunConfig {
     int8_t pbind[4] = {-1, -1, -1, -1};
     int8_t pban[3] = {-1, -1, -1};
     int8_t pstart = -1;
+    int8_t pmove2 = -1;
     char name[16] = {};
     // Pruebas: la vida de ESTE jugador nunca baja de 1. Va con los datos de la
     // sala para que todas las consolas lo simulen igual (debug_immortal es de

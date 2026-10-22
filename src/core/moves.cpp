@@ -115,4 +115,15 @@ int move_start_for(int dex, int pick, bool bought) {
   return move_base_start_for(dex);
 }
 
+int move_second_choices(int dex, int start, int16_t* out, int max) {
+  const Mon* m = mon_by_dex(dex);
+  if (!m) return 0;
+  int16_t all[kMaxMoves];
+  const int na = move_pool_for(m->types, all, kMaxMoves);
+  int n = 0;
+  for (int i = 0; i < na && n < max; ++i)
+    if (all[i] != start && kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];
+  return n;
+}
+
 }  // namespace ps

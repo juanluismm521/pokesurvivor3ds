@@ -5,6 +5,12 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.5.0 — 2026-10-22
+- **Elige tu segundo movimiento**: con la mejora «Repertorio» comprada, en Mejoras
+  pulsa A sobre ella y elige con qué segundo ataque empiezas (o «Al azar», como
+  hasta ahora). Se guarda por Pokémon y se sincroniza con pokesurvivor.com.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.4.3 — 2026-10-21
 - (Juego en grupo: protocolo nuevo; actualizad todos.)
 - Por dentro: modos de prueba para grabar el tráiler (partida con nivel y reloj

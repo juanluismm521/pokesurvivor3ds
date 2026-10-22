@@ -50,5 +50,8 @@ int move_start_choices(int dex, int16_t* out, int max);
 // tiene comprada la mejora "Movimiento inicial" y sigue siendo de los suyos; si
 // no, el de serie.
 int move_start_for(int dex, int pick = -1, bool bought = false);
+// Mejora «Repertorio» (empiezas con 2): los que pueden ser el segundo (de sus tipos,
+// sin potenciadores ni el inicial), por orden de la tabla. Devuelve cuántos.
+int move_second_choices(int dex, int start, int16_t* out, int max);
 
 }  // namespace ps

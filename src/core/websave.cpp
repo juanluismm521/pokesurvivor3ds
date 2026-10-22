@@ -354,6 +354,12 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
       for (const auto& kv : older["pmega"].items())
         rm.set(kv.first, Json::num(std::fmax(plus0(rm[kv.first.c_str()]), plus0(kv.second))));
     }
+    // Del port: segundo movimiento de «Repertorio», igual que el inicial.
+    if (older["pmove2"].is_obj()) {
+      Json& r2 = r.ref("pmove2");
+      if (!r2.is_obj()) r2 = Json::object();
+      for (const auto& kv : older["pmove2"].items()) if (!r2.has(kv.first.c_str())) r2.set(kv.first, kv.second);
+    }
     // Movimiento inicial: el de la versión más reciente; si no lo tenía elegido, el de la otra.
     Json& rs = r.ref("pstart");
     if (!truthy(rs)) rs = Json::object();
@@ -445,7 +451,7 @@ namespace {
 bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
-                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega"};
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pmove2"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }

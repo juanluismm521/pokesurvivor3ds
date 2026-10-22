@@ -24,6 +24,7 @@ void Save::reset() {
   for (auto& b : pbind) for (auto& x : b) x = -1;
   for (auto& b : pban) for (auto& x : b) x = -1;
   for (auto& x : pstart) x = -1;
+  for (auto& x : pmove2) x = -1;
 }
 
 int Save::owned_count() const { int n = 0; for (int d = 0; d <= kMaxDex; ++d) if (owned_at[d] && mon_by_dex(d)) n++; return n; }

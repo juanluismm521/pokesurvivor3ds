@@ -74,6 +74,7 @@ RunConfig::Member App::my_member() const {
   for (int k = 0; k < 4; ++k) m.pbind[k] = autotest ? -1 : s_->pbind[m.dex][k];
   for (int k = 0; k < 3; ++k) m.pban[k] = autotest ? -1 : s_->pban[m.dex][k];
   m.pstart = autotest ? -1 : s_->pstart[m.dex];
+  m.pmove2 = autotest ? -1 : s_->pmove2[m.dex];
   m.immortal = autotest && auto_immortal_;
   m.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[m.dex];
   m.test_stone = autotest && auto_mega;

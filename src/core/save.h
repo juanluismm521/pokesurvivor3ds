@@ -46,6 +46,7 @@ struct Save {
   int8_t pbind[kMaxDex + 1][4];          // Atajos: movimiento por hueco (-1 nada)
   int8_t pban[kMaxDex + 1][3];           // Veto
   int8_t pstart[kMaxDex + 1];            // Movimiento inicial elegido (-1: el de serie)
+  int8_t pmove2[kMaxDex + 1];            // segundo movimiento con «Repertorio» (del port: "pmove2"; -1: al azar)
   uint8_t pmega[kMaxDex + 1] = {};       // mejora «Megapiedra» por Pokémon (del port: "pmega")
   int32_t pused[kMaxDex + 1] = {};       // partidas jugadas con cada Pokémon
   int32_t t1 = 0, t10 = 0;               // tickets
