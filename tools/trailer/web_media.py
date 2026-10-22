@@ -26,7 +26,7 @@ for i in (1, 12, 51, 62, 20, 56):          # Charizard X, Gengar, Rayquaza, Dark
 sprites = []
 for k, m in meta.items():
     shutil.copyfile('%s/assets-src/pokemon/%s/Walk.png' % (JUEGO, k), '%s/sprites/%s.png' % (OUT, k))
-    sprites.append({'id': int(k), 'w': m['w'], 'h': m['h'], 'n': m['n'], 'd': sum(m['d']) / 60})
+    sprites.append({'id': int(k), 'w': m['w'], 'h': m['h'], 'n': m['n'], 'd': sum(m['d']) / 60, 'ay': m['ay']})
 json.dump(sprites, open(OUT + '/sprites.json', 'w'))
 
 # ---------------- capturas (las dos pantallas, como en la consola) ----------------
