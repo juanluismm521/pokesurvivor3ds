@@ -1,7 +1,7 @@
 # trailer.py — monta el tráiler vertical (1080x1920, 60 fps) con las grabaciones del juego.
 #   python trailer.py [desde] [hasta] [salida.mp4]     (prueba: un trozo; sin nada, entero)
 #   python trailer.py --foto T                         (un fotograma suelto, para revisar)
-import math, subprocess, sys
+import math, os, subprocess, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance, ImageChops
 import fuente
@@ -14,8 +14,31 @@ W, H, FPS = 1080, 1920, 60
 OUT = '/root/trailer/'
 
 # ---------------------------------------------------------------- utilidades
+# Versión en inglés: TRAILER_LANG=en (los textos pasan por EN; lo que no está, igual).
+LANG = os.environ.get('TRAILER_LANG', 'es')
+EN = {
+    'SOBREVIVE': 'SURVIVE', 'DERROTA A ARCEUS': 'DEFEAT ARCEUS', 'TODOS LOS POKÉMON DISPONIBLES': 'EVERY POKÉMON AVAILABLE',
+    'ADEMÁS...': 'AND NOW...', 'Megaevoluciones': 'Mega Evolutions', 'SI TE SALE SU MEGAPIEDRA...': 'FIND ITS MEGA STONE...',
+    'Y PULSA': 'AND PRESS', 'NUEVA · LEYENDAS Z-A': 'NEW · LEGENDS Z-A', 'Y muchas más': 'And many more',
+    '91 MEGAS · TAMBIÉN DE LEYENDAS Z-A': '91 MEGAS · INCLUDING LEGENDS Z-A', 'Cada una con': 'Each one with',
+    'su megapiedra': 'its Mega Stone', 'Y SU PROBABILIDAD, QUE PUEDES MEJORAR': 'AND A DROP CHANCE YOU CAN UPGRADE',
+    '+25% ATAQUE': '+25% ATTACK', '+15% VELOCIDAD': '+15% SPEED', '-25% RECARGA': '-25% COOLDOWN', '+REGENERACIÓN': '+REGENERATION',
+    'A LOS 30 MINUTOS...': 'AT 30 MINUTES...', 'LA SENTENCIA': 'THE JUDGMENT', '¿SOBREVIVIRÁS?': 'WILL YOU SURVIVE?',
+    'Cooperativo Local': 'Local Co-op', 'JUGADOR 1': 'PLAYER 1', 'JUGADOR 2': 'PLAYER 2', 'Cooperativo Online': 'Online Co-op',
+    'CON TUS AMIGOS, ESTÉS DONDE ESTÉS': 'WITH YOUR FRIENDS, WHEREVER THEY ARE', 'Sincronización': 'Sync with',
+    'con PokéSurvivor': 'PokéSurvivor', 'TU PARTIDA, EN LA WEB Y EN LA 3DS': 'ONE SAVE, ON THE WEB AND ON YOUR 3DS',
+    'Actualizaciones': 'Automatic', 'automáticas': 'Updates', 'Y CONSTANTES': 'AND FREQUENT ONES',
+    'GRATIS · HOMEBREW PARA NINTENDO 3DS': 'FREE · HOMEBREW FOR NINTENDO 3DS', 'por juanluismm520': 'by juanluismm520',
+    'Proyecto de fans sin ánimo de lucro · Pokémon © Nintendo, Game Freak y The Pokémon Company':
+        'Non-profit fan project · Pokémon © Nintendo, Game Freak and The Pokémon Company',
+    'Foto de la New 3DS XL: Antoine Turmel (CC BY 2.0) · Música y juego: PokéSurvivor':
+        'New 3DS XL photo: Antoine Turmel (CC BY 2.0) · Music and game: PokéSurvivor',
+}
+def L(text): return EN.get(text, text) if LANG == 'en' else text
+
 _txt = {}
 def T(kind, text, size, **kw):
+    text = L(text)
     k = (kind, text, size, tuple(sorted(kw.items())))
     if k not in _txt: _txt[k] = {'poke': poke, 'cine': cine, 'pixel': pixel}[kind](text, size, **kw)
     return _txt[k]
@@ -138,6 +161,7 @@ def sparkles(c, t, seed, n=40, area=(0, 0, W, H), col=(255, 240, 160)):
         d.line((x, y - r * 2, x, y + r * 2), fill=col + (int(220 * a),), width=2)
 
 def chip(text, size=44, bg=(255, 203, 5), fg=(20, 30, 80)):
+    text = L(text)
     from estilo import font, ANTON
     f = font(ANTON, size)
     l, tt, r, b = f.getbbox(text)

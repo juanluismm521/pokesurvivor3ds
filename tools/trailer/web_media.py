@@ -59,7 +59,41 @@ for t, f in (('Descargar', 'tit-descargar'), ('Novedades', 'tit-novedades'), ('C
              ('Cómo instalarlo', 'tit-instalar'), ('Apoya el proyecto', 'tit-apoya'), ('El tráiler', 'tit-trailer'),
              ('Qué trae', 'tit-que')):
     poke(t, 96).save('%s/%s.png' % (OUT, f), optimize=True)
+for t, f in (('Download', 'tit-descargar-en'), ('What\'s new', 'tit-novedades-en'), ('Screenshots', 'tit-capturas-en'),
+             ('How to install', 'tit-instalar-en'), ('Support the project', 'tit-apoya-en'), ('The trailer', 'tit-trailer-en'),
+             ('Features', 'tit-que-en')):
+    poke(t, 96).save('%s/%s.png' % (OUT, f), optimize=True)
 shutil.copyfile(TR + '/real/logo_3ds_blanco.png', OUT + '/logo-3ds.png')
+
+# ---------------- tarjetas para compartir (Open Graph / X, 1200x630) e icono de móvil ----------------
+from PIL import ImageFilter, ImageFont  # noqa: E402
+def tarjeta(lema, sub, out):
+    W, H = 1200, 630
+    fondo = Image.open('%s/capturas/sentencia-arriba.webp' % OUT).convert('RGB').resize((W, int(W * 0.6)), Image.LANCZOS)
+    fondo = fondo.crop((0, (fondo.height - H) // 2, W, (fondo.height - H) // 2 + H)).filter(ImageFilter.GaussianBlur(6))
+    c = Image.blend(fondo, Image.new('RGB', (W, H), (10, 16, 40)), 0.62).convert('RGBA')
+    cap = Image.open('%s/capturas/mega-charizard-arriba.webp' % OUT).convert('RGBA').resize((560, 336), Image.LANCZOS)
+    m = Image.new('L', cap.size, 0); ImageDraw.Draw(m).rounded_rectangle((0, 0, 559, 335), 18, fill=255)
+    ImageDraw.Draw(c).rounded_rectangle((592, 178, 1168, 530), 24, fill=(255, 203, 5, 255))
+    c.paste(cap, (600, 186), m)
+    lg = Image.open(OUT + '/logo.png'); lg = lg.resize((600, int(lg.height * 600 / lg.width)), Image.LANCZOS)
+    c.alpha_composite(lg, (20, 40))
+    l3 = Image.open(OUT + '/logo-3ds.png'); l3 = l3.resize((200, int(l3.height * 200 / l3.width)), Image.LANCZOS)
+    c.alpha_composite(l3, (220, 40 + lg.height - 10))
+    d = ImageDraw.Draw(c)
+    f1 = ImageFont.truetype(TR + '/fonts/Anton.ttf', 44); f2 = ImageFont.truetype(TR + '/fonts/Anton.ttf', 30)
+    y = 330
+    for linea in lema:
+        d.text((40, y), linea, font=f1, fill=(255, 255, 255)); y += 58
+    d.text((40, y + 18), sub, font=f2, fill=(255, 203, 5))
+    c.convert('RGB').save(out, quality=88)
+tarjeta(['Sobrevive a la horda.', 'Derrota a Arceus.'], 'GRATIS · HOMEBREW PARA NINTENDO 3DS', OUT + '/og-es.jpg')
+tarjeta(['Survive the horde.', 'Defeat Arceus.'], 'FREE · NINTENDO 3DS HOMEBREW', OUT + '/og-en.jpg')
+ic = Image.open(JUEGO + '/assets-src/icon-48.png').convert('RGBA')
+for n in (180, 192, 512):
+    b = Image.new('RGBA', (n, n), (14, 22, 48, 255)); k = int(n * 0.84)
+    b.alpha_composite(ic.resize((k, k), Image.NEAREST), ((n - k) // 2, (n - k) // 2))
+    b.save('%s/icono-%d.png' % (OUT, n))
 os.makedirs(OUT + '/piedras', exist_ok=True)
 for i in (1, 12, 51, 62, 2, 20):
     s = megas[i].get('stone_item')
@@ -72,7 +106,9 @@ qr.add_data(URL_CIA); qr.make(fit=True)
 qr.make_image(fill_color='#101830', back_color='white').save(OUT + '/qr-fbi.png')
 
 shutil.copyfile(TR + '/PokeSurvivor3DS_trailer_ligero.mp4', OUT + '/trailer.mp4')
-subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', '16.2', '-i', OUT + '/trailer.mp4', '-frames:v', '1', '-vf', 'scale=540:960',
+if os.path.exists(TR + '/PokeSurvivor3DS_trailer_en_ligero.mp4'):
+    shutil.copyfile(TR + '/PokeSurvivor3DS_trailer_en_ligero.mp4', OUT + '/trailer-en.mp4')
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', '17.0', '-i', OUT + '/trailer.mp4', '-frames:v', '1', '-vf', 'scale=540:960',
                 '-q:v', '3', OUT + '/trailer.jpg'], check=True)
 
 # favicon: una pokéball
