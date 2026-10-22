@@ -1150,17 +1150,25 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
   } else if (g.state == ST_CHOICE && p.choice == CH_BOND) {
     int8_t loose[4]; int nl, grow;
     const int mode = player_bond_options(p, loose, nl, grow);
-    text(mode == 1 ? "¡Vínculo! Elige qué movimiento se une" : "¡Vínculo! Elige dos movimientos para unir", 160, 74, 0.44f, rgb(0xff8ad8), 1);
+    text_fit(mode == 1 ? "¡Vínculo! Elige qué movimiento se une" : "¡Vínculo! Elige dos para unir", 160, 74, 300, 0.44f, rgb(0xff8ad8), false, 1);
     for (int i = 0; i < nl; ++i) {
       const MoveInst& m = p.moves[loose[i]];
       const float y = 92 + i * 32;
       const bool sel = i == card_cursor;
-      C2D_DrawRectSolid(10, y, 0, 300, 28, sel ? C2D_Color32(80, 52, 90, 255) : C2D_Color32(30, 40, 62, 255));
+      const bool first = mode != 1 && loose[i] == bond_first;   // (el primero ya elegido)
+      if (first) C2D_DrawRectSolid(8, y - 2, 0, 304, 32, rgb(0xff8ad8));
+      C2D_DrawRectSolid(10, y, 0, 300, 28, sel ? C2D_Color32(80, 52, 90, 255) : first ? C2D_Color32(64, 40, 74, 255) : C2D_Color32(30, 40, 62, 255));
       if (move_icon[m.def] >= 0) C2D_DrawImageAt(icons.image(move_icon[m.def]), 16, y + 4, 0, nullptr, 1.25f, 1.25f);
       std::snprintf(b, sizeof(b), "%s  Nv.%d", m.name(), m.lvl);
-      text_fit(b, 44, y + 6, 260, 0.42f, C2D_Color32(240, 244, 255, 255), true);
+      text_fit(b, 44, y + 6, first ? 172 : 260, 0.42f, C2D_Color32(240, 244, 255, 255), true);
+      if (first) {
+        C2D_DrawRectSolid(226, y + 5, 0, 80, 18, rgb(0xff8ad8));
+        text_fit("1.º ELEGIDO", 266, y + 8, 74, 0.34f, C2D_Color32(40, 16, 48, 255), false, 1);
+      }
     }
-    text("A: elegir", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
+    if (mode == 1) text("A: elegir", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
+    else if (bond_first < 0) text("A: elegir el primero", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
+    else text("A: elegir el segundo · B (o A en el marcado): quitar", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_PAUSED) {
     // Resumen de la partida (pauseSummary de run-ui.js): ataques con su
     // categoría, daño hecho y daño por segundo, y las estadísticas.

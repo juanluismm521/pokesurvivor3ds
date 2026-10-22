@@ -151,6 +151,7 @@ class App {
   // avisos (misiones y logros)
   float notice_t_ = 0;
   int bond_first_ = -1;
+  bool auto_bond_given_ = false;
   bool paused_ = false;         // en grupo: la pausa es sólo de esta consola
   // créditos
   char* credits_ = nullptr;
@@ -225,6 +226,7 @@ class App {
   float auto_mega_wait = 0;     // "… megaespera=S": con la piedra puesta, espera S s antes de pulsar Y
   bool auto_peace = false;
   bool auto_still = false;      // "… quieto": quieto mirando abajo hasta 3 s después de megaevolucionar      // "… paz": sin enemigos (para ver la megaevolución)       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
+  bool auto_bond = false;    // autotest "vinculo": te da un vínculo y deja marcado el primero (captura)
  private:
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)
   bool cloud_asked_ = false;     // ya se ha preguntado al abrir

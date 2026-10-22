@@ -20,7 +20,7 @@ namespace ps {
 namespace {
 
 // Ícono de cada novedad.
-enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_CLOUD, NI_ITEM };
+enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_CLOUD, NI_ITEM, NI_WEB, NI_COIN, NI_BOND, NI_FAST };
 
 struct NewsItem {
   const char* head;    // si no es null: título de sección (versión)
@@ -30,6 +30,19 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.5 · ¡Ya tenemos web!", 0, nullptr, nullptr},
+    {nullptr, NI_WEB, "pokesurvivor3ds.com",
+     "La web oficial del juego: descarga el .cia y el .3dsx (con QR para FBI), mira el tráiler y las capturas y aprende a instalarlo."},
+    {nullptr, NI_COIN, "Apoya el proyecto",
+     "Si te gusta, considera donar en ko-fi.com/juanluismm521: ayuda a mantener los servidores (grupo por internet, sincronización) y las actualizaciones."},
+    {nullptr, NI_UP, "Elige tu segundo movimiento",
+     "Con la mejora «Repertorio» comprada, pulsa A sobre ella en Mejoras y elige con qué segundo ataque empiezas (o al azar)."},
+    {nullptr, NI_BOND, "Vínculos más claros",
+     "Al unir dos movimientos, el primero que eliges queda marcado. Púlsalo otra vez (o B) para quitar la marca."},
+    {nullptr, NI_FAST, "Arreglado el bajón del minuto 8",
+     "Tras unos minutos rompiendo rocas y abriendo cofres por el mapa, el juego se podía hundir (hasta 4 FPS). Arreglado, también en grupo."},
+    {nullptr, NI_HOME, "El .cia ya se actualiza bien",
+     "La versión nueva ya se instala bien al salir del juego (antes podía dar error al instalarla)."},
     {"Versión 0.3 · ¡Megaevoluciones!", 0, nullptr, nullptr},
     {nullptr, NI_STONE, "¡Llegan las megaevoluciones!",
      "91 megas, también las nuevas de Pokémon Leyendas Z-A: Mega-Raichu X e Y, Mega-Garchomp Z, Mega-Lucario Z, Mega-Absol Z, "
@@ -78,7 +91,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.3";
+constexpr const char* kNewsVersion = "0.5";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 
@@ -144,7 +157,7 @@ void App::bottom_news() {
         break;
       case NI_ITEM: r_->draw_item_icon(IT_LEFTOVERS, ix - 10, iy - 10 + bob, 20); break;
       default: {
-        static const char* const kIc[] = {"", "", "up", "star", "heart", "clock", "coin", ""};
+        static const char* const kIc[] = {"", "", "up", "star", "heart", "clock", "", "", "", "coin", "bond", "clock"};
         const int ic = r_->icons.find(kIc[n.icon]);
         if (n.icon == NI_HOME) {   // (la casa: un tejado y una puerta)
           C2D_DrawTriangle(ix - 11, iy - 1 + bob, C_GOLD, ix + 11, iy - 1 + bob, C_GOLD, ix, iy - 11 + bob, C_GOLD, 0);
@@ -153,6 +166,13 @@ void App::bottom_news() {
         } else if (n.icon == NI_CLOUD) {   // (una nube)
           for (float dx : {-6.0f, 0.0f, 6.0f}) C2D_DrawCircleSolid(ix + dx, iy + 2 - (dx == 0 ? 4 : 0) + bob, 0, dx == 0 ? 7 : 5.5f, C2D_Color32(154, 230, 255, 255));
           C2D_DrawRectSolid(ix - 6, iy + 2 + bob, 0, 12, 5.5f, C2D_Color32(154, 230, 255, 255));
+        } else if (n.icon == NI_WEB) {   // (un globo terráqueo)
+          C2D_DrawCircleSolid(ix, iy + bob, 0, 11, C2D_Color32(95, 200, 255, 255));
+          C2D_DrawCircleSolid(ix, iy + bob, 0, 9, C2D_Color32(40, 120, 200, 255));
+          C2D_DrawRectSolid(ix - 11, iy - 0.5f + bob, 0, 22, 1.5f, C2D_Color32(95, 200, 255, 255));
+          C2D_DrawRectSolid(ix - 0.75f, iy - 11 + bob, 0, 1.5f, 22, C2D_Color32(95, 200, 255, 255));
+          C2D_DrawRectSolid(ix - 9, iy - 5.5f + bob, 0, 18, 1, C2D_Color32(95, 200, 255, 255));
+          C2D_DrawRectSolid(ix - 9, iy + 4.5f + bob, 0, 18, 1, C2D_Color32(95, 200, 255, 255));
         } else if (ic >= 0) {
           C2D_DrawImageAt(r_->icons.image(ic), ix - 12, iy - 12 + bob, 0, nullptr, 1.5f, 1.5f);
         }
@@ -181,7 +201,7 @@ void App::top_news(float eye) {
   const float tw = r_->text_width("¡NOVEDADES!", 0.95f);
   for (int s = 0; s < 6; ++s) C2D_DrawRectSolid(200 - tw / 2 + tw * s / 6, ty + 32, 0, tw / 6, 3, rgb(kRainbow[(s + int(t_ * 5)) % 6]));
   char b[64];
-  std::snprintf(b, sizeof(b), "Versión %s · Megaevoluciones", kVersion);
+  std::snprintf(b, sizeof(b), "Versión %s · pokesurvivor3ds.com", kVersion);
   r_->text(b, 200, ty + 40, 0.42f, C_TEXT, 1);
   // Desfile de megas: la del centro con su aura y las de los lados en sombra.
   static int16_t list[16];

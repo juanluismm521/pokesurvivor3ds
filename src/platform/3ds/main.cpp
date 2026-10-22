@@ -62,6 +62,8 @@ struct Autotest {
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
   int level = 0, stone = 0;
   bool mark = false, peace = false, still = false;   // "… paz": sin enemigos
+  bool bond = false;          // "… vinculo": te da un vínculo y marca el primer movimiento (captura)
+  int rocks = 0;              // "… rocas=N": golpea una roca en N chunks del mapa (prueba de la caché del mundo)
   float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
   bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
@@ -110,8 +112,8 @@ void read_autotest(Autotest& a) {
   else {
     std::rewind(f);
     if (std::fscanf(f, "%f %d %d %f %23s", &a.seconds, &a.dex, &imm, &a.warp, a.move) >= 1) a.immortal = imm != 0;
-    char w[24];   // (para grabar: nivel=N megaen=S piedra=b)
-    while (std::fscanf(f, "%23s", w) == 1) {
+    // (para grabar: nivel=N megaen=S piedra=b…; también pueden ir en el hueco del movimiento)
+    auto flag = [&](const char* w) {
       if (!std::strncmp(w, "nivel=", 6)) a.level = std::atoi(w + 6);
       else if (!std::strncmp(w, "megaen=", 7)) a.mega_at = float(std::atof(w + 7));
       else if (!std::strcmp(w, "piedra=b")) a.stone = 1;
@@ -119,7 +121,14 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "paz")) a.peace = true;
       else if (!std::strcmp(w, "quieto")) a.still = true;
       else if (!std::strncmp(w, "megaespera=", 11)) a.mega_wait = float(std::atof(w + 11));
-    }
+      else if (!std::strncmp(w, "rocas=", 6)) a.rocks = std::atoi(w + 6);
+      else if (!std::strcmp(w, "vinculo")) a.bond = true;
+      else return false;
+      return true;
+    };
+    char w[24];
+    while (std::fscanf(f, "%23s", w) == 1) flag(w);
+    if (flag(a.move)) a.move[0] = 0;
   }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
@@ -419,9 +428,24 @@ int main(int argc, char** argv) {
     r.trailer_mark = at.mark;
     app.auto_peace = at.peace;
     app.auto_still = at.still;
+    app.auto_bond = at.bond;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
+    if (at.rocks > 0) {   // (como tras minutos rompiendo cosas por el mapa: chunks con props cambiados)
+      const float cw = kChunkTiles * kTS;
+      int done = 0;
+      for (int k = 0, x = 0, y = 0, dx = 0, dy = -1; done < at.rocks && k < 20000; ++k) {
+        bool hit = false;
+        g->world.for_props_in_rect(x * cw + 1, y * cw + 1, (x + 1) * cw - 1, (y + 1) * cw - 1, [&](Prop& p) {
+          if (!hit && p.destructible && p.hp >= p.max_hp) { p.hp = p.max_hp * 0.5f; hit = true; }
+        });
+        done += hit;
+        if (x == y || (x < 0 && x == -y) || (x > 0 && x == 1 - y)) { const int t = dx; dx = -dy; dy = t; }
+        x += dx; y += dy;
+      }
+      if (at.log) { std::fprintf(at.log, "rocas golpeadas en %d chunks\n", done); std::fflush(at.log); }
+    }
     if (at.log && at.move[0]) std::fprintf(at.log, "empieza con %s (%d): %s\n", at.move, move_index(at.move), kMoves[g->pl().moves[0].def].id);
     if (at.log) {
       std::fprintf(at.log, "precargados %d Pokémon · %lu KB de sprites · memoria libre %lu KB · partida lista en %lu ms\n", r.sprites.loaded(),
@@ -513,6 +537,25 @@ int main(int argc, char** argv) {
       if (at.on && g->time > 3) {
         at.fps_sum += r.fps; at.fps_n++;
         if (r.fps < at.min_fps) at.min_fps = r.fps;
+      }
+      // Jugando de verdad: si va lento (menos de 30 FPS), se apunta en la SD
+      // qué había en pantalla y en qué se fue el tiempo (rendimiento.log),
+      // como mucho una línea cada 5 s y 200 por sesión, para encontrar el porqué.
+      static int slow_lines = 0;
+      static double slow_last = -100;
+      if (!at.on && app.scene == SC_RUN && r.fps < 30 && slow_lines < 200 && g->time - slow_last >= 5) {
+        slow_last = g->time;
+        char lp[96];
+        std::snprintf(lp, sizeof(lp), "%s/rendimiento.log", kDir);
+        if (FILE* lf = std::fopen(lp, slow_lines == 0 ? "w" : "a")) {
+          if (slow_lines == 0) std::fprintf(lf, "PokéSurvivor 3DS %s · build %d · %s\n", kVersion, PS_BUILD, prog3ds::is_cia() ? ".cia" : ".3dsx");
+          std::fprintf(lf, "t=%.0f s · %d FPS · %s · grupo %d · enemigos %d · proyectiles %d · partículas %d · objetos %d · peligros %d · "
+                       "juego %d ms · suelo %d ms · dibujo %d ms · sprites %d · lineal %lu KB · heap %lu KB\n",
+                       g->time, r.fps, g->world.biome_name(), g->team_size(), g->enemies.n, g->projectiles.n, g->fx.parts.n, g->pickups.n,
+                       g->hazards.n, g_ms_logic, g_ms_ground, g_ms_draw, r.sprites.loaded(), (unsigned long)(linearSpaceFree() / 1024), heap_kb());
+          std::fclose(lf);
+          slow_lines++;
+        }
       }
     }
     if (at.on && at.log && g->time >= at.next_log) {

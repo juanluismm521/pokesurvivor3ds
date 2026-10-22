@@ -36,6 +36,7 @@ void World::reset(int32_t s) {
   last_ = nullptr;
   for (auto& b : broken_) b = kEmpty;
   nbroken_ = 0;
+  nmods_ = mod_next_ = 0;
   fade_t_ = -1;
   arena_ = ArenaInfo();
   biome_gen_++;
@@ -67,6 +68,7 @@ void World::set_arena(bool on, int32_t tx, int32_t ty, float r, int theme) {
         if (!c.valid) continue;
         if (std::fabs(float(c.cx * kChunkTiles + kChunkTiles / 2 - a.tx)) < a.r + 9 + kChunkTiles &&
             std::fabs(float(c.cy * kChunkTiles + kChunkTiles / 2 - a.ty)) < a.r + 9 + kChunkTiles) {
+          save_mods(c);
           c.valid = false;
           if (last_ == &c) last_ = nullptr;
         }
@@ -80,6 +82,7 @@ void World::set_arena(bool on, int32_t tx, int32_t ty, float r, int theme) {
     if (!c.valid) continue;
     if (std::fabs(float(c.cx * kChunkTiles + kChunkTiles / 2 - tx)) < R + kChunkTiles &&
         std::fabs(float(c.cy * kChunkTiles + kChunkTiles / 2 - ty)) < R + kChunkTiles) {
+      save_mods(c);
       c.valid = false;
       if (last_ == &c) last_ = nullptr;
     }
@@ -138,20 +141,14 @@ Chunk& World::chunk(int32_t cx, int32_t cy) {
   Chunk* victim = nullptr;
   for (auto& c : cache_)
     if (c.valid && c.cx == cx && c.cy == cy) { c.stamp = ++stamp_; last_ = &c; return c; }
-  // No está: se genera en el hueco libre o en el más viejo que no tenga cambios.
-  Chunk* oldest = nullptr;
+  // No está: se genera en el hueco libre o en el más viejo (sus cambios se
+  // guardan aparte y vuelven al generarlo otra vez: el estado del mundo no
+  // depende de qué chunks se han mirado, y cada consola del grupo dibuja una zona).
   for (auto& c : cache_) {
     if (!c.valid) { victim = &c; break; }
-    if (!oldest || c.stamp < oldest->stamp) oldest = &c;
-    // Un chunk con algo cambiado (roca tocada, altar usado, manantial gastado,
-    // cofre a medio abrir) no se descarta: al regenerarlo volvería como nuevo.
-    // Así el estado del mundo no depende de qué chunks se han mirado (cada
-    // consola del cooperativo dibuja una zona distinta).
-    if (victim && c.stamp >= victim->stamp) continue;
-    if (chunk_modified(c)) continue;
-    victim = &c;
+    if (!victim || c.stamp < victim->stamp) victim = &c;
   }
-  if (!victim) victim = oldest;   // (todos cambiados: no pasa con 160 chunks en caché)
+  if (victim->valid) save_mods(*victim);
   Chunk& c = *victim;
   c.valid = true;
   c.cx = cx; c.cy = cy;
@@ -165,15 +162,44 @@ Chunk& World::chunk(int32_t cx, int32_t cy) {
   generated_++;
   last_ = &c;
   place_props(c);
+  apply_mods(c);
   return c;
 }
 
-bool World::chunk_modified(const Chunk& c) {
+bool World::prop_modified(const Prop& p) {
+  return !p.gone && (p.used || p.charge < 1 || p.open > 0 || (p.destructible && p.hp < p.max_hp));
+}
+
+static inline bool in_chunk(int32_t tx, int32_t ty, int32_t cx, int32_t cy) {
+  return tx >= cx * kChunkTiles && tx < (cx + 1) * kChunkTiles && ty >= cy * kChunkTiles && ty < (cy + 1) * kChunkTiles;
+}
+
+void World::save_mods(const Chunk& c) {
+  // Fuera lo apuntado de este chunk (pudo recuperarse) y se apunta lo de ahora.
+  for (int i = 0; i < nmods_; ++i)
+    if (mods_[i].type >= 0 && in_chunk(mods_[i].tx, mods_[i].ty, c.cx, c.cy)) mods_[i].type = -1;
   for (int i = 0; i < c.nprops; ++i) {
     const Prop& p = c.props[i];
-    if (p.used || p.charge < 1 || p.open > 0 || (p.destructible && p.hp < p.max_hp)) return true;
+    if (!prop_modified(p)) continue;
+    int k = -1;
+    for (int j = 0; j < nmods_ && k < 0; ++j) if (mods_[j].type < 0) k = j;   // (un hueco libre)
+    if (k < 0 && nmods_ < kModCap) k = nmods_++;
+    if (k < 0) { k = mod_next_; mod_next_ = (mod_next_ + 1) % kModCap; }
+    mods_[k] = PropMod{p.tx, p.ty, p.type, p.used, p.hp, p.charge, p.open};
   }
-  return false;
+}
+
+void World::apply_mods(Chunk& c) {
+  for (int i = 0; i < nmods_; ++i) {
+    const PropMod& m = mods_[i];
+    if (m.type < 0 || !in_chunk(m.tx, m.ty, c.cx, c.cy)) continue;
+    for (int k = 0; k < c.nprops; ++k) {
+      Prop& p = c.props[k];
+      if (p.tx != m.tx || p.ty != m.ty || p.type != m.type || p.gone) continue;
+      p.used = m.used; p.hp = m.hp; p.charge = m.charge; p.open = m.open;
+      break;
+    }
+  }
 }
 
 uint8_t World::terrain_at(int32_t tx, int32_t ty) {

@@ -449,6 +449,17 @@ void App::in_run(const UiIn& in) {
       if (auto_mega_t0_ < 0 || float(g.time) - auto_mega_t0_ < 3) { gi.ax = gi.ay = 0; still_now_ = true; }
       else still_now_ = false;
     }
+    if (auto_bond && !coop_) {   // (captura del vínculo con el primero ya elegido)
+      Player& p = g.players[g.local];
+      if (g.time > 4 && !auto_bond_given_ && g.state == ST_PLAYING) { auto_bond_given_ = true; p.bonds = 1; }
+      if (g.state == ST_CHOICE && p.choice == CH_BOND) {
+        int8_t loose[4]; int nl, grow;
+        player_bond_options(p, loose, nl, grow);
+        gi = Input();
+        r_->bond_first = nl > 0 ? loose[0] : -1;
+        r_->card_cursor = nl > 1 ? 1 : 0;
+      }
+    }
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
     // Con un movimiento elegido: pausa 6 s (de verdad) para ver el resumen.
     if (auto_move_ >= 0 && !auto_paused_ && g.state == ST_PLAYING && g.time > 95) { gi.cmd = CMD_PAUSE; auto_paused_ = true; auto_pause_ = float(osGetTime() % 100000000); }
@@ -522,9 +533,14 @@ void App::in_run(const UiIn& in) {
         const int pick = loose[clamp(r_->card_cursor, 0, nl - 1)];
         if (mode == 1) { gi.cmd = CMD_BOND; gi.arg = 1; gi.moves[0] = int8_t(pick); bond_first_ = -1; }
         else if (bond_first_ < 0) bond_first_ = pick;
-        else if (pick != bond_first_) { gi.cmd = CMD_BOND; gi.arg = 2; gi.moves[0] = int8_t(bond_first_); gi.moves[1] = int8_t(pick); bond_first_ = -1; }
-      }
+        else if (pick == bond_first_) bond_first_ = -1;   // (otra vez en el marcado: se quita)
+        else { gi.cmd = CMD_BOND; gi.arg = 2; gi.moves[0] = int8_t(bond_first_); gi.moves[1] = int8_t(pick); bond_first_ = -1; }
+      } else if (in.down & KEY_B) bond_first_ = -1;   // (B: quitar el primero)
     }
+    bool still = false;   // (si ese movimiento ya no está suelto, fuera la marca)
+    for (int i = 0; i < nl; ++i) if (loose[i] == bond_first_) still = true;
+    if (!still) bond_first_ = -1;
+    r_->bond_first = bond_first_;
   } else if (g.state == ST_OVER) {
     paused_ = false;
     if (g.dirty) save_now();

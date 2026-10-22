@@ -178,35 +178,78 @@ bool start(int job) {
   return true;
 }
 
+// Una pasada de instalación: copia el .cia al servicio del sistema (AM).
+// Devuelve 0 si va bien o el código del sistema (y en qué paso).
+Result install_pass(FILE* f, long total, void (*show)(const char*, int), const char*& step) {
+  Handle h;
+  step = "empezar";
+  Result r = AM_StartCiaInstall(MEDIATYPE_SD, &h);
+  if (R_FAILED(r)) return r;
+  static uint8_t buf[128 * 1024];
+  std::fseek(f, 0, SEEK_SET);
+  u64 off = 0;
+  size_t n;
+  int last = -1;
+  step = "copiar";
+  while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) {
+    u32 w = 0;
+    r = FSFILE_Write(h, &w, off, buf, u32(n), FS_WRITE_FLUSH);
+    if (R_SUCCEEDED(r) && w != n) r = -1;
+    if (R_FAILED(r)) { AM_CancelCIAInstall(h); return r; }
+    off += n;
+    const int p = int(off * 100 / u64(total > 0 ? total : 1));
+    if (show && p != last) { show("Instalando la versión nueva…", p); last = p; }
+  }
+  if (long(off) != total) { AM_CancelCIAInstall(h); step = "leer el archivo"; return -1; }
+  step = "terminar";
+  return AM_FinishCiaInstall(h);
+}
+
 // Instala un .cia de la SD con el servicio del sistema (como FBI).
+// En la consola, el sistema no deja instalar encima una versión del título
+// igual o más vieja (antes de la build 84 muchas builds compartían versión):
+// entonces se borra antes la instalada, como hace Universal-Updater consigo
+// mismo. Si la primera pasada falla por otra cosa, también se reintenta así.
 bool install_cia(const std::string& file, void (*show)(const char*, int), std::string& err) {
   FILE* f = std::fopen(file.c_str(), "rb");
   if (!f) { err = "no se encuentra el archivo"; return false; }
   std::fseek(f, 0, SEEK_END);
   const long total = std::ftell(f);
-  std::fseek(f, 0, SEEK_SET);
   if (R_FAILED(amInit())) { std::fclose(f); err = "sin permiso para instalar"; return false; }
-  Handle h;
-  Result r = AM_StartCiaInstall(MEDIATYPE_SD, &h);
-  bool ok = R_SUCCEEDED(r);
-  static uint8_t buf[128 * 1024];
-  u64 off = 0;
-  size_t n;
-  int last = -1;
-  while (ok && (n = std::fread(buf, 1, sizeof(buf), f)) > 0) {
-    u32 w = 0;
-    r = FSFILE_Write(h, &w, off, buf, u32(n), 0);
-    ok = R_SUCCEEDED(r) && w == n;
-    off += n;
-    const int p = int(off * 100 / u64(total > 0 ? total : 1));
-    if (show && p != last) { show("Instalando la versión nueva…", p); last = p; }
+  // Qué título y versión trae el .cia, y cuál hay instalada.
+  AM_TitleEntry nueva{}, puesta{};
+  bool sabe = false, hay = false;
+  Handle fh;
+  const std::string sd = file.compare(0, 5, "sdmc:") == 0 ? file.substr(5) : file;
+  if (R_SUCCEEDED(FSUSER_OpenFileDirectly(&fh, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""), fsMakePath(PATH_ASCII, sd.c_str()), FS_OPEN_READ, 0))) {
+    sabe = R_SUCCEEDED(AM_GetCiaFileInfo(MEDIATYPE_SD, &nueva, fh));
+    FSFILE_Close(fh);
+  }
+  if (sabe) hay = R_SUCCEEDED(AM_GetTitleInfo(MEDIATYPE_SD, 1, &nueva.titleID, &puesta));
+  const char* step = "";
+  Result r = 0;
+  bool borrada = false;
+  if (sabe && hay && nueva.version <= puesta.version) {   // (volver atrás, o la misma versión)
+    borrada = R_SUCCEEDED(AM_DeleteTitle(MEDIATYPE_SD, nueva.titleID));
+  }
+  r = install_pass(f, total, show, step);
+  if (R_FAILED(r) && !borrada && sabe && hay) {
+    const Result r1 = r;
+    const char* s1 = step;
+    if (R_SUCCEEDED(AM_DeleteTitle(MEDIATYPE_SD, nueva.titleID))) { borrada = true; r = install_pass(f, total, show, step); }
+    if (R_FAILED(r)) {
+      char b[120];
+      std::snprintf(b, sizeof(b), "el sistema no la ha aceptado (%s 0x%08lX; otra vez: %s 0x%08lX)", s1, (unsigned long)r1, step, (unsigned long)r);
+      err = b;
+    }
+  } else if (R_FAILED(r)) {
+    char b[96];
+    std::snprintf(b, sizeof(b), "el sistema no la ha aceptado (%s 0x%08lX)", step, (unsigned long)r);
+    err = b;
   }
   std::fclose(f);
-  if (ok) ok = R_SUCCEEDED(AM_FinishCiaInstall(h));
-  else AM_CancelCIAInstall(h);
   amExit();
-  if (!ok) { char b[48]; std::snprintf(b, sizeof(b), "el sistema no la ha aceptado (0x%08lX)", (unsigned long)r); err = b; }
-  return ok;
+  return R_SUCCEEDED(r);
 }
 }  // namespace
 

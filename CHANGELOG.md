@@ -5,6 +5,32 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.5.1 — 2026-10-22
+- **Arreglado el bajón a 4 FPS hacia el minuto 8** (también en grupo). El mapa
+  guarda en memoria 160 trozos y no podía soltar los que tenían algo cambiado
+  (una roca golpeada, un cofre o un altar usado). Tras unos minutos rompiendo
+  cosas por el mapa se llenaba de ellos y el juego regeneraba el terreno sin
+  parar en cada fotograma. Ahora esos cambios se guardan aparte y cualquier
+  trozo se puede soltar. Medido en el emulador en la misma situación: de 1-2 FPS
+  a 60. De paso, en grupo las consolas ya no pueden acabar con el mapa distinto
+  por mirar zonas diferentes.
+- **El .cia se actualiza bien.** El número de versión que lleva el .cia por
+  dentro (el que mira la consola al instalar) salía mal: la 0.4.3 llevaba un «3»
+  y la 0.5.0 un «0». La consola tomaba la 0.5.0 por una versión más vieja y no
+  la dejaba instalar. Ahora el número sale de la build y siempre es mayor que el de la
+  anterior, así que esta actualización ya se instala aunque la haga
+  tu versión de antes. Además, al volver a una versión anterior se borra antes la
+  instalada. Si la instalación falla, se reintenta así una vez y el error dice en
+  qué paso y con qué código (también en `programa.log`).
+- **Vínculo:** al unir dos movimientos, el primero que eliges queda marcado
+  («1.º ELEGIDO»). Púlsalo otra vez o pulsa B para quitar la marca.
+- **Novedades** al día: la web oficial **pokesurvivor3ds.com**, cómo apoyar el
+  proyecto en Ko-fi para mantener los servidores y las actualizaciones, y lo nuevo
+  de la 0.5.
+- Si la partida va lenta (menos de 30 FPS), el juego apunta en la SD
+  (`rendimiento.log`) qué había en pantalla y en qué se fue el tiempo, para
+  encontrar el porqué.
+
 ## 0.5.0 — 2026-10-22
 - **Elige tu segundo movimiento**: con la mejora «Repertorio» comprada, en Mejoras
   pulsa A sobre ella y elige con qué segundo ataque empiezas (o «Al azar», como

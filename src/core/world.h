@@ -141,7 +141,9 @@ class World {
   double arena_dist(int32_t tx, int32_t ty) const;
   float arena_outer() const { return arena_.on ? arena_.r + 7 : 0; }
   void make_prop(Chunk& c, int type, int32_t tx, int32_t ty, int kind = 0);
-  static bool chunk_modified(const Chunk& c);
+  static bool prop_modified(const Prop& p);
+  void save_mods(const Chunk& c);    // (antes de descartar un chunk)
+  void apply_mods(Chunk& c);         // (al generarlo otra vez)
   void destroy_prop(Prop* p);
   bool is_broken(int32_t tx, int32_t ty) const;
   void mark_broken(int32_t tx, int32_t ty);
@@ -162,6 +164,16 @@ class World {
   static constexpr int kBrokenCap = 1 << 15;
   uint64_t broken_[kBrokenCap];
   int nbroken_ = 0;
+  // Props cambiados de los chunks que han salido de la caché (roca golpeada,
+  // altar usado, manantial gastado, cofre a medio abrir): al volver a
+  // generarse el chunk, se les devuelve su estado. Antes esos chunks no se
+  // podían descartar y, tras unos minutos rompiendo cosas por el mapa, la
+  // caché se llenaba de ellos y el juego regeneraba chunks sin parar en cada
+  // fotograma (en la consola, de 60 a 4 FPS hacia el minuto 8).
+  struct PropMod { int32_t tx, ty; int8_t type; bool used; float hp, charge, open; };
+  static constexpr int kModCap = 4096;
+  PropMod mods_[kModCap];
+  int nmods_ = 0, mod_next_ = 0;   // (lleno: se pisa el más antiguo, igual en todas las consolas)
 };
 
 }  // namespace ps
