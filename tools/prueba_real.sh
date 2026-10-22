@@ -50,7 +50,7 @@ if grep -q "ok uid=" "$T/qr.log"; then echo "  ✔ QR (vincular real): $(tail -1
 else echo "  ✘ QR (vincular real): $(cat "$T/qr.log")"; fallos=$((fallos+1)); fi
 
 # 3. el servidor online responde
-if python3 /root/docker/pokesurvivor-relay/check.py pokesurvivor3ds.duckdns.org > "$T/relay.log" 2>&1; then echo "  ✔ servidor online: responde"
+if python3 /root/docker/pokesurvivor/servidor/check.py pokesurvivor3ds.duckdns.org > "$T/relay.log" 2>&1; then echo "  ✔ servidor online: responde"
 else echo "  ✘ servidor online: $(tail -2 "$T/relay.log")"; fallos=$((fallos+1)); fi
 
 # 4. la consola en Azahar, contra la nube real

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # fallo.sh — traduce un fallo.log de la consola (sdmc:/3ds/pokesurvivor-3ds/
 # fallo.log o fallo_anterior.log) a funciones y líneas del código, con el .elf
-# de esa build (el publicador los guarda en ~/pokesurvivor-elfs/bN.elf).
+# de esa build (el publicador los guarda en /root/docker/pokesurvivor/elfs/bN.elf).
 #   tools/fallo.sh fallo.log            (o pegando el texto: tools/fallo.sh -)
 #   tools/fallo.sh fallo.log mi.elf     (con otro .elf)
 set -eu

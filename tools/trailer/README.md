@@ -1,6 +1,6 @@
 # Tráiler (TikTok, 1080x1920, 60 fps, ~60 s)
 
-Cómo se hizo `PokeSurvivor3DS_trailer.mp4` (carpeta de trabajo: `/root/trailer`, fuera del repo).
+Cómo se hizo `PokeSurvivor3DS_trailer.mp4` (carpeta de trabajo: `/root/docker/pokesurvivor/trailer`, fuera del repo).
 
 1. **Grabar el juego** en Azahar con `grabar.sh NOMBRE "autotest" MAX_SEG [rom]` (RGB, 60 fps,
    casi sin pérdidas: en `cfg/azahar-emu/qt-config.ini` de la carpeta de trabajo, `[VideoDumping]`

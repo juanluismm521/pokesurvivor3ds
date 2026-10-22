@@ -16,7 +16,7 @@
 # de main: aunque algo salga mal, main no se toca hasta que pasa todo.
 #
 # Cron (una vez al día, a las 6:30 UTC):
-#   30 6 * * * /root/pokesurvivor-3ds/tools/web/auto.sh >> /var/log/pokesurvivor-web.log 2>&1
+#   30 6 * * * /root/docker/pokesurvivor/juego/tools/web/auto.sh >> /var/log/pokesurvivor-web.log 2>&1
 set -uo pipefail
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 CONF=$REPO/tools/web/auto.conf

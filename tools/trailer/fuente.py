@@ -2,7 +2,7 @@
 import subprocess, numpy as np
 from PIL import Image
 
-RAW = '/root/trailer/raw/'
+RAW = '/root/docker/pokesurvivor/trailer/raw/'
 _cache = {}
 
 def clip(name, start, dur, fps=60, speed=1.0):

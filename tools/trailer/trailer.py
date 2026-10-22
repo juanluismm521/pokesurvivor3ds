@@ -11,7 +11,7 @@ from consola import consola
 from tiempos import *
 
 W, H, FPS = 1080, 1920, 60
-OUT = '/root/trailer/'
+OUT = '/root/docker/pokesurvivor/trailer/'
 
 # ---------------------------------------------------------------- utilidades
 _txt = {}
@@ -479,7 +479,7 @@ _logo3 = None
 def logo3ds(width):
     """El logo original de 3DS (el «3» rojo y «DS» en blanco, para fondo oscuro)."""
     global _logo3
-    if _logo3 is None: _logo3 = Image.open('/root/trailer/real/logo_3ds_blanco.png').convert('RGBA')
+    if _logo3 is None: _logo3 = Image.open('/root/docker/pokesurvivor/trailer/real/logo_3ds_blanco.png').convert('RGBA')
     k = width / _logo3.width
     return _logo3.resize((int(_logo3.width * k), int(_logo3.height * k)), Image.LANCZOS)
 

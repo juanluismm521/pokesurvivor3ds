@@ -19,9 +19,9 @@ privada está en /root/.config/pokesurvivor/firma.key (NUNCA en el repo).
 import datetime, json, os, shutil, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIR = os.environ.get('PS_PROGRAMA_DIR', '/root/docker/pokesurvivor-relay/datos/www/datos/programa')
+DIR = os.environ.get('PS_PROGRAMA_DIR', '/root/docker/pokesurvivor/servidor/datos/www/datos/programa')
 KEY = os.environ.get('PS_FIRMA', '/root/.config/pokesurvivor/firma.key')
-CLONE = os.environ.get('PS_CLON', '/root/pokesurvivor-publicar')   # copia sólo para publicar (modo auto)
+CLONE = os.environ.get('PS_CLON', '/root/docker/pokesurvivor/publicar')   # copia sólo para publicar (modo auto)
 KEEP = int(os.environ.get('PS_GUARDAR', '6'))                      # builds que se guardan en el servidor
 FIRMAR = os.path.join(ROOT, 'tools', 'cache', 'firmar')
 
@@ -82,6 +82,13 @@ def publicar_entrada(e, repo=ROOT):
     hist.append({k: v for k, v in e.items()})
     escribir('historial.json', hist)
     escribir('ultimo.json', nuevo)
+    # Enlaces fijos a la actual (la web de descarga y el QR de FBI apuntan aquí).
+    for ext in ('cia', '3dsx'):
+        if ext in e:
+            tmp = os.path.join(DIR, f'.ultimo.{ext}.tmp')
+            if os.path.lexists(tmp): os.remove(tmp)
+            os.symlink(e[ext]['url'], tmp)
+            os.replace(tmp, os.path.join(DIR, f'ultimo.{ext}'))
     # Fuera las carpetas viejas (nunca la actual ni la anterior).
     vivas = {f"b{e['build']}"} | ({f"b{nuevo['anterior']['build']}"} if nuevo.get('anterior') else set())
     builds = sorted({h['build'] for h in hist}, reverse=True)
@@ -151,7 +158,7 @@ def publicar(repo=ROOT, notas=''):
                   'huella': out(f'{firmar_bin(repo)} huella {src}')}
     # El .elf de cada build (no se publica): con él, las direcciones de un
     # fallo.log de la consola se traducen a líneas del código (tools/fallo.sh).
-    elfs = os.path.expanduser('~/pokesurvivor-elfs')
+    elfs = '/root/docker/pokesurvivor/elfs'
     os.makedirs(elfs, exist_ok=True)
     shutil.copyfile(os.path.join(repo, 'pokesurvivor-3ds.elf'), os.path.join(elfs, f'b{build}.elf'))
     publicar_entrada(e, repo)

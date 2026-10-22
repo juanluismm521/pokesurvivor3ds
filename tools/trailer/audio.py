@@ -2,7 +2,7 @@
 import subprocess, numpy as np
 from tiempos import *
 SR = 48000
-SND = '/root/pokesurvivor-3ds/romfs/snd/'
+SND = '/root/docker/pokesurvivor/juego/romfs/snd/'
 
 def load(name):
     p = subprocess.run(['ffmpeg', '-v', 'error', '-i', SND + 'music_%s.ogg' % name, '-f', 'f32le', '-ac', '2', '-ar', str(SR), '-'], capture_output=True)
@@ -81,7 +81,7 @@ def drone(dur, vol=0.35):
     s = s * e * vol
     return np.stack([s, s], 1)
 
-def build(path='/root/trailer/banda.wav'):
+def build(path='/root/docker/pokesurvivor/trailer/banda.wav'):
     N = int(T_TOTAL * SR) + SR
     mix = np.zeros((N, 2))
     def add(x, t, g=1.0):

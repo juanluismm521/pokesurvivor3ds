@@ -5,7 +5,7 @@
 MODO=informe
 
 # Dónde se hace todo (un worktree aparte; main no se toca hasta el final).
-WORKTREE=/root/pokesurvivor-3ds-auto
+WORKTREE=/root/docker/pokesurvivor/worktrees/auto
 
 # Comando para avisar: recibe el texto y, si hay, un archivo (el informe).
 # Por ejemplo, un script propio que mande un correo o un mensaje.
