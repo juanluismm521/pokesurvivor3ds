@@ -100,14 +100,20 @@ def build(path='/root/trailer/banda.wav'):
     add(braam(2.6), 3 * B_J, 0.9)
     add(riser(B_J * 1.0, 0.6), 3 * B_J)
     add(whoosh(0.5, 0.35), T_DROP - 0.5)
-    # --- la Grieta (16 compases): megas ---
+    # --- la Grieta (18 compases, la pista da la vuelta): megas ---
     seg(rift, 0, 16 * B_R, T_DROP, 1.3)
+    seg(rift, 0, (N_R - 16) * B_R, T_DROP + 16 * B_R, 1.3)
     add(boom(2.4, 140, 30), T_DROP, 1.0)
     add(whoosh(0.7, 0.4), r(3) - 0.7); add(boom(2.0, 130, 30), r(3), 0.9); add(chime(1.6, 660, 0.4), r(3))
-    for b in (5, 6, 8, 10):     # cada megaevolución
-        add(chime(1.4, 880, 0.35), r(b) + (0.0 if b != 5 else 0.0)); add(boom(1.4, 160, 40), r(b), 0.6)
-    add(whoosh(0.5, 0.3), r(12) - 0.5); add(boom(1.4, 150, 40), r(12), 0.5)
-    for k in range(3): add(whoosh(0.25, 0.25, False), r(14) + k * B_R * 0.5)
+    add(chime(0.6, 1320, 0.25), r(5))                       # «Y pulsa»
+    add(whoosh(0.5, 0.4), r(6) - 0.5); add(boom(2.6, 150, 28), r(6), 1.0); add(chime(2.2, 880, 0.45), r(6))   # ¡se pulsa la Y!
+    add(chime(1.2, 1100, 0.3), r(6) + 1.4)                  # su nombre
+    for b in (8, 10):                                       # Charizard X y Darkrai
+        add(whoosh(0.4, 0.3), r(b) - 0.4); add(boom(1.6, 160, 40), r(b) + 0.35, 0.7); add(chime(1.4, 880, 0.35), r(b) + 0.35)
+    add(whoosh(0.5, 0.3), r(12) - 0.5); add(boom(1.4, 150, 40), r(12), 0.6)
+    for k in range(12): add(chime(0.25, 1200 + 60 * k, 0.08), r(12) + 0.08 * k)   # las casillas
+    add(whoosh(0.4, 0.3), r(14) - 0.4); add(boom(1.2, 160, 45), r(14), 0.5)
+    for k in range(4): add(whoosh(0.25, 0.25, False), r(16) + k * B_R * 0.5)
     # --- la Sentencia ---
     add(whoosh(0.9, 0.5), T_SENT - 0.9)
     add(boom(3.0, 100, 26), T_SENT, 1.2); add(braam(3.2, 1.0), T_SENT + B_J)
@@ -116,14 +122,17 @@ def build(path='/root/trailer/banda.wav'):
     seg(boss, 0, 8 * B_B, T_FEAT, 1.25)
     for b in (0, 2, 4, 6):
         add(whoosh(0.45, 0.35), f(b) - 0.45); add(boom(1.2, 160, 45), f(b), 0.6)
-    # --- final (Grieta, compases 8-13) y golpe ---
+    # --- final (Grieta, compases 8-13), golpe y cola con los créditos ---
     add(boom(2.4, 140, 30), T_FIN, 1.0)
     seg(rift, 8 * B_R, 14 * B_R, T_FIN, 1.3, 0.02)
     add(riser(B_R * 2, 0.45), T_GOLPE - 2 * B_R)
-    add(boom(3.5, 120, 25), T_GOLPE, 1.3); add(braam(3.0, 0.8), T_GOLPE); add(chime(2.0, 523, 0.4), T_GOLPE + 0.05)
+    add(boom(3.5, 120, 25), T_GOLPE, 1.3); add(braam(3.6, 0.8), T_GOLPE); add(chime(2.4, 523, 0.4), T_GOLPE + 0.05)
+    cola = lowpass(rift[:int(4 * B_R * SR)], 900)
+    cola *= np.linspace(0.55, 0.0, len(cola))[:, None]
+    add(cola, T_GOLPE + 0.4, 1.0)
     # --- máster ---
     mix = mix[:int(T_TOTAL * SR)]
-    fade = int(0.6 * SR); mix[-fade:] *= np.linspace(1, 0, fade)[:, None]
+    fade = int(0.9 * SR); mix[-fade:] *= np.linspace(1, 0, fade)[:, None]
     mix = np.tanh(mix * 1.1) / np.tanh(1.1)
     mix /= max(1e-6, np.abs(mix).max()) / 0.95
     import wave

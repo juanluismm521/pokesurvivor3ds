@@ -434,8 +434,13 @@ void App::in_run(const UiIn& in) {
       Player& p = g.players[g.local];
       while (p.level < auto_level) g.pending_levels += player_gain_xp(p, (p.xp_next - p.xp) / std::fmax(0.01f, p.xp_mul) + 0.01f);
     }
-    if (auto_mega && g.time - auto_warp_ > auto_mega_at && g.state == ST_PLAYING && g.players[g.local].item < 0)
+    if (auto_mega && g.time - auto_warp_ > auto_mega_at && g.state == ST_PLAYING && g.players[g.local].item < 0) {
       player_equip(g, g.players[g.local], auto_stone ? IT_MEGA_B : IT_MEGA_A);
+      auto_stone_t_ = float(g.time);
+    }
+    // (para grabar) con la piedra puesta, espera antes de pulsar Y: se ve el aviso abajo
+    if (gi.cmd == CMD_MEGA && auto_mega_wait > 0 && float(g.time) - auto_stone_t_ < auto_mega_wait) gi.cmd = CMD_NONE;
+    if (auto_peace && !coop_) g.enemies.clear();   // (para grabar) tu Pokémon solo, sin enemigos
     if (g.time > 30 && g.time < 30.05) r_->legend_t = 5;   // (para ver la leyenda en las capturas)
     // Con un movimiento elegido: pausa 6 s (de verdad) para ver el resumen.
     if (auto_move_ >= 0 && !auto_paused_ && g.state == ST_PLAYING && g.time > 95) { gi.cmd = CMD_PAUSE; auto_paused_ = true; auto_pause_ = float(osGetTime() % 100000000); }

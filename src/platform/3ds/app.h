@@ -210,7 +210,8 @@ class App {
   float news_t_ = 0;   // ya se ha mirado si hay novedades sin ver     // ya se ha visto el aviso del fallo de la vez anterior
   int auto_mega_up_ = 0;
   float auto_warp_ = 0;         // (dónde empezó el reloj del autotest)
-  bool auto_leveled_ = false;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
+  bool auto_leveled_ = false;
+  float auto_stone_t_ = 0;        // autotest: nivel de la mejora «Megapiedra» (para ver megas)
  public:
   bool auto_mega = false;       // autotest "… mega": el bot con su megapiedra
   bool auto_shiny = false;      // autotest "… megashiny": y en shiny
@@ -218,7 +219,9 @@ class App {
   int auto_level = 0;           // sube a este nivel al empezar (el bot elige las cartas)
   float auto_mega_at = 5;       // segundos de partida (desde el principio, aunque se adelante el reloj) hasta darle la piedra
   int auto_stone = 0;
-  int auto_coop_time = 0;       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
+  int auto_coop_time = 0;
+  float auto_mega_wait = 0;     // "… megaespera=S": con la piedra puesta, espera S s antes de pulsar Y
+  bool auto_peace = false;      // "… paz": sin enemigos (para ver la megaevolución)       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
  private:
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)
   bool cloud_asked_ = false;     // ya se ha preguntado al abrir

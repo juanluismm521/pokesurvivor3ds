@@ -149,7 +149,8 @@ def chip(text, size=44, bg=(255, 203, 5), fg=(20, 30, 80)):
 
 # ---------------------------------------------------------------- escenas
 # Momentos de las grabaciones (segundos del vídeo): MEGA = el destello de la transformación.
-MEGA = {'gengar': 12.85, 'charx': 12.817, 'darkrai': 12.85, 'absolz': 12.85}
+MEGA = {'gengar': 12.85, 'charx': 12.817, 'darkrai': 12.85, 'absolz': 12.85,
+        'gengar_paz': 12.85, 'charx_paz': 11.90, 'darkrai_paz': 11.95}   # (las «_paz»: sin enemigos)
 CX, CY = 200, 132      # dónde suele estar tu Pokémon en la pantalla de arriba
 
 def track(name, st, dur, lt, cx=CX, cy=CY):
@@ -169,18 +170,24 @@ def game_wide(name, st, lt, cw=300, zoom0=1.0, zoom1=1.0, dur=1.0, cx=None, cy=N
     return zoom(top(f), cx, cy, w, h, out[0], out[1]), f
 
 def s_intro(c, t):
-    lines = [('SOBREVIVE', 'horda', 6.0), ('A HORDAS DE POKÉMON', 'horda', 20.0), ('EN TU NINTENDO 3DS', 'gengar', 18.0)]
+    lines = [('SOBREVIVE', 'horda', 6.0), ('DERROTA A ARCEUS', 'sentencia', 33.45), ('TODOS LOS POKÉMON DISPONIBLES', 'horda', 20.0)]
     k = int(t // B_J)
     if k < 3:
         lt = t - k * B_J
         txt, name, st = lines[k]
-        im, f = game_wide(name, st, lt, 230, 1.0, 1.12, B_J, out=(1080, 1240))
+        fr = clip(name, st, B_J + 0.2); f = frame(fr, lt)
+        z = 1 + 0.06 * ease_io(lt / B_J)
+        im = zoom(top(f), 200, 120, 400 / z, 240 / z, 1040, 624)
+        ib = zoom(bottom(f), 160, 120, 320, 240, 832, 624)
         c.paste((4, 6, 14), (0, 0, W, H))
-        im = ImageEnhance.Color(im).enhance(0.55); im = ImageEnhance.Brightness(im).enhance(0.75 * clamp(lt / 0.25))
+        br = 0.8 * clamp(lt / 0.25)
+        im = ImageEnhance.Brightness(ImageEnhance.Color(im).enhance(0.7)).enhance(br)
+        ib = ImageEnhance.Brightness(ib).enhance(br)
         dx, dy = shake(t, k * B_J, 10, 0.25)
-        panel(c, im, W / 2 + dx, 960 + dy, border=0)
-        size = 150 if k == 0 else 92
-        slam(c, T('cine', txt, size, glow=(90, 120, 255)), W / 2, 960 + (0 if k == 0 else 0), lt, 0.18, 1.35, B_J - 0.2)
+        panel(c, im, W / 2 + dx, 640 + dy, border=0)
+        panel(c, ib, W / 2 + dx, 1300 + dy, border=0)
+        size = 150 if k == 0 else (110 if k == 1 else 76)
+        slam(c, T('cine', txt, size, glow=(90, 120, 255)), W / 2, 640, lt, 0.18, 1.35, B_J - 0.2)
         flash(c, 0.6 * clamp(1 - lt / 0.12))
     else:   # el logo
         lt = t - 3 * B_J
@@ -191,7 +198,7 @@ def s_intro(c, t):
         logo = T('poke', 'PokéSurvivor', 138, arco=0.12)
         s = 1.0 + 0.04 * lt
         slam(c, logo, W / 2, 860, lt, 0.25, 1.8)
-        put(c, chip('3DS', 70, (230, 40, 60), (255, 255, 255)), W / 2, 1060, (1 + 0.04 * lt) * ease_out(clamp((lt - 0.25) / 0.2)))
+        put(c, logo3ds(360), W / 2, 1080, (1 + 0.04 * lt) * ease_out(clamp((lt - 0.25) / 0.2)))
         flash(c, 0.9 * clamp(1 - lt / 0.25))
         if lt > B_J - 0.25: flash(c, clamp((lt - (B_J - 0.25)) / 0.25))
 
@@ -229,7 +236,7 @@ def s_mega_title(c, t):
     im = zoom(top(f), 200, 158, 300, 160, 1000, 533)
     if lt < B_R:   # «Y ahora...»
         c.paste((4, 6, 14), (0, 0, W, H))
-        put(c, T('cine', 'Y AHORA...', 120, glow=(150, 90, 255)), W / 2, 940, 1 + 0.05 * lt, clamp(lt / 0.3) * clamp((B_R - lt) / 0.15))
+        put(c, T('cine', 'ADEMÁS...', 130, glow=(150, 90, 255)), W / 2, 940, 1 + 0.05 * lt, clamp(lt / 0.3) * clamp((B_R - lt) / 0.15))
         return c
     l2 = lt - B_R
     panel(c, im, W / 2, 1180, border=6, glow=(196, 123, 255))
@@ -248,19 +255,22 @@ def y_button(c, cx, cy, press):
     put(c, T('cine', 'Y', 96), cx, cy + p - 4)
 
 MEGA_INFO = {'gengar': ('Mega-Gengar', (123, 98, 163), None), 'charx': ('Mega-Charizard X', (40, 90, 220), None),
-             'darkrai': ('Mega-Darkrai', (60, 50, 90), 'NUEVA · LEYENDAS Z-A'), 'absolz': ('Mega-Absol Z', (90, 70, 120), 'NUEVA · LEYENDAS Z-A')}
+             'darkrai': ('Mega-Darkrai', (60, 50, 90), 'NUEVA · LEYENDAS Z-A'),
+             'gengar_paz': ('Mega-Gengar', (123, 98, 163), None), 'charx_paz': ('Mega-Charizard X', (40, 90, 220), None),
+             'darkrai_paz': ('Mega-Darkrai', (90, 70, 140), 'NUEVA · LEYENDAS Z-A')}
 
-def mega_closeup(c, t, name, lt, dur, pre=0.35, card_at=0.55):
-    """Primer plano de la transformación y su nombre."""
-    st = MEGA[name] - pre
-    fr = clip(name, st, dur + 0.3)
+def mega_closeup(c, t, name, lt, dur, pre=0.35, card_at=0.55, speed=1.0, cw=150):
+    """Primer plano de tu Pokémon (sin enemigos) megaevolucionando, y su nombre."""
+    st = MEGA[name] - pre * speed
+    fr = clip(name, st, dur + 0.3, speed=speed)
     f = frame(fr, lt)
     z = 1.0 + 0.12 * ease_io(lt / dur)
-    w, h = 160 / z, 180 / z
+    w, h = cw / z, cw * 1.125 / z
     px, py = track(name, st, dur + 0.3, lt)
     px = min(400 - w / 2, max(w / 2, px)); py = min(240 - h / 2, max(h / 2, py))
     im = zoom(top(f), px, py, w, h, 960, 1080)
     background(c, t)
+    sparkles(c, t, 31, 30, (0, 400, W, 1700), (255, 255, 255))
     dx, dy = shake(t, t - lt + pre, 16, 0.4)
     panel(c, im, W / 2 + dx, 1040 + dy, border=8, glow=MEGA_INFO[name][1])
     title, col, tag = MEGA_INFO[name]
@@ -271,49 +281,83 @@ def mega_closeup(c, t, name, lt, dur, pre=0.35, card_at=0.55):
     flash(c, 0.85 * clamp(1 - abs(lt - pre) / 0.12))
 
 def s_how(c, t):
+    """Cómo se megaevoluciona: las dos pantallas con el aviso «Y», la Y que se pulsa
+    (justo cuando la pulsa el juego) y la transformación a cámara lenta."""
     lt = t - r(4)
-    if lt < B_R:   # la pantalla de abajo con la megapiedra y el botón Y
-        fr = clip('gengar', MEGA['gengar'] + 0.3, B_R + 0.2)
-        f = frame(fr, lt)
+    PRESS = MEGA['gengar_paz']
+    if lt < 2 * B_R:
+        st = PRESS - 2 * B_R
+        fr = clip('gengar_paz', st, 2 * B_R + 0.2); f = frame(fr, lt)
         background(c, t)
-        im = zoom(bottom(f), 160, 150, 320, 180, 1000, 562)
-        panel(c, im, W / 2, 820, border=6, glow=(95, 215, 125))
-        put(c, T('cine', 'CONSIGUE SU MEGAPIEDRA', 76), W / 2, 380, 1, clamp(lt / 0.2))
-        put(c, T('cine', 'Y PULSA', 76), W / 2 - 80, 1250, 1, clamp((lt - 0.3) / 0.2))
-        press = clamp(1 - abs(lt - B_R * 0.75) / 0.12)
-        y_button(c, W / 2 + 190, 1260, press)
-        flash(c, clamp((lt - (B_R - 0.12)) / 0.12))
+        tx, ty = track('gengar_paz', st, 2 * B_R + 0.2, lt)
+        im_t = zoom(top(f), min(250, max(150, tx)), min(150, max(90, ty)), 300, 180, 900, 540)
+        panel(c, im_t, W / 2, 650, border=6, glow=(123, 98, 163))
+        im_b = zoom(bottom(f), 160, 120, 320, 240, 800, 600)
+        panel(c, im_b, W / 2, 1300, border=6, glow=(95, 215, 125))
+        # el aviso de abajo («Y: ¡Megaevolucionar!» y la megapiedra), resaltado
+        k = 800 / 320; x0, y0 = W / 2 - 400, 1000
+        pul = 0.5 + 0.5 * math.sin(t * 9)
+        d = ImageDraw.Draw(c, 'RGBA')
+        d.rounded_rectangle((x0 + 6 * k, y0 + 146 * k, x0 + 314 * k, y0 + 173 * k), 14, outline=(255, 214, 80, int(140 + 115 * pul)), width=7)
+        put(c, T('cine', 'SI TE SALE SU MEGAPIEDRA...', 70), W / 2, 250, 1, clamp(lt / 0.2))
+        l2 = lt - B_R
+        if l2 > 0:
+            put(c, T('cine', 'Y PULSA', 80), W / 2 - 90, 1700, 1, clamp(l2 / 0.15))
+            press = clamp(1 - abs(lt - 2 * B_R) / 0.1)
+            y_button(c, W / 2 + 170, 1705, press)
+        flash(c, clamp((lt - (2 * B_R - 0.1)) / 0.1))
     else:
-        mega_closeup(c, t, 'gengar', lt - B_R, B_R, pre=0.15, card_at=0.35)
+        # la transformación, a media velocidad, y su nombre
+        mega_closeup(c, t, 'gengar_paz', lt - 2 * B_R, 2 * B_R, pre=0.1, card_at=1.4, speed=0.5, cw=130)
 
 def s_mega(name, bar):
     def fn(c, t):
-        mega_closeup(c, t, name, t - r(bar), 2 * B_R)
+        mega_closeup(c, t, name, t - r(bar), 2 * B_R, pre=0.35, card_at=0.5, speed=0.75)
     return fn
 
-def s_news(c, t):
+# Megas con dibujo propio para «y muchas más» (n.º en kMegas; la galería las enseña de 8 en 8)
+MORE = [51, 20, 50, 80, 59, 29, 56, 33, 17, 79, 74, 81]
+ZA = {80, 79, 74, 81}
+def s_more(c, t):
     lt = t - r(12)
     background(c, t)
-    if lt < B_R:
-        fr = clip('novedades', 11.0, B_R + 0.2); f = frame(fr, lt)
-        im = zoom(top(f), 200, 135, 300, 240, 1000, 800)
-        panel(c, im, W / 2, 1000, border=6, glow=(255, 214, 80))
-        slam(c, T('poke', '91 megas', 130), W / 2, 380, lt, 0.2, 1.6)
-        put(c, T('cine', 'TAMBIÉN LAS DE LEYENDAS Z-A', 54), W / 2, 1490, 1, clamp((lt - 0.3) / 0.2))
-    else:
-        l2 = lt - B_R
-        fr = clip('novedades', 15.0, B_R + 0.2); f = frame(fr, l2)
-        im = zoom(top(f), 282, 168, 228, 150, 1000, 658)
-        panel(c, im, W / 2, 1000, border=6, glow=(196, 123, 255))
-        slam(c, T('poke', 'Cada una con', 92), W / 2, 330, l2, 0.18, 1.5)
-        slam(c, T('poke', 'su megapiedra', 92), W / 2, 450, l2 - 0.12, 0.18, 1.5)
-        flash(c, 0.6 * clamp(1 - l2 / 0.1))
+    sparkles(c, t, 41, 50)
+    cols, rows = 3, 4
+    cw, ch = 300, 288
+    for j, i in enumerate(MORE):
+        page, k = i // 8, i % 8
+        x, y = 50 + (k % 4) * 100, 98 + (k // 4) * 112
+        st = 1.75 + 3.134 * page   # (la página 1 empieza en 1,583 s y cada una dura 3,134 s)
+        fr = clip('galeria', st, 1.6)
+        f = frame(fr, (lt * 0.8) % 1.5)
+        im = zoom(top(f), x - 3, y - 26, 92, 84, cw, int(cw * 0.913))
+        a = ease_out(clamp((lt - 0.08 * j) / 0.25))
+        if a <= 0: continue
+        cx = W / 2 + (j % cols - 1) * (cw + 30); cy = 620 + (j // cols) * (ch + 22)
+        s = 0.6 + 0.4 * a
+        im = im.resize((int(im.width * s), int(im.height * s)), Image.BILINEAR)
+        panel(c, im, cx, cy, border=5, glow=(196, 123, 255) if i in ZA else (255, 214, 80), radius=14)
+    slam(c, T('poke', 'Y muchas más', 112), W / 2, 270, lt, 0.2, 1.7)
+    put(c, chip('91 MEGAS · TAMBIÉN DE LEYENDAS Z-A', 44, (196, 123, 255), (255, 255, 255)), W / 2, 395, ease_out(clamp((lt - 0.3) / 0.25)))
+    flash(c, 0.7 * clamp(1 - lt / 0.12))
+
+def s_stone(c, t):
+    lt = t - r(14)
+    background(c, t)
+    fr = clip('novedades', 14.6, 2 * B_R + 0.2); f = frame(fr, lt)
+    z = 1 + 0.15 * ease_io(lt / (2 * B_R))
+    im = zoom(top(f), 282, 168, 228 / z, 150 / z, 1000, 658)
+    panel(c, im, W / 2, 1000, border=6, glow=(196, 123, 255))
+    slam(c, T('poke', 'Cada una con', 96), W / 2, 330, lt, 0.18, 1.5)
+    slam(c, T('poke', 'su megapiedra', 96), W / 2, 455, lt - 0.12, 0.18, 1.5)
+    put(c, T('cine', 'Y SU PROBABILIDAD, QUE PUEDES MEJORAR', 46), W / 2, 1420, 1, clamp((lt - 1.0) / 0.25))
+    flash(c, 0.6 * clamp(1 - lt / 0.1))
 
 def s_power(c, t):
-    lt = t - r(14)
-    im, f = game_wide('darkrai', MEGA['darkrai'] + 3.0, lt, 250, 1.1, 1.0, 2 * B_R, out=(1080, 1080))
+    lt = t - r(16)
+    im, f = game_wide('charx', MEGA['charx'] + 2.0, lt, 250, 1.1, 1.0, 2 * B_R, out=(1080, 1080))
     background(c, t)
-    panel(c, im, W / 2, 940, border=8, glow=(196, 123, 255))
+    panel(c, im, W / 2, 940, border=8, glow=(40, 90, 220))
     chips = ['+25% ATAQUE', '+15% VELOCIDAD', '-25% RECARGA', '+REGENERACIÓN']
     for i, s in enumerate(chips):
         l2 = lt - i * B_R / 2
@@ -430,59 +474,52 @@ def s_updates(c, t):
     put(c, T('cine', 'Y CONSTANTES', 60), W / 2, 1560, 1, clamp((lt - 2.0) / 0.2))
     flash(c, 0.6 * clamp(1 - lt / 0.12))
 
-_con = None
+import consola_real
+_logo3 = None
+def logo3ds(width):
+    """El logo original de 3DS (el «3» rojo y «DS» en blanco, para fondo oscuro)."""
+    global _logo3
+    if _logo3 is None: _logo3 = Image.open('/root/trailer/real/logo_3ds_blanco.png').convert('RGBA')
+    k = width / _logo3.width
+    return _logo3.resize((int(_logo3.width * k), int(_logo3.height * k)), Image.LANCZOS)
+
 def s_final(c, t):
-    global _con
     lt = t - T_FIN
-    name, st = 'charx', MEGA['charx'] + 4.0
+    name, st = 'darkrai', MEGA['darkrai'] + 4.0
     fr = clip(name, st, T_TOTAL - T_FIN + 0.3)
     fx = frame(fr, lt)
     background(c, t)
     sparkles(c, t, 21, 40)
-    if _con is None:
-        CW = 2200   # la consola grande (se reduce al alejar)
-        img, tr, br = consola(CW)
-        _con = (img, tr, br)
-    img, tr, br = _con
-    # De la pantalla de arriba a pantalla completa (1080 de ancho) a la consola entera (760 de ancho).
-    k = ease_io(clamp((lt - 1.2) / 3.0))
-    tw = tr[2] - tr[0]
-    s_start = 1080 / tw * 1.0            # la pantalla de arriba ocupa todo el ancho
-    s_end = 760 / img.width
-    s = s_start * (1 - k) + s_end * k
-    # posición: al principio la pantalla de arriba centrada en y=960; al final la consola centrada en y=1000
-    cx_start = W / 2 - ((tr[0] + tr[2]) / 2 - img.width / 2) * s_start
-    cy_start = 960 - ((tr[1] + tr[3]) / 2 - img.height / 2) * s_start
-    cx = cx_start * (1 - k) + (W / 2) * k
-    cy = cy_start * (1 - k) + 1000 * k
-    con = img.resize((max(1, int(img.width * s)), max(1, int(img.height * s))), Image.BILINEAR)
-    ox, oy = cx - con.width / 2, cy - con.height / 2
-    if k < 1 or True:
-        c.paste(con, (int(ox), int(oy)), con)
-    # pantallas
-    def screen(rect, src, sw, sh):
-        x0, y0 = ox + rect[0] * s, oy + rect[1] * s
-        w, h = (rect[2] - rect[0]) * s, (rect[3] - rect[1]) * s
-        if w < 4: return
-        im = Image.fromarray(src).resize((sw * 3, sh * 3), Image.NEAREST).resize((int(w), int(h)), Image.BILINEAR)
-        c.paste(im, (int(x0), int(y0)))
-    screen(tr, top(fx), 400, 240)
-    screen(br, bottom(fx), 320, 240)
+    CWID, CHEI = consola_real.size()
+    tq, bq = consola_real.quads()
+    # De la pantalla de arriba a todo lo ancho a la consola entera (980 de ancho).
+    k = ease_io(clamp((lt - 1.2) / 3.2))
+    tw = (tq[1][0] - tq[0][0] + tq[2][0] - tq[3][0]) / 2
+    s_start, s_end = 1080 / tw, 980 / CWID
+    sc = math.exp(math.log(s_start) * (1 - k) + math.log(s_end) * k)   # (zoom suave: en escala logarítmica)
+    tcx, tcy = tq[:, 0].mean(), tq[:, 1].mean()
+    cx0 = W / 2 - (tcx - CWID / 2) * s_start; cy0 = 960 - (tcy - CHEI / 2) * s_start
+    cx = cx0 * (1 - k) + (W / 2) * k; cy = cy0 * (1 - k) + 1010 * k
+    arr = np.array(c)
+    consola_real.compose(arr, sc, cx, cy, np.ascontiguousarray(top(fx)), np.ascontiguousarray(bottom(fx)))
+    c.paste(Image.fromarray(arr))
     # rótulos finales
-    l2 = lt - 3.6
+    l2 = lt - 3.8
     if l2 > 0:
-        slam(c, T('poke', 'PokéSurvivor', 150, arco=0.12), W / 2, 210, l2, 0.25, 1.6)
-        put(c, chip('3DS', 54, (230, 40, 60), (255, 255, 255)), W / 2, 345, ease_out(clamp((l2 - 0.3) / 0.2)))
-    l3 = lt - 5.0
+        slam(c, T('poke', 'PokéSurvivor', 150, arco=0.12), W / 2, 250, l2, 0.25, 1.6)
+        put(c, logo3ds(300), W / 2, 420, ease_out(clamp((l2 - 0.3) / 0.25)))
+    l3 = lt - 5.2
     if l3 > 0:
-        put(c, T('cine', 'GRATIS · HOMEBREW PARA NINTENDO 3DS', 50), W / 2, 1560, 1, clamp(l3 / 0.3))
+        put(c, T('cine', 'GRATIS · HOMEBREW PARA NINTENDO 3DS', 50), W / 2, 1530, 1, clamp(l3 / 0.3))
     lg = t - T_GOLPE
     if lg > 0:
-        put(c, T('cine', 'por juanluismm520', 44, color=(255, 214, 80)), W / 2, 1640, 1, clamp(lg / 0.3))
-        put(c, T('cine', 'Proyecto de fans sin ánimo de lucro · Pokémon © Nintendo, Game Freak y The Pokémon Company', 22,
-                 color=(170, 175, 200)), W / 2, 1730, 1, clamp(lg / 0.5))
+        put(c, T('cine', 'por juanluismm520', 56, color=(255, 214, 80)), W / 2, 1620, 1, clamp(lg / 0.3))
+        put(c, T('cine', 'Proyecto de fans sin ánimo de lucro · Pokémon © Nintendo, Game Freak y The Pokémon Company', 23,
+                 color=(185, 190, 215)), W / 2, 1715, 1, clamp((lg - 0.3) / 0.5))
+        put(c, T('cine', 'Foto de la New 3DS XL: Antoine Turmel (CC BY 2.0) · Música y juego: PokéSurvivor', 21,
+                 color=(150, 155, 185)), W / 2, 1755, 1, clamp((lg - 0.5) / 0.5))
         flash(c, 0.85 * clamp(1 - lg / 0.3))
-    if t > T_TOTAL - 0.6: flash(c, (t - (T_TOTAL - 0.6)) / 0.6, (0, 0, 0))
+    if t > T_TOTAL - 0.9: flash(c, (t - (T_TOTAL - 0.9)) / 0.9, (0, 0, 0))
     if lt < 0.12: flash(c, 0.7 * (1 - lt / 0.12))
 
 # Momentos (se ajustan al ver las grabaciones)
@@ -497,12 +534,12 @@ SCENES = [
     (0, T_DROP, s_intro),
     (T_DROP, r(2), s_montage),
     (r(2), r(4), s_mega_title),
-    (r(4), r(6), s_how),
-    (r(6), r(8), s_mega('charx', 6)),
-    (r(8), r(10), s_mega('darkrai', 8)),
-    (r(10), r(12), s_mega('absolz', 10)),
-    (r(12), r(14), s_news),
-    (r(14), T_SENT, s_power),
+    (r(4), r(8), s_how),
+    (r(8), r(10), s_mega('charx_paz', 8)),
+    (r(10), r(12), s_mega('darkrai_paz', 10)),
+    (r(12), r(14), s_more),
+    (r(14), r(16), s_stone),
+    (r(16), T_SENT, s_power),
     (T_SENT, T_FEAT, s_sentencia),
     (f(0), f(2), s_coop_local),
     (f(2), f(4), s_coop_online),

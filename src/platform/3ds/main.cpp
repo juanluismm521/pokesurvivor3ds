@@ -61,7 +61,8 @@ struct Autotest {
   int programa = 0;
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
   int level = 0, stone = 0;
-  bool mark = false;          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
+  bool mark = false, peace = false;   // "… paz": sin enemigos
+  float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
   bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
   bool textos = false;      // "textos": mide los textos de movimientos, objetos y megas (los que no caben, al log)
@@ -115,6 +116,8 @@ void read_autotest(Autotest& a) {
       else if (!std::strncmp(w, "megaen=", 7)) a.mega_at = float(std::atof(w + 7));
       else if (!std::strcmp(w, "piedra=b")) a.stone = 1;
       else if (!std::strcmp(w, "marca")) a.mark = true;
+      else if (!std::strcmp(w, "paz")) a.peace = true;
+      else if (!std::strncmp(w, "megaespera=", 11)) a.mega_wait = float(std::atof(w + 11));
     }
   }
   std::fclose(f);
@@ -413,6 +416,8 @@ int main(int argc, char** argv) {
     app.auto_mega_at = at.mega_at;
     app.auto_stone = at.stone;
     r.trailer_mark = at.mark;
+    app.auto_peace = at.peace;
+    app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
     if (at.log && at.move[0]) std::fprintf(at.log, "empieza con %s (%d): %s\n", at.move, move_index(at.move), kMoves[g->pl().moves[0].def].id);

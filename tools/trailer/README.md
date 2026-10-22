@@ -17,6 +17,13 @@ Cómo se hizo `PokeSurvivor3DS_trailer.mp4` (carpeta de trabajo: `/root/trailer`
    juego: Grieta 164 BPM, Sentencia 140, Jefe 150), letras en `estilo.py` (la fuente «Pokemon Solid»
    de dafont, gratuita, no va en git: se baja a `fonts/`; Anton es OFL), consola en `consola.py`.
 4. **Sonido:** `audio.py` (música del juego por compases + golpes, subidas y destellos sintetizados).
-5. `unir.sh`: vídeo + sonido con compresor y -14 LUFS.
+5. `unir.sh`: vídeo + sonido con compresor y -14 LUFS. `empalme.sh`: cambiar una escena sin
+   montarlo entero (3 trozos y concat sin recodificar). **Ojo con la RAM** (el VPS tiene ~4 GB):
+   nunca leer el mismo vídeo por dos ramas de un filtro (guarda cientos de fotogramas 1080x1920),
+   ffmpeg con `-threads 2` y dentro de `systemd-run --scope -p MemoryMax=1G`.
+6. v2: la consola es la foto real de una New 3DS XL (Antoine Turmel, CC BY 2.0, Wikimedia
+   Commons; `consola_real.py`, juego con perspectiva y el reflejo del cristal), el logo 3DS es el
+   original de Commons (CC0) en blanco, y las megas se graban sin enemigos (`paz`) esperando
+   con la piedra antes de pulsar Y (`megaespera=2.5`).
 
 Necesita: ffmpeg, Python con numpy, pillow, scipy (y librosa para medir), Azahar bajo Xvfb.

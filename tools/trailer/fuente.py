@@ -19,7 +19,7 @@ def clip(name, start, dur, fps=60, speed=1.0):
     if len(fr) == 0: raise RuntimeError('sin fotogramas: %s %.2f' % (name, start))
     # Tapa «60 FPS · AUTOTEST» (abajo a la derecha de la pantalla de abajo).
     fr = fr.copy()
-    fr[240 + 210:240 + 226, 40 + 220:40 + 320] = fr[240 + 196:240 + 197, 40 + 300:40 + 301]
+    fr[:, 240 + 216:240 + 225, 40 + 246:40 + 318] = fr[:, 240 + 226:240 + 227, 40 + 246:40 + 247]
     # El marcador del tráiler (abajo a la izquierda de la pantalla de abajo): posición de tu Pokémon.
     m = fr[:, 476:480, 40:44].reshape(len(fr), -1, 3).astype(np.float32)
     ok = np.median(m[:, :, 2], 1) > 200
