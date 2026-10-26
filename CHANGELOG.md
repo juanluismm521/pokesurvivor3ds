@@ -5,6 +5,12 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.9.0 — 2026-10-26
+- **Colección → SELECT: los ataques del Pokémon**, al doble de tamaño en la pantalla
+  de abajo (se tocan o se recorren con la cruceta). Arriba, el elegido: tipo, si
+  es físico, especial o una mejora, qué hace, si lo aprende por MT o tutor, si
+  empieza con él y en qué evoluciona.
+
 ## 0.8.0 — 2026-10-26
 - **Resumen al acabar la partida** (como en la web): en la pantalla de arriba,
   cada ataque con el daño que ha hecho y su daño por segundo, el daño total y tu

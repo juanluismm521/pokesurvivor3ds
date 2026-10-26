@@ -107,6 +107,11 @@ class App {
   void mega_badge(int dex);     // menú: las megapiedras de tu compañero
   void coop_overlay();          // arriba: «esperando a…», avisos de la red
   void top_detail(int dex, bool shiny, bool owned);
+  // Colección → SELECT: los ataques que puede aprender, grandes y con su ficha.
+  void in_dex_moves(const UiIn& in, int dex);
+  void bottom_dex_moves(int dex);
+  void top_dex_move(int dex);
+  int dex_moves(int dex, int16_t* out);
   void y_hint(float x, float y, bool shiny);   // botón Y que se pulsa solo · «Normal · Shiny»
   float y_hint_w();                            // (su ancho)
   int atajos_row() const;                      // Mejoras: fila de «Atajos» (tras «Megapiedra» si tiene mega)
@@ -134,6 +139,9 @@ class App {
   // colección
   int gen_ = 1, filter_ = 0;
   bool view_shiny_ = false;
+  bool dex_moves_ = false;      // Colección: la vista de ataques (SELECT)
+  int mv_cur_ = 0;
+  int dexmv_ = 0;               // (recorrido «ui»: pasos en la vista de ataques)
   // mejoras
   int up_dex_ = 0;
   // gacha

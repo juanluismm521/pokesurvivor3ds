@@ -114,7 +114,7 @@ void App::go(Scene sc) {
     progress_check_ach(*s_, now_ms());
     if (g_->state != ST_UI) { g_->state = ST_UI; backdrop_init(); }
   }
-  if (sc == SC_DEX) { gen_ = mon_by_dex(s_->partner) ? mon_by_dex(s_->partner)->gen : 1; view_shiny_ = false; }
+  if (sc == SC_DEX) { gen_ = mon_by_dex(s_->partner) ? mon_by_dex(s_->partner)->gen : 1; view_shiny_ = false; dex_moves_ = false; }
   // Mejoras: siempre las de tu compañero de ahora (antes se quedaba el último
   // que se miró aquí y, si habías elegido otro, salía el de antes).
   if (sc == SC_UPGRADES) up_dex_ = s_->partner;
@@ -301,6 +301,8 @@ void App::notices(float dt) {
 
 // ---------------- bucle ----------------
 
+namespace { int dex_list(const Save& s, int gen, int filter, int16_t* out); }   // (más abajo)
+
 void App::update(const UiIn& in0, float dt) {
   t_ += dt;
   UiIn in = in0;
@@ -333,6 +335,15 @@ void App::update(const UiIn& in0, float dt) {
       else if (scene == SC_GACHA && !pulled) { pulled = true; cur_ = 1; in.down |= KEY_A; }
       else if (scene == SC_UPGRADES && bought < 3) { bought++; in.down |= KEY_A; }   // compra mejoras (el tirón al guardar)
       else if (scene == SC_DEX && !shinied) { shinied = true; cur_ = 1; in.down |= KEY_Y; }   // la lista en shiny (Y)
+      else if (scene == SC_DEX && dexmv_ < 3) {   // sus ataques (SELECT) y dos a la derecha
+        if (dexmv_ == 0) {
+          static int16_t list[256];
+          const int n = dex_list(*s_, gen_, filter_, list);
+          for (int j = 0; j < n; ++j) if (list[j] == s_->partner) cur_ = j;
+          in.down |= KEY_SELECT;
+        } else { in.rep |= KEY_DRIGHT; in.down |= KEY_DRIGHT; }
+        dexmv_++;
+      }
       else if (scene == SC_PULL) { if (pull_done_) in.down |= KEY_A; else tour_i_--; }
       else {
         static int k = -1;
@@ -758,6 +769,11 @@ const char* const FILTERS[9] = {"Todos", "Tengo", "Me faltan", "Shiny", "Legenda
 void App::in_dex(const UiIn& in) {
   static int16_t list[256];
   const int n = dex_list(*s_, gen_, filter_, list);
+  if (dex_moves_) {
+    if (n && s_->owns(list[std::min(cur_, n - 1)])) { in_dex_moves(in, list[std::min(cur_, n - 1)]); return; }
+    dex_moves_ = false;
+  }
+  if (n && (in.down & KEY_SELECT) && s_->owns(list[std::min(cur_, n - 1)])) { dex_moves_ = true; mv_cur_ = 0; audio::play("confirm"); return; }
   const int cols = 6;
   if (in.down & KEY_L) { gen_ = gen_ == 1 ? 9 : gen_ - 1; cur_ = 0; scroll_ = 0; }
   if (in.down & KEY_R) { gen_ = gen_ == 9 ? 1 : gen_ + 1; cur_ = 0; scroll_ = 0; }
@@ -794,6 +810,7 @@ void App::in_dex(const UiIn& in) {
 void App::bottom_dex() {
   static int16_t list[256];
   const int n = dex_list(*s_, gen_, filter_, list);
+  if (dex_moves_ && n) { bottom_dex_moves(list[std::min(cur_, n - 1)]); return; }
   int have = 0, total = 0;
   for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { total++; if (s_->owns(kDex[i].dex)) have++; }
   char b[96];
@@ -818,7 +835,7 @@ void App::bottom_dex() {
     if (dex == s_->partner) C2D_DrawRectSolid(x + (sh ? 33 : 43), y + 3, 0, 4, 4, C_GOLD);
   }
   if (!n) r_->text("Ninguno con este filtro.", 160, 110, 0.4f, C_MUTED, 1);
-  r_->text(view_shiny_ ? "A: compañero · Y: ver normales · B: volver" : "A: compañero · Y: ver shinys · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  r_->text(view_shiny_ ? "A: compañero · Y: normales · SELECT: ataques · B: volver" : "A: compañero · Y: shinys · SELECT: ataques · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
 void App::fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow) {
@@ -903,6 +920,85 @@ void App::top_detail(int dex, bool shiny, bool own) {
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 214 + (i % 10) * 18, 162 + (i / 10) * 18, 0);
   }
   if (dex == s_->partner) r_->text("Es tu compañero", 300, 206, 0.4f, C2D_Color32(0x5f, 0xe0, 0x8a, 255), 1);
+}
+
+// ---------------- colección: sus ataques ----------------
+// (la web, 2026-10-25: iconos al doble y, al tocarlos, tipo, categoría y qué hace)
+
+namespace {
+constexpr int kMvCols = 8;
+constexpr float kMvX0 = 16, kMvY0 = 48, kMvStep = 37, kMvIcon = 2.0f;   // iconos de 16 px al doble
+}
+
+int App::dex_moves(int dex, int16_t* out) {
+  const Mon* m = mon_by_dex(dex);
+  return m ? move_pool_for_dex(dex, m->types, out, kMaxMoves) : 0;
+}
+
+void App::in_dex_moves(const UiIn& in, int dex) {
+  int16_t pool[kMaxMoves];
+  const int n = dex_moves(dex, pool);
+  if (!n) { dex_moves_ = false; return; }
+  if (in.rep & KEY_DLEFT) mv_cur_--;
+  if (in.rep & KEY_DRIGHT) mv_cur_++;
+  if (in.rep & KEY_DUP) mv_cur_ -= kMvCols;
+  if (in.rep & KEY_DDOWN) mv_cur_ += kMvCols;
+  mv_cur_ = clamp(mv_cur_, 0, n - 1);
+  for (int i = 0; i < n; ++i)
+    if (in_rect(&in, kMvX0 + (i % kMvCols) * kMvStep - 2, kMvY0 + (i / kMvCols) * kMvStep - 2, 36, 36)) { mv_cur_ = i; audio::play("hover"); }
+  if (in.down & (KEY_B | KEY_SELECT)) { dex_moves_ = false; audio::play("back"); }
+}
+
+void App::bottom_dex_moves(int dex) {
+  int16_t pool[kMaxMoves];
+  const int n = dex_moves(dex, pool);
+  char b[64];
+  std::snprintf(b, sizeof(b), "Ataques de %s", mon_by_dex(dex)->name);
+  header(b);
+  r_->text("Toca uno (o muévete con la cruceta) para ver qué hace", 160, 30, 0.32f, C_MUTED, 1);
+  for (int i = 0; i < n; ++i) {
+    const float x = kMvX0 + (i % kMvCols) * kMvStep, y = kMvY0 + (i / kMvCols) * kMvStep;
+    const bool sel = i == mv_cur_;
+    const MoveDef& d = kMoves[pool[i]];
+    C2D_DrawRectSolid(x - 2, y - 2, 0, 36, 36, sel ? C_GOLD : rgb(kTypeColor[d.type], 90));
+    C2D_DrawRectSolid(x, y, 0, 32, 32, sel ? C_SEL : C_PANEL);
+    const int ic = r_->move_icon[pool[i]];
+    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), x, y, 0, nullptr, kMvIcon, kMvIcon);
+  }
+  r_->text("B o SELECT: volver", 160, 226, 0.32f, C_MUTED, 1);
+}
+
+void App::top_dex_move(int dex) {
+  int16_t pool[kMaxMoves];
+  const int n = dex_moves(dex, pool);
+  if (!n) return;
+  const int id = pool[clamp(mv_cur_, 0, n - 1)];
+  const MoveDef& d = kMoves[id];
+  C2D_DrawRectSolid(0, 0, 0, TW, TH, C2D_Color32(8, 12, 20, 170));
+  // A la izquierda, el Pokémon; a la derecha, el ataque.
+  draw_mon(dex, false, 70, 200, 2);
+  const int ic = r_->move_icon[id];
+  if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 150, 20, 0, nullptr, 3, 3);
+  r_->text_fit(d.name, 206, 22, 186, 0.62f, C_TEXT, true);
+  // Tipo y categoría.
+  C2D_DrawRectSolid(206, 46, 0, 64, 16, rgb(kTypeColor[d.type]));
+  r_->text(kTypeName[d.type], 238, 47, 0.34f, C_TEXT, 1);
+  const char* cat = d.kind == K_BUFF ? "Mejora" : d.cat == CAT_PHYSICAL ? "Físico" : "Especial";
+  C2D_DrawRectSolid(276, 46, 0, 70, 16, C2D_Color32(30, 40, 62, 255));
+  r_->text(cat, 311, 47, 0.34f, d.kind == K_BUFF ? C_MUTED : C_GOLD, 1);
+  // Qué hace.
+  r_->text_wrap(d.desc, 150, 80, 0.4f, C_TEXT, 240);
+  // De dónde le viene y si evoluciona.
+  const Mon* m = mon_by_dex(dex);
+  const bool natural = d.type == T_NORMAL || d.type == m->types[0] || d.type == m->types[1];
+  float y = 172;
+  if (!natural) { r_->text_fit("Lo aprende por MT o tutor (como en los juegos)", 150, y, 240, 0.34f, C2D_Color32(0x9a, 0xe6, 0xff, 255)); y += 16; }
+  if (id == move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0)) { r_->text("Empieza con él", 150, y, 0.34f, C_GOLD); y += 16; }
+  if (d.evo_need >= 0 && d.evo_name) {
+    char b[96];
+    std::snprintf(b, sizeof(b), "Evoluciona a %s: al nivel máximo, con una carta de %s", d.evo_name, kNeedName[d.evo_need]);
+    r_->text_wrap(b, 150, y, 0.34f, C2D_Color32(0xff, 0x8a, 0xd8, 255), 240);
+  }
 }
 
 // ---------------- mejoras ----------------
@@ -1683,7 +1779,8 @@ void App::draw_top(float eye) {
       case SC_DEX: {
         static int16_t list[256];
         const int n = dex_list(*s_, gen_, filter_, list);
-        if (n) top_detail(list[std::min(cur_, n - 1)], view_shiny_, s_->owns(list[std::min(cur_, n - 1)]));
+        if (n && dex_moves_) top_dex_move(list[std::min(cur_, n - 1)]);
+        else if (n) top_detail(list[std::min(cur_, n - 1)], view_shiny_, s_->owns(list[std::min(cur_, n - 1)]));
         break;
       }
       case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: {
