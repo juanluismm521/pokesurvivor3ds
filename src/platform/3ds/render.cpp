@@ -314,6 +314,85 @@ void Renderer::draw_shape(int shape, int pal, int frame, float sx, float sy, flo
   C2D_DrawImageAtRotated(vfx.image(idx), std::floor(sx + 0.5f), std::floor(sy + 0.5f), 0, angle, &tint, scale, scale);
 }
 
+// ---------------- fin de la partida: resumen de ataques (arriba) ----------------
+
+void Renderer::draw_over_summary(Game& g, int pi) {
+  if (pi < 0 || pi >= g.nplayers) pi = g.local;
+  const Player& p = g.players[pi];
+  char b[96];
+  C2D_DrawRectSolid(0, 0, 0, TOP_W, TOP_H, C2D_Color32(8, 12, 24, 215));
+  // Pestañas (en grupo): L ◀ Tú · BETO · … ▶ R
+  float y = 6;
+  if (g.nplayers > 1) {
+    int n = 0;
+    for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active || i == pi) n++;
+    const float w = std::fmin(110.0f, 330.0f / std::max(1, n));
+    float x = 200 - w * n / 2;
+    text("L", x - 12, y + 2, 0.4f, rgb(0x8fa3c4), 1);
+    for (int i = 0; i < g.nplayers; ++i) {
+      if (!g.players[i].active && i != pi) continue;
+      const bool on = i == pi;
+      C2D_DrawRectSolid(x + 2, y, 0, w - 4, 16, on ? rgb(kCoopColor[i % 4]) : C2D_Color32(30, 40, 62, 255));
+      const char* nm = i == g.local ? "Tú" : g.cfg.members[i].name;
+      text_fit(nm, x + w / 2, y + 2, w - 10, 0.36f, on ? C2D_Color32(16, 20, 34, 255) : rgb(0xeaf2ff), false, 1);
+      x += w;
+    }
+    text("R", x + 12, y + 2, 0.4f, rgb(0x8fa3c4), 1);
+    y += 22;
+  }
+  // Quién: Pokémon y nivel.
+  std::snprintf(b, sizeof(b), "%s%s · Nv. %d", mon_by_dex(p.dex)->name, p.shiny ? " ★" : "", p.level);
+  text(b, 200, y, 0.5f, rgb(0xffcb3d), 1);
+  y += 20;
+  text("Ataque", 14, y, 0.34f, rgb(0x8fa3c4), 0);
+  text("Daño", 300, y, 0.34f, rgb(0x8fa3c4), 2);
+  text("por segundo", 388, y, 0.34f, rgb(0x8fa3c4), 2);
+  y += 14;
+  double total = 0;
+  const float now = float(g.time);
+  for (int i = 0; i < p.nmoves && i < 8; ++i) {
+    const MoveInst& m = p.moves[i];
+    const float ry = y + i * 17;
+    if (i % 2 == 0) C2D_DrawRectSolid(8, ry - 1, 0, 384, 16, C2D_Color32(255, 255, 255, 14));
+    const int ic = move_icon[m.def];
+    if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 12, ry, 0, nullptr, 0.9f, 0.9f);
+    std::snprintf(b, sizeof(b), "%s%s Nv.%d", m.name(), m.evolved ? " +" : "", m.lvl);
+    text_fit(b, 30, ry + 1, 170, 0.38f, rgb(0xeaf2ff), true);
+    const int cat = m.cat();
+    text(cat == CAT_PHYSICAL ? "Físico" : cat == CAT_SPECIAL ? "Especial" : "Mejora", 222, ry + 2, 0.32f, rgb(cat < 0 ? 0x8fa3c4 : kTypeColor[m.type()]), 1);
+    if (cat >= 0) {
+      const float secs = std::fmax(5.0f, now - m.since);
+      total += m.dealt;
+      std::snprintf(b, sizeof(b), "%d", int(jsround(m.dealt)));
+      text(b, 300, ry + 1, 0.38f, rgb(0xeaf2ff), 2);
+      std::snprintf(b, sizeof(b), "%d/s", int(jsround(m.dealt / secs)));
+      text(b, 388, ry + 1, 0.38f, rgb(0xffd23f), 2);
+    } else {
+      text("—", 300, ry + 1, 0.38f, rgb(0x8fa3c4), 2);
+      text("—", 388, ry + 1, 0.38f, rgb(0x8fa3c4), 2);
+    }
+  }
+  y += std::max(1, std::min(8, p.nmoves)) * 17 + 4;
+  C2D_DrawRectSolid(8, y, 0, 384, 1, C2D_Color32(80, 95, 130, 255));
+  y += 4;
+  std::snprintf(b, sizeof(b), "%d", int(jsround(total)));
+  text("Daño total", 30, y, 0.42f, rgb(0xffcb3d), 0);
+  text(b, 300, y, 0.42f, rgb(0xffcb3d), 2);
+  std::snprintf(b, sizeof(b), "%d/s", int(jsround(total / std::fmax(5.0f, now))));
+  text(b, 388, y, 0.42f, rgb(0xffd23f), 2);
+  y += 20;
+  if (y > TOP_H - 22) y = TOP_H - 22;
+  if (p.item >= 0) {
+    draw_item_icon(p.item, 12, y, 16, p.dex);
+    const char* nm = item_name(p.item, p.dex);
+    text(nm, 32, y + 2, 0.38f, rgb(0xffd23f), 0);
+    const float nw = text_width(nm, 0.38f);
+    text_fit(item_desc(p.item, p.dex), 38 + nw, y + 3, 352 - nw, 0.32f, rgb(0xb7c4dc));
+  } else {
+    text("Sin objeto", 32, y + 2, 0.38f, rgb(0x8fa3c4), 0);
+  }
+}
+
 // ---------------- pantalla de arriba ----------------
 
 void Renderer::draw_ground(World& w, const Camera& cam, float vl, float vt, float now) {
@@ -1211,9 +1290,9 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);
     mmss(s.time, t, sizeof(t));
     std::snprintf(b, sizeof(b), "Tiempo %s · Nivel %d · %d derrotados · %d jefes", t, s.level, s.kills, s.bosses);
-    text(b, 160, 100, 0.38f, rgb(0xeaf2ff), 1);
+    text_fit(b, 160, 100, 304, 0.38f, rgb(0xeaf2ff), false, 1);
     std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", s.coins, s.t1, s.t10);
-    text(b, 160, 118, 0.4f, rgb(0xffd23f), 1);
+    text_fit(b, 160, 118, 304, 0.4f, rgb(0xffd23f), false, 1);
     std::snprintf(b, sizeof(b), "tiempo %d · derrotados %d · jefes %d · recogidas %d", s.parts[0], s.parts[1], s.parts[2], s.parts[3]);
     text(b, 160, 136, 0.32f, rgb(0x8fa3c4), 1);
     if (s.judge_time >= 0) {
@@ -1231,7 +1310,8 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       }
       text_fit(sh, 160, 184, 304, 0.36f, rgb(0x9ae6ff), true, 1);
     }
-    text("A: otra partida · B: menú", 160, 206, 0.45f, rgb(0xeaf2ff), 1);
+    text(g.nplayers > 1 ? "A o B: volver al menú" : "A: otra partida · B: menú", 160, 206, 0.45f, rgb(0xeaf2ff), 1);
+    text(g.nplayers > 1 ? "Arriba, los ataques de cada uno (L/R)" : "Arriba, el daño de cada ataque", 160, 224, 0.32f, rgb(0x8fa3c4), 1);
   } else {
     // --- minimapa (con franjas de información encima) ---
     const float MX = 8, MY = 44, MW = 304, MH = kMapH;

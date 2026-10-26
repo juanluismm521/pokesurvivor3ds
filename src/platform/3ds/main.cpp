@@ -62,6 +62,9 @@ struct Autotest {
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
   int level = 0, stone = 0;
   bool mark = false, peace = false, still = false;   // "… paz": sin enemigos
+  bool end_screen = false;    // "… fin": al acabar el tiempo, termina la partida y enseña el resumen 8 s (captura)
+  u64 end_at = 0;
+  bool tab_moved = false;
   bool bond = false;          // "… vinculo": te da un vínculo y marca el primer movimiento (captura)
   int rocks = 0;              // "… rocas=N": golpea una roca en N chunks del mapa (prueba de la caché del mundo)
   float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
@@ -107,6 +110,7 @@ void read_autotest(Autotest& a) {
       if (!std::strcmp(extra, "mega")) a.coop_mega = true;
       if (!std::strncmp(extra, "desde=", 6)) a.warp = float(std::atof(extra + 6));
       if (!std::strncmp(extra, "nivel=", 6)) a.level = std::atoi(extra + 6);
+      if (!std::strcmp(extra, "fin")) a.end_screen = true;
     }
   }
   else {
@@ -123,6 +127,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strncmp(w, "megaespera=", 11)) a.mega_wait = float(std::atof(w + 11));
       else if (!std::strncmp(w, "rocas=", 6)) a.rocks = std::atoi(w + 6);
       else if (!std::strcmp(w, "vinculo")) a.bond = true;
+      else if (!std::strcmp(w, "fin")) a.end_screen = true;
       else return false;
       return true;
     };
@@ -429,6 +434,7 @@ int main(int argc, char** argv) {
     app.auto_peace = at.peace;
     app.auto_still = at.still;
     app.auto_bond = at.bond;
+    app.auto_hold_over = at.end_screen;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
@@ -583,8 +589,21 @@ int main(int argc, char** argv) {
       else if (at.down_state == 1 && !me.dead) { at.down_state = 2; at.revived_at = g->time; if (at.log) { std::fprintf(at.log, "¡levantado a los %.1f s! (vida %.0f / %.0f)\n", g->time, me.hp, me.max_hp); std::fflush(at.log); } }
       else if (at.down_state == 2 && g->time - at.revived_at > 3) break;
     }
+    if (at.on && at.end_screen && (g->time >= at.seconds || g->state == ST_OVER)) {
+      if (g->state != ST_OVER) {
+        if (!at.coop) g->quit_run();
+        else if (at.host) app.pending_input.cmd = CMD_QUIT;   // (se va el anfitrión: se acaba para todos)
+        at.end_at = osGetTime();
+      } else {
+        if (at.end_at == 0) at.end_at = osGetTime();
+        // En grupo, a mitad de la espera, el resumen del compañero (como pulsar R).
+        if (at.coop && osGetTime() - at.end_at > 4000 && !at.tab_moved) { app.over_tab_next(); at.tab_moved = true; }
+        if (osGetTime() - at.end_at > 8000) break;
+      }
+      continue;
+    }
     if (at.on && g->time >= at.seconds) break;
-    if (at.on && at.coop && g->state == ST_OVER && app.scene == SC_RUN) break;
+    if (at.on && at.coop && !at.end_screen && g->state == ST_OVER && app.scene == SC_RUN) break;
   }
 
   if (at.log) {

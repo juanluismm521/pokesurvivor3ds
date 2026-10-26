@@ -5,6 +5,13 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.8.0 — 2026-10-26
+- **Resumen al acabar la partida** (como en la web): en la pantalla de arriba,
+  cada ataque con el daño que ha hecho y su daño por segundo, el daño total y tu
+  objeto. En grupo, el de cada compañero también: **L/R** cambia de jugador.
+- La línea «Tiempo · Nivel · derrotados · jefes» del final ya no se sale de la
+  pantalla.
+
 ## 0.7.0 — 2026-10-26
 - **Darkrai aprende más movimientos.** Al ser sólo Siniestro tenía 16 (los 11
   normales y 5 de su tipo); ahora también los que aprende en los juegos por MT o

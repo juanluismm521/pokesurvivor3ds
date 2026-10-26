@@ -120,8 +120,19 @@ void App::go(Scene sc) {
   if (sc == SC_UPGRADES) up_dex_ = s_->partner;
 }
 
+void App::over_tab_step(int d) {
+  Game& g = *g_;
+  if (over_tab_ < 0 || over_tab_ >= g.nplayers) over_tab_ = g.local;
+  for (int k = 0; k < g.nplayers; ++k) {
+    over_tab_ = (over_tab_ + d + g.nplayers) % g.nplayers;
+    if (g.players[over_tab_].active || over_tab_ == g.local) break;
+  }
+}
+void App::over_tab_next() { over_tab_step(1); }
+
 void App::start_run() {
   over_synced_ = false;
+  over_tab_ = -1;
   RunConfig cfg;
   cfg.dex = autotest ? auto_dex_ : s_->partner;
   cfg.shiny = autotest ? auto_shiny : s_->partner_shiny && s_->owns_shiny(cfg.dex);
@@ -467,7 +478,7 @@ void App::in_run(const UiIn& in) {
       gi = Input();   // (el bot quitaría la pausa)
       if (float(osGetTime() % 100000000) - auto_pause_ > 6000) { gi.cmd = CMD_PAUSE; auto_pause_ = -1; }
     }
-    if (g.state == ST_OVER && !coop_) start_run();
+    if (g.state == ST_OVER && !coop_ && !auto_hold_over) start_run();
   } else if (g.state == ST_PLAYING || (g.state == ST_CHOICE && me.choice == CH_NONE) || (g.state == ST_LEVELUP && me.picked)) {
     // (en grupo: mientras otro elige, tú sigues moviendo el cursor de huecos)
     float ax = std::fabs(in.cx) > 0.12f ? in.cx : 0, ay = std::fabs(in.cy) > 0.12f ? in.cy : 0;
@@ -543,6 +554,9 @@ void App::in_run(const UiIn& in) {
     r_->bond_first = bond_first_;
   } else if (g.state == ST_OVER) {
     paused_ = false;
+    // Resumen de arriba: en grupo, L/R cambia de jugador.
+    if (over_tab_ < 0 || over_tab_ >= g.nplayers) over_tab_ = g.local;
+    if (g.nplayers > 1 && (in.down & (KEY_L | KEY_R))) { over_tab_step((in.down & KEY_R) ? 1 : -1); audio::play("hover"); }
     if (g.dirty) save_now();
     if (!over_synced_) { over_synced_ = true; cloud_autostart(); }   // (a la nube, si hay cuenta)
     if (coop_) {
@@ -1614,7 +1628,7 @@ void App::draw_top(float eye) {
     }
     if (still_now_) g_->players[g_->local].anim.dir = int8_t(dir_from_angle(kPi / 2));   // (grabación: mirando abajo)
     r_->draw_top(*g_, eye); coop_overlay();
-    if (g_->state == ST_OVER) top_cloud_badge();   // (se sube a la nube al acabar: que se vea)
+    if (g_->state == ST_OVER) { r_->draw_over_summary(*g_, over_tab_ < 0 ? g_->local : over_tab_); top_cloud_badge(); }   // (se sube a la nube al acabar: que se vea)
   }
   else {
     if (eye <= 0) C2D_TextBufClear(r_->tbuf);

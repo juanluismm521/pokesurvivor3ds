@@ -478,6 +478,7 @@ void App::coop_begin(const RunConfig& cfg, int idx, int delay) {
   r_->sprites.async = true;
   r_->card_cursor = 0;
   bond_first_ = -1;
+  over_tab_ = -1;
   paused_ = false;
   pending_input = Input();
   coop_over_t_ = 0;

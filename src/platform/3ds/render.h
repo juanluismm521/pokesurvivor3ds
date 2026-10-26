@@ -53,6 +53,9 @@ struct Renderer {
   void draw_top(Game& g, float eye = 0);
   void set_parallax(float p);
   void draw_bottom(Game& g, bool autotest);
+  // Fin de la partida, arriba: los ataques del jugador `pi` (daño y por segundo),
+  // el total y su objeto; en grupo, con una pestaña por jugador (L/R).
+  void draw_over_summary(Game& g, int pi);
   void draw_ground(World& w, const Camera& cam, float vl, float vt, float now);
   void draw_prop(const Prop& p, World& w, float vl, float vt, float now);
 
