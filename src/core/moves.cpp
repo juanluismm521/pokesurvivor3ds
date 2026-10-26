@@ -84,6 +84,41 @@ int move_pool_for(const int8_t types[2], int16_t* out, int max) {
   return n;
 }
 
+// Movimientos extra por Pokémon (del port; el dueño, 2026-10-26: «a Darkrai le
+// faltan muchos movimientos»). Darkrai es sólo Siniestro: su tipo le daba 5;
+// en los juegos aprende además estos (MT y tutor).
+namespace {
+struct Extra { int16_t dex; const char* moves[10]; };
+const Extra kExtras[] = {
+    {491, {"shadow-ball", "ominous-wind", "psychic", "ice-beam", "thunderbolt", "thunder-wave", "sludge", "toxic", nullptr}},
+};
+}  // namespace
+
+int move_extras_for(int dex, int16_t* out, int max) {
+  int n = 0;
+  for (const Extra& e : kExtras) {
+    if (e.dex != dex) continue;
+    for (const char* id : e.moves) {
+      if (!id) break;
+      const int k = move_index(id);
+      if (k >= 0 && n < max) out[n++] = int16_t(k);
+    }
+  }
+  return n;
+}
+
+int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max) {
+  int n = move_pool_for(types, out, max);
+  int16_t ex[16];
+  const int ne = move_extras_for(dex, ex, 16);
+  for (int i = 0; i < ne; ++i) {
+    bool dup = false;
+    for (int j = 0; j < n; ++j) if (out[j] == ex[i]) dup = true;
+    if (!dup && n < max) out[n++] = ex[i];
+  }
+  return n;
+}
+
 int move_base_start_for(int dex) {
   for (int i = 0; i < kStarterCount; ++i) if (kStarters[i].dex == dex) return kStarters[i].start;
   const Mon* m = mon_by_dex(dex);
@@ -119,7 +154,7 @@ int move_second_choices(int dex, int start, int16_t* out, int max) {
   const Mon* m = mon_by_dex(dex);
   if (!m) return 0;
   int16_t all[kMaxMoves];
-  const int na = move_pool_for(m->types, all, kMaxMoves);
+  const int na = move_pool_for_dex(dex, m->types, all, kMaxMoves);
   int n = 0;
   for (int i = 0; i < na && n < max; ++i)
     if (all[i] != start && kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];

@@ -82,7 +82,7 @@ float Game::level_xp() {
 
 static bool in_type_pool(const Player& p, int id) {
   int16_t all[kMaxMoves];
-  const int na = move_pool_for(p.mon->types, all, kMaxMoves);
+  const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves);
   for (int i = 0; i < na; ++i) if (all[i] == id) return true;
   return false;
 }
@@ -104,7 +104,7 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
     player_set_active(g, p, 0);
   } else if (perks.start_moves >= 2) {
     int16_t all[kMaxMoves], pool[kMaxMoves];
-    const int na = move_pool_for(p.mon->types, all, kMaxMoves);
+    const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves);
     int np = 0;
     for (int i = 0; i < na; ++i) {
       const int id = all[i];

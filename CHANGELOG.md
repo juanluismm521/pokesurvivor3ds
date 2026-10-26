@@ -5,6 +5,14 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.7.0 — 2026-10-26
+- **Darkrai aprende más movimientos.** Al ser sólo Siniestro tenía 16 (los 11
+  normales y 5 de su tipo); ahora también los que aprende en los juegos por MT o
+  tutor: Bola Sombra, Viento Aciago, Psíquico, Rayo Hielo, Rayo, Onda Trueno,
+  Residuos y Tóxico (24). Salen en las cartas de nivel y se pueden elegir en
+  Repertorio, Atajos y Vetos.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.6.0 — 2026-10-26
 - **Megas más ágiles:** la recarga baja de 45 a **40 s**.
 - **Megas Z** (Mega-Lucario Z, Mega-Garchomp Z, Mega-Absol Z…), como en Leyendas Z-A:

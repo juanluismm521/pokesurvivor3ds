@@ -883,7 +883,7 @@ void App::top_detail(int dex, bool shiny, bool own) {
   std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0)].name);
   r_->text_fit(b, 300, 144, 196, 0.36f, C_GOLD, true, 1);
   int16_t pool[kMaxMoves];
-  const int np = move_pool_for(p->types, pool, kMaxMoves);
+  const int np = move_pool_for_dex(dex, p->types, pool, kMaxMoves);
   for (int i = 0; i < np && i < 20; ++i) {
     const int ic = r_->move_icon[pool[i]];
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 214 + (i % 10) * 18, 162 + (i / 10) * 18, 0);
@@ -955,7 +955,7 @@ void App::in_upgrades(const UiIn& in) {
   if (scene == SC_BIND) {
     // Atajos: 4 huecos, izquierda/derecha cambia el movimiento.
     int16_t pool[kMaxMoves];
-    int np = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves);
+    int np = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves);
     const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
     bool has = false;
     for (int i = 0; i < np; ++i) if (pool[i] == st) has = true;
@@ -1031,7 +1031,7 @@ void App::in_upgrades(const UiIn& in) {
   }
   if (scene == SC_BAN) {
     int16_t pool[kMaxMoves];
-    int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
+    int np0 = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
     const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
     for (int i = 0; i < np0; ++i) if (pool[i] != st) pool[np++] = pool[i];   // el de inicio no se veta
     if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - 1);
@@ -1159,7 +1159,7 @@ void App::bottom_upgrades() {
   }
   if (scene == SC_BAN) {
     int16_t pool[kMaxMoves];
-    int np0 = move_pool_for(mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
+    int np0 = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
     const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
     for (int i = 0; i < np0; ++i) if (pool[i] != st) pool[np++] = pool[i];
     int cnt = 0;

@@ -41,6 +41,11 @@ bool move_evolve(MoveInst& m);
 // Movimientos que puede aprender un Pokémon (sus tipos + normal), en el orden
 // de la web (Set: primero el pool normal, luego los de cada tipo).
 int move_pool_for(const int8_t types[2], int16_t* out, int max);
+// Lo mismo más los movimientos extra de ese Pokémon (del port: los que en los
+// juegos aprende por MT o tutor y su tipo no le da; hoy, Darkrai). Es lo que
+// sale en las cartas de nivel, Repertorio, Atajos y Vetos.
+int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max);
+int move_extras_for(int dex, int16_t* out, int max);
 // Movimiento inicial de serie (G.baseStartOf): el del starter o el de su tipo.
 int move_base_start_for(int dex);
 // Ataques que se pueden elegir para empezar (G.startChoices): los suyos, sin
