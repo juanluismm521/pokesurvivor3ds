@@ -5,6 +5,11 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.13.2 — 2026-10-26
+- **Novedades** al día con todo lo de la 0.6 a la 0.13 (esferas, Arceus, gacha ×100
+  y Amuletos Iris, modo rápido y salas con contraseña, resumen, megas Z y los ataques
+  en la Colección). Se abren solas una vez.
+
 ## 0.13.1 — 2026-10-26
 - Gacha: al cerrar una tirada ya no queda elegido el botón de tirar. Pulsando A
   seguido para pasar las animaciones se encadenaban tiradas sin querer (tickets

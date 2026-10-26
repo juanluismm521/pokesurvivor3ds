@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "core/mega.h"
+#include "core/orbs.h"
 #include "core/settings.h"
 #include "core/version.h"
 #include "platform/3ds/app.h"
@@ -20,7 +21,8 @@ namespace ps {
 namespace {
 
 // Ícono de cada novedad.
-enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_CLOUD, NI_ITEM, NI_WEB, NI_COIN, NI_BOND, NI_FAST };
+enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_CLOUD, NI_ITEM, NI_WEB, NI_COIN, NI_BOND, NI_FAST,
+                         NI_ORB, NI_TICKET, NI_BOOK, NI_FRIENDS };
 
 struct NewsItem {
   const char* head;    // si no es null: título de sección (versión)
@@ -30,6 +32,21 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.13 · Lo nuevo de la web", 0, nullptr, nullptr},
+    {nullptr, NI_ORB, "Esferas de Mundo Misterioso",
+     "Salen en cofres, jefes y a veces al derrotar a un Pokémon. A usa la elegida, B cambia (o tócala abajo): duermen, frenan o empujan, o te dan crítico, campo o velocidad."},
+    {nullptr, NI_STAR, "Arceus ya se puede golpear",
+     "En la Sentencia lleva una Tabla al azar que le da su tipo. Recibe poco daño y sólo le apuntas sin legendarios cerca. Ellos crecen ahora un 25 %, no el doble."},
+    {nullptr, NI_TICKET, "Gacha ×100 y Amuletos Iris",
+     "Tira de 100 en 100 (o de 10 en 10). Completa la Pokédex de una región y su Amuleto Iris te da shiny al 2 % en su banner."},
+    {nullptr, NI_FRIENDS, "Modo rápido y salas con contraseña",
+     "Jugar: Normal (Sentencia a los 30 min) o Rápido (a los 20). En grupo, la sala elige su modo y puede llevar contraseña (candado en la lista)."},
+    {nullptr, NI_UP, "Resumen al acabar",
+     "Arriba, el daño y el daño por segundo de cada ataque, el total y tu objeto. En grupo, el de cada compañero con L/R."},
+    {nullptr, NI_STONE, "Megas Z y recarga de 40 s",
+     "Las megas Z duran 15 s pero empujan más, como en Z-A. Mega-Lucario Z estrena sprite. La recarga de todas baja a 40 s."},
+    {nullptr, NI_BOOK, "Ataques en la Colección",
+     "SELECT en la Colección: los ataques de cada Pokémon en grande, con su tipo y qué hacen. Darkrai aprende ahora 8 más."},
     {"Versión 0.5 · ¡Ya tenemos web!", 0, nullptr, nullptr},
     {nullptr, NI_WEB, "pokesurvivor3ds.com",
      "La web oficial del juego: descarga el .cia y el .3dsx (con QR para FBI), mira el tráiler y las capturas y aprende a instalarlo."},
@@ -91,7 +108,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.5";
+constexpr const char* kNewsVersion = "0.13";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 
@@ -156,8 +173,9 @@ void App::bottom_news() {
         r_->text("Y", ix, iy - 8 + bob, 0.45f, C_TEXT, 1);
         break;
       case NI_ITEM: r_->draw_item_icon(IT_LEFTOVERS, ix - 10, iy - 10 + bob, 20); break;
+      case NI_ORB: r_->draw_orb(int(t_ / 1.2f + i) % ORB_COUNT, ix, iy + bob, 10); break;
       default: {
-        static const char* const kIc[] = {"", "", "up", "star", "heart", "clock", "", "", "", "coin", "bond", "clock"};
+        static const char* const kIc[] = {"", "", "up", "star", "heart", "clock", "", "", "", "coin", "bond", "clock", "", "ticket10", "book", "friends"};
         const int ic = r_->icons.find(kIc[n.icon]);
         if (n.icon == NI_HOME) {   // (la casa: un tejado y una puerta)
           C2D_DrawTriangle(ix - 11, iy - 1 + bob, C_GOLD, ix + 11, iy - 1 + bob, C_GOLD, ix, iy - 11 + bob, C_GOLD, 0);
