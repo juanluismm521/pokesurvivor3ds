@@ -199,12 +199,12 @@ TEST_CASE("sincronizar: si se acaba de guardar (web u otra consola), se espera a
   // Esperando: se espera lo que falta (20 s hasta los 25) y entra a la primera.
   c.sleep_ms = fake_sleep;
   REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", fs.now, merged), c.error);
-  CHECK(fs.waited_ms == 20000);
+  CHECK(fs.waited_ms == 21500);
   CHECK(fs.commits == 1);
   CHECK(fs.too_soon == 0);
   // Y sincronizar otra vez enseguida (botón dos veces): espera los 25 s.
   REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", fs.now, merged), c.error);
-  CHECK(fs.waited_ms == 45000);
+  CHECK(fs.waited_ms == 48000);
   CHECK(fs.commits == 2);
   CHECK(fs.too_soon == 0);
   save_raw() = Json();

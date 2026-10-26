@@ -5,6 +5,14 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.13.4 — 2026-10-26
+- **Arreglado «La nube ha rechazado la partida (permiso denegado)»** al entrar con
+  la cuenta de pokesurvivor.com. Desde el 21-10 la web cuenta las versiones de la
+  partida en la nube y la 3DS no lo hacía: en cuanto alguien guardaba desde la web
+  nueva, la consola ya no podía subir su partida. Ahora la 3DS lo hace igual que la web.
+- Si se acaba de guardar desde otro sitio, la espera de 20 s lleva un margen (a veces
+  se volvía a intentar justo antes de tiempo y fallaba).
+
 ## 0.13.3 — 2026-10-26
 - Por dentro: al pedir actualizaciones, la consola dice su versión, build y si es
   .cia o .3dsx (nada personal). Es para las estadísticas privadas del dueño: cuántas

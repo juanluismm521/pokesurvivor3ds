@@ -63,6 +63,8 @@ struct Autotest {
   int level = 0, stone = 0;
   bool mark = false, peace = false, still = false;   // "… paz": sin enemigos
   char room_pass[12] = "";   // grupo: "pass=X": contraseña de la sala (anfitrión) o la que prueba el invitado
+  bool boot = false;          // "… arranque": lo que hace al encender (buscar versión nueva si está activado)
+  int prog_state = -1;
   bool quick = false;         // "… rapido": modo rápido (la Sentencia a los 20 min)
   bool orbs = false;          // "… esferas": te da esferas al empezar (el bot las usa)
   bool end_screen = false;    // "… fin": al acabar el tiempo, termina la partida y enseña el resumen 8 s (captura)
@@ -139,6 +141,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else if (!std::strcmp(w, "rapido")) a.quick = true;
+      else if (!std::strcmp(w, "arranque")) a.boot = true;
       else return false;
       return true;
     };
@@ -424,9 +427,12 @@ int main(int argc, char** argv) {
     cloud3ds::shutdown();
     audio::exit(); C2D_Fini(); C3D_Fini(); gfxExit(); romfsExit();
     return 0;
-  } else if (!at.on && !at.tour) {
-    app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
+  } else if ((!at.on && !at.tour) || at.boot) {
+    // ("… arranque" en el autotest: como al encender de verdad, para probar que la
+    // versión nueva se baja mientras se juega y se instala al salir)
+    if (!at.boot) app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
     if (settings.datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }   // (y, si está activado, datos y versión nueva)
+    if (at.boot && at.log) { std::fprintf(at.log, "arranque: buscar solas %s\n", settings.datos_auto ? "SÍ" : "no"); std::fflush(at.log); }
   }
   if (at.on && at.coop) {
     std::snprintf(app.auto_pass_, sizeof(app.auto_pass_), "%s", at.room_pass);
@@ -588,6 +594,12 @@ int main(int argc, char** argv) {
                    g->time, r.fps, at.fps_n ? at.fps_sum / at.fps_n : 0.0, at.min_fps == 999 ? 0 : at.min_fps, g->enemies.n, g->projectiles.n,
                    g->fx.parts.n, r.props_drawn, r.sprites.loaded(), (unsigned long)(r.sprites.bytes() / 1024), (unsigned long)(mem_free() / 1024),
                    (unsigned long)(linearSpaceFree() / 1024), heap_kb());
+      std::fflush(at.log);
+    }
+    // (autotest) La actualización del programa: cada cambio de estado, con el reloj.
+    if (at.on && at.log && prog3ds::state() != at.prog_state) {
+      at.prog_state = prog3ds::state();
+      std::fprintf(at.log, "programa: %s · a los %.0f s de partida (pantalla %d)\n", prog3ds::status().c_str(), g->time, int(app.scene));
       std::fflush(at.log);
     }
     // Cooperativo: la huella cada 10 s (para comparar los logs de las consolas).

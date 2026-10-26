@@ -33,7 +33,22 @@ if out=$(timeout 60 "$ROOT/build-pc/ps_cloud" "$PS_REAL_USUARIO" "$PS_REAL_PASS"
   echo "  ✔ usuario y contraseña: $(echo "$out" | tail -1)"
 else echo "  ✘ usuario y contraseña: $out"; fallos=$((fallos+1)); fi
 
-# 2. por QR con el servidor vincular real
+# 1b. un guardado de la web nueva (21-10-2026: saves/{uid}.rev + 1). Después de eso
+# la 3DS tiene que seguir pudiendo subir (antes: «La nube ha rechazado la partida»).
+sleep 21   # (las reglas no dejan guardar dos veces en menos de 20 s)
+EMAIL0=$(python3 -c "import sys;print(sys.argv[1].lower().encode().hex()+'@jugadores.pokesurvivor.net')" "$PS_REAL_USUARIO")
+J0=$(curl -s -m 15 -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$KEY" -H "Referer: https://pokesurvivor.com/" \
+  -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL0\",\"password\":\"$PS_REAL_PASS\",\"returnSecureToken\":true}")
+TOK0=$(echo "$J0" | python3 -c "import json,sys;print(json.load(sys.stdin).get('idToken',''))")
+UID0=$(echo "$J0" | python3 -c "import json,sys;print(json.load(sys.stdin).get('localId',''))")
+FSB="https://firestore.googleapis.com/v1/projects/pokesurvivor-free/databases/(default)/documents"
+REV0=$(curl -s -m 15 "$FSB/saves/$UID0?mask.fieldPaths=rev" -H "Authorization: Bearer $TOK0" | python3 -c "import json,sys;print(json.load(sys.stdin).get('fields',{}).get('rev',{}).get('integerValue','0'))")
+W0="{\"writes\":[{\"update\":{\"name\":\"projects/pokesurvivor-free/databases/(default)/documents/saves/$UID0\",\"fields\":{\"rev\":{\"integerValue\":\"$((REV0 + 1))\"}}},\"updateMask\":{\"fieldPaths\":[\"rev\"]},\"updateTransforms\":[{\"fieldPath\":\"updatedAt\",\"setToServerValue\":\"REQUEST_TIME\"}]}]}"
+if curl -s -m 15 -X POST "$FSB:commit" -H "Authorization: Bearer $TOK0" -H 'Content-Type: application/json' -d "$W0" | grep -q commitTime; then
+  echo "  ✔ guardado de la web nueva simulado (rev $REV0 → $((REV0 + 1)))"
+else echo "  ✘ no se ha podido simular el guardado de la web (rev $REV0)"; fallos=$((fallos+1)); fi
+sleep 21
+# 2. por QR con el servidor vincular real (y con la partida ya guardada desde la web nueva)
 timeout 60 "$ROOT/build-pc/ps_cloud" --qr - "$T/vacia.json" ctrvpstest "$T/b.json" > "$T/qr.log" 2>&1 &
 QPID=$!
 for _ in $(seq 1 20); do grep -q "QR:" "$T/qr.log" && break; sleep 0.5; done

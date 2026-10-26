@@ -310,6 +310,7 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     int64_t saved_at = 0;                  // updatedAt de la nube (hora del servidor, ms)
     bool ban = false;
     int doc_v = 0;
+    int64_t rev = 0;                       // versión de la partida en la nube (web, 21-10-2026)
     {
       Json arr;
       arr.parse(rs.body);
@@ -325,8 +326,10 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
         ban = f["ban"]["booleanValue"].as_bool();
         doc_v = int(web::from_firestore(f["v"]).as_num(0));
         saved_at = parse_timestamp(f["updatedAt"]["timestampValue"].as_str());
+        rev = int64_t(web::from_firestore(f["rev"]).as_num(0));
+        if (rev < 0) rev = 0;
         for (const auto& kv : f.items())
-          if (kv.first != "save" && kv.first != "v" && kv.first != "updatedAt" && kv.first != "ban") other.set(kv.first, kv.second);
+          if (kv.first != "save" && kv.first != "v" && kv.first != "updatedAt" && kv.first != "ban" && kv.first != "rev") other.set(kv.first, kv.second);
       }
     }
     c.last_remote = remote;
@@ -340,8 +343,10 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
           c.error = "Se acaba de guardar la partida desde otro sitio: prueba otra vez en unos segundos.";
           return false;
         }
-        c.sleep_ms(int(kMinWriteGapMs - std::max<int64_t>(gap, 0)), c.ctx);
-        local_now_ms += kMinWriteGapMs - std::max<int64_t>(gap, 0);
+        // (+1,5 s: la hora del servidor llega en segundos enteros y, sin margen, se
+        // volvía a intentar justo antes de los 20 s y la nube lo rechazaba otra vez)
+        c.sleep_ms(int(kMinWriteGapMs - std::max<int64_t>(gap, 0) + 1500), c.ctx);
+        local_now_ms += kMinWriteGapMs - std::max<int64_t>(gap, 0) + 1500;
         ++waits;
         --attempt;   // (esperar no cuenta como intento)
         continue;
@@ -382,6 +387,14 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     Json fields = other;
     fields.set("save", web::to_firestore(merged));
     fields.set("v", web::to_firestore(Json::num(web::kVersion)));
+    // Cada subida lleva rev + 1 de la que se ha leído: las reglas de pokesurvivor.com
+    // (21-10-2026) rechazan lo demás con «permiso denegado». Antes no se mandaba y,
+    // en cuanto la partida se guardaba desde la web nueva, la 3DS ya no podía subirla.
+    {
+      Json iv = Json::object();
+      iv.set("integerValue", Json::str(std::to_string(rev + 1)));
+      fields.set("rev", iv);
+    }
     if (ban) fields.set("ban", web::to_firestore(Json::boolean(true)));
     Json doc = Json::object();
     doc.set("name", Json::str(doc_path(c, s)));
