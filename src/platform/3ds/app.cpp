@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "core/gacha.h"
 #include "core/i18n.h"
 #include "core/progress.h"
 #include "core/mega.h"
@@ -82,6 +83,15 @@ void App::start_news_demo(int dex) {
   go(SC_NEWS);
 }
 
+// Autotest "gacha100": 100 tickets, tirada ×100 en el banner de tu compañero y su resumen.
+void App::start_gacha_demo() {
+  gacha_demo_ = true;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  s_->t1 += 100;
+  go(SC_GACHA);
+}
+
 void App::start_update_demo() {
   update_demo_ = true;
   news_t_ = 0;
@@ -113,6 +123,17 @@ void App::go(Scene sc) {
   cur_ = cur2_ = scroll_ = 0;
   if (sc == SC_MENU) {
     progress_check_ach(*s_, now_ms());
+    // Amuletos Iris nuevos (completaste una región jugando: rescates, shinies…).
+    int mask = 0;
+    for (int gen = 1; gen <= 9; ++gen) if (gacha_has_iris(*s_, gen)) mask |= 1 << gen;
+    if (iris_mask_ >= 0)
+      for (int gen = 1; gen <= 9; ++gen)
+        if ((mask & (1 << gen)) && !(iris_mask_ & (1 << gen))) {
+          char t[80];
+          std::snprintf(t, sizeof(t), "¡Amuleto Iris de %s!", kBanners[gen - 1].name);
+          g_notices.push(t, "Tienes su Pokédex completa: shiny al 2 % en su banner", -1);
+        }
+    iris_mask_ = mask;
     if (g_->state != ST_UI) { g_->state = ST_UI; backdrop_init(); }
   }
   if (sc == SC_DEX) { gen_ = mon_by_dex(s_->partner) ? mon_by_dex(s_->partner)->gen : 1; view_shiny_ = false; dex_moves_ = false; }
@@ -318,6 +339,13 @@ void App::update(const UiIn& in0, float dt) {
     if (t0 < 2 && news_t_ >= 2) prog3ds::start_check(true);
     if (news_t_ > 40) quit = true;
   }
+  if (gacha_demo_) {
+    const float t0 = news_t_;
+    news_t_ += dt;
+    if (scene == SC_GACHA && t0 < 2 && news_t_ >= 2) { cur_ = 2; in.down |= KEY_A; }        // ×100 (100 tickets)
+    if (scene == SC_PULL && pull_done_ && news_t_ > 30 && int(news_t_ / 2) != int(t0 / 2)) in.rep |= KEY_DDOWN;   // (más cartas)
+    if (news_t_ > 40) quit = true;
+  }
   if (news_demo_) {   // autotest "novedades": baja por la lista, va al menú y sale
     news_t_ += dt;
     if (scene == SC_NEWS && news_t_ > 5 && int(news_t_ / 0.7f) != int((news_t_ - dt) / 0.7f)) in.rep |= KEY_DDOWN;
@@ -338,7 +366,7 @@ void App::update(const UiIn& in0, float dt) {
       else if (scene == SC_RESULT && i < 10) { cur_ = 1; in.down |= KEY_A; } // "elegir otro"
       else if (scene == SC_STARTERS) in.down |= KEY_B;
       else if (scene == SC_RESULT) { cur_ = 0; in.down |= KEY_A; }        // acepta
-      else if (scene == SC_GACHA && !pulled) { pulled = true; cur_ = 1; in.down |= KEY_A; }
+      else if (scene == SC_GACHA && !pulled) { pulled = true; cur_ = 0; in.down |= KEY_A; }
       else if (scene == SC_UPGRADES && bought < 3) { bought++; in.down |= KEY_A; }   // compra mejoras (el tirón al guardar)
       else if (scene == SC_DEX && !shinied) { shinied = true; cur_ = 1; in.down |= KEY_Y; }   // la lista en shiny (Y)
       else if (scene == SC_DEX && dexmv_ < 3) {   // sus ataques (SELECT) y dos a la derecha
@@ -836,10 +864,12 @@ void App::bottom_dex() {
   int have = 0, total = 0;
   for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { total++; if (s_->owns(kDex[i].dex)) have++; }
   char b[96];
-  std::snprintf(b, sizeof(b), "%s %d/%d", GEN_NAMES[gen_ - 1], have, total);
+  // Con la región completa, su Amuleto Iris (shiny al 2 % en su banner).
+  std::snprintf(b, sizeof(b), "%s %d/%d%s", GEN_NAMES[gen_ - 1], have, total, have >= total ? " · Amuleto Iris" : "");
   header(b);
-  std::snprintf(b, sizeof(b), "L/R generación · X: %s", tr(FILTERS[filter_]));
-  r_->text(b, 160, 25, 0.34f, C_MUTED, 1);
+  if (have >= total) std::snprintf(b, sizeof(b), "L/R generación · X: %s · shiny al 2 %% en su banner", tr(FILTERS[filter_]));
+  else std::snprintf(b, sizeof(b), "L/R generación · X: %s · Amuleto Iris: faltan %d", tr(FILTERS[filter_]), total - have);
+  r_->text_fit(b, 160, 25, 308, 0.34f, C_MUTED, false, 1);
   for (int i = 0; i < 24; ++i) {
     const int k = scroll_ * 6 + i;
     if (k >= n) break;
@@ -1363,22 +1393,43 @@ void App::in_gacha(const UiIn& in) {
   // (L/R ya suenan en update(); al tocar suena el clic)
   if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) gen_ = gen_ == 1 ? 9 : gen_ - 1;
   if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) gen_ = gen_ == 9 ? 1 : gen_ + 1;
-  if (in.rep & KEY_DUP) cur_ = (cur_ + 2) % 3;
-  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 3;
+  // Se tira de 10 en 10 o de 100 en 100 (web, 22-10-2026: ya no hay ×1).
+  if (in.rep & KEY_DUP) cur_ = (cur_ + 3) % 4;
+  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 4;
+  cur_ = clamp(cur_, 0, 3);
   int pick = -1;
-  for (int i = 0; i < 3; ++i) if (in_rect(&in, 20, 120 + i * 34, 280, 30)) pick = i;
+  for (int i = 0; i < 4; ++i) if (in_rect(&in, 20, 116 + i * 27, 280, 24)) pick = i;
   if (in.down & KEY_A) pick = cur_;
   if (in.down & KEY_B) { go(SC_MENU); return; }
   if (pick < 0) return;
   cur_ = pick;
-  const int n = pick == 0 ? 1 : 10;
+  const int n = pick < 2 ? 10 : 100;
+  const bool t10 = pick == 1 || pick == 3;
+  const bool had_iris = gacha_has_iris(*s_, gen_);
   Rng rr(uint32_t(osGetTime()) ^ 0x9e3779b9u);
-  npulls_ = gacha_pull(*s_, n, gen_, pick == 2, rr, now_ms(), pulls_);
+  npulls_ = gacha_pull(*s_, n, gen_, t10, rr, now_ms(), pulls_);
   if (!npulls_) { audio::play("error"); g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
+  iris_gen_ = !had_iris && gacha_has_iris(*s_, gen_) ? gen_ : 0;
   progress_check_ach(*s_, now_ms());
   save_now();
+  // Resumen de la ×100: de mejor a peor (shiny, rareza, nuevo).
+  if (npulls_ == 100) {
+    for (int i = 0; i < 100; ++i) sum_[i] = int16_t(i);
+    auto score = [&](int i) { const PullResult& r = pulls_[i]; return (r.shiny ? 100 : 0) + r.rarity * 10 + (r.is_new ? 1 : 0); };
+    std::stable_sort(sum_, sum_ + 100, [&](int16_t a, int16_t b) { return score(a) > score(b); });
+    sum_scroll_ = 0;
+  }
   pull_i_ = 0; pull_t_ = 0; pull_fast_ = false; pull_done_ = false;
   scene = SC_PULL;
+}
+
+// ×100: lo mejor de cada ×10 (es lo que enseña la tragaperras en ese giro).
+const PullResult& App::spin(int i) const {
+  if (npulls_ != 100) return pulls_[i];
+  int best = i * 10;
+  auto score = [&](int k) { const PullResult& r = pulls_[k]; return (r.shiny ? 100 : 0) + r.rarity * 10 + (r.is_new ? 1 : 0); };
+  for (int k = i * 10 + 1; k < i * 10 + 10; ++k) if (score(k) > score(best)) best = k;
+  return pulls_[best];
 }
 
 void App::in_pull(const UiIn& in, float dt) {
@@ -1386,8 +1437,8 @@ void App::in_pull(const UiIn& in, float dt) {
   pull_t_ += dt * (pull_fast_ ? 4 : 1);
   if (!pull_done_) {
     // Sonidos de la tragaperras (slots.js): palanca, cada rodillo y el premio.
-    const PullResult& pr = pulls_[pull_i_];
-    const bool ten = npulls_ == 10, big = pr.rarity >= 4 || pr.shiny;
+    const PullResult& pr = spin(pull_i_);
+    const bool ten = npulls_ >= 10, big = pr.rarity >= 4 || pr.shiny;
     auto at = [&](float x) { return prev < x && pull_t_ >= x; };
     if (at(0.001f)) audio::play("ball");
     const float spin_end = ten ? 0.25f : 0.6f;
@@ -1404,20 +1455,35 @@ void App::in_pull(const UiIn& in, float dt) {
       }
     }
   }
-  if (in.down & (KEY_A | KEY_B) || in.tap) {
-    if (pull_done_) { scene = SC_GACHA; return; }
+  // El resumen de la ×100: arriba/abajo recorre las cartas.
+  if (pull_done_ && npulls_ == 100) {
+    if (in.rep & KEY_DUP) sum_scroll_ = std::max(0, sum_scroll_ - 1);
+    if (in.rep & KEY_DDOWN) sum_scroll_ = std::min(100 / 8 - 3, sum_scroll_ + 1);
+  }
+  if (in.down & (KEY_A | KEY_B) || (in.tap && !(pull_done_ && npulls_ == 100 && in.ty > 40 && in.ty < 220))) {
+    if (pull_done_) {
+      scene = SC_GACHA;
+      if (iris_gen_) {
+        char t[80];
+        std::snprintf(t, sizeof(t), "¡Amuleto Iris de %s!", kBanners[iris_gen_ - 1].name);
+        g_notices.push(t, "Tienes su Pokédex completa: shiny al 2 % en su banner", -1);
+        audio::play("legend");
+        iris_gen_ = 0;
+      }
+      return;
+    }
     pull_fast_ = true;
   }
   // Duración de cada tirada (la ×10, rápida; las grandes, con suspense).
   if (pull_done_) return;
-  const bool ten = npulls_ == 10;
-  const PullResult& r = pulls_[pull_i_];
+  const bool ten = npulls_ >= 10;
+  const PullResult& r = spin(pull_i_);
   const bool big = r.rarity >= 4 || r.shiny;
   const float dur = (ten ? 0.7f : 1.8f) + (big ? (ten ? 0.5f : 1.1f) : 0);
   if (pull_t_ >= dur) {
     pull_t_ = 0;
     pull_i_++;
-    if (pull_i_ >= npulls_) { pull_i_ = npulls_ - 1; pull_done_ = true; }
+    if (pull_i_ >= nspins()) { pull_i_ = nspins() - 1; pull_done_ = true; }
   }
 }
 
@@ -1429,9 +1495,13 @@ void App::bottom_gacha() {
   int all = 0, own = 0;
   for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { all++; if (s_->owns(kDex[i].dex)) own++; }
   std::snprintf(b, sizeof(b), "Tienes %d de %d · Tiradas sin legendaria: %d / %d", own, all, int(s_->pity[gen_]), kPity5);
-  r_->text(b, 160, 26, 0.36f, C_MUTED, 1);
+  r_->text_fit(b, 160, 24, 304, 0.34f, C_MUTED, false, 1);
   std::snprintf(b, sizeof(b), "Tickets: %d · Tickets ×10: %d", int(s_->t1), int(s_->t10));
-  r_->text(b, 160, 40, 0.38f, C_GOLD, 1);
+  r_->text(b, 160, 36, 0.38f, C_GOLD, 1);
+  // Amuleto Iris de esta región: lo tienes (shiny al 2 %) o lo que te falta.
+  if (own >= all) std::snprintf(b, sizeof(b), "Amuleto Iris de %s · shiny al 2 %%", bn.name);
+  else std::snprintf(b, sizeof(b), "Amuleto Iris: te faltan %d (shiny al 2 %% en este banner)", all - own);
+  r_->text_fit(b, 160, 48, 304, 0.32f, own >= all ? C2D_Color32(0xff, 0x8a, 0xd8, 255) : C_MUTED, false, 1);
   // Selector de región: anterior · ACTUAL · siguiente (L/R o tocar a los lados)
   // y un punto por región con la actual marcada.
   const int prev = gen_ == 1 ? 9 : gen_ - 1, next = gen_ == 9 ? 1 : gen_ + 1;
@@ -1449,15 +1519,16 @@ void App::bottom_gacha() {
     if (i == gen_) C2D_DrawRectSolid(x - 3, 95, 0, 7, 7, C_GOLD);
     else C2D_DrawRectSolid(x - 2, 96, 0, 5, 5, C2D_Color32(90, 100, 125, 255));
   }
-  static const char* const L[3] = {"Tirar ×1 (1 ticket)", "Tirar ×10 (10 tickets)", "Tirar ×10 (1 ticket ×10)"};
-  for (int i = 0; i < 3; ++i) {
+  static const char* const L[4] = {"Tirar ×10 (10 tickets)", "Tirar ×10 (1 ticket ×10)", "Tirar ×100 (100 tickets)", "Tirar ×100 (10 tickets ×10)"};
+  for (int i = 0; i < 4; ++i) {
     int c1, c10;
-    const bool ok = gacha_cost(*s_, i == 0 ? 1 : 10, i == 2, c1, c10);
-    C2D_DrawRectSolid(20, 120 + i * 34, 0, 280, 30, i == cur_ ? C_SEL : C_PANEL);
-    if (i == cur_) C2D_DrawRectSolid(20, 120 + i * 34, 0, 3, 30, C_GOLD);
-    r_->text(L[i], 160, 127 + i * 34, 0.42f, ok ? C_TEXT : C2D_Color32(110, 120, 140, 255), 1);
+    const bool ok = gacha_cost(*s_, i < 2 ? 10 : 100, i == 1 || i == 3, c1, c10);
+    const float y = 116 + i * 27;
+    C2D_DrawRectSolid(20, y, 0, 280, 24, i == cur_ ? C_SEL : C_PANEL);
+    if (i == cur_) C2D_DrawRectSolid(20, y, 0, 3, 24, C_GOLD);
+    r_->text(L[i], 160, y + 4, 0.4f, ok ? C_TEXT : C2D_Color32(110, 120, 140, 255), 1);
   }
-  r_->text("La ×10 garantiza al menos una Épica · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  r_->text("Cada ×10 garantiza una Épica · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
 void App::top_pull() {
@@ -1468,8 +1539,8 @@ void App::top_pull() {
   C2D_DrawRectSolid(mx, my, 0, 160, 150, rgb(0xc8323c));
   C2D_DrawRectSolid(mx + 4, my + 4, 0, 152, 4, rgb(0xef6464));
   C2D_DrawRectSolid(mx + 10, my + 14, 0, 140, 22, rgb(0x2a0f14));
-  const PullResult& r = pulls_[pull_i_];
-  const bool ten = npulls_ == 10;
+  const PullResult& r = npulls_ == 100 && pull_done_ ? pulls_[sum_[0]] : spin(pull_i_);   // (×100 acabada: lo mejor de todo)
+  const bool ten = npulls_ >= 10;
   const bool big = r.rarity >= 4 || r.shiny;
   const float t = pull_t_;
   const float spin_end = ten ? 0.25f : 0.6f;
@@ -1488,6 +1559,7 @@ void App::top_pull() {
   }
   if (stopped[2]) std::snprintf(led, sizeof(led), "%s%s", r.shiny ? "SHINY · " : "", kRarityName[r.rarity]);
   else if (stopped[1] && big) std::snprintf(led, sizeof(led), "%s", r.shiny ? "¡¿SHINY?!" : r.rarity == 5 ? "¡¿LEGENDARIO?!" : "¡¿ÉPICO?!");
+  else if (npulls_ == 100) std::snprintf(led, sizeof(led), "×10 · %d/10", pull_i_ + 1);
   else if (ten) std::snprintf(led, sizeof(led), "TIRADA %d/10", pull_i_ + 1);
   else std::snprintf(led, sizeof(led), "¡SUERTE!");
   r_->text(led, mx + 80, my + 18, 0.4f, stopped[2] ? rgb(r.shiny ? 0x9ae6ff : kRarityColor[r.rarity]) : rgb(0xffe9a0), 1);
@@ -1507,16 +1579,40 @@ void App::top_pull() {
 }
 
 void App::bottom_pull() {
-  header("Resultados");
-  for (int i = 0; i <= pull_i_ && i < npulls_; ++i) {
-    const PullResult& r = pulls_[i];
+  char b[96];
+  if (npulls_ == 100 && pull_done_) {
+    // Resumen de la ×100: nuevos, shiny y Pokémonedas; las cartas de mejor a peor.
+    int nn = 0, ns = 0, coins = 0;
+    for (int i = 0; i < 100; ++i) { nn += pulls_[i].is_new; ns += pulls_[i].shiny; coins += pulls_[i].refund; }
+    header("Resumen de la ×100");
+    std::snprintf(b, sizeof(b), "%d nuevos · %d shiny · +%d Pokémonedas", nn, ns, coins);
+    r_->text_fit(b, 160, 26, 304, 0.4f, C_GOLD, true, 1);
+    constexpr int COLS = 8;
+    for (int row = 0; row < 3; ++row)
+      for (int c = 0; c < COLS; ++c) {
+        const int k = (sum_scroll_ + row) * COLS + c;
+        if (k >= 100) break;
+        const PullResult& r = pulls_[sum_[k]];
+        const float x = 6 + c * 39, y = 44 + row * 58;
+        C2D_DrawRectSolid(x, y, 0, 37, 55, C_PANEL);
+        C2D_DrawRectSolid(x, y, 0, 37, 3, rgb(r.shiny ? 0x9ae6ff : kRarityColor[r.rarity]));
+        draw_mon(r.dex, r.shiny, x + 18, y + 40, 1);
+        if (r.is_new) r_->text(r.shiny ? "SHINY" : "NUEVO", x + 18, y + 43, 0.26f, C_GOLD, 1, false);
+        else { std::snprintf(b, sizeof(b), "+%d", r.refund); r_->text(b, x + 18, y + 43, 0.26f, C_MUTED, 1, false); }
+      }
+    std::snprintf(b, sizeof(b), "Arriba/abajo: más cartas (%d-%d de 100) · A: cerrar", sum_scroll_ * COLS + 1, std::min(100, (sum_scroll_ + 3) * COLS));
+    r_->text(b, 160, 226, 0.32f, C_MUTED, 1);
+    return;
+  }
+  header(npulls_ == 100 ? "Lo mejor de cada ×10" : "Resultados");
+  for (int i = 0; i <= pull_i_ && i < nspins(); ++i) {
+    const PullResult& r = spin(i);
     const bool shown = pull_done_ || i < pull_i_;
     const float x = 6 + (i % 5) * 62, y = 30 + (i / 5) * 92;
     C2D_DrawRectSolid(x, y, 0, 58, 86, C_PANEL);
     if (!shown) continue;
     C2D_DrawRectSolid(x, y, 0, 58, 3, rgb(r.shiny ? 0x9ae6ff : kRarityColor[r.rarity]));
     draw_mon(r.dex, r.shiny, x + 29, y + 50, 1);
-    char b[32];
     std::snprintf(b, sizeof(b), "%s", std::string(size_t(r.rarity), '*').c_str());
     r_->text(b, x + 29, y + 4, 0.32f, rgb(kRarityColor[r.rarity]), 1);
     r_->text(mon_by_dex(r.dex)->name, x + 29, y + 56, 0.28f, C_TEXT, 1, false);

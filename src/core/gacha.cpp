@@ -13,6 +13,7 @@ int gacha_force_shiny = 0;
 
 bool gacha_cost(const Save& s, int n, bool use_t10, int& t1, int& t10) {
   t1 = t10 = 0;
+  if (n == 100 && use_t10) { if (s.t10 >= 10) { t10 = 10; return true; } return false; }
   if (n == 10 && use_t10) { if (s.t10 >= 1) { t10 = 1; return true; } return false; }
   if (s.t1 >= n) { t1 = n; return true; }
   return false;
@@ -57,9 +58,28 @@ int roll_rarity(Rng& rng, int min = 1) {
 }
 }  // namespace
 
+void gacha_dex_of(const Save& s, int gen, int& have, int& total) {
+  have = total = 0;
+  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen) { total++; if (s.owns(kDex[i].dex)) have++; }
+}
+bool gacha_has_iris(const Save& s, int gen) {
+  int have, total;
+  gacha_dex_of(s, gen, have, total);
+  return total > 0 && have >= total;
+}
+float gacha_shiny_rate(const Save& s, int gen) { return gacha_has_iris(s, gen) ? kShinyRateIris : kShinyRate; }
+
 int gacha_pull(Save& s, int n, int gen, bool use_t10, Rng& rng, int64_t now_ms, PullResult* out) {
+  if (n == 100) {   // diez ×10 seguidas
+    int c1, c10;
+    if (!gacha_cost(s, 100, use_t10, c1, c10)) return 0;
+    int got = 0;
+    for (int k = 0; k < 10; ++k) got += gacha_pull(s, 10, gen, use_t10, rng, now_ms, out + got);
+    return got;
+  }
   int c1, c10;
   if (!gacha_cost(s, n, use_t10, c1, c10)) return 0;
+  const float rate = gacha_shiny_rate(s, gen);   // (con el Amuleto Iris de esta región, al doble)
   s.t1 -= c1; s.t10 -= c10;
   const int64_t now = now_ms ? now_ms : 1;
   int16_t list[256];
@@ -75,7 +95,7 @@ int gacha_pull(Save& s, int n, int gen, bool use_t10, Rng& rng, int64_t now_ms, 
     const int nl = pool_near(want, gen, list, rarity);
     if (rarity == 5) s.pity[gen] = 0;
     int dex = list[int(rng.next() * nl)];
-    bool shiny = has_shiny(dex) && (gacha_force_shiny > 0 ? (gacha_force_shiny--, true) : rng.next() < 1.0f / 100);
+    bool shiny = has_shiny(dex) && (gacha_force_shiny > 0 ? (gacha_force_shiny--, true) : rng.next() < rate);
     // Los shiny no se repiten: si ya lo tienes, otro de la misma rareza cuyo shiny te falte.
     if (shiny && s.shiny_at[dex]) {
       int16_t miss[256]; int nm = 0;

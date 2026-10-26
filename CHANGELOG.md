@@ -5,6 +5,17 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.12.0 — 2026-10-26
+- **Gacha ×100**: con 100 tickets o con 10 tickets ×10. Son diez ×10 seguidas (cada
+  una con su Épica asegurada): la tragaperras gira 10 veces enseñando lo mejor de
+  cada ×10 y al final sale un resumen (nuevos, shiny y Pokémonedas) con las cartas
+  de mejor a peor (arriba/abajo para verlas todas). Como en la web, ya no hay tirada
+  ×1: se tira de 10 en 10 o de 100 en 100.
+- **Amuletos Iris**: uno por región. Al completar la Pokédex de una región
+  (legendarios incluidos) tienes su Amuleto Iris y en su banner los shiny salen
+  el doble (del 1 % al 2 %). El gacha y la Colección dicen cuántos te faltan; si
+  ya habías completado alguna, el suyo ya es tuyo. Se avisa al conseguirlo.
+
 ## 0.11.0 — 2026-10-26
 - **Esferas de Mundo Misterioso** (como en la web del 23-10): objetos de un solo
   uso que se encuentran en la partida (cofres, jefes y, a veces, al derrotar a un

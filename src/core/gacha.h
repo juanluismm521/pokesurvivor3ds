@@ -2,7 +2,12 @@
 // personalidad (starters.js).
 //   Probabilidades: 1★ 45% · 2★ 30% · 3★ 17% · 4★ 6,5% · 5★ 1,5%
 //   la ×10 trae al menos un 4★ · a las 70 tiradas sin 5★, el siguiente es 5★
-//   1 de cada 100 sale shiny · repetidos → Pokémonedas (shiny repetido, ×3)
+//   1 de cada 100 sale shiny (2 de cada 100 con el Amuleto Iris de esa región)
+//   repetidos → Pokémonedas (shiny repetido, ×3)
+// Amuleto Iris (web, 23-10-2026): uno por región; se tiene al completar su
+// Pokédex (legendarios incluidos). No se guarda aparte: sale de lo que tienes.
+// ×100 (web, 22-10): 100 tickets o 10 tickets ×10; son diez ×10 seguidas (cada
+// una con su Épica asegurada). Desde entonces no hay ×1 (en el núcleo sigue).
 #pragma once
 #include <cstdint>
 
@@ -12,12 +17,18 @@
 namespace ps {
 
 constexpr int kPity5 = 70;
+constexpr float kShinyRate = 1.0f / 100, kShinyRateIris = 2.0f / 100;
 struct PullResult { int16_t dex; int8_t rarity; bool shiny, is_new; int refund; };
 
 // ¿Qué gasta una tirada? false si no te llega. use_t10: un ticket ×10 (sólo para la ×10).
 bool gacha_cost(const Save& s, int n, bool use_t10, int& t1, int& t10);
-// Hace n tiradas (1 o 10) en el banner de la generación `gen`. Devuelve cuántas.
+// Hace n tiradas (1, 10 o 100) en el banner de la generación `gen` (out: n
+// huecos). Devuelve cuántas (0 si no te llegan los tickets).
 int gacha_pull(Save& s, int n, int gen, bool use_t10, Rng& rng, int64_t now_ms, PullResult* out);
+// Amuleto Iris: cuántos tienes de una región y si está completa.
+void gacha_dex_of(const Save& s, int gen, int& have, int& total);
+bool gacha_has_iris(const Save& s, int gen);
+float gacha_shiny_rate(const Save& s, int gen);
 int gacha_pool(int rarity, int gen, int16_t* out);   // Pokémon de una rareza en un banner
 int gacha_featured(int gen, int16_t* out);            // los 3 más fuertes (cartel)
 extern int gacha_force_shiny;                        // pruebas: las N próximas salen shiny

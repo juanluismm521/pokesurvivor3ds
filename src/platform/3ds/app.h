@@ -41,6 +41,7 @@ class App {
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
   void start_news_demo(int dex);
+  void start_gacha_demo();
   void start_update_demo();        // autotest "actualizar": busca y baja la versión nueva (para grabarlo)   // autotest "novedades [dex]": las novedades y el menú con ese compañero
   bool tour = false;
   void update(const UiIn& in, float dt);
@@ -145,7 +146,15 @@ class App {
   // mejoras
   int up_dex_ = 0;
   // gacha
-  PullResult pulls_[10];
+  PullResult pulls_[100];
+  // ×100: diez giros, cada uno con lo mejor de su ×10; al final, el resumen
+  // ordenado de mejor a peor (sum_, con scroll).
+  int16_t sum_[100];
+  int sum_scroll_ = 0;
+  int iris_mask_ = -1;          // Amuletos Iris que ya tenías (bit por región; -1 aún sin mirar)
+  int iris_gen_ = 0;            // la tirada te ha dado el Amuleto Iris de esa región
+  int nspins() const { return npulls_ == 100 ? 10 : npulls_; }
+  const PullResult& spin(int i) const;
   int npulls_ = 0, pull_i_ = 0;
   float pull_t_ = 0;
   bool pull_fast_ = false, pull_done_ = false;
@@ -219,7 +228,7 @@ class App {
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
   bool crash_seen_ = false;
   bool news_checked_ = false;
-  bool news_demo_ = false, update_demo_ = false;
+  bool news_demo_ = false, update_demo_ = false, gacha_demo_ = false;
   float news_t_ = 0;   // ya se ha mirado si hay novedades sin ver     // ya se ha visto el aviso del fallo de la vez anterior
   int auto_mega_up_ = 0;
   float auto_warp_ = 0;         // (dónde empezó el reloj del autotest)
