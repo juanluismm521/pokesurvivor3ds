@@ -166,6 +166,7 @@ De [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) (CC BY-NC 4.0), por
 | Mega-Rayquaza | Top_Kec |
 | Mega-Lopunny | JFain |
 | Mega-Lucario | baronessfaron |
+| Mega-Lucario Z | baronessfaron, recoloreado en el port desde el de Mega-Lucario |
 | Mega-Gallade | JFain |
 | Mega-Darkrai | Johanne2 |
 | Mega-Excadrill | Soulja, pi3.14, DeltaL |
@@ -180,6 +181,7 @@ De [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) (CC BY-NC 4.0), por
 | Mega-Zeraora | pi3.14, DeltaL |
 | Mega-Tatsugiri | Emmuffin |
 
+Mega-Lucario Z aún no está en SpriteCollab: el port recolorea el de Mega-Lucario (tools/megas_derivadas.py).
 Las megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de
 [PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).
 <!-- /megas -->

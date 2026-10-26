@@ -181,6 +181,11 @@ def main():
             if m:
                 r['sprite'] = m
     piedras(out)
+    # Las que SpriteCollab no tiene y el port deriva de otra (megas_derivadas.py).
+    spec = importlib.util.spec_from_file_location('md', os.path.join(ROOT, 'tools', 'megas_derivadas.py'))
+    md = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(md)
+    md.aplicar({'megas': out})
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump({'fuente': 'PokeAPI (estadísticas con la fórmula de la web) + SpriteCollab (CC BY-NC 4.0)', 'megas': out},
@@ -198,7 +203,7 @@ def creditos(megas):
     filas = [f"| {m['name']} | {', '.join(m['sprite']['autores']) or '—'} |" for m in megas if 'sprite' in m]
     sec = (ini + '\n## Sprites de las megaevoluciones\n\nDe [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) '
            '(CC BY-NC 4.0), por sus autores:\n\n| Mega | Autores |\n|---|---|\n' + '\n'.join(filas) +
-           '\n\nLas megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de\n[PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).\n' + fin)
+           '\n\nMega-Lucario Z aún no está en SpriteCollab: el port recolorea el de Mega-Lucario (tools/megas_derivadas.py).\nLas megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de\n[PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).\n' + fin)
     if ini in txt:
         txt = txt[:txt.index(ini)] + sec + txt[txt.index(fin) + len(fin):]
     else:

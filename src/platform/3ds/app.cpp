@@ -1680,8 +1680,14 @@ void App::draw_top(float eye) {
         else if (scene == SC_UPGRADES && cur_ == UP_COUNT && has_mega(up_dex_)) {
           // (sus megas: con dos, X e Y o normal y Z)
           std::string ms;
-          for (int k = 0; k < 2; ++k) { const int mi = mega_index(up_dex_, k); if (mi >= 0) { if (!ms.empty()) ms += " o "; ms += kMegas[mi].mon.name; } }
-          r_->text_wrap(("Su megapiedra: Y en la partida y se convierte en " + ms + " durante 20 s").c_str(), 200, 44, 0.42f, C_GOLD, 340, 1);
+          for (int k = 0; k < 2; ++k) {
+            const int mi = mega_index(up_dex_, k);
+            if (mi < 0) continue;
+            if (!ms.empty()) ms += " o ";
+            ms += kMegas[mi].mon.name;
+            ms += " (" + std::to_string(int(mega_boost(mi).time)) + " s)";
+          }
+          r_->text_wrap(("Su megapiedra: Y en la partida y se convierte en " + ms).c_str(), 200, 44, 0.42f, C_GOLD, 340, 1);
         }
         break;
       }

@@ -1259,7 +1259,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         if (is_mega_stone(p.item)) {
           C2D_DrawRectSolid(MX, ly, 0, MW, 11, strip);
           if (p.mega >= 0) {
-            const float k = clamp(p.mega_t / kMegaTime, 0.0f, 1.0f);
+            const float k = clamp(p.mega_t / mega_boost(p.mega).time, 0.0f, 1.0f);
             static const uint32_t RB[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
             const float bw = (MW - 4) * k;
             for (int s = 0; s < 6; ++s) C2D_DrawRectSolid(MX + 2 + bw * s / 6, ly + 2, 0, bw / 6 + 0.5f, 7, rgbf(RB[(s + int(g.time * 6)) % 6], 0.75f));

@@ -5,6 +5,17 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.6.0 — 2026-10-26
+- **Megas más ágiles:** la recarga baja de 45 a **40 s**.
+- **Megas Z** (Mega-Lucario Z, Mega-Garchomp Z, Mega-Absol Z…), como en Leyendas Z-A:
+  duran **15 s** (5 menos) pero empujan más: +40 % de ataque (antes +25 %), +25 %
+  de velocidad, recarga de los ataques un 35 % más rápida, más regeneración y
+  aguantan más. La descripción de cada megapiedra dice lo suyo.
+- **Mega-Lucario Z con su propio sprite**: el de Mega-Lucario con los colores de la
+  forma Z (cian, amarillo claro y negro). SpriteCollab aún no tiene el suyo; cuando
+  lo publique, se usará ese.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.5.1 — 2026-10-22
 - **Arreglado el bajón a 4 FPS hacia el minuto 8** (también en grupo). El mapa
   guarda en memoria 160 trozos y no podía soltar los que tenían algo cambiado

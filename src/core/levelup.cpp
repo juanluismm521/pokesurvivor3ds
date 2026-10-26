@@ -144,7 +144,7 @@ static void apply_stat(Game& g, Player& p, int s) {
     case LS_SPD: p.spd_mul *= 1.07f; break;
     case LS_CD: p.cd_mul *= 0.92f; break;
     case LS_DEF: {   // (el tope es sin la mega, que se quita al acabar)
-      const float mega = p.mega >= 0 ? kMegaArmor : 0;
+      const float mega = p.mega >= 0 ? mega_boost(p.mega).armor : 0;
       p.dmg_reduce = std::fmin(0.7f, p.dmg_reduce - mega + 0.06f) + mega;
       break;
     }

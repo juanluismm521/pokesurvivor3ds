@@ -234,7 +234,7 @@ TEST_CASE("megas: partidas enteras usándolas (sin errores)") {
       p.mega_up = kMegaUpMax;
       // Los objetos son raros (como en la web) y el bot no busca cofres: se le
       // da la piedra a los 20 s para ver muchas megaevoluciones seguidas.
-      if (gg.time > 20 && p.item < 0 && gg.state == ST_PLAYING) player_equip(gg, p, IT_MEGA_A);
+      if (gg.time > 20 && !is_mega_stone(p.item) && p.mega < 0 && gg.state == ST_PLAYING) player_equip(gg, p, IT_MEGA_A);   // (y si la cambia, se le devuelve)
       if (p.mega >= 0 && !was) megas++;
       was = p.mega >= 0;
       CHECK(p.max_hp > 0);
@@ -243,7 +243,7 @@ TEST_CASE("megas: partidas enteras usándolas (sin errores)") {
     MESSAGE("dex " << dex << ": " << megas << " megaevoluciones en " << s.seconds << " s, nivel " << s.level << ", " << s.kills << " derrotados");
     CHECK_FALSE(s.nan);
     CHECK(s.max_enemies <= kMaxEnemies);
-    CHECK(megas >= 6);   // (20 s de mega + 45 de recarga: ~9 en 10 min)
+    CHECK(megas >= 7);   // (20 s de mega + 40 de recarga: ~9 en 10 min)
   }
 }
 
@@ -312,4 +312,52 @@ TEST_CASE("megas: las 91, en normal y en shiny, megaevolucionan y juegan sin err
     }
   }
   CHECK(done == kMegaCount * 2);
+}
+
+TEST_CASE("megas Z: 5 s menos pero más fuertes; recarga de 40 s") {
+  CHECK(kMegaCooldown == 40);
+  int nz = 0;
+  for (int k = 0; k < kMegaCount; ++k) {
+    const std::string n = kMegas[k].mon.name;
+    const bool z = n.size() > 2 && n.compare(n.size() - 2, 2, " Z") == 0;
+    CHECK(mega_is_z(k) == z);
+    nz += z;
+  }
+  CHECK(nz >= 3);   // (Lucario, Garchomp, Absol… las de Z-A)
+  const int lz = mega_index(448, 1);
+  REQUIRE(lz >= 0);
+  REQUIRE(mega_is_z(lz));
+  const MegaBoost z = mega_boost(lz), n = mega_boost(mega_index(448, 0));
+  CHECK(z.time == n.time - 5);
+  CHECK(z.atk > n.atk);
+  CHECK(z.spd > n.spd);
+  CHECK(z.cd < n.cd);
+  CHECK(z.armor >= n.armor);
+  // En la partida: dura 15 s, empuja más y al acabar todo vuelve exacto.
+  std::unique_ptr<Game> g(new Game());
+  RunConfig cfg; cfg.dex = 448; cfg.seed = 7; cfg.judged = 1;
+  g->start_run(cfg);
+  Player& p = g->players[0];
+  const float am = p.atk_mul, sm = p.spd_mul, cm = p.cd_mul, dr = p.dmg_reduce, rf = p.regen_flat;
+  player_equip(*g, p, IT_MEGA_B);
+  mega_start(*g, p);
+  REQUIRE(p.mega == lz);
+  CHECK(p.mega_t == doctest::Approx(kMegaZTime));
+  CHECK(p.atk_mul == doctest::Approx(am * kMegaZAtk));
+  CHECK(p.spd_mul == doctest::Approx(sm * kMegaZSpd));
+  CHECK(p.cd_mul == doctest::Approx(cm * kMegaZCd));
+  CHECK(p.dmg_reduce == doctest::Approx(dr + kMegaZArmor));
+  for (int i = 0; i < int(kMegaZTime * 60) - 30; ++i) mega_update(*g, p, 1.0f / 60);
+  CHECK(p.mega == lz);   // (aún dura)
+  for (int i = 0; i < 40; ++i) mega_update(*g, p, 1.0f / 60);
+  CHECK(p.mega == -1);
+  CHECK(p.atk_mul == doctest::Approx(am));
+  CHECK(p.spd_mul == doctest::Approx(sm));
+  CHECK(p.cd_mul == doctest::Approx(cm));
+  CHECK(p.dmg_reduce == doctest::Approx(dr));
+  CHECK(p.regen_flat == doctest::Approx(rf));
+  CHECK(p.mega_cd == doctest::Approx(kMegaCooldown).epsilon(0.02));
+  // La descripción de la piedra lo cuenta.
+  CHECK(std::string(item_desc(IT_MEGA_B, 448)).find("15 s") != std::string::npos);
+  CHECK(std::string(item_desc(IT_MEGA_A, 448)).find("20 s") != std::string::npos);
 }

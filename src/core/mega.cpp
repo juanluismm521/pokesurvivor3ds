@@ -2,6 +2,7 @@
 #include "core/mega.h"
 
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 
 #include "core/anim.h"
@@ -39,8 +40,10 @@ const char* item_desc(int id, int dex) {
   if (is_mega_stone(id)) {
     static char b[160];
     const int k = mega_index(dex, id - IT_MEGA_A);
-    std::snprintf(b, sizeof(b), "Y: %s %d s. +25 %% ataque, +15 %% velocidad, -25 %% recarga, regeneras y aguantas más",
-                  k >= 0 ? kMegas[k].mon.name : "megaevolución", int(kMegaTime));
+    const MegaBoost mb = mega_boost(k);
+    std::snprintf(b, sizeof(b), "Y: %s %d s. +%d %% ataque, +%d %% velocidad, -%d %% recarga, regeneras y aguantas más",
+                  k >= 0 ? kMegas[k].mon.name : "megaevolución", int(mb.time), int(std::lround((mb.atk - 1) * 100)),
+                  int(std::lround((mb.spd - 1) * 100)), int(std::lround((1 - mb.cd) * 100)));
     return b;
   }
   return "";
@@ -82,12 +85,25 @@ static void set_form(Player& p, const Mon* m, int sprite, float scale) {
   p.body_h = body_height(sprite, scale);
 }
 
+bool mega_is_z(int k) {
+  if (k < 0 || k >= kMegaCount) return false;
+  const char* n = kMegas[k].mon.name;
+  const size_t l = std::strlen(n);
+  return l > 2 && n[l - 2] == ' ' && n[l - 1] == 'Z';
+}
+
+MegaBoost mega_boost(int k) {
+  if (mega_is_z(k)) return MegaBoost{kMegaZTime, kMegaZAtk, kMegaZSpd, kMegaZCd, kMegaZRegen, kMegaZArmor};
+  return MegaBoost{kMegaTime, kMegaAtk, kMegaSpd, kMegaCd, kMegaRegen, kMegaArmor};
+}
+
 void mega_start(Game& g, Player& p) {
   if (!mega_ready(p) || (g.state != ST_PLAYING && g.state != ST_CHOICE)) return;
   const int k = mega_index(p.dex, p.item - IT_MEGA_A);
   const MegaDef& d = kMegas[k];
+  const MegaBoost mb = mega_boost(k);
   p.mega = int8_t(k);
-  p.mega_t = kMegaTime;
+  p.mega_t = mb.time;
   p.mega_tf = kMegaTransform;
   p.mega_prev = p.mon;
   // Su vida máxima (la diferencia; la vida sube lo mismo).
@@ -100,12 +116,12 @@ void mega_start(Game& g, Player& p) {
   const bool own = d.own_sprite && (!p.shiny || has_shiny(d.sprite));
   set_form(p, &d.mon, own ? d.sprite : p.dex, own ? p.scale : p.scale * 1.15f);
   // El empujón de la mega (se deshace igual al acabar).
-  p.atk_mul *= kMegaAtk;
-  p.spd_mul *= kMegaSpd;
-  p.cd_mul *= kMegaCd;
-  p.mega_regen = p.max_hp * kMegaRegen;
+  p.atk_mul *= mb.atk;
+  p.spd_mul *= mb.spd;
+  p.cd_mul *= mb.cd;
+  p.mega_regen = p.max_hp * mb.regen;
   p.regen_flat += p.mega_regen;
-  p.dmg_reduce += kMegaArmor;
+  p.dmg_reduce += mb.armor;
   p.invuln = std::fmax(p.invuln, kMegaTransform);
   p.flash = 0.3f;
   // La animación: anillos de colores que se cierran y una explosión de luz.
@@ -124,16 +140,17 @@ void mega_start(Game& g, Player& p) {
 void mega_end(Game& g, Player& p) {
   if (p.mega < 0) return;
   const Mon* base = p.mega_prev ? p.mega_prev : mon_by_dex(p.dex);
+  const MegaBoost mb = mega_boost(p.mega);
   p.max_hp -= p.mega_dhp;
   if (p.hp > p.max_hp) p.hp = p.max_hp;
   if (!p.dead && p.hp < 1) p.hp = 1;   // (acabar la mega nunca te deja KO)
   set_form(p, base, p.dex, player_scale(p.dex));
-  p.atk_mul /= kMegaAtk;
-  p.spd_mul /= kMegaSpd;
-  p.cd_mul /= kMegaCd;
+  p.atk_mul /= mb.atk;
+  p.spd_mul /= mb.spd;
+  p.cd_mul /= mb.cd;
   p.regen_flat -= p.mega_regen;
   p.mega_regen = 0;
-  p.dmg_reduce -= kMegaArmor;
+  p.dmg_reduce -= mb.armor;
   p.mega = -1;
   p.mega_t = p.mega_tf = 0;
   p.mega_dhp = 0;

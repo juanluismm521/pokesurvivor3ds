@@ -24,7 +24,7 @@ constexpr int IT_MEGA_A = IT_COUNT, IT_MEGA_B = IT_COUNT + 1;
 constexpr int kItemTotal = IT_COUNT + 2;
 inline bool is_mega_stone(int id) { return id == IT_MEGA_A || id == IT_MEGA_B; }
 
-constexpr float kMegaTime = 20, kMegaCooldown = 45, kMegaTransform = 1.2f;
+constexpr float kMegaTime = 20, kMegaCooldown = 40, kMegaTransform = 1.2f;
 constexpr float kMegaChanceBase = 0.10f, kMegaChanceUp = 0.06f;
 // Además de sus estadísticas, mientras dura (se nota, pero sin romper el juego):
 constexpr float kMegaAtk = 1.25f;      // ataque (físico y especial)
@@ -32,11 +32,19 @@ constexpr float kMegaSpd = 1.15f;      // velocidad
 constexpr float kMegaCd = 0.75f;       // recarga de los ataques (un 25 % más rápida)
 constexpr float kMegaRegen = 0.015f;   // vida por segundo (fracción de la vida máxima)
 constexpr float kMegaArmor = 0.15f;    // menos daño recibido
+// Las megas Z (Leyendas Z-A: Mega-Lucario Z, Mega-Garchomp Z, Mega-Absol Z…)
+// duran 5 s menos pero empujan más, como en Z-A (del port; el dueño, 2026-10-26).
+constexpr float kMegaZTime = 15;
+constexpr float kMegaZAtk = 1.40f, kMegaZSpd = 1.25f, kMegaZCd = 0.65f, kMegaZRegen = 0.02f, kMegaZArmor = 0.20f;
 constexpr int kMegaUpMax = 5;
 // Coste de la mejora «Megapiedra» (nivel actual → siguiente).
 int mega_up_cost(int level);
 
 int mega_index(int dex, int slot);   // índice en kMegas o -1
+bool mega_is_z(int k);               // ¿es una mega Z? (k: índice en kMegas)
+// Lo que da cada mega mientras dura (las Z, más y menos rato).
+struct MegaBoost { float time, atk, spd, cd, regen, armor; };
+MegaBoost mega_boost(int k);
 int mega_count(int dex);             // 0, 1 o 2
 inline bool has_mega(int dex) { return mega_count(dex) > 0; }
 float mega_chance(int up_level);
