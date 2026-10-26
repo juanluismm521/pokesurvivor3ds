@@ -1,0 +1,48 @@
+// orbs.h — esferas de Mundo Misterioso (orbs.js de la web, 23-10-2026): de un
+// solo uso, se encuentran en la partida (cofres, jefes y, a veces, al derrotar
+// a un Pokémon) y se pierden al acabarla (no se guardan).
+//   4 huecos, hasta 3 de cada. Si no te cabe, se queda en el suelo.
+//   En la 3DS (del port): A usa la elegida, B elige la siguiente y tocar su
+//   casilla (pantalla de abajo) la usa. 1 s de recarga entre una y otra.
+//   foe   a los enemigos de tu pantalla (dormir, frenar, empujar)
+//   buff  a ti y a los compañeros a menos de media pantalla
+// A los jefes y legendarios les afectan menos. Van por la entrada (CMD_ORB):
+// en grupo todas las consolas las simulan igual.
+#pragma once
+#include <cstdint>
+
+namespace ps {
+
+struct Game;
+struct Player;
+
+enum OrbId : int8_t { ORB_SLUMBER, ORB_SLOW, ORB_BLOWBACK, ORB_FOCUS, ORB_LUMINOUS, ORB_QUICK, ORB_COUNT };
+struct OrbDef {
+  const char* id;
+  const char* name;
+  bool foe;
+  float dur;             // (buff) segundos
+  uint32_t col;          // color (0xRRGGBB)
+  const char* desc;
+};
+extern const OrbDef kOrbs[ORB_COUNT];
+
+constexpr int kOrbSlots = 4, kOrbStack = 3;
+constexpr float kOrbCd = 1;
+constexpr float kOrbNear = 384;              // "media pantalla"
+constexpr float kOrbSphereRate = 1.0f / 300; // al derrotar a un Pokémon normal
+constexpr float kLuminousZoom = 1.35f;       // la Luminosfera: se ve un 35 % más de campo
+
+int orb_roll(Game& g);
+bool orb_can_take(const Player& p, int id);
+bool orb_add(Player& p, int id);
+// Recogida: la añade, la anuncia y, la primera vez en la partida, explica qué hace.
+void orb_got(Game& g, Player& p, int id);
+// Usar la del hueco `slot` (0-3). → false si no se ha podido (vacío, recarga…).
+bool orb_use(Game& g, Player& p, int slot);
+void orbs_update(Game& g, Player& p, float dt);
+// Zoom de la vista de ese jugador (1, o kLuminousZoom con la Luminosfera).
+float orb_zoom(const Player& p);
+int orb_count(const Player& p);   // cuántas lleva en total
+
+}  // namespace ps

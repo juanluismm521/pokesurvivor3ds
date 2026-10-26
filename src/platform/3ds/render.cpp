@@ -14,6 +14,7 @@
 
 #include "core/i18n.h"
 #include "core/mega.h"
+#include "core/orbs.h"
 #include "core/util.h"
 
 namespace ps {
@@ -314,6 +315,18 @@ void Renderer::draw_shape(int shape, int pal, int frame, float sx, float sy, flo
   C2D_DrawImageAtRotated(vfx.image(idx), std::floor(sx + 0.5f), std::floor(sy + 0.5f), 0, angle, &tint, scale, scale);
 }
 
+// ---------------- esferas ----------------
+
+void Renderer::draw_orb(int id, float cx, float cy, float r, float alpha) {
+  if (id < 0 || id >= ORB_COUNT) return;
+  const uint32_t c = kOrbs[id].col;
+  const uint32_t d = ((((c >> 16) & 255) * 55 / 100) << 16) | ((((c >> 8) & 255) * 55 / 100) << 8) | ((c & 255) * 55 / 100);
+  C2D_DrawCircleSolid(cx, cy, 0, r + 1, C2D_Color32(16, 12, 24, uint8_t(230 * alpha)));
+  C2D_DrawCircleSolid(cx, cy, 0, r, rgbf(d, alpha));
+  C2D_DrawCircleSolid(cx - r * 0.12f, cy - r * 0.12f, 0, r * 0.82f, rgbf(c, alpha));
+  C2D_DrawCircleSolid(cx - r * 0.35f, cy - r * 0.38f, 0, r * 0.28f, C2D_Color32(255, 255, 255, uint8_t(220 * alpha)));
+}
+
 // ---------------- fin de la partida: resumen de ataques (arriba) ----------------
 
 void Renderer::draw_over_summary(Game& g, int pi) {
@@ -513,8 +526,15 @@ DItem items[1600];
 void Renderer::draw_top(Game& g, float eye) {
   if (eye <= 0) { C2D_TextBufClear(tbuf); props_drawn = 0; }
   const float far = eye * 3.0f, mid = eye * 1.5f;
-  const Camera& cam = g.camera;
+  // Luminosfera (esferas): el mundo se ve más lejos. Se dibuja una vista más
+  // grande y se encoge con la matriz de citro2d; el HUD va a su tamaño.
+  if (eye <= 0) { const float zt = orb_zoom(g.me()); zoom += (zt - zoom) * 0.08f; if (std::fabs(zt - zoom) < 0.002f) zoom = zt; }
+  Camera cz = g.camera;
+  cz.w *= zoom; cz.h *= zoom;
+  const Camera& cam = cz;
   View v{cam.left() - cam.sx, cam.top() - cam.sy};
+  const bool zoomed = zoom > 1.001f;
+  if (zoomed) { C2D_ViewReset(); C2D_ViewScale(1 / zoom, 1 / zoom); }
   const float now = float(g.time);
   World& w = g.world;
 
@@ -578,9 +598,9 @@ void Renderer::draw_top(Game& g, float eye) {
   // --- objetos del suelo ---
   for (const Pickup& p : g.pickups) {
     if (!cam.sees(p.x, p.y, 30)) continue;
-    static const uint32_t COL[PK_COUNT] = {0x7fe0ff, 0xffd95e, 0x5fe08a, 0xff9ed8, 0xff7b3d, 0xffd23f, 0xffd23f, 0xc47bff, 0xffd23f};
-    static const uint32_t GLOW[PK_COUNT] = {0x2a8fd0, 0xc08a10, 0x1f8f4d, 0xb03d84, 0xb03d10, 0xb8860b, 0xc08a10, 0x8a3fd0, 0xc08a10};
-    static const float R[PK_COUNT] = {4.5f, 7, 6.5f, 6.5f, 6.5f, 5.5f, 7, 8, 9};
+    static const uint32_t COL[PK_COUNT] = {0x7fe0ff, 0xffd95e, 0x5fe08a, 0xff9ed8, 0xff7b3d, 0xffd23f, 0xffd23f, 0xc47bff, 0xffd23f, 0xc9b8ff};
+    static const uint32_t GLOW[PK_COUNT] = {0x2a8fd0, 0xc08a10, 0x1f8f4d, 0xb03d84, 0xb03d10, 0xb8860b, 0xc08a10, 0x8a3fd0, 0xc08a10, 0x7e5be0};
+    static const float R[PK_COUNT] = {4.5f, 7, 6.5f, 6.5f, 6.5f, 5.5f, 7, 8, 9, 8};
     const float bounce = std::fabs(std::sin(p.t * 0.8f)) * 3;
     const float r = R[p.kind] * 0.5f;
     const float x = v.sx(p.x), gy = v.sy(p.y), y = v.sy(p.y - 6 - bounce);
@@ -591,6 +611,12 @@ void Renderer::draw_top(Game& g, float eye) {
       C2D_DrawTriangle(x, y - r, c, x + r * 0.78f, y, c, x, y + r, c, 0);
       C2D_DrawTriangle(x, y - r, c, x, y + r, c, x - r * 0.78f, y, c, 0);
       C2D_DrawRectSolid(std::floor(x - r * 0.25f), std::floor(y - r * 0.3f), 0, 1, 1, C2D_Color32(255, 255, 255, 204));
+    } else if (p.kind == PK_SPHERE) {
+      const int id = int(p.value);
+      if (id >= 0 && id < ORB_COUNT) {
+        ellipse(x, y, 8, 8, rgbf(kOrbs[id].col, 0.3f + std::sin(p.t * 1.5f) * 0.12f));
+        draw_orb(id, x, y, 6);
+      }
     } else if (p.kind == PK_COIN) {
       const float sxk = std::fmax(0.25f, std::fabs(std::cos(p.t * 0.9f)));
       ellipse(x, y, r * sxk, r, rgb(COL[p.kind]));
@@ -656,6 +682,13 @@ void Renderer::draw_top(Game& g, float eye) {
         const float lift = ((e.flying && !e.boss) ? 1 + std::sin(e.bob) * 1.5f : 0) + e.jump_lift;
         draw_sprite(e.anim, x, v.sy(e.y - lift), e.flash > 0 ? 1 : 0, alpha);
         if (e.dead) break;
+        // Dormido (Soporesfera): zetas que suben.
+        if (e.sleep_t > 0) {
+          for (int i = 0; i < 2; ++i) {
+            const float k = std::fmod(now * 0.7f + i * 0.5f, 1.0f);
+            text("z", x + 4 + k * 6, v.sy(e.y - lift - e.body_h - 4) - k * 10, 0.32f + k * 0.12f, rgbf(0xd9ccff, 1 - k), 1, false);
+          }
+        }
         // Aturdido: estrellitas girando sobre la cabeza.
         if (e.stun_t > 0) {
           for (int i = 0; i < 3; ++i) {
@@ -966,6 +999,8 @@ void Renderer::draw_top(Game& g, float eye) {
     }
   }
 
+  if (zoomed) C2D_ViewReset();   // (lo de la pantalla, a su tamaño)
+
   // --- clima (en pantalla) ---
   if (g.weather.kind >= 0) {
     const WeatherDef& d = kWeather[g.weather.kind];
@@ -1041,7 +1076,7 @@ void Renderer::draw_top(Game& g, float eye) {
     // Flechas en el borde: grieta, Pokémon perdido, ladrones, Arceus, shinies.
     const Player& pl = g.pl();
     auto edge = [&](float wx, float wy, uint32_t col, const char* label) {
-      const float sx = v.sx(wx), sy = v.sy(wy);
+      const float sx = v.sx(wx) / zoom, sy = v.sy(wy) / zoom;   // (con la Luminosfera, la vista va encogida)
       if (sx > 0 && sx < TOP_W && sy > 0 && sy < TOP_H) return;
       const float M = 22, ex = clamp(sx, M, TOP_W - M), ey = clamp(sy, M + 20, TOP_H - M - 10);
       const float a = std::atan2(sy - ey, sx - ex);
@@ -1417,7 +1452,33 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     }
     if (p.nslots) {
       const MoveInst& m = p.moves[p.slots[p.active_slot][0]];
-      text_fit(m.name(), 160, kSlotY + S + 3, 300, 0.36f, rgb(kTypeColor[m.type()]), true, 1);
+      text_fit(m.name(), 160, kSlotY + S + 3, 200, 0.36f, rgb(kTypeColor[m.type()]), true, 1);
+    }
+    // --- esferas: dos casillas a cada lado (A usa la elegida, B cambia; tocar la usa) ---
+    if (orb_count(p) > 0) {
+      const float cdk = clamp(p.orb_cd / kOrbCd, 0.0f, 1.0f);
+      for (int i = 0; i < kOrbSlots; ++i) {
+        float ox, oy;
+        orb_slot_pos(i, ox, oy);
+        const int id = p.orb_id[i];
+        const bool sel = id >= 0 && i == orb_sel;
+        const bool fresh = i == p.orb_new && p.orb_new_t > 0;
+        C2D_DrawRectSolid(ox - 1, oy - 1, 0, kOrbS + 2, kOrbS + 2, sel ? rgb(0xffd23f) : fresh ? rgbf(kOrbs[id].col, 0.6f + std::sin(float(g.time) * 10) * 0.4f) : id >= 0 ? rgbf(kOrbs[id].col, 0.6f) : C2D_Color32(40, 52, 80, 120));
+        C2D_DrawRectSolid(ox, oy, 0, kOrbS, kOrbS, C2D_Color32(20, 26, 44, 235));
+        if (id < 0) continue;
+        draw_orb(id, ox + kOrbS / 2, oy + kOrbS / 2, kOrbS * 0.32f);
+        if (cdk > 0) C2D_DrawRectSolid(ox, oy, 0, kOrbS, kOrbS * cdk, C2D_Color32(0, 0, 0, 120));
+        if (p.orb_n[i] > 1) { std::snprintf(b, sizeof(b), "×%d", p.orb_n[i]); text(b, ox + kOrbS - 1, oy + kOrbS - 10, 0.3f, rgb(0xeaf2ff), 2); }
+        if (sel) text("A", ox + 2, oy, 0.3f, rgb(0xffd23f), 0);
+      }
+      // El nombre de la elegida (o de la que acabas de coger), bajo las casillas.
+      const int show = p.orb_new >= 0 && p.orb_new_t > 0 && p.orb_id[p.orb_new] >= 0 ? p.orb_new : orb_sel;
+      if (show >= 0 && show < kOrbSlots && p.orb_id[show] >= 0) {
+        float ox, oy;
+        orb_slot_pos(show, ox, oy);
+        (void)oy;
+        text_fit(kOrbs[p.orb_id[show]].name, show < 2 ? 4 : 316, 232, 64, 0.28f, rgb(kOrbs[p.orb_id[show]].col), true, show < 2 ? 0 : 2);
+      }
     }
   }
   std::snprintf(b, sizeof(b), "%d FPS%s", fps, autotest ? " · AUTOTEST" : "");

@@ -1,6 +1,7 @@
 // game.cpp — flujo de la partida y paso principal (game.js de la web).
 //   estados: ui (menús), playing, levelup, paused, choice (objeto o vínculo), over
 #include "core/game.h"
+#include "core/orbs.h"
 
 #include <cmath>
 #include <cstdio>
@@ -255,6 +256,7 @@ void Game::on_prop_destroyed(const Prop& p) {
       pickup_drop(*this, rng.next() < 0.5f ? PK_HEAL : PK_MAGNET, p.x, p.y);
       pickup_drop_xp(*this, p.x, p.y, 20);
       if (rng.next() < 0.08f) pickup_drop(*this, PK_ITEM, p.x, p.y - 12, float(roll_item(*this)));
+      if (rng.next() < 0.35f) pickup_drop(*this, PK_SPHERE, p.x - 12, p.y - 12, float(orb_roll(*this)));   // (web, 23-10)
       break;
     }
     case PR_BIGCHEST: {
@@ -267,6 +269,8 @@ void Game::on_prop_destroyed(const Prop& p) {
       for (int i = 0; i < tk; ++i) pickup_drop(*this, PK_TICKET, p.x + rng.range(-16, 16), p.y + rng.range(-10, 10), 1);
       if (rng.next() < 0.15f) pickup_drop(*this, PK_TICKET10, p.x, p.y - 10, 1);
       if (rng.next() < 0.5f) pickup_drop(*this, PK_ITEM, p.x + 14, p.y - 14, float(roll_item(*this)));
+      pickup_drop(*this, PK_SPHERE, p.x - 14, p.y - 14, float(orb_roll(*this)));
+      if (rng.next() < 0.5f) pickup_drop(*this, PK_SPHERE, p.x, p.y - 20, float(orb_roll(*this)));
       pickup_drop_xp(*this, p.x, p.y, level_xp());
       progress_event(*this, EV_CHEST);
       break;
@@ -494,7 +498,7 @@ static void sync_team(Game& g) {
 void game_on_collect(Game& g, const Pickup& p, Player& who) {
   Player& pl = g.pl();   // el equipo
   const bool mine = &who == &g.players[g.local];
-  static const int8_t SND[PK_COUNT] = {SFX_XP, SFX_XP, SFX_HEAL, SFX_CONFIRM, SFX_BREAK, SFX_COIN, SFX_SHINY, SFX_LEGEND, SFX_LEGEND};
+  static const int8_t SND[PK_COUNT] = {SFX_XP, SFX_XP, SFX_HEAL, SFX_CONFIRM, SFX_BREAK, SFX_COIN, SFX_SHINY, SFX_LEGEND, SFX_LEGEND, SFX_CONFIRM};
   if (mine || p.kind == PK_BOMB || p.kind == PK_XP || p.kind == PK_XPBIG) g.sfx(SND[p.kind]);
   char b[32];
   switch (p.kind) {
@@ -508,6 +512,9 @@ void game_on_collect(Game& g, const Pickup& p, Player& who) {
       break;
     case PK_ITEM:
       offer_item(g, who, int(p.value));
+      break;
+    case PK_SPHERE:
+      orb_got(g, who, int(p.value));
       break;
     case PK_TICKET: case PK_TICKET10:
       if (p.kind == PK_TICKET) pl.t1++; else pl.t10++;
@@ -594,6 +601,7 @@ static void apply_cmd(Game& g, int i, const Input& in) {
     case CMD_SKIP: if (i == 0) g.skip_judgment(); break;   // (en grupo, el anfitrión)
     case CMD_QUIT: g.leave(i); break;
     case CMD_MEGA: mega_start(g, p); break;
+    case CMD_ORB: orb_use(g, p, in.arg); break;
     default: break;
   }
 }

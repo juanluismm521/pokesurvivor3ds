@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/orbs.h"
 
 namespace ps {
 
@@ -19,7 +20,8 @@ constexpr float SHINY_RATE = 1.0f / 4096;
 float hp_k(float t) { return 3.3f + std::fmin(1.7f, t / 210); }
 
 void ring_point(Game& g, const Player& p, float angle, float& x, float& y) {
-  const float d = g.camera.outer_radius() + g.rng.range(10, 70);
+  // (con la Luminosfera se ve más campo: salen algo más lejos, fuera de su vista)
+  const float d = g.camera.outer_radius() * orb_zoom(p) + g.rng.range(10, 70);
   x = p.x + std::cos(angle) * d;
   y = p.y + std::sin(angle) * d * 0.9f;
 }

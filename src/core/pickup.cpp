@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "core/game.h"
+#include "core/orbs.h"
 
 namespace ps {
 
@@ -55,10 +56,14 @@ void pickup_drop_xp(Game& g, float x, float y, float value, bool boss, bool lege
     push(g, PK_HEAL, x + 24, y, 0);
     push(g, PK_MAGNET, x - 24, y, 0);
     if (g.rng.next() < (legend ? LEGEND_T10 : BOSS_T10)) push(g, PK_TICKET10, x, y - 20, 1);
+    // Esferas de Mundo Misterioso (web, 23-10): una de cada jefe y dos del legendario.
+    push(g, PK_SPHERE, x - 20, y - 16, float(orb_roll(g)));
+    if (legend) push(g, PK_SPHERE, x + 20, y - 16, float(orb_roll(g)));
     return;
   }
   push(g, value >= 20 ? PK_XPBIG : PK_XP, x, y, value);
   if (g.rng.next() < TICKET_RATE) push(g, PK_TICKET, x + g.rng.range(-6, 6), y, 1);
+  if (g.rng.next() < kOrbSphereRate) push(g, PK_SPHERE, x + g.rng.range(-6, 6), y, float(orb_roll(g)));
   // Drops ocasionales.
   const float r = g.rng.next();
   if (r < 0.012f) push(g, PK_HEAL, x + g.rng.range(-8, 8), y, 0);
@@ -81,10 +86,11 @@ void pickups_update(Game& g, float dt) {
     for (int k = 0; k < g.nplayers; ++k) {
       Player& o = g.players[k];
       if (!o.active || (o.dead && g.nplayers > 1)) continue;
+      if (p.kind == PK_SPHERE && !orb_can_take(o, int(p.value))) continue;   // (una esfera, sólo a quien le quepa)
       const float dd = dist2(o.x, o.y, p.x, p.y);
       if (dd < d2) { d2 = dd; pl = &o; }
     }
-    if (!pl) continue;
+    if (!pl) { p.pulled = false; p.vx *= std::pow(0.02f, dt); p.vy *= std::pow(0.02f, dt); p.x += p.vx * dt; p.y += p.vy * dt; continue; }
     const float dx = pl->x - p.x, dy = pl->y - p.y;
     const float mag2 = pl->magnet * pl->magnet;
     if (p.pulled || d2 < mag2) {

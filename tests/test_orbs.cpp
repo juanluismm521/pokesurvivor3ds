@@ -1,0 +1,158 @@
+// Esferas de Mundo Misterioso (orbs.js de la web, 23-10-2026; en la 3DS, A/B y tocar).
+#include <doctest/doctest.h>
+
+#include <cmath>
+#include <cstdio>
+#include <memory>
+
+#include "core/game.h"
+#include "core/orbs.h"
+#include "sim.h"
+
+using namespace ps;
+
+namespace {
+std::unique_ptr<Game> solo(uint32_t seed = 3, int dex = 25) {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig c; c.dex = dex; c.seed = seed; c.judged = 1;
+  g->start_run(c);
+  g->enemies.clear();
+  return g;
+}
+Enemy* put_enemy(Game& g, float x, float y, bool boss = false) {
+  EnemyDef d; d.dex = 19; d.hp = 9999; d.spd = 60; d.dmg = 10; d.xp = 1; d.behavior = BH_CHASE;
+  return enemy_spawn(g, d, x, y, Scale3(), boss);
+}
+void use(Game& g, int slot) {
+  Input in{}; in.cmd = CMD_ORB; in.arg = int8_t(slot);
+  g.step(&in);
+}
+void wait(Game& g, float secs) {
+  for (int i = 0; i < int(secs * 60); ++i) { Input in{}; g.step(&in); }
+}
+}  // namespace
+
+TEST_CASE("esferas: 4 huecos, hasta 3 de cada; si no cabe, no se coge") {
+  auto g = solo();
+  Player& p = g->players[0];
+  for (int k = 0; k < 3; ++k) CHECK(orb_add(p, ORB_FOCUS));
+  CHECK_FALSE(orb_add(p, ORB_FOCUS));          // (3 de la misma)
+  CHECK(orb_add(p, ORB_SLOW));
+  CHECK(orb_add(p, ORB_QUICK));
+  CHECK(orb_add(p, ORB_SLUMBER));
+  CHECK_FALSE(orb_can_take(p, ORB_BLOWBACK));  // (4 huecos llenos)
+  CHECK(orb_can_take(p, ORB_SLOW));
+  CHECK(orb_count(p) == 6);
+  // Una esfera en el suelo no va hacia quien no la puede coger.
+  Pickup* pk = g->pickups.push();
+  *pk = Pickup(); pk->kind = PK_SPHERE; pk->value = ORB_BLOWBACK; pk->x = p.x + 30; pk->y = p.y;
+  wait(*g, 1);
+  bool still = false;
+  for (const Pickup& q : g->pickups) still = still || (q.kind == PK_SPHERE && q.value == ORB_BLOWBACK);
+  CHECK(still);
+  // Gastar una deja el hueco; coger otra de la misma, vuelve a su hueco.
+  const int slot = 0;
+  REQUIRE(p.orb_id[slot] == ORB_FOCUS);
+  use(*g, slot);
+  CHECK(p.orb_n[slot] == 2);
+}
+
+TEST_CASE("esferas: Soporesfera duerme a los de la pantalla (a los jefes, 1 s) y no hacen daño") {
+  auto g = solo();
+  Player& p = g->players[0];
+  Enemy* a = put_enemy(*g, p.x + 30, p.y);
+  Enemy* far = put_enemy(*g, p.x + 2000, p.y);
+  Enemy* b = put_enemy(*g, p.x - 200, p.y, true);
+  const int32_t ida = a->id, idf = far->id, idb = b->id;
+  orb_add(p, ORB_SLUMBER);
+  use(*g, 0);
+  CHECK(g->enemy_by_id(ida)->sleep_t > 3.5f);
+  CHECK(g->enemy_by_id(idf)->sleep_t == 0);
+  CHECK(g->enemy_by_id(idb)->sleep_t == doctest::Approx(1).epsilon(0.05));
+  // Dormido encima de ti: no te hace daño.
+  g->enemy_by_id(ida)->x = p.x; g->enemy_by_id(ida)->y = p.y;
+  const float hp = p.hp;
+  p.invuln = 0;
+  wait(*g, 1);
+  CHECK(p.hp == doctest::Approx(hp));
+  wait(*g, 3.5f);
+  CHECK(g->enemy_by_id(ida)->sleep_t <= 0);
+}
+
+TEST_CASE("esferas: Ralentosfera y Rafagaesfera") {
+  auto g = solo();
+  Player& p = g->players[0];
+  Enemy* a = put_enemy(*g, p.x + 60, p.y);
+  Enemy* b = put_enemy(*g, p.x - 60, p.y, true);
+  const int32_t ida = a->id, idb = b->id;
+  orb_add(p, ORB_SLOW);
+  use(*g, 0);
+  CHECK(g->enemy_by_id(ida)->slow == doctest::Approx(0.5f));
+  CHECK(g->enemy_by_id(idb)->slow == doctest::Approx(0.2f));
+  wait(*g, 1.1f);
+  orb_add(p, ORB_BLOWBACK);
+  const float d0 = dist(p.x, p.y, g->enemy_by_id(ida)->x, g->enemy_by_id(ida)->y);
+  use(*g, 0);
+  wait(*g, 0.5f);
+  CHECK(dist(p.x, p.y, g->enemy_by_id(ida)->x, g->enemy_by_id(ida)->y) > d0 + 150);
+}
+
+TEST_CASE("esferas: las mejoras con tiempo, para ti y los compañeros cercanos; recarga de 1 s") {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig c; c.seed = 9; c.judged = 1; c.nplayers = 3;
+  c.members[0].dex = 25; c.members[1].dex = 4; c.members[2].dex = 7;
+  g->start_run(c);
+  g->enemies.clear();
+  Player &a = g->players[0], &b = g->players[1], &cc = g->players[2];
+  b.x = a.x + 100; b.y = a.y;
+  cc.x = a.x + 2000; cc.y = a.y;
+  const float ca = a.crit, cb = b.crit, cc0 = cc.crit;
+  orb_add(a, ORB_FOCUS);
+  orb_add(a, ORB_QUICK);
+  Input in[3] = {};
+  in[0].cmd = CMD_ORB; in[0].arg = 0;
+  g->step(in);
+  CHECK(a.crit == doctest::Approx(ca + 0.25f));
+  CHECK(b.crit == doctest::Approx(cb + 0.25f));   // (cerca)
+  CHECK(cc.crit == doctest::Approx(cc0));         // (lejos)
+  // Recarga: otra en menos de 1 s no sale.
+  in[0] = Input{}; in[0].cmd = CMD_ORB; in[0].arg = 1;
+  g->step(in);
+  CHECK(a.orb_id[1] == ORB_QUICK);
+  for (int i = 0; i < 70; ++i) { Input z[3] = {}; g->step(z); }
+  const float sm = a.spd_mul;
+  in[0] = Input{}; in[0].cmd = CMD_ORB; in[0].arg = 1;
+  g->step(in);
+  CHECK(a.spd_mul == doctest::Approx(sm * 1.4f));
+  CHECK(orb_zoom(a) == 1.0f);
+  // Se acaban solas y todo vuelve.
+  for (int i = 0; i < 16 * 60; ++i) { Input z[3] = {}; g->step(z); }
+  CHECK(a.crit == doctest::Approx(ca));
+  CHECK(b.crit == doctest::Approx(cb));
+  CHECK(a.spd_mul == doctest::Approx(sm));
+  // Luminosfera: se ve más campo (zoom) y los enemigos salen más lejos.
+  orb_add(a, ORB_LUMINOUS);
+  in[0] = Input{}; in[0].cmd = CMD_ORB; in[0].arg = 0;
+  g->step(in);
+  CHECK(orb_zoom(a) == doctest::Approx(kLuminousZoom));
+  CHECK(orb_zoom(b) == doctest::Approx(kLuminousZoom));
+}
+
+TEST_CASE("esferas: salen en partidas de verdad (jefes, cofres, a veces enemigos) y la partida es determinista") {
+  std::unique_ptr<Game> g(new Game()), h(new Game());
+  int seen = 0, used = 0;
+  SimHook hook = [&](Game& gg) {
+    static int last = 0;
+    const int n = orb_count(gg.players[0]);
+    if (n > last) seen += n - last;
+    if (n < last) used += last - n;
+    last = n;
+  };
+  const SimStats a = sim_run(*g, 77, 6, 900, true, &hook);
+  const SimStats b = sim_run(*h, 77, 6, 900, true);
+  MESSAGE("esferas cogidas " << seen << " · usadas " << used << " en " << a.seconds << " s");
+  CHECK(seen > 0);
+  CHECK(used > 0);
+  CHECK(a.checksum == b.checksum);
+  CHECK(g->state_hash() == h->state_hash());
+}

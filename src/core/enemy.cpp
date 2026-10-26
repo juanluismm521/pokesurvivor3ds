@@ -594,6 +594,13 @@ static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
     } else if (le.slow > 0) terrain_mul = le.slow < 0.5f ? 0.45f : 0.55f;
   }
 
+  if (e.sleep_t > 0) {
+    // Dormido (Soporesfera): no anda, pero un empujón (Rafagaesfera) sí lo mueve.
+    e.sleep_t -= dt; e.anim.loop(A_IDLE);
+    e.x += e.kx * dt; e.y += e.ky * dt;
+    e.kx *= std::pow(0.0015f, dt); e.ky *= std::pow(0.0015f, dt);
+    return;
+  }
   if (e.stun_t > 0) { e.stun_t -= dt; e.anim.loop(A_IDLE); return; }
 
   const float spd = e.spd * (1 - e.slow) * terrain_mul * weather_speed_for(g, e.types);

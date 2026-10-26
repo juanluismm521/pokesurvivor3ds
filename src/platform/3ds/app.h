@@ -213,6 +213,8 @@ class App {
   uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
   void over_tab_step(int d);
+  void orb_next(const Player& me);
+  int orb_sel_ = 0;             // esfera elegida (A la usa, B pasa a la siguiente)
   int over_tab_ = -1;           // fin de la partida: de quién es el resumen de arriba (L/R; -1: tuyo)
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
   bool crash_seen_ = false;
@@ -238,6 +240,8 @@ class App {
   bool auto_still = false;      // "… quieto": quieto mirando abajo hasta 3 s después de megaevolucionar      // "… paz": sin enemigos (para ver la megaevolución)       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
   bool auto_bond = false;
   bool auto_hold_over = false;
+  bool auto_orbs = false;       // autotest "esferas": una de cada al empezar
+  bool auto_orbs_given_ = false;
   void over_tab_next();         // (autotest: como pulsar R en el resumen)  // autotest "fin": no vuelve a empezar al acabar (se ve el resumen)    // autotest "vinculo": te da un vínculo y deja marcado el primero (captura)
  private:
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)

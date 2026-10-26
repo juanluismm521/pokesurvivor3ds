@@ -43,7 +43,7 @@ constexpr int kMaxHazards = 160;
 // Órdenes de la interfaz. Todo lo que cambia la partida entra como orden en
 // la entrada del jugador (y no llamando al juego desde la interfaz): así, en
 // el cooperativo, basta con mandar las entradas de cada paso.
-enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA };
+enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA, CMD_ORB };   // (CMD_ORB: arg = hueco)
 
 struct Input {
   float ax = 0, ay = 0;     // movimiento (-1..1), ya normalizado si hace falta
@@ -109,6 +109,14 @@ struct Player {
   int kills = 0, bosses = 0;
   int rerolls = 0, reroll_bonus = 0;
   float crit = 0;
+  // Esferas de Mundo Misterioso (orbs.h): 4 huecos (id o -1, cuántas), mejoras
+  // con tiempo (segundos que quedan de cada una) y recarga.
+  int8_t orb_id[4] = {-1, -1, -1, -1};
+  int8_t orb_n[4] = {};
+  float orb_buff[6] = {};
+  float orb_cd = 0;
+  uint8_t orb_seen = 0;         // las que ya te han explicado (bit por esfera)
+  int8_t orb_new = -1; float orb_new_t = 0;   // (la casilla recién cogida brilla)
   MoveBits banned;              // bit por movimiento (Veto)
   int8_t bind[kMaxMoves];       // movimiento → hueco fijo (Atajos) o -1
   int coins = 0, t1 = 0, t10 = 0;
@@ -242,6 +250,7 @@ struct Enemy {
   float shield = 0, shield_t = 0;
   float rd = 0;                 // jefes: daño recibido hace poco (bossDps = rd / 6)
   float stun_t = 0;             // aturdido: quieto y sin atacar
+  float sleep_t = 0;            // dormido (Soporesfera): quieto, sin atacar ni hacer daño al tocarte
   float skill_cd = 0;
   int32_t minions[8];
   int nminions = 0;
@@ -296,7 +305,7 @@ struct Projectile {
 };
 
 // ---------------- objetos del suelo ----------------
-enum PickKind : int8_t { PK_XP, PK_XPBIG, PK_HEAL, PK_MAGNET, PK_BOMB, PK_COIN, PK_TICKET, PK_TICKET10, PK_ITEM, PK_COUNT };
+enum PickKind : int8_t { PK_XP, PK_XPBIG, PK_HEAL, PK_MAGNET, PK_BOMB, PK_COIN, PK_TICKET, PK_TICKET10, PK_ITEM, PK_SPHERE, PK_COUNT };   // (PK_SPHERE: value = esfera)
 struct Pickup {
   int32_t id = 0;
   int8_t kind = PK_XP;

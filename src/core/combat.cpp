@@ -1030,7 +1030,7 @@ static void contact(Game& g, Player& pl) {
     Enemy* e = g.enemy_by_id(ids[k]);
     if (!e || e->dead || e->arceus) continue;   // (tocar a Arceus lo lleva judgment.cpp)
     if (dist2(e->x, e->y, pl.x, pl.y) > (e->r + pl.r) * (e->r + pl.r)) continue;
-    if (e->touch_cd > 0 || e->behavior == BH_THIEF || e->stun_t > 0) continue;
+    if (e->touch_cd > 0 || e->behavior == BH_THIEF || e->stun_t > 0 || e->sleep_t > 0) continue;
     e->touch_cd = 0.55f;
     enemy_strike(*e, pl);
     player_hurt(g, pl, e->dmg, e->atk_type, false, e->cat);

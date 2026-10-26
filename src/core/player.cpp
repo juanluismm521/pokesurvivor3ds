@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/orbs.h"
 #include "core/mega.h"
 #include "core/stats.h"
 #include "core/upgrades.h"
@@ -402,6 +403,7 @@ void player_add_buff(Player& p, int stat, float amount, float dur, int max_stack
 void player_update(Game& g, Player& p, const Input& in, float dt) {
   p.anim.update(dt);
   mega_update(g, p, dt);   // (también caído: la mega se acaba al caer)
+  orbs_update(g, p, dt);
   if (p.dead) return;
   if (p.invuln > 0) p.invuln -= dt;
   if (p.flash > 0) p.flash -= dt;

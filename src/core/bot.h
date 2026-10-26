@@ -59,6 +59,9 @@ struct Bot {
     }
     if (g.state == ST_PAUSED) { in.cmd = CMD_PAUSE; return true; }
     if (g.state == ST_PLAYING && mega_ready(me)) in.cmd = CMD_MEGA;   // (megaevoluciona en cuanto puede)
+    else if (g.state == ST_PLAYING && me.orb_cd <= 0 && rng.next() < 0.004f) {   // (una esfera de vez en cuando)
+      for (int k = 0; k < 4; ++k) if (me.orb_id[k] >= 0) { in.cmd = CMD_ORB; in.arg = int8_t(k); break; }
+    }
     if (g.judg.phase == 1 && rng.next() < 0.01f) in.cmd = CMD_SKIP;
     move(g, in, me);
     return true;

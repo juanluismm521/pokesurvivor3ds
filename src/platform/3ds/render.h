@@ -17,6 +17,13 @@ struct Renderer {
   // Pantalla de abajo en la partida: minimapa y huecos de ataques (la entrada táctil usa lo mismo).
   float legend_t = 0;           // segundos que queda la leyenda del minimapa
   static constexpr float kMapH = 126, kSlotY = 174, kSlotS = 44, kSlotGap = 6;
+  // Esferas (orbs.h): 4 casillas, dos a cada lado de los ataques.
+  static constexpr float kOrbS = 26;
+  static void orb_slot_pos(int i, float& x, float& y) { x = i < 2 ? 14 : 280; y = kSlotY - 2 + (i & 1) * 30; }
+  int orb_sel = 0;               // la esfera elegida (A)
+  float zoom = 1;                // Luminosfera: el mundo se ve más lejos (se suaviza hacia orb_zoom)
+  // Una esfera (procedural: bola de su color, sombra y brillo).
+  void draw_orb(int id, float cx, float cy, float r, float alpha = 1);
   C2D_TextBuf tbuf = nullptr;
   C2D_Font font = nullptr;        // Pixelify (celda de 20 px): textos grandes, a 1× o 2×
   C2D_Font font_small = nullptr;  // Tiny5 (celda de 10 px): textos pequeños, a 1×

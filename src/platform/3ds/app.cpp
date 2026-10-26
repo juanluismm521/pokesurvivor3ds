@@ -12,6 +12,7 @@
 #include "core/i18n.h"
 #include "core/progress.h"
 #include "core/mega.h"
+#include "core/orbs.h"
 #include "core/save_io.h"
 #include "core/version.h"
 #include "core/datapack.h"
@@ -118,6 +119,11 @@ void App::go(Scene sc) {
   // Mejoras: siempre las de tu compañero de ahora (antes se quedaba el último
   // que se miró aquí y, si habías elegido otro, salía el de antes).
   if (sc == SC_UPGRADES) up_dex_ = s_->partner;
+}
+
+// Esferas: la siguiente que tengas (dando la vuelta).
+void App::orb_next(const Player& me) {
+  for (int k = 1; k <= 4; ++k) if (me.orb_id[(orb_sel_ + k) & 3] >= 0) { orb_sel_ = (orb_sel_ + k) & 3; return; }
 }
 
 void App::over_tab_step(int d) {
@@ -471,6 +477,11 @@ void App::in_run(const UiIn& in) {
       if (auto_mega_t0_ < 0 || float(g.time) - auto_mega_t0_ < 3) { gi.ax = gi.ay = 0; still_now_ = true; }
       else still_now_ = false;
     }
+    if (auto_orbs && !auto_orbs_given_ && g.time > 2 && g.state == ST_PLAYING) {
+      auto_orbs_given_ = true;
+      Player& p = g.players[g.local];
+      for (int id : {ORB_LUMINOUS, ORB_SLUMBER, ORB_QUICK, ORB_FOCUS, ORB_FOCUS}) orb_add(p, id);
+    }
     if (auto_bond && !coop_) {   // (captura del vínculo con el primero ya elegido)
       Player& p = g.players[g.local];
       if (g.time > 4 && !auto_bond_given_ && g.state == ST_PLAYING) { auto_bond_given_ = true; p.bonds = 1; }
@@ -514,6 +525,17 @@ void App::in_run(const UiIn& in) {
       if (in.down & (KEY_R | KEY_X | KEY_ZR)) gi.cycle = 1;
       // Y: megaevolucionar (con la megapiedra puesta y sin recarga).
       if ((in.down & KEY_Y) && mega_ready(me)) gi.cmd = CMD_MEGA;
+      // Esferas (del port: en la web, X usa y Y cambia en el mando): A usa la
+      // elegida, B elige la siguiente que tengas; tocar su casilla la usa.
+      if (me.orb_id[orb_sel_ & 3] < 0) orb_next(me);
+      r_->orb_sel = orb_sel_ & 3;
+      if (in.down & KEY_B) { const int was = orb_sel_; orb_next(me); if (orb_sel_ != was) audio::play("hover"); }
+      if ((in.down & KEY_A) && gi.cmd == CMD_NONE && me.orb_id[orb_sel_ & 3] >= 0) { gi.cmd = CMD_ORB; gi.arg = int8_t(orb_sel_ & 3); }
+      for (int i = 0; i < 4; ++i) {
+        float ox, oy;
+        Renderer::orb_slot_pos(i, ox, oy);
+        if (me.orb_id[i] >= 0 && in_rect(&in, ox - 2, oy - 2, Renderer::kOrbS + 4, Renderer::kOrbS + 4)) { orb_sel_ = i; gi.cmd = CMD_ORB; gi.arg = int8_t(i); }
+      }
     }
     // Tocar el minimapa: la leyenda (otra vez: se quita).
     if (in.tap && in.ty >= 44 && in.ty < 44 + Renderer::kMapH) r_->legend_t = r_->legend_t > 0 ? 0 : 5;

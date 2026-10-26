@@ -5,6 +5,19 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.11.0 — 2026-10-26
+- **Esferas de Mundo Misterioso** (como en la web del 23-10): objetos de un solo
+  uso que se encuentran en la partida (cofres, jefes y, a veces, al derrotar a un
+  Pokémon). Llevas hasta 4 distintas (3 de cada); están en la pantalla de abajo,
+  dos a cada lado de tus ataques.
+  - **A** usa la elegida, **B** pasa a la siguiente, y **tocar su casilla** la usa.
+  - Soporesfera, Ralentosfera y Rafagaesfera duermen, frenan o lanzan lejos a los
+    enemigos (a los jefes y legendarios les afectan menos).
+  - Focosfera (+25 % de crítico), Luminosfera (ves más campo: el mundo se aleja)
+    y Rapidosfera (+40 % de velocidad) son para ti y los compañeros cercanos.
+  - La primera vez que coges cada una en la partida te explica qué hace.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.10.0 — 2026-10-26
 - **La Sentencia de Arceus, como en la web del 23-10:**
   - **Ya se le puede pegar.** Sigue siendo invencible, pero recibe una pequeña

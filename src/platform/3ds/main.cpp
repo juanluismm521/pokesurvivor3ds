@@ -62,6 +62,7 @@ struct Autotest {
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
   int level = 0, stone = 0;
   bool mark = false, peace = false, still = false;   // "… paz": sin enemigos
+  bool orbs = false;          // "… esferas": te da esferas al empezar (el bot las usa)
   bool end_screen = false;    // "… fin": al acabar el tiempo, termina la partida y enseña el resumen 8 s (captura)
   u64 end_at = 0;
   bool tab_moved = false;
@@ -128,6 +129,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strncmp(w, "rocas=", 6)) a.rocks = std::atoi(w + 6);
       else if (!std::strcmp(w, "vinculo")) a.bond = true;
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
+      else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else return false;
       return true;
     };
@@ -435,6 +437,7 @@ int main(int argc, char** argv) {
     app.auto_still = at.still;
     app.auto_bond = at.bond;
     app.auto_hold_over = at.end_screen;
+    app.auto_orbs = at.orbs;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
