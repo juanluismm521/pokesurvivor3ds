@@ -1464,12 +1464,15 @@ void App::in_gacha(const UiIn& in) {
   if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) gen_ = gen_ == 1 ? 9 : gen_ - 1;
   if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) gen_ = gen_ == 9 ? 1 : gen_ + 1;
   // Se tira de 10 en 10 o de 100 en 100 (web, 22-10-2026: ya no hay ×1).
-  if (in.rep & KEY_DUP) cur_ = (cur_ + 3) % 4;
-  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 4;
-  cur_ = clamp(cur_, 0, 3);
+  // (tras una tirada no queda ningún botón elegido: pulsando A seguido para pasar
+  // las animaciones se encadenaban tiradas sin querer; arreglo de la web del 25-10)
+  if (cur_ < 0 && (in.rep & (KEY_DUP | KEY_DDOWN))) cur_ = 0;
+  else if (in.rep & KEY_DUP) cur_ = (cur_ + 3) % 4;
+  else if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 4;
+  if (cur_ > 3) cur_ = 3;
   int pick = -1;
   for (int i = 0; i < 4; ++i) if (in_rect(&in, 20, 116 + i * 27, 280, 24)) pick = i;
-  if (in.down & KEY_A) pick = cur_;
+  if ((in.down & KEY_A) && cur_ >= 0) pick = cur_;
   if (in.down & KEY_B) { go(SC_MENU); return; }
   if (pick < 0) return;
   cur_ = pick;
@@ -1533,6 +1536,7 @@ void App::in_pull(const UiIn& in, float dt) {
   if (in.down & (KEY_A | KEY_B) || (in.tap && !(pull_done_ && npulls_ == 100 && in.ty > 40 && in.ty < 220))) {
     if (pull_done_) {
       scene = SC_GACHA;
+      cur_ = -1;   // (ningún botón de tirar elegido: otra A no vuelve a tirar)
       if (iris_gen_) {
         char t[80];
         std::snprintf(t, sizeof(t), "¡Amuleto Iris de %s!", kBanners[iris_gen_ - 1].name);
@@ -1598,7 +1602,7 @@ void App::bottom_gacha() {
     if (i == cur_) C2D_DrawRectSolid(20, y, 0, 3, 24, C_GOLD);
     r_->text(L[i], 160, y + 4, 0.4f, ok ? C_TEXT : C2D_Color32(110, 120, 140, 255), 1);
   }
-  r_->text("Cada ×10 garantiza una Épica · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  r_->text(cur_ < 0 ? "Elige con arriba/abajo (o toca) · B: volver" : "Cada ×10 garantiza una Épica · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
 void App::top_pull() {

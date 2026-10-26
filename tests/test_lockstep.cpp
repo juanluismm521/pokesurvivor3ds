@@ -13,6 +13,8 @@
 #include "core/game.h"
 #include "core/lockstep.h"
 #include "core/mega.h"
+#include "core/upgrades.h"
+#include "core/mega.h"
 
 using namespace ps;
 using namespace ps::net;
@@ -255,4 +257,23 @@ TEST_CASE("lockstep: si se apaga el anfitrión, los invitados lo saben") {
   play(2, 9, 60 * 5 + kTimeoutFrames + 30, net, cs, [&](int f) { if (f == 60 * 5) net.cut[0] = true; });
   CHECK(cs[1].ls.lost_host());
   CHECK(!cs[1].ls.desync());
+}
+
+TEST_CASE("sala: lo que llega de otro jugador se limita a lo que puede ser (juego trucado)") {
+  RunConfig::Member m;
+  m.dex = 6;
+  for (int u = 0; u < UP_COUNT; ++u) m.upgrades[u] = 250;
+  m.mega_up = 99;
+  m.pbind[0] = 120; m.pban[1] = -50; m.pstart = 127; m.pmove2 = 3;
+  uint8_t b[128];
+  const int n = net::write_member(m, b, sizeof(b));
+  REQUIRE(n > 0);
+  RunConfig::Member r;
+  REQUIRE(net::read_member(b, n, r));
+  for (int u = 0; u < UP_COUNT; ++u) CHECK(r.upgrades[u] == kUpgrades[u].max);
+  CHECK(r.mega_up == kMegaUpMax);
+  CHECK(r.pbind[0] == -1);
+  CHECK(r.pban[1] == -1);
+  CHECK(r.pstart == -1);
+  CHECK(r.pmove2 == 3);
 }

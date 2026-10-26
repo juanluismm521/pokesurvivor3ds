@@ -1,5 +1,7 @@
 // lockstep.cpp — ver lockstep.h.
 #include "core/lockstep.h"
+#include "core/upgrades.h"
+#include "core/mega.h"
 
 #include <cmath>
 #include <algorithm>
@@ -60,6 +62,15 @@ static void get_member(R& r, RunConfig::Member& m) {
   m.test_stone = r.u8() != 0;
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }
+  // Lo que llega por la red no se cree a ciegas (web, 20-10-2026: un juego
+  // trucado podía congelar a los demás): cada cosa, dentro de lo que puede ser.
+  // Todas las consolas leen los mismos bytes, así que acaban igual.
+  for (int u = 0; u < UP_COUNT; ++u) if (m.upgrades[u] > uint8_t(kUpgrades[u].max)) m.upgrades[u] = uint8_t(kUpgrades[u].max);
+  if (m.mega_up > kMegaUpMax) m.mega_up = kMegaUpMax;
+  auto mv = [](int8_t& v) { if (v < -1 || v >= kMoveCount) v = -1; };
+  for (int8_t& v : m.pbind) mv(v);
+  for (int8_t& v : m.pban) mv(v);
+  mv(m.pstart); mv(m.pmove2);
 }
 
 int write_member(const RunConfig::Member& m, uint8_t* out, int cap) { W w{out, cap}; put_member(w, m); return w.ok ? w.n : -1; }

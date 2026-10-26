@@ -5,6 +5,14 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.13.1 — 2026-10-26
+- Gacha: al cerrar una tirada ya no queda elegido el botón de tirar. Pulsando A
+  seguido para pasar las animaciones se encadenaban tiradas sin querer (tickets
+  gastados); ahora hay que elegir otra vez con la cruceta o tocar (arreglo de la web).
+- Juego en grupo: lo que manda cada consola (mejoras, movimientos elegidos) se
+  limita a lo que puede ser, para que un juego trucado no pueda romper la partida
+  de los demás (arreglo de la web).
+
 ## 0.13.0 — 2026-10-26
 - **Modo rápido**: Jugar → eliges **Normal** (la Sentencia de Arceus a los 30 min)
   o **Rápido** (a los 20 min), con lo que es cada uno. Se acuerda del último.
