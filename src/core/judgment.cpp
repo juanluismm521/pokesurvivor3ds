@@ -408,7 +408,7 @@ void judgment_update(Game& g, float dt) {
   Game::JudgmentState& j = g.judg;
   if (!j.phase) {
     sample_dps(g, dt);                        // (para la vida del primer legendario)
-    if (g.time >= kJudgmentAt && !g.rift.arena) start(g);
+    if (g.time >= judgment_at(g) && !g.rift.arena) start(g);
     return;
   }
   if (j.phase != 2) return;

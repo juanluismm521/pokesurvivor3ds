@@ -18,8 +18,8 @@ namespace relay {
 
 namespace {
 const uint8_t kMagic[4] = {'P', 'S', 'R', '1'};
-enum : uint8_t { HOST = 1, JOIN, LIST, SEND, PING, INFO, BYE };
-enum : uint8_t { ROOM = 101, JOINED, ROOMS, DATA, PEERS, PONG, ERR };
+enum : uint8_t { HOST = 1, JOIN, LIST, SEND, PING, INFO, BYE, LIST2 };
+enum : uint8_t { ROOM = 101, JOINED, ROOMS, DATA, PEERS, PONG, ERR, ROOMS2 };
 }  // namespace
 
 namespace {
@@ -170,12 +170,17 @@ bool Client::wait_for(uint8_t type, uint8_t* buf, int cap, int timeout_ms, int& 
   return false;
 }
 
-bool Client::create(const char* name, int timeout_ms) {
+bool Client::create(const char* name, int timeout_ms, uint8_t flags) {
   error.clear();
   uint8_t buf[1300];
   int len = 0;
+  // Nombre en 16 bytes y las banderas (un servidor viejo sólo lee el nombre).
+  uint8_t body[17] = {};
+  const size_t nl = std::strlen(name) > 15 ? 15 : std::strlen(name);
+  std::memcpy(body, name, nl);
+  body[16] = flags;
   for (int tries = 0; tries < 3; ++tries) {
-    raw_send(HOST, name, int(std::strlen(name) > 15 ? 15 : std::strlen(name)));
+    raw_send(HOST, body, sizeof(body));
     if (wait_for(ROOM, buf, sizeof(buf), timeout_ms / 3, len) && len >= 10) {
       std::memcpy(code_, buf + 5, 4); code_[4] = 0;
       node_ = buf[9];
@@ -194,16 +199,20 @@ int Client::list(RoomInfo* out, int max, int timeout_ms) {
   std::memset(pad, 0, sizeof(pad));
   uint8_t buf[1300];
   int len = 0;
+  // LIST2 (con las banderas de cada sala); si el servidor es viejo y no la
+  // conoce, la de siempre (sin candado ni modo).
   for (int tries = 0; tries < 3; ++tries) {
-    raw_send(LIST, pad, sizeof(pad));
-    if (wait_for(ROOMS, buf, sizeof(buf), timeout_ms / 3, len) && len >= 6) {
-      const int n = buf[5];
+    const bool two = tries < 2;
+    raw_send(two ? LIST2 : LIST, pad, sizeof(pad));
+    if (wait_for(two ? ROOMS2 : ROOMS, buf, sizeof(buf), timeout_ms / 3, len) && len >= 6) {
+      const int n = buf[5], rec = two ? 22 : 21;
       int got = 0, off = 6;
-      for (int i = 0; i < n && got < max && off + 21 <= len; ++i, off += 21) {
+      for (int i = 0; i < n && got < max && off + rec <= len; ++i, off += rec) {
         RoomInfo& r = out[got++];
         std::memcpy(r.code, buf + off, 4); r.code[4] = 0;
         std::memcpy(r.host, buf + off + 4, 15); r.host[15] = 0;
         r.players = buf[off + 20];
+        r.flags = two ? buf[off + 21] : 0;
       }
       error.clear();
       return got;

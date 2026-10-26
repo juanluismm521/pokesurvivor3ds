@@ -92,6 +92,18 @@ void App::start_gacha_demo() {
   go(SC_GACHA);
 }
 
+// Autotest "salas": la pantalla de crear sala (rápido, con contraseña) y una
+// lista de salas de ejemplo (candado, modo rápido), sin red.
+void App::start_rooms_demo() {
+  rooms_demo_ = true;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  room_mode_ = MODE_QUICK;
+  std::snprintf(room_pass_, sizeof(room_pass_), "pika123");
+  go(SC_ROOMSET);
+  cur_ = 1;
+}
+
 void App::start_update_demo() {
   update_demo_ = true;
   news_t_ = 0;
@@ -162,6 +174,7 @@ void App::start_run() {
   over_tab_ = -1;
   RunConfig cfg;
   cfg.dex = autotest ? auto_dex_ : s_->partner;
+  cfg.mode = uint8_t(autotest ? auto_mode : st_->play_mode);
   cfg.shiny = autotest ? auto_shiny : s_->partner_shiny && s_->owns_shiny(cfg.dex);
   for (int k = 0; k < UP_COUNT; ++k) cfg.upgrades[k] = autotest ? 0 : s_->pupg[cfg.dex][k];
   cfg.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[cfg.dex];
@@ -339,6 +352,22 @@ void App::update(const UiIn& in0, float dt) {
     if (t0 < 2 && news_t_ >= 2) prog3ds::start_check(true);
     if (news_t_ > 40) quit = true;
   }
+  if (rooms_demo_) {
+    const float t0 = news_t_;
+    news_t_ += dt;
+    if (t0 < 6 && news_t_ >= 6) {
+      // (salas de ejemplo: así se ven en la lista)
+      static const char* const H[3] = {"Ana", "BETO", "Cris"};
+      nrooms_ = 3;
+      for (int i = 0; i < 3; ++i) { std::snprintf(rooms_[i].host, sizeof(rooms_[i].host), "%s", H[i]); rooms_[i].players = 1 + i; rooms_[i].index = i; }
+      rooms_[0].flags = net3ds::ROOM_LOCKED | net3ds::ROOM_QUICK; rooms_[1].flags = 0; rooms_[2].flags = net3ds::ROOM_QUICK;
+      scanned_ = true;
+      scene = SC_COOP;
+      cur_ = 1;
+    }
+    if (news_t_ > 14) quit = true;
+    return;   // (sin red ni entrada: sólo se dibuja)
+  }
   if (gacha_demo_) {
     const float t0 = news_t_;
     news_t_ += dt;
@@ -433,6 +462,8 @@ void App::update(const UiIn& in0, float dt) {
     case SC_RUN: in_run(in); break;
     case SC_TEST: case SC_RESULT: case SC_STARTERS: in_test(in); break;
     case SC_MENU: in_menu(in); break;
+    case SC_MODE: in_mode(in); break;
+    case SC_ROOMSET: in_roomset(in); break;
     case SC_DEX: in_dex(in); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: in_upgrades(in); break;
     case SC_GACHA: in_gacha(in); break;
@@ -755,7 +786,7 @@ void App::in_menu(const UiIn& in) {
   if (pick < 0) return;
   cur_ = pick;
   switch (pick) {
-    case 0: start_run(); break;
+    case 0: go(SC_MODE); cur_ = st_->play_mode; break;   // (normal o rápido)
     case 1: cur_ = 0; coop_msg_[0] = 0; coop_fails_ = 0; coop_err_init_ = false; coop_retry_ = 0; go(SC_COOP); break;
     case 2: go(SC_DEX); break;
     case 3: go(SC_UPGRADES); break;
@@ -765,6 +796,45 @@ void App::in_menu(const UiIn& in) {
     case 7: go(SC_CREDITS); break;
     case 8: quit = true; break;
   }
+}
+
+// ---------------- Jugar: normal o rápido ----------------
+
+namespace {
+struct ModeInfo { const char* title; const char* sub; const char* text; };
+const ModeInfo kModes[MODE_COUNT] = {
+    {"Normal", "La Sentencia a los 30 minutos",
+     "La partida de siempre: aguanta la horda, sube de nivel, cambia de mapa cada 4 minutos y, a los 30, Arceus desciende."},
+    {"Rápido", "La Sentencia a los 20 minutos",
+     "Para una partida corta: todo igual, pero Arceus llega a los 20 minutos (con los enemigos y tu nivel de ese momento)."},
+};
+}  // namespace
+
+void App::in_mode(const UiIn& in) {
+  if (in.rep & (KEY_DUP | KEY_DDOWN)) cur_ ^= 1;
+  cur_ = clamp(cur_, 0, MODE_COUNT - 1);
+  int pick = -1;
+  for (int i = 0; i < MODE_COUNT; ++i) if (in_rect(&in, 12, 34 + i * 92, 296, 86)) pick = i;
+  if (in.down & KEY_A) pick = cur_;
+  if (in.down & KEY_B) { go(SC_MENU); return; }
+  if (pick < 0) return;
+  cur_ = pick;
+  if (st_->play_mode != pick) { st_->play_mode = pick; settings_write(dir_, *st_); }
+  start_run();
+}
+
+void App::bottom_mode() {
+  header("Jugar");
+  for (int i = 0; i < MODE_COUNT; ++i) {
+    const float y = 34 + i * 92;
+    const bool sel = i == cur_;
+    C2D_DrawRectSolid(12, y, 0, 296, 86, sel ? C_SEL : C_PANEL);
+    if (sel) C2D_DrawRectSolid(12, y, 0, 3, 86, C_GOLD);
+    r_->text(kModes[i].title, 24, y + 6, 0.6f, sel ? C_GOLD : C_TEXT);
+    r_->text_fit(kModes[i].sub, 300, y + 12, 170, 0.34f, i == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, false, 2);
+    r_->text_wrap(kModes[i].text, 24, y + 36, 0.34f, C_TEXT, 276);
+  }
+  r_->text("A: jugar · B: volver", 160, 226, 0.34f, C_MUTED, 1);
 }
 
 void App::bottom_menu() {
@@ -1870,6 +1940,15 @@ void App::draw_top(float eye) {
         }
         break;
       }
+      case SC_MODE: {   // (tu compañero y el reloj de la Sentencia del modo elegido)
+        const int dex = s_->partner;
+        const bool sh = s_->partner_shiny && s_->owns_shiny(dex);
+        C2D_DrawEllipseSolid(140, 186, 0, 120, 30, rgbf(sh ? 0x9ae6ff : kTypeColor[mon_by_dex(dex)->types[0]], 0.3f));
+        draw_mon(dex, sh, 200, 204, 3);
+        r_->text(cur_ == MODE_QUICK ? "20:00" : "30:00", 200, 18, 1.0f, cur_ == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_GOLD, 1);
+        r_->text(cur_ == MODE_QUICK ? "Modo rápido" : "Modo normal", 200, 58, 0.5f, C_TEXT, 1);
+        break;
+      }
       case SC_MENU: {
         const int dex = s_->partner;
         const bool sh = s_->partner_shiny && s_->owns_shiny(dex);
@@ -1982,6 +2061,8 @@ void App::draw_bottom() {
   switch (scene) {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: bottom_test(); break;
     case SC_MENU: bottom_menu(); break;
+    case SC_MODE: bottom_mode(); break;
+    case SC_ROOMSET: bottom_roomset(); break;
     case SC_DEX: bottom_dex(); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: bottom_upgrades(); break;
     case SC_GACHA: bottom_gacha(); break;

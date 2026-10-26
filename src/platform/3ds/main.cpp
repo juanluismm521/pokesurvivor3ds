@@ -62,6 +62,8 @@ struct Autotest {
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
   int level = 0, stone = 0;
   bool mark = false, peace = false, still = false;   // "… paz": sin enemigos
+  char room_pass[12] = "";   // grupo: "pass=X": contraseña de la sala (anfitrión) o la que prueba el invitado
+  bool quick = false;         // "… rapido": modo rápido (la Sentencia a los 20 min)
   bool orbs = false;          // "… esferas": te da esferas al empezar (el bot las usa)
   bool end_screen = false;    // "… fin": al acabar el tiempo, termina la partida y enseña el resumen 8 s (captura)
   u64 end_at = 0;
@@ -70,6 +72,7 @@ struct Autotest {
   int rocks = 0;              // "… rocas=N": golpea una roca en N chunks del mapa (prueba de la caché del mundo)
   float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
+  bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
   bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
   bool textos = false;      // "textos": mide los textos de movimientos, objetos y megas (los que no caben, al log)
@@ -100,6 +103,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "textos")) a.textos = true;
   else if (!std::strcmp(first, "actualizar")) a.update_demo = true;
   else if (!std::strcmp(first, "gacha100")) a.gacha100 = true;
+  else if (!std::strcmp(first, "salas")) a.rooms = true;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
@@ -114,6 +118,8 @@ void read_autotest(Autotest& a) {
       if (!std::strncmp(extra, "desde=", 6)) a.warp = float(std::atof(extra + 6));
       if (!std::strncmp(extra, "nivel=", 6)) a.level = std::atoi(extra + 6);
       if (!std::strcmp(extra, "fin")) a.end_screen = true;
+      if (!std::strcmp(extra, "rapido")) a.quick = true;
+      if (!std::strncmp(extra, "pass=", 5)) std::snprintf(a.room_pass, sizeof(a.room_pass), "%s", extra + 5);
     }
   }
   else {
@@ -132,6 +138,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "vinculo")) a.bond = true;
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
+      else if (!std::strcmp(w, "rapido")) a.quick = true;
       else return false;
       return true;
     };
@@ -255,6 +262,7 @@ int main(int argc, char** argv) {
   if (at.tour) { app.start_tour(); at.on = false; }
   if (at.news) { app.start_news_demo(at.dex); at.on = false; }
   if (at.gacha100) { app.start_gacha_demo(); at.on = false; }
+  if (at.rooms) { app.start_rooms_demo(); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
@@ -421,6 +429,9 @@ int main(int argc, char** argv) {
     if (settings.datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }   // (y, si está activado, datos y versión nueva)
   }
   if (at.on && at.coop) {
+    std::snprintf(app.auto_pass_, sizeof(app.auto_pass_), "%s", at.room_pass);
+    app.autolog = at.log;
+    app.auto_quick_ = at.quick;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
     app.auto_coop_time = int(at.warp);
@@ -441,6 +452,7 @@ int main(int argc, char** argv) {
     app.auto_bond = at.bond;
     app.auto_hold_over = at.end_screen;
     app.auto_orbs = at.orbs;
+    app.auto_mode = at.quick ? 1 : 0;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
@@ -619,6 +631,7 @@ int main(int argc, char** argv) {
                  (unsigned long)r.sprites.late_max_us, (unsigned long)(r.sprites.read_max_us / 1000));
     std::fprintf(at.log, "tirones (fotogramas de más de 50 ms): %d · el peor %d ms (%s) · guardados %d, el más lento %d ms (en segundo plano)\n",
                  g_hitch_n, g_hitch_max, g_hitch_where, saver3ds::saves_done(), saver3ds::slowest_ms());
+    if (at.coop) std::fprintf(at.log, "grupo: modo %s · contraseña rechazada %d veces\n", g->cfg.mode == MODE_QUICK ? "rápido" : "normal", app.denied);
     std::fprintf(at.log, "FIN · %.0f s de partida · FPS media %.1f · mín %d · nivel %d · derrotados %d · libre %lu KB\n", g->time,
                  at.fps_n ? at.fps_sum / at.fps_n : 0.0, at.min_fps == 999 ? 0 : at.min_fps, g->pl().level, g->pl().kills,
                  (unsigned long)(mem_free() / 1024));

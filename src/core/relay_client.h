@@ -13,10 +13,14 @@ namespace relay {
 constexpr int kDefaultPort = 24873;
 constexpr uint16_t kBroadcast = 0xFFFF;
 
+// Banderas de la sala (del port, 2026-10-26): las anuncia el anfitrión.
+enum : uint8_t { ROOM_LOCKED = 1, ROOM_QUICK = 2 };
+
 struct RoomInfo {
   char code[5] = {};
   char host[16] = {};
   int players = 0;
+  uint8_t flags = 0;             // ROOM_LOCKED (contraseña), ROOM_QUICK (modo rápido)
 };
 
 class Client {
@@ -27,7 +31,7 @@ class Client {
   bool is_open() const { return fd_ >= 0; }
 
   // Esperan la respuesta (como mucho `timeout_ms`).
-  bool create(const char* name, int timeout_ms = 3000);
+  bool create(const char* name, int timeout_ms = 3000, uint8_t flags = 0);
   int list(RoomInfo* out, int max, int timeout_ms = 3000);
   bool join(const char* code, const char* name, int timeout_ms = 3000);
   void leave();

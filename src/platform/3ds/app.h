@@ -19,7 +19,9 @@ namespace ps {
 
 enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_START, SC_GACHA, SC_PULL,
-  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE, SC_NEWS, SC_MOVE2
+  SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE, SC_NEWS, SC_MOVE2,
+  SC_MODE,   // Jugar: normal o rápido
+  SC_ROOMSET  // Crear sala: modo y contraseña
 };
 
 struct UiIn {
@@ -42,6 +44,23 @@ class App {
   void start_tour();
   void start_news_demo(int dex);
   void start_gacha_demo();
+  void start_rooms_demo();
+  void in_mode(const UiIn& in);
+  void in_roomset(const UiIn& in);
+  void bottom_roomset();
+  void coop_create_room();
+  // Sala: modo y contraseña de la que creas; la contraseña con la que entras y
+  // las banderas de la sala en la que estás.
+  int room_mode_ = 0;
+  char room_pass_[12] = "";
+  char join_pass_[12] = "";
+  uint8_t room_flags_ = 0;
+  // Autotest del grupo: contraseña de la sala (anfitrión) o la que prueba el invitado, y modo.
+  char auto_pass_[12] = "";
+  bool auto_quick_ = false;
+  int denied = 0;               // (autotest) veces que el anfitrión no te ha dejado entrar
+  FILE* autolog = nullptr;      // (autotest) el log, para apuntar lo que pasa en la sala
+  void bottom_mode();
   void start_update_demo();        // autotest "actualizar": busca y baja la versión nueva (para grabarlo)   // autotest "novedades [dex]": las novedades y el menú con ese compañero
   bool tour = false;
   void update(const UiIn& in, float dt);
@@ -228,7 +247,7 @@ class App {
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
   bool crash_seen_ = false;
   bool news_checked_ = false;
-  bool news_demo_ = false, update_demo_ = false, gacha_demo_ = false;
+  bool news_demo_ = false, update_demo_ = false, gacha_demo_ = false, rooms_demo_ = false;
   float news_t_ = 0;   // ya se ha mirado si hay novedades sin ver     // ya se ha visto el aviso del fallo de la vez anterior
   int auto_mega_up_ = 0;
   float auto_warp_ = 0;         // (dónde empezó el reloj del autotest)
@@ -249,6 +268,7 @@ class App {
   bool auto_still = false;      // "… quieto": quieto mirando abajo hasta 3 s después de megaevolucionar      // "… paz": sin enemigos (para ver la megaevolución)       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
   bool auto_bond = false;
   bool auto_hold_over = false;
+  int auto_mode = 0;            // autotest "… rapido": modo rápido
   bool auto_orbs = false;       // autotest "esferas": una de cada al empezar
   bool auto_orbs_given_ = false;
   void over_tab_next();         // (autotest: como pulsar R en el resumen)  // autotest "fin": no vuelve a empezar al acabar (se ve el resumen)    // autotest "vinculo": te da un vínculo y deja marcado el primero (captura)

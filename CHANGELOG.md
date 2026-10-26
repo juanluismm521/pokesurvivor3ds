@@ -5,6 +5,16 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.13.0 — 2026-10-26
+- **Modo rápido**: Jugar → eliges **Normal** (la Sentencia de Arceus a los 30 min)
+  o **Rápido** (a los 20 min), con lo que es cada uno. Se acuerda del último.
+- **Salas del grupo con modo y contraseña**: al crear una sala (cerca o por
+  internet) eliges el modo y, si quieres, una contraseña (se escribe con el
+  teclado de la consola). En la lista de salas sale un **candado** si la tiene y
+  «Rápido» si es de ese modo; para entrar hay que escribirla (si no coincide, el
+  anfitrión no te deja entrar y se te dice).
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.12.0 — 2026-10-26
 - **Gacha ×100**: con 100 tickets o con 10 tickets ×10. Son diez ×10 seguidas (cada
   una con su Épica asegurada): la tragaperras gira 10 veces enseñando lo mejor de

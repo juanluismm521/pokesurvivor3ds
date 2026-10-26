@@ -394,6 +394,9 @@ struct RunConfig {
   // Para grabar (tráiler, también en grupo): empezar con el reloj adelantado y
   // el equipo subido a este nivel (las cartas se eligen como siempre).
   uint16_t demo_time = 0;
+  // Modo de juego (del port, 2026-10-26): 0 normal (la Sentencia a los 30 min),
+  // 1 rápido (a los 20). En grupo lo elige quien crea la sala.
+  uint8_t mode = 0;
   uint8_t demo_level = 0;
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
   // Cooperativo: cada jugador con su Pokémon y sus mejoras (el 0 es el
@@ -679,6 +682,9 @@ void rift_update(Game& g, float dt);
 float rift_time_left(const Game& g);
 // judgment.cpp
 constexpr float kJudgmentAt = 30 * 60;
+constexpr float kJudgmentAtQuick = 20 * 60;   // modo rápido
+enum PlayMode : uint8_t { MODE_NORMAL, MODE_QUICK, MODE_COUNT };
+inline float judgment_at(const Game& g) { return g.cfg.mode == MODE_QUICK ? kJudgmentAtQuick : kJudgmentAt; }
 void judgment_reset(Game& g);
 void judgment_update(Game& g, float dt);
 void judgment_cine_tick(Game& g, float dt);

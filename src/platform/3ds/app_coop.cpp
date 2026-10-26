@@ -237,19 +237,93 @@ void App::in_coop(const UiIn& in) {
   const RunConfig::Member me = my_member();
   net3ds::set_name(me.name);
   if (pick == 0) {
-    if (!net3ds::create(me.name)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido crear la sala. %s", coop_online_ ? net3ds::last_error() : ""); return; }
-    nlobby_ = 1;
-    lobby_[0].node = net3ds::kHostNode;
-    lobby_[0].m = me;
-    lobby_t_ = 0;
-    go(SC_LOBBY);
+    // Primero, cómo es la sala: modo y contraseña (el autotest la crea directamente).
+    if (auto_coop_) {
+      room_mode_ = auto_quick_ ? 1 : 0;
+      std::snprintf(room_pass_, sizeof(room_pass_), "%s", auto_pass_);
+      coop_create_room();
+    } else {
+      go(SC_ROOMSET);
+      cur_ = 2;
+    }
   } else {
     const net3ds::Room& rm = rooms_[pick - 1];
+    // Con candado: la contraseña antes de entrar (la comprueba el anfitrión).
+    join_pass_[0] = 0;
+    if (rm.flags & net3ds::ROOM_LOCKED) {
+      if (auto_coop_) std::snprintf(join_pass_, sizeof(join_pass_), "%s", auto_pass_);
+      else if (!ask_text("Contraseña de la sala", "", join_pass_, sizeof(join_pass_), false)) return;
+    }
     if (!net3ds::join(rm.index)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido entrar en la sala de %s. %s", rm.host, coop_online_ ? net3ds::last_error() : ""); return; }
+    room_flags_ = rm.flags;
     nlobby_ = 0;
     lobby_t_ = 0;
     go(SC_LOBBY);
   }
+}
+
+void App::coop_create_room() {
+  const RunConfig::Member me = my_member();
+  net3ds::set_name(me.name);
+  room_flags_ = uint8_t((room_pass_[0] ? net3ds::ROOM_LOCKED : 0) | (room_mode_ == MODE_QUICK ? net3ds::ROOM_QUICK : 0));
+  if (!net3ds::create(me.name, room_flags_)) {
+    std::snprintf(coop_msg_, sizeof(coop_msg_), "No se ha podido crear la sala. %s", coop_online_ ? net3ds::last_error() : "");
+    go(SC_COOP);
+    return;
+  }
+  nlobby_ = 1;
+  lobby_[0].node = net3ds::kHostNode;
+  lobby_[0].m = me;
+  lobby_t_ = 0;
+  go(SC_LOBBY);
+}
+
+// ---------------- crear sala: modo y contraseña ----------------
+
+void App::in_roomset(const UiIn& in) {
+  if (in.rep & KEY_DUP) cur_ = (cur_ + 2) % 3;
+  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 3;
+  int pick = -1;
+  for (int i = 0; i < 3; ++i) if (in_rect(&in, 20, 40 + i * 50, 280, 44)) pick = i;
+  if (in.down & KEY_A) pick = cur_;
+  if (in.down & KEY_B) { go(SC_COOP); return; }
+  if ((in.rep & (KEY_DLEFT | KEY_DRIGHT)) && cur_ == 0) room_mode_ ^= 1;
+  if ((in.down & KEY_X) && cur_ == 1) room_pass_[0] = 0;   // (quitar la contraseña)
+  if (pick < 0) return;
+  cur_ = pick;
+  if (pick == 0) room_mode_ ^= 1;
+  else if (pick == 1) {
+    char t[12];
+    if (ask_text("Contraseña (vacía: sin contraseña)", room_pass_, t, sizeof(t), false)) std::snprintf(room_pass_, sizeof(room_pass_), "%s", t);
+    else room_pass_[0] = 0;
+  } else coop_create_room();
+}
+
+void App::bottom_roomset() {
+  header("Crear sala");
+  char b[96];
+  for (int i = 0; i < 3; ++i) {
+    const float y = 40 + i * 50;
+    const bool sel = i == cur_;
+    C2D_DrawRectSolid(20, y, 0, 280, 44, sel ? C_SEL : C_PANEL);
+    if (sel) C2D_DrawRectSolid(20, y, 0, 3, 44, C_GOLD);
+    if (i == 0) {
+      r_->text("Modo", 32, y + 4, 0.36f, C_MUTED);
+      r_->text(room_mode_ == MODE_QUICK ? "<  Rápido  >" : "<  Normal  >", 160, y + 16, 0.5f, room_mode_ == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_GOLD, 1);
+      r_->text(room_mode_ == MODE_QUICK ? "La Sentencia a los 20 min" : "La Sentencia a los 30 min", 288, y + 4, 0.3f, C_MUTED, 2);
+    } else if (i == 1) {
+      r_->text("Contraseña (opcional)", 32, y + 4, 0.36f, C_MUTED);
+      if (room_pass_[0]) {
+        std::snprintf(b, sizeof(b), "%s", room_pass_);
+        r_->text(b, 160, y + 18, 0.5f, C_TEXT, 1);
+        r_->text("X: quitar", 288, y + 4, 0.3f, C_MUTED, 2);
+      } else r_->text("Sin contraseña (A: poner una)", 160, y + 20, 0.38f, C_MUTED, 1);
+    } else {
+      r_->text("¡Crear la sala!", 160, y + 13, 0.55f, sel ? C_GOLD : C_TEXT, 1);
+    }
+  }
+  r_->text("Con contraseña, en la lista sale con candado y hay que escribirla para entrar.", 160, 194, 0.3f, C_MUTED, 1);
+  r_->text("A: cambiar o crear · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
 void App::bottom_coop() {
@@ -286,7 +360,16 @@ void App::bottom_coop() {
     C2D_DrawRectSolid(20, y, 0, 280, kRoomStep - 2, cur_ == 1 + i ? C_SEL : C_PANEL);
     if (cur_ == 1 + i) C2D_DrawRectSolid(20, y, 0, 3, kRoomStep - 2, C_GOLD);
     std::snprintf(b, sizeof(b), "Sala de %s", rooms_[i].host);
-    r_->text(b, 30, y + 3, 0.34f, C_TEXT, 0);
+    float tx = 30;
+    if (rooms_[i].flags & net3ds::ROOM_LOCKED) {   // candado: hay que escribir su contraseña
+      const u32 c = C_GOLD;
+      C2D_DrawRectSolid(28, y + 8, 0, 9, 7, c);
+      C2D_DrawRectSolid(30, y + 4, 0, 5, 1, c); C2D_DrawRectSolid(29, y + 5, 0, 1, 3, c); C2D_DrawRectSolid(35, y + 5, 0, 1, 3, c);
+      C2D_DrawRectSolid(32, y + 10, 0, 1, 3, C2D_Color32(40, 30, 10, 255));
+      tx = 42;
+    }
+    r_->text_fit(b, tx, y + 3, 200 - (tx - 30), 0.34f, C_TEXT, false, 0);
+    if (rooms_[i].flags & net3ds::ROOM_QUICK) r_->text("Rápido", 254, y + 3, 0.32f, C2D_Color32(0xff, 0x9a, 0x4d, 255), 2);
     std::snprintf(b, sizeof(b), "%d / 4", rooms_[i].players);
     r_->text(b, 292, y + 3, 0.34f, C_MUTED, 2);
   }
@@ -324,6 +407,18 @@ void App::lobby_net(float dt) {
       uint8_t tmpm[128];
       const int msz = net::write_member(m, tmpm, sizeof(tmpm));
       const int rtt = pl >= msz + 2 ? int(p[msz] | p[msz + 1] << 8) : 0;
+      // Sala con contraseña: si no coincide, fuera (y se le dice por qué).
+      if (room_pass_[0]) {
+        const uint32_t ph = pl >= msz + 6 ? uint32_t(p[msz + 2] | p[msz + 3] << 8 | p[msz + 4] << 16 | uint32_t(p[msz + 5]) << 24) : 0;
+        if (ph != net::room_pass_hash(room_pass_)) {
+          static int told = 0;
+          if (autolog && told++ < 3) { std::fprintf(autolog, "sala: %s no sabe la contraseña: fuera\n", m.name); std::fflush(autolog); }
+          uint8_t d[8];
+          const int dn = put_header(d, net::MSG_DENY);
+          net3ds::send(from, d, dn);
+          continue;
+        }
+      }
       int slot = -1;
       for (int i = 0; i < nlobby_; ++i) if (lobby_[i].node == from) slot = i;
       if (slot < 0 && nlobby_ < kMaxPlayers) slot = nlobby_++;
@@ -369,6 +464,13 @@ void App::lobby_net(float dt) {
       for (int i = 0; i < n; ++i) coop_nodes_[i] = nodes[i];
       coop_begin(cfg, idx, delay);
       return;
+    } else if (!host && type == net::MSG_DENY && from == net3ds::kHostNode) {
+      denied++;
+      if (autolog && denied <= 3) { std::fprintf(autolog, "sala: contraseña incorrecta, el anfitrión no me deja entrar (%d)\n", denied); std::fflush(autolog); }
+      coop_leave();
+      std::snprintf(coop_msg_, sizeof(coop_msg_), "Contraseña incorrecta: el anfitrión no te deja entrar");
+      go(SC_COOP);
+      return;
     } else if (!host && type == net::MSG_BYE && from == net3ds::kHostNode) {
       coop_leave();
       std::snprintf(coop_msg_, sizeof(coop_msg_), "El anfitrión ha cerrado la sala");
@@ -401,7 +503,10 @@ void App::lobby_net(float dt) {
       if (w > 0) {
         const int rtt = net3ds::rtt_ms();   // (por internet, para elegir el retraso)
         b[n + w] = uint8_t(rtt); b[n + w + 1] = uint8_t(rtt >> 8);
-        net3ds::send(net3ds::kHostNode, b, n + w + 2);
+        // La contraseña con la que entras (su huella; la comprueba el anfitrión).
+        const uint32_t ph = join_pass_[0] ? net::room_pass_hash(join_pass_) : 0;
+        for (int k = 0; k < 4; ++k) b[n + w + 2 + k] = uint8_t(ph >> (8 * k));
+        net3ds::send(net3ds::kHostNode, b, n + w + 6);
       }
     }
   }
@@ -422,6 +527,10 @@ void App::bottom_lobby() {
   if (net3ds::online()) std::snprintf(b, sizeof(b), "%s %s · ping %d ms", host ? "Tu sala" : "Sala", net3ds::room_code(), net3ds::rtt_ms());
   else std::snprintf(b, sizeof(b), "%s", host ? "Tu sala" : "En la sala");
   header(b);
+  // Modo y candado de la sala, arriba a la derecha (bajo la cabecera).
+  std::snprintf(b, sizeof(b), "%s%s", (room_flags_ & net3ds::ROOM_QUICK) ? "Modo rápido (20 min)" : "Modo normal (30 min)",
+                (room_flags_ & net3ds::ROOM_LOCKED) ? (host ? " · con contraseña" : " · con contraseña") : "");
+  r_->text(b, 300, 172, 0.32f, (room_flags_ & net3ds::ROOM_QUICK) ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, 2);
   for (int i = 0; i < kMaxPlayers; ++i) {
     const float y = 30 + i * 38;
     C2D_DrawRectSolid(20, y, 0, 280, 34, C_PANEL);
@@ -452,6 +561,7 @@ void App::coop_host_start() {
   c.nplayers = nlobby_;
   for (int i = 0; i < nlobby_; ++i) { c.members[i] = lobby_[i].m; coop_nodes_[i] = lobby_[i].node; }
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
+  c.mode = uint8_t(room_mode_);   // (normal o rápido: lo eligió quien creó la sala)
   if (autotest) { c.demo_time = uint16_t(auto_coop_time); c.demo_level = uint8_t(auto_level); }   // (para grabar)
   for (int i = 0; i < kMaxPlayers; ++i) start_acked_[i] = i == 0;
   // Retraso de los controles: en local, el fijo; por internet, lo que tarda en

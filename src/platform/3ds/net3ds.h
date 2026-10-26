@@ -11,10 +11,14 @@ constexpr int kMaxNodes = 4;
 constexpr uint16_t kBroadcast = 0xFFFF;
 constexpr uint16_t kHostNode = 1;
 
+// Banderas de la sala (las anuncia quien la crea): con contraseña, modo rápido.
+enum : uint8_t { ROOM_LOCKED = 1, ROOM_QUICK = 2 };
+
 struct Room {
   char host[16];                 // nombre de quien la ha creado
   int players = 0;               // consolas dentro
   int index = 0;                 // (posición en la última búsqueda)
+  uint8_t flags = 0;             // ROOM_LOCKED, ROOM_QUICK
 };
 
 // Por internet (servidor de relevo: repositorio pokesurvivor-relay) en vez del juego local.
@@ -25,7 +29,7 @@ bool init();                     // al entrar en el menú del cooperativo
 void exit();
 bool ready();
 
-bool create(const char* host_name);
+bool create(const char* host_name, uint8_t flags = 0);
 // Busca salas (tarda ~1 s). Devuelve cuántas.
 int scan(Room* out, int max);
 bool join(int index);            // índice de la última búsqueda

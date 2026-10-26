@@ -21,6 +21,7 @@ struct Settings {
   // datos nuevos de la web (datos3ds). Desactivado de serie (decisión del dueño).
   bool datos_auto = false;
   char news_seen[16] = "";    // últimas novedades vistas (las de ahora se abren solas una vez)
+  int play_mode = 0;          // último modo elegido en Jugar (0 normal, 1 rápido)
 };
 // ¿Vale como IP o dominio? (letras, cifras, '.', '-'; sin espacios)
 bool settings_valid_host(const char* h);

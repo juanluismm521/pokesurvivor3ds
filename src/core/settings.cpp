@@ -23,6 +23,7 @@ std::string settings_to_json(const Settings& s) {
   o.set("cloudNever", Json::boolean(s.cloud_never));
   o.set("datosAuto", Json::boolean(s.datos_auto));
   o.set("novedades", Json::str(s.news_seen));
+  o.set("modo", Json::num(s.play_mode));
   return o.dump();
 }
 
@@ -50,6 +51,7 @@ bool settings_from_json(Settings& s, const std::string& text) {
   s.cloud_never = o["cloudNever"].as_bool();
   s.datos_auto = o["datosAuto"].as_bool(false);
   std::snprintf(s.news_seen, sizeof(s.news_seen), "%s", o["novedades"].as_str().c_str());
+  if (o.has("modo")) s.play_mode = int(o["modo"].as_int(0)) == 1 ? 1 : 0;
   if (s.music < 0 || s.music > 100) s.music = 70;
   if (s.sfx < 0 || s.sfx > 100) s.sfx = 80;
   return true;

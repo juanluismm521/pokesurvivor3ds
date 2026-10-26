@@ -20,7 +20,7 @@ constexpr u8 kChannel = 1;
 const char kPass[] = "pokesurvivor-3ds-coop";
 constexpr u32 kAppMagic = 0x50535331;      // datos de la sala: versión del juego y nombre
 
-struct AppData { u32 magic; u8 version; u8 players; char host[16]; };
+struct AppData { u32 magic; u8 version; u8 players; char host[16]; u8 flags; u8 pad[3]; };   // (versión 2: con banderas)
 
 bool g_init = false, g_room = false, g_host = false;
 // Por internet
@@ -100,10 +100,10 @@ void exit() {
 
 bool ready() { return g_init; }
 
-bool create(const char* host_name) {
+bool create(const char* host_name, uint8_t flags) {
   if (g_online) {
     g_err.clear();
-    if (!g_rc.create(host_name)) { g_err = g_rc.error; return false; }
+    if (!g_rc.create(host_name, 3000, flags)) { g_err = g_rc.error; return false; }
     return true;
   }
   if (!g_init || g_room) return false;
@@ -111,7 +111,7 @@ bool create(const char* host_name) {
   udsGenerateDefaultNetworkStruct(&net, kCommId, 0, kMaxNodes);
   if (R_FAILED(udsCreateNetwork(&net, kPass, sizeof(kPass), &g_bind, kChannel, UDS_DEFAULT_RECVBUFSIZE))) return false;
   std::memset(&g_app, 0, sizeof(g_app));
-  g_app.magic = kAppMagic; g_app.version = 1; g_app.players = 1;
+  g_app.magic = kAppMagic; g_app.version = 2; g_app.players = 1; g_app.flags = flags;
   std::snprintf(g_app.host, sizeof(g_app.host), "%s", host_name);
   udsSetApplicationData(&g_app, sizeof(g_app));
   g_room = true; g_host = true;
@@ -141,6 +141,7 @@ int scan(Room* out, int max) {
       std::snprintf(r.host, sizeof(r.host), "%s", g_rooms[i].host);
       r.players = g_rooms[i].players;
       r.index = i;
+      r.flags = g_rooms[i].flags;
     }
     return n;
   }
@@ -162,6 +163,7 @@ int scan(Room* out, int max) {
     rm.host[15] = 0;
     rm.players = g_found[i].network.total_nodes;
     rm.index = int(i);
+    rm.flags = a.version >= 2 ? a.flags : 0;
   }
   return n;
 }

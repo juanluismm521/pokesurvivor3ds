@@ -34,7 +34,7 @@ constexpr int kRing = 256;           // pasos guardados (más que kDelay + kRese
 constexpr int kHashEvery = 60;       // huella cada segundo
 constexpr int kTimeoutFrames = 60 * 20;   // 20 s sin noticias: se le da por ido
 constexpr int kMaxPacket = 1024;
-constexpr uint32_t kMagic = 0x5053533E;   // 'PSS>' + versión del protocolo (14: esferas de Mundo Misterioso)
+constexpr uint32_t kMagic = 0x5053533F;   // 'PSS?' + versión del protocolo (15: modo rápido en la sala)
 // Lo que va en cada paquete: la versión del protocolo mezclada con la huella
 // de los datos del juego (gen_data). Dos 3DS con datos distintos (otra versión
 // de la web) se ignoran: si jugaran juntas, sus partidas se separarían.
@@ -61,7 +61,14 @@ enum MsgType : uint8_t {
   MSG_INPUT,         // invitado -> anfitrión: entradas
   MSG_BUNDLE,        // anfitrión -> todos: paquetes de paso
   MSG_BYE,           // me voy de la sala
+  MSG_DENY,          // anfitrión -> invitado: no entras (contraseña incorrecta)
 };
+// Contraseña de la sala: el invitado manda su huella (FNV-1a), no el texto.
+inline uint32_t room_pass_hash(const char* s) {
+  uint32_t h = 2166136261u;
+  for (; s && *s; ++s) h = (h ^ uint8_t(*s)) * 16777619u;
+  return h;
+}
 
 // ---------------- lockstep ----------------
 struct Packet {

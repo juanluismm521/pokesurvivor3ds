@@ -60,10 +60,15 @@ PY
   # COOP_MORIR=1: el invitado no es inmortal y se deja matar (para ver al caído
   # mirando a sus compañeros con L/R).
   if [ "${COOP_MORIR:-0}" = 1 ] && [ "$2" = join ]; then echo "coop $2 $SECS $3 0${ONLINE:+ online} morir" > "$SD/autotest.txt"
-  else echo "coop $2 $SECS $3 1${ONLINE:+ online}${COOP_MEGA:+ mega}${COOP_EXTRA:+ $COOP_EXTRA}" > "$SD/autotest.txt"; fi
+  else
+    local own=""   # (COOP_EXTRA_A / COOP_EXTRA_B: sólo para el anfitrión / el invitado)
+    if [ "$1" = A ]; then own="${COOP_EXTRA_A:-}"; else own="${COOP_EXTRA_B:-}"; fi
+    echo "coop $2 $SECS $3 1${ONLINE:+ online}${COOP_MEGA:+ mega}${COOP_EXTRA:+ $COOP_EXTRA}${own:+ $own}" > "$SD/autotest.txt"
+  fi
 }
 # COOP_EXTRA="desde=1300 nivel=40": reloj adelantado y nivel (para grabar; SECS es el tiempo
-# total de partida, así que súmale el «desde»)
+# total de partida, así que súmale el «desde»). COOP_EXTRA_A / COOP_EXTRA_B: sólo para el
+# anfitrión / el invitado (p. ej. COOP_EXTRA_A="pass=abc rapido" COOP_EXTRA_B="pass=abc").
 # COOP_MEGA=1: Gengar y Charizard, cada uno con su megapiedra (el bot megaevoluciona)
 if [ -n "${COOP_MEGA:-}" ]; then DA=94; DB=6; else DA=25; DB=4; fi
 setup A host ${COOP_DEX_A:-$DA}

@@ -179,3 +179,24 @@ TEST_CASE("online: buscar el servidor por su nombre y avisos claros") {
   CHECK(d.list(rooms, 8) == 0);
   CHECK(d.error.empty());
 }
+
+TEST_CASE("relay: la sala anuncia candado y modo (banderas); el nombre llega limpio") {
+  if (!relay_available()) return;
+  Server srv;
+  REQUIRE(srv.start());
+  relay::Client a, b, c;
+  REQUIRE(a.open("127.0.0.1", srv.port));
+  REQUIRE(b.open("127.0.0.1", srv.port));
+  REQUIRE(c.open("127.0.0.1", srv.port));
+  REQUIRE(a.create("Ana", 3000, relay::ROOM_LOCKED | relay::ROOM_QUICK));
+  REQUIRE(b.create("Beto"));
+  relay::RoomInfo rooms[8];
+  const int n = c.list(rooms, 8);
+  REQUIRE(n == 2);
+  int seen = 0;
+  for (int i = 0; i < n; ++i) {
+    if (std::string(rooms[i].host) == "Ana") { CHECK(rooms[i].flags == (relay::ROOM_LOCKED | relay::ROOM_QUICK)); seen++; }
+    if (std::string(rooms[i].host) == "Beto") { CHECK(rooms[i].flags == 0); seen++; }
+  }
+  CHECK(seen == 2);
+}

@@ -6,6 +6,8 @@
 #include <memory>
 
 #include "core/game.h"
+#include "core/bot.h"
+#include "core/lockstep.h"
 
 using namespace ps;
 
@@ -128,4 +130,24 @@ TEST_CASE("sentencia: el daño a Arceus sale en el resumen y la partida es deter
   CHECK(a->summary.judge_dmg == doctest::Approx(a->judg.dealt));
   CHECK(a->summary.judge_plate == b->judg.plate);
   (void)in;
+}
+
+TEST_CASE("modo rápido: la Sentencia a los 20 minutos (y el modo va con la sala)") {
+  for (int mode : {0, 1}) {
+    std::unique_ptr<Game> g(new Game());
+    g->debug_immortal = true;
+    RunConfig c; c.dex = 25; c.seed = 2; c.judged = 1; c.demo_time = 1190; c.mode = uint8_t(mode);
+    g->start_run(c);
+    Bot bot; bot.init(3);
+    for (int i = 0; i < 60 * 60 && g->time < 1215; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+    if (mode == 1) CHECK(g->judg.phase != 0);
+    else CHECK(g->judg.phase == 0);
+    CHECK(judgment_at(*g) == (mode == 1 ? 1200.0f : 1800.0f));
+  }
+  RunConfig c; c.seed = 5; c.nplayers = 2; c.members[0].dex = 6; c.members[1].dex = 25; c.mode = MODE_QUICK;
+  uint8_t buf[1024];
+  const int len = net::write_config(c, buf, sizeof(buf));
+  RunConfig d;
+  REQUIRE(net::read_config(buf, len, d));
+  CHECK(d.mode == MODE_QUICK);
 }
