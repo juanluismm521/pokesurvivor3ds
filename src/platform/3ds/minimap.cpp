@@ -166,7 +166,7 @@ void Minimap::draw(Game& g, Renderer& r, float x, float y, float w, float h, flo
 
   // --- enemigos: rojos; shiny, celestes; jefes, grandes y parpadeando ---
   for (const Enemy& e : g.enemies) {
-    if (e.dead || e.boss) continue;
+    if (e.dead || e.boss || e.arceus) continue;
     if (!to(e.x, e.y, sx, sy)) continue;
     if (e.shiny) mark(sx, sy, 3, rgb(0x9ae6ff));
     else C2D_DrawRectSolid(std::floor(sx - 1), std::floor(sy - 1), 0, 2, 2, rgb(0xff5f6d));

@@ -53,7 +53,13 @@ add_custom_command(OUTPUT ${GOLDEN_DIR}/golden.json
 add_custom_target(golden DEPENDS ${GOLDEN_DIR}/golden.json)
 add_dependencies(ps_tests golden)
 # El servidor de relevo (jugar online) vive en su propio repositorio, al lado.
-set(PS_RELAY_PY "${CMAKE_SOURCE_DIR}/../docker/pokesurvivor-relay/relay.py" CACHE FILEPATH "relay.py del repositorio pokesurvivor-relay")
+# El servidor de relevo (repo pokesurvivor3ds-server): en el VPS, al lado de este repo (servidor/).
+if(EXISTS "${CMAKE_SOURCE_DIR}/../servidor/relay.py")
+  set(PS_RELAY_DEFAULT "${CMAKE_SOURCE_DIR}/../servidor/relay.py")
+else()
+  set(PS_RELAY_DEFAULT "${CMAKE_SOURCE_DIR}/../docker/pokesurvivor-relay/relay.py")
+endif()
+set(PS_RELAY_PY "${PS_RELAY_DEFAULT}" CACHE FILEPATH "relay.py del repositorio pokesurvivor3ds-server")
 target_compile_definitions(ps_tests PRIVATE
   PS_SOURCE_DIR="${CMAKE_SOURCE_DIR}" PS_GOLDEN_DIR="${GOLDEN_DIR}" PS_RELAY_PY="${PS_RELAY_PY}" PS_PAQUETE="${GEN_PACK}")
 

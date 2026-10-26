@@ -563,7 +563,7 @@ void game_end_run(Game& g, bool dead) {
   s.coin_mul = me.coin_mul;
   s.coins = int(jsround((s.parts[0] + s.parts[1] + s.parts[2] + s.parts[3]) * me.coin_mul));
   s.level = pl.level; s.kills = pl.kills; s.bosses = pl.bosses; s.t1 = pl.t1; s.t10 = pl.t10;
-  if (g.judg.phase == 2) { s.judge_time = g.judg.arena_t; s.judge_bosses = g.judg.downs; }
+  if (g.judg.phase == 2) { s.judge_time = g.judg.arena_t; s.judge_bosses = g.judg.downs; s.judge_dmg = g.judg.dealt; s.judge_plate = g.judg.plate; }
   s.ncaught = g.ncaught;
   for (int i = 0; i < g.ncaught; ++i) { s.caught_dex[i] = g.caught_dex[i]; s.caught_new[i] = g.caught_new[i]; }
   extern void save_end_run(Game & g);

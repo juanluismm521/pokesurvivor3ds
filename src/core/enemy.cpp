@@ -115,6 +115,12 @@ static void show_hurt(Game& g, Enemy& e, int d, uint32_t color, float dir_x, flo
 void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, float dir_y, float knock, int eff) {
   if (e.dead) return;
   const int d = std::max(1, int(jsround(amount)));
+  // Arceus en la Sentencia: no cae nunca; el golpe suma a su cuenta de daño.
+  if (e.arceus) {
+    judgment_hit_arceus(g, float(d));
+    show_hurt(g, e, d, color, dir_x, dir_y, eff);
+    return;
+  }
   if (e.boss) e.rd += float(d);
   // Escudo: absorbe primero.
   if (e.shield > 0) {
@@ -136,14 +142,15 @@ void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, fl
 }
 
 // Aturdido: se queda quieto y no ataca `dur` s (Onda Trueno, Tumba Rocas...).
-void enemy_apply_stun(Enemy& e, float dur) { e.stun_t = std::fmax(e.stun_t, dur); }
+void enemy_apply_stun(Enemy& e, float dur) { if (!e.arceus) e.stun_t = std::fmax(e.stun_t, dur); }
 
 void enemy_apply_slow(Enemy& e, float factor, float dur) {
+  if (e.arceus) return;   // (a Arceus no le afectan los estados)
   e.slow = std::fmax(e.slow, factor);
   e.slow_t = std::fmax(e.slow_t, dur);
 }
-void enemy_apply_burn(Enemy& e, float stacks) { e.burn = std::fmin(8.0f, e.burn + stacks); e.burn_t = 3; }
-void enemy_apply_poison(Enemy& e, float stacks) { e.poison = std::fmin(8.0f, e.poison + stacks); e.poison_t = 4; }
+void enemy_apply_burn(Enemy& e, float stacks) { if (e.arceus) return; e.burn = std::fmin(8.0f, e.burn + stacks); e.burn_t = 3; }
+void enemy_apply_poison(Enemy& e, float stacks) { if (e.arceus) return; e.poison = std::fmin(8.0f, e.poison + stacks); e.poison_t = 4; }
 
 void enemy_die(Game& g, Enemy& e) {
   if (e.dead) return;
@@ -534,7 +541,17 @@ void enemy_strike(Enemy& e, const Player& pl) {
   }
 }
 
+// En la Sentencia, veneno y quemadura quitan poco y siempre lo mismo (web,
+// 23-10-2026): envenenar y huir ya no sirve para tumbar a los legendarios.
+static constexpr float JUDGE_DOT = 1.5f;
+
 static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
+  if (e.arceus) {   // (el blanco de Arceus: va donde está él y nada más)
+    e.x = g.judg.ax; e.y = g.judg.ay;
+    e.kx = e.ky = 0;
+    if (e.flash > 0) e.flash -= dt;
+    return;
+  }
   // Fuera de pantalla no hace falta animar (sí moverse y pensar).
   const bool seen = g.seen_by_any(e.x, e.y, 120);
   if (seen || e.dead) e.anim.update(dt);
@@ -555,12 +572,12 @@ static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
   if (e.slow_t > 0) { e.slow_t -= dt; if (e.slow_t <= 0) e.slow = 0; }
   if (e.burn > 0) {
     e.burn_t -= dt; e.burn_tick -= dt;
-    if (e.burn_tick <= 0) { e.burn_tick = 0.5f; enemy_hurt(g, e, 1.6f * e.burn * (1 + pl.level * 0.06f), 0xff9a4d); }
+    if (e.burn_tick <= 0) { e.burn_tick = 0.5f; enemy_hurt(g, e, e.judge ? JUDGE_DOT * e.burn : 1.6f * e.burn * (1 + pl.level * 0.06f), 0xff9a4d); }
     if (e.burn_t <= 0) e.burn = 0;
   }
   if (e.poison > 0) {
     e.poison_t -= dt; e.poison_tick -= dt;
-    if (e.poison_tick <= 0) { e.poison_tick = 0.6f; enemy_hurt(g, e, pct_hp(e) * 0.012f * e.poison + 1, 0xd47cf0); }
+    if (e.poison_tick <= 0) { e.poison_tick = 0.6f; enemy_hurt(g, e, e.judge ? JUDGE_DOT * e.poison : pct_hp(e) * 0.012f * e.poison + 1, 0xd47cf0); }
     if (e.poison_t <= 0) e.poison = 0;
   }
   if (e.dead) return;
@@ -760,7 +777,7 @@ int Game::query_circle(float x, float y, float r, Enemy** out, int max) {
 static void separate(Game& g, float dt) {
   for (int idx = 0; idx < g.enemies.n; ++idx) {
     Enemy& e = g.enemies[idx];
-    if (e.dead) continue;
+    if (e.dead || e.arceus) continue;
     const int cx = cell_of(e.x), cy = cell_of(e.y);
     float px = 0, py = 0;
     int n = 0;
@@ -768,7 +785,7 @@ static void separate(Game& g, float dt) {
       for (int i = -1; i <= 1; ++i) {
         for (int k = g.grid_head[grid_slot(cx + i, cy + j)]; k >= 0; k = g.grid_next[k]) {
           Enemy& o = g.enemies[k];
-          if (&o == &e || o.dead) continue;
+          if (&o == &e || o.dead || o.arceus) continue;
           if (cell_of(o.x) != cx + i || cell_of(o.y) != cy + j) continue;
           const float min = (e.r + o.r) * 0.82f;
           const float ddx = e.x - o.x, ddy = e.y - o.y;
@@ -851,7 +868,7 @@ void enemies_update(Game& g, float dt) {
       e.lag_t = dist2(e.x, e.y, near.x, near.y) > BOSS_FAR * BOSS_FAR ? e.lag_t + dt : 0;
       if (e.lag_t > 4) { e.lag_t = 0; spawner_ahead(g, e, near); }
     }
-    if (e.boss || e.shiny || g.rift.arena) continue;
+    if (e.boss || e.shiny || e.arceus || g.rift.arena) continue;
     // Rezagados: los que se quedan atrás mientras corres y llevan un rato FUERA
     // DE LA VISTA vuelven a salir por delante de ti.
     const float d2 = dist2(e.x, e.y, near.x, near.y);

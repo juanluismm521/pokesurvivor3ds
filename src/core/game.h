@@ -212,6 +212,7 @@ struct Enemy {
   int16_t dex = 0;
   float x = 0, y = 0;
   bool boss = false, legend = false, judge = false, shiny = false, golden = false;
+  bool arceus = false;          // el blanco de Arceus en la Sentencia (invisible, le sigue; nunca cae)
   float scale = 1;
   Animator anim;
   float r = 0, body_h = 0;
@@ -360,6 +361,8 @@ struct RunSummary {
   float coin_mul = 1;
   float judge_time = -1;
   int judge_bosses = 0;
+  double judge_dmg = 0;         // daño a Arceus
+  int8_t judge_plate = -1;      // su Tabla (tipo)
   int ncaught = 0;
   int16_t caught_dex[16];
   bool caught_new[16];
@@ -537,6 +540,12 @@ struct Game {
     float hit_t = 0; float samples[30]; int nsamples = 0;
     int32_t hit_id[64]; float hit_v[64]; int nhit = 0;
     bool cam_on = false; float cam_x = 0, cam_y = 0; bool cam_ported = false;
+    // Desde el 23-10-2026 (web): se le puede pegar. Lleva una Tabla al azar (su
+    // tipo), recibe una parte del daño (judgment_dmg_k) y, con legendarios vivos,
+    // los ataques no le apuntan (shielded).
+    int8_t plate = T_FIGHTING;
+    double dealt = 0;
+    bool shielded = false;
   } judg;
 
   // Campo de distancias del camino (pathing.js), uno por jugador.
@@ -669,6 +678,12 @@ bool judgment_active(const Game& g);
 // Velocidad con tope suave en la Sentencia: lo que pase de 130 cuenta un 25 %.
 inline float judgment_cap_spd(float s) { return s <= 130 ? s : 130 + (s - 130) * 0.25f; }
 bool judgment_cinematic(const Game& g);
+// Arceus en la pelea: qué parte del daño recibe (el 5 %, y cada vez menos) y
+// si le protegen los legendarios (entonces no se le apunta).
+float judgment_dmg_k(const Game& g);
+inline bool judgment_shielded(const Game& g) { return g.judg.phase == 2 && g.judg.shielded; }
+void judgment_hit_arceus(Game& g, float d);
+const char* plate_name(int type);
 // pathing.cpp
 void path_update(Game& g, float dt);
 bool path_dir_for(Game& g, Enemy& e, int pl_index, float& ox, float& oy);

@@ -52,8 +52,11 @@ void on_dealt(Player& p, float dmg) {
   if (p.item == IT_SHELLBELL) p.bell_heal = std::fmin(4.0f, p.bell_heal + dmg * 0.04f);
 }
 
+// Arceus (Sentencia) sólo recibe una parte (judgment_dmg_k).
+float arc_k(const Game& g, const Enemy& e) { return e.arceus ? judgment_dmg_k(g) : 1.0f; }
+
 void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float dy, float knock, const MoveInst& m) {
-  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat());
+  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat()) * arc_k(g, e);
   const bool crit = is_crit(g, p);
   dmg *= k * (crit ? CRIT_MUL : 1);
   enemy_hurt(g, e, dmg, col, dx, dy, knock, crit ? EFF_CRIT : type_label(type_mult(m.type(), e.types)));
@@ -976,7 +979,7 @@ void combat_resolve(Game& g, float dt) {
 
       Player& pl = g.players[p->owner];
       const bool crit = is_crit(g, pl);
-      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? CRIT_MUL : 1);
+      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? CRIT_MUL : 1) * arc_k(g, *e);
       const float dvx = p->vx != 0 ? p->vx : (e->x - pl.x), dvy = p->vy != 0 ? p->vy : (e->y - pl.y);
       const int eff = crit ? EFF_CRIT : p->mtype >= 0 ? type_label(type_mult(p->mtype, e->types)) : EFF_NONE;
       const float dmg = p->dmg * kk;
@@ -1025,7 +1028,7 @@ static void contact(Game& g, Player& pl) {
   for (int k = 0; k < n; ++k) ids[k] = list[k]->id;
   for (int k = 0; k < n; ++k) {
     Enemy* e = g.enemy_by_id(ids[k]);
-    if (!e || e->dead) continue;
+    if (!e || e->dead || e->arceus) continue;   // (tocar a Arceus lo lleva judgment.cpp)
     if (dist2(e->x, e->y, pl.x, pl.y) > (e->r + pl.r) * (e->r + pl.r)) continue;
     if (e->touch_cd > 0 || e->behavior == BH_THIEF || e->stun_t > 0) continue;
     e->touch_cd = 0.55f;

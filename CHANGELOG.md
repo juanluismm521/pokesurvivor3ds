@@ -5,6 +5,23 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.10.0 — 2026-10-26
+- **La Sentencia de Arceus, como en la web del 23-10:**
+  - **Ya se le puede pegar.** Sigue siendo invencible, pero recibe una pequeña
+    parte del daño (el 5 %, y cada vez menos: el 1 % a los 10 min). Los ataques le
+    apuntan sólo cuando no queda ningún legendario («le protegen» arriba).
+  - **Tablas:** en cada partida lleva una al azar, que le da su tipo (se avisa al
+    empezar la pelea y sale arriba, con el daño que le lleváis; su aura en el suelo
+    es de ese color). Ya no hay un tipo de ataque que sea siempre el mejor.
+  - El daño a Arceus sale en el resumen del final.
+  - Cada legendario sale con un **25 % más de vida y un 15 % más de daño** que el
+    anterior (antes, el doble: no había forma de tumbarlos).
+  - Veneno y quemaduras quitan a los legendarios poco y siempre lo mismo
+    (envenenar y huir ya no sirve).
+  - Nadie se puede salir de la arena (yendo muy rápido se podía y se aguantaba
+    para siempre).
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.9.0 — 2026-10-26
 - **Colección → SELECT: los ataques del Pokémon**, al doble de tamaño en la pantalla
   de abajo (se tocan o se recorren con la cruceta). Arriba, el elegido: tipo, si

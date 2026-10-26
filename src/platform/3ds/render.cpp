@@ -628,7 +628,7 @@ void Renderer::draw_top(Game& g, float eye) {
     if (n < 1200 && cam.sees(p.x, p.y, 70)) items[n++] = {p.flat ? p.y - 4000 : p.y, D_PROP, &p};
   });
   for (const Enemy& e : g.corpses) if (n < 1560 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
-  for (const Enemy& e : g.enemies) if (n < 1560 && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};
+  for (const Enemy& e : g.enemies) if (n < 1560 && !e.arceus && cam.sees(e.x, e.y, 80)) items[n++] = {e.y, D_ENEMY, &e};   // (Arceus lo dibuja la Sentencia)
   for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) items[n++] = {g.players[i].y, D_PLAYER, &g.players[i]};
   if (g.rift.open) items[n++] = {g.rift.y, D_RIFT, nullptr};
   if (g.judg.a_on && g.judg.ported) items[n++] = {g.judg.ay, D_ARCEUS, nullptr};
@@ -762,7 +762,9 @@ void Renderer::draw_top(Game& g, float eye) {
         const float near = clamp(1 - J.lift / 900, 0.0f, 1.0f);
         const float x = v.sx(J.ax), y = v.sy(J.ay);
         ellipse(x, y, 22 * (0.4f + near * 0.6f), 8 * (0.4f + near * 0.6f), C2D_Color32(0, 0, 0, uint8_t((0.15f + near * 0.3f) * 255)));
-        if (J.lift < 40) ellipse(x, y, J.ar * 1.1f, J.ar * 0.4f, rgbf(0xffd25e, 0.22f + std::sin(now * 3) * 0.06f));
+        // Aura en el suelo, del color de su Tabla (en la pelea).
+        const uint32_t ac = J.phase == 2 && J.plate >= 0 ? kTypeColor[J.plate] : 0xffd25e;
+        if (J.lift < 40) ellipse(x, y, J.ar * 1.1f, J.ar * 0.4f, rgbf(ac, 0.22f + std::sin(now * 3) * 0.06f));
         // La rueda dorada detrás de él.
         const float wy = v.sy(J.ay - J.lift - J.abody_h * 0.55f), R = J.abody_h * 0.31f;
         dot_ring(x, wy, R, R, 2, rgbf(0xffd25e, 0.55f));
@@ -771,7 +773,9 @@ void Renderer::draw_top(Game& g, float eye) {
           const float a = J.spin * 0.6f + k * kTau / 12;
           ellipse(x + std::cos(a) * R * 0.91f, wy + std::sin(a) * R * 0.91f, 2, 2, rgbf(GEMS[k % 6], 0.7f));
         }
-        draw_sprite(J.aanim, x, v.sy(J.ay - J.lift), 0, 1);
+        bool hurt = false;   // (destello al pegarle)
+        for (const Enemy& e : g.enemies) if (e.arceus) { hurt = e.flash > 0; break; }
+        draw_sprite(J.aanim, x, v.sy(J.ay - J.lift), hurt ? 1 : 0, 1);
         break;
       }
       case D_GOAL: {
@@ -1028,7 +1032,11 @@ void Renderer::draw_top(Game& g, float eye) {
     if (g.judg.phase == 2) {
       char t[16]; mmss(g.judg.arena_t, t, sizeof(t));
       std::snprintf(b, sizeof(b), "SENTENCIA · %s · JEFES %d", t, g.judg.downs);
-      text(b, 200, info_y, 0.4f, rgb(0xffd25e), 1);
+      text(b, 200, info_y, 0.4f, rgb(0xffd25e), 1); info_y += 12;
+      // Su Tabla (tipo) y el daño que le lleváis.
+      std::snprintf(b, sizeof(b), "%s (%s) · DAÑO A ARCEUS %d%s", plate_name(g.judg.plate), kTypeName[g.judg.plate], int(jsround(float(g.judg.dealt))),
+                    g.judg.shielded ? " · le protegen" : "");
+      text_fit(b, 200, info_y, 380, 0.34f, rgb(kTypeColor[g.judg.plate]), true, 1);
     }
     // Flechas en el borde: grieta, Pokémon perdido, ladrones, Arceus, shinies.
     const Player& pl = g.pl();
@@ -1297,8 +1305,8 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text(b, 160, 136, 0.32f, rgb(0x8fa3c4), 1);
     if (s.judge_time >= 0) {
       mmss(s.judge_time, t, sizeof(t));
-      std::snprintf(b, sizeof(b), "Ante Arceus: %s · %d legendarios", t, s.judge_bosses);
-      text(b, 160, 152, 0.36f, rgb(0xffd25e), 1);
+      std::snprintf(b, sizeof(b), "Ante Arceus: %s · %d legendarios · daño %d", t, s.judge_bosses, int(jsround(float(s.judge_dmg))));
+      text_fit(b, 160, 152, 304, 0.36f, rgb(0xffd25e), false, 1);
     }
     if (s.record) text("¡Nuevo récord de tiempo!", 160, 168, 0.42f, rgb(0x5fe08a), 1);
     if (s.ncaught) {

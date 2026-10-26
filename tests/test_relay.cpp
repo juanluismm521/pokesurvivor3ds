@@ -26,7 +26,7 @@ namespace {
 // éste; si no está, estas pruebas se saltan (con aviso).
 bool relay_available() {
   if (FILE* f = std::fopen(PS_RELAY_PY, "r")) { std::fclose(f); return true; }
-  MESSAGE("No encuentro el servidor (" << PS_RELAY_PY << "): clona github.com/juanluismm521/pokesurvivor3ds-server en ../docker/pokesurvivor-relay (o -DPS_RELAY_PY=...). Se salta la prueba.");
+  MESSAGE("No encuentro el servidor (" << PS_RELAY_PY << "): clona github.com/juanluismm521/pokesurvivor3ds-server en ../servidor (o -DPS_RELAY_PY=...). Se salta la prueba.");
   return false;
 }
 

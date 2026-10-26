@@ -3,9 +3,13 @@
 //      enorme. Arceus baja por un pilar de luz. La primera vez se ve entera.
 //   2. Pelea: Arceus es INVENCIBLE. Te persigue cada vez más deprisa; tocarle
 //      quita el 40 % de la vida, y lanza pilares, rayos en cruz y ondas.
-//   3. Cada 5 s acude un legendario, cada uno con el DOBLE de vida y daño que
-//      el anterior (el primero, según el daño que hacías a UN enemigo).
-//   4. Sin límite de tiempo: los legendarios acaban contigo.
+//      Desde el 23-10-2026 (web) se le puede pegar: lleva una Tabla al azar
+//      (su tipo), sólo recibe una parte (judgment_dmg_k) y los ataques le
+//      apuntan cuando no queda ningún legendario. Lo que le hacéis sale al final.
+//   3. Cada 5 s acude un legendario, cada uno con un 25 % más de vida y un 15 %
+//      más de daño que el anterior (antes el doble: no había forma de tumbarlos).
+//      El primero, según el daño que hacías a UN enemigo.
+//   (Del 23-10 no se porta, por ahora: el minuto 35 que rompe los objetos.)
 #include <cmath>
 #include <initializer_list>
 #include <cstdio>
@@ -28,6 +32,7 @@ constexpr float SCALE = 1.5f;
 constexpr float T_TITLE = 1.3f, T_FLASH = 4.7f, T_PORT = 5.1f, T_DESC = 5.7f, T_LAND = 7.9f, T_BACK = 9.1f, T_END = 10.1f;
 constexpr uint32_t GOLD = 0xffd25e;
 constexpr float TS = kTS;
+constexpr float HP_GROW = 1.25f, DMG_GROW = 1.15f;   // cada legendario, respecto al anterior
 enum { JC_RAIN, JC_CROSS, JC_NOVA };
 
 void sample_dps(Game& g, float dt) {
@@ -72,6 +77,10 @@ void start(Game& g) {
   for (int i = 0; i < 40; ++i) j.q[i] = pool[int(g.rng.next() * np)];
   j.tx = -6000 - int32_t(std::floor(g.rng.next() * 2000));
   j.ty = -6000 - int32_t(std::floor(g.rng.next() * 2000));
+  // Su Tabla: uno de los 17 tipos (todos menos Normal), al azar.
+  int types[T_COUNT], nt = 0;
+  for (int t = 0; t < T_COUNT; ++t) if (t != T_NORMAL) types[nt++] = t;
+  j.plate = int8_t(types[int(g.rng.next() * nt)]);
   begin(g);
 }
 
@@ -134,7 +143,23 @@ void fight(Game& g) {
   const float t = float(g.time);
   const float floor_ = (3200 + t * 9) * 0.35f * coop_scale_hp(g.team_size());
   j.base = std::fmax(floor_, single_dps(g) * 3);
-  g.say("¡Huye de Arceus! Es invencible", 3);
+  j.dealt = 0;
+  char b[96];
+  std::snprintf(b, sizeof(b), "¡Arceus lleva la %s! Ahora es de tipo %s", plate_name(j.plate), kTypeName[j.plate]);
+  g.say(b, 4);
+  // El blanco de Arceus: un enemigo invisible que va siempre donde está él.
+  // Así los ataques le dan como a cualquiera. No se mueve solo, no hace daño al
+  // tocarle y no cae nunca (enemy.cpp).
+  EnemyDef def;
+  def.dex = ARCEUS; def.hp = 1e9f; def.spd = 0; def.dmg = 0; def.xp = 0; def.behavior = BH_CHASE;
+  if (Enemy* e = enemy_spawn(g, def, j.ax, j.ay, Scale3(), false)) {
+    e->arceus = true; e->judge = true;
+    e->types[0] = j.plate; e->types[1] = T_NONE; e->atk_type = j.plate;
+    e->mon = mon_by_dex(ARCEUS);
+    e->r = body_radius(ARCEUS, SCALE) * 0.9f;
+    e->body_h = body_height(ARCEUS, SCALE);
+    e->flying = true;
+  }
 }
 
 Player* target(Game& g) {
@@ -259,6 +284,9 @@ void keep_inside(Game& g) {
   };
   clamp_in(j.ax, j.ay);
   for (Enemy& e : g.enemies) clamp_in(e.x, e.y);
+  // Y los jugadores (web, 25-10-2026: yendo muy rápido alguien se salía de la
+  // arena y ya no se le podía alcanzar: aguantaba para siempre).
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) clamp_in(g.players[i].x, g.players[i].y);
 }
 
 bool is_one_of(const Mon& m, std::initializer_list<int> ts) {
@@ -281,20 +309,20 @@ void spawn_boss(Game& g) {
     for (int k = 0; k < g.nplayers; ++k) if (g.players[k].active && dist2(g.players[k].x, g.players[k].y, x, y) <= 280 * 280) far = false;
     if (far) break;
   }
-  // Cada uno, el doble que el anterior. (Tope en 2^100 para que el float no
-  // llegue a infinito: en la web, con double, haría falta pasar de ~1000; en una
-  // partida de verdad nadie aguanta más de unos pocos.)
-  const float k = std::pow(2.0f, float(std::min(j.boss_n, 100)));
+  // Cada uno, un 25 % más de vida y un 15 % más de daño que el anterior (tope
+  // de seguridad para el float: en una partida nadie llega ni de lejos).
+  const float k = std::pow(HP_GROW, float(std::min(j.boss_n, 300)));
+  const float kd = std::pow(DMG_GROW, float(std::min(j.boss_n, 300)));
   EnemyDef def;
   def.dex = int16_t(dex);
   def.hp = float(jsround(j.base * k));
   float fast = 0;
   for (int q = 0; q < g.nplayers; ++q) if (g.players[q].active && !g.players[q].dead) fast = std::fmax(fast, player_spd(g, g.players[q]));
   def.spd = float(jsround(std::fmax(clamp(48 + (mon->spd - 78) * 0.6f, 48.0f, 105.0f), fast * 0.8f)));
-  def.dmg = float(jsround((36 + t / 20) * k));
+  def.dmg = float(jsround((36 + t / 20) * kd));
   def.xp = float(jsround(500 + t * 1.2f));
   def.behavior = is_one_of(*mon, {T_PSYCHIC, T_ELECTRIC, T_GHOST, T_FAIRY, T_FIRE, T_WATER, T_ICE, T_DRAGON}) ? BH_RANGED : BH_CHARGER;
-  def.shot_dmg = float(jsround((18 + t / 40) * k)); def.shot_cd = 0.9f; def.range = 300;
+  def.shot_dmg = float(jsround((18 + t / 40) * kd)); def.shot_cd = 0.9f; def.range = 300;
   Enemy* e = enemy_spawn(g, def, x, y, Scale3(), true);
   if (!e) return;
   e->judge = true;
@@ -310,6 +338,18 @@ void spawn_boss(Game& g) {
 }  // namespace
 
 void judgment_reset(Game& g) { g.judg = Game::JudgmentState(); }
+
+// Daño a Arceus: recibe el 5 % de lo que le hacéis, y cada vez menos (el 1 % a
+// los 10 min de Sentencia), como en la web.
+float judgment_dmg_k(const Game& g) { return 0.05f / (1 + g.judg.arena_t / 150); }
+void judgment_hit_arceus(Game& g, float d) { if (g.judg.phase == 2) g.judg.dealt += d; }
+
+const char* plate_name(int type) {
+  static const char* const N[T_COUNT] = {"Tabla Normal", "Tabla Llama", "Tabla Linfa", "Tabla Pradal", "Tabla Trueno", "Tabla Helada",
+                                          "Tabla Fuerte", "Tabla Tóxica", "Tabla Terrax", "Tabla Cielo", "Tabla Mental", "Tabla Bicho",
+                                          "Tabla Pétrea", "Tabla Terror", "Tabla Draco", "Tabla Oscura", "Tabla Acero", "Tabla Duende"};
+  return type >= 0 && type < T_COUNT ? N[type] : "Tabla";
+}
 bool judgment_active(const Game& g) { return g.judg.phase != 0; }
 bool judgment_cinematic(const Game& g) { return g.judg.phase == 1; }
 
@@ -374,6 +414,8 @@ void judgment_update(Game& g, float dt) {
   if (j.phase != 2) return;
   j.arena_t += dt;
   j.touch_cd -= dt; j.spin += dt;
+  j.shielded = false;
+  for (const Enemy& e : g.enemies) if (e.boss && !e.dead && !e.arceus) { j.shielded = true; break; }
   arceus_tick(g, dt);
   keep_inside(g);
   j.boss_t -= dt;
