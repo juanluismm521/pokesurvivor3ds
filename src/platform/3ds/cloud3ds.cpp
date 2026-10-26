@@ -12,6 +12,9 @@
 #include <ctime>
 
 #include "core/update.h"
+#include "core/version.h"
+#include "gen/build.h"
+#include "platform/3ds/prog3ds.h"
 
 namespace ps {
 // Configuración de Firebase de la web (js/core/firebase-config.js, la saca
@@ -21,6 +24,14 @@ extern const char* const kWebApiKey;
 extern const char* const kWebProject;
 
 namespace cloud3ds {
+
+// Cómo se presenta la consola al servidor: versión, build y formato (lo cuentan
+// las estadísticas privadas del dueño: qué versiones se usan). Sin nada personal.
+static const char* user_agent() {
+  static char ua[64];
+  if (!ua[0]) std::snprintf(ua, sizeof(ua), "PokeSurvivor3DS/%s (build %d; %s)", kVersion, PS_BUILD, prog3ds::is_cia() ? "cia" : "3dsx");
+  return ua;
+}
 
 namespace {
 
@@ -114,7 +125,7 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, on_header);
   curl_easy_setopt(c, CURLOPT_HEADERDATA, &rs);
   curl_easy_setopt(c, CURLOPT_CAINFO, "romfs:/cacert.pem");
-  curl_easy_setopt(c, CURLOPT_USERAGENT, "PokeSurvivor3DS/1.0");
+  curl_easy_setopt(c, CURLOPT_USERAGENT, user_agent());
   curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 10L);
   curl_easy_setopt(c, CURLOPT_TIMEOUT, 25L);
   curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
@@ -401,7 +412,7 @@ bool http_download(const std::string& url, const std::string& path, uint64_t exp
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, dl_write);
   curl_easy_setopt(c, CURLOPT_WRITEDATA, &d);
   curl_easy_setopt(c, CURLOPT_CAINFO, "romfs:/cacert.pem");
-  curl_easy_setopt(c, CURLOPT_USERAGENT, "PokeSurvivor3DS/1.0");
+  curl_easy_setopt(c, CURLOPT_USERAGENT, user_agent());
   curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 15L);
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 512L);   // (parada más de 30 s: se corta y se reintenta otro día)
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 30L);
