@@ -74,6 +74,7 @@ struct Autotest {
   int rocks = 0;              // "… rocas=N": golpea una roca en N chunks del mapa (prueba de la caché del mundo)
   float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
+  bool menu = false;          // "menu": el menú principal un minuto (con lo que haga al encender)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
   bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
@@ -106,6 +107,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "actualizar")) a.update_demo = true;
   else if (!std::strcmp(first, "gacha100")) a.gacha100 = true;
   else if (!std::strcmp(first, "salas")) a.rooms = true;
+  else if (!std::strcmp(first, "menu")) a.menu = true;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
@@ -266,6 +268,7 @@ int main(int argc, char** argv) {
   if (at.news) { app.start_news_demo(at.dex); at.on = false; }
   if (at.gacha100) { app.start_gacha_demo(); at.on = false; }
   if (at.rooms) { app.start_rooms_demo(); at.on = false; }
+  if (at.menu) { app.start_menu_demo(); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
@@ -431,8 +434,12 @@ int main(int argc, char** argv) {
     // ("… arranque" en el autotest: como al encender de verdad, para probar que la
     // versión nueva se baja mientras se juega y se instala al salir)
     if (!at.boot) app.cloud_autostart();   // (si hay cuenta, se sincroniza al encender)
-    if (settings.datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }   // (y, si está activado, datos y versión nueva)
-    if (at.boot && at.log) { std::fprintf(at.log, "arranque: buscar solas %s\n", settings.datos_auto ? "SÍ" : "no"); std::fflush(at.log); }
+    // La versión nueva del juego se busca SIEMPRE al encender y se baja sola (el
+    // dueño, 2026-10-27); se instala al salir. La opción de Ajustes es para los
+    // datos de equilibrio de la web.
+    prog3ds::start_check(true);
+    if (settings.datos_auto) datos3ds::start_check();
+    if (at.boot && at.log) { std::fprintf(at.log, "arranque: buscar versión nueva SÍ · datos de la web %s\n", settings.datos_auto ? "SÍ" : "no"); std::fflush(at.log); }
   }
   if (at.on && at.coop) {
     std::snprintf(app.auto_pass_, sizeof(app.auto_pass_), "%s", at.room_pass);

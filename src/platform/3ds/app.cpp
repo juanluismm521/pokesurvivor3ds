@@ -94,6 +94,14 @@ void App::start_gacha_demo() {
 
 // Autotest "salas": la pantalla de crear sala (rápido, con contraseña) y una
 // lista de salas de ejemplo (candado, modo rápido), sin red.
+// Autotest "menu": el menú principal un minuto (la barra de la versión nueva).
+void App::start_menu_demo() {
+  menu_demo_ = true;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  go(SC_MENU);
+}
+
 void App::start_rooms_demo() {
   rooms_demo_ = true;
   news_t_ = 0;
@@ -352,6 +360,7 @@ void App::update(const UiIn& in0, float dt) {
     if (t0 < 2 && news_t_ >= 2) prog3ds::start_check(true);
     if (news_t_ > 40) quit = true;
   }
+  if (menu_demo_) { news_t_ += dt; if (news_t_ > 60) quit = true; }
   if (rooms_demo_) {
     const float t0 = news_t_;
     news_t_ += dt;
@@ -783,6 +792,8 @@ void App::in_menu(const UiIn& in) {
   // X: la cuenta de pokesurvivor.com (sincronizar, entrar, salir).
   if (in.down & KEY_X) { account_back_ = SC_MENU; go(SC_ACCOUNT); return; }
   if (in.down & KEY_SELECT) { audio::play("select"); open_news(); return; }
+  // La barra de la versión nueva (o START): a Actualizaciones.
+  if ((in.down & KEY_START) || (update_bar() && in_rect(&in, 6, 40, 308, 20))) { audio::play("select"); update_back_ = SC_MENU; go(SC_UPDATE); return; }
   if (pick < 0) return;
   cur_ = pick;
   switch (pick) {
@@ -849,9 +860,33 @@ void App::bottom_menu() {
   r_->text(b, 76, 27, 0.4f, C_TEXT);
   std::snprintf(b, sizeof(b), "Pokémon %d / %d", s_->owned_count(), kDexCount);
   r_->text(b, 312, 27, 0.4f, C_MUTED, 2);
-  char tt[16]; mmss(float(s_->stats.best_time), tt, sizeof(tt));
-  std::snprintf(b, sizeof(b), "Runs %d · Mejor tiempo %s · Mejor nivel %d", int(s_->stats.runs), tt, int(s_->stats.best_level));
-  r_->text(b, 160, 46, 0.34f, C_MUTED, 1);
+  if (update_bar()) {
+    // La versión nueva: buscando, bajando (con su barra) o lista para instalar.
+    const int st = prog3ds::state();
+    const bool ready = st == prog3ds::ST_READY;
+    const float k = ready ? 0.6f + std::sin(t_ * 4) * 0.4f : 1;
+    C2D_DrawRectSolid(6, 40, 0, 308, 20, ready ? rgbf(0x1f5a32, 0.95f) : C2D_Color32(24, 34, 60, 240));
+    C2D_DrawRectSolid(6, 40, 0, 3, 20, ready ? rgbf(0x5fe08a, k) : C_GOLD);
+    const UpdateEntry& e = prog3ds::latest();
+    if (st == prog3ds::ST_DOWNLOADING) {
+      const float p = prog3ds::pct() / 100.0f;
+      std::snprintf(b, sizeof(b), "Bajando %s · %d %%", e.version.c_str(), prog3ds::pct());
+      r_->text_fit(b, 14, 42, 204, 0.4f, C_TEXT, false, 0);
+      C2D_DrawRectSolid(222, 47, 0, 84, 7, C2D_Color32(0, 0, 0, 160));
+      C2D_DrawRectSolid(222, 47, 0, 84 * p, 7, C_GOLD);
+    } else if (ready) {
+      if (prog3ds::pending_back()) std::snprintf(b, sizeof(b), "Anterior lista: al salir");
+      else std::snprintf(b, sizeof(b), "¡%s lista! Al salir", e.version.c_str());
+      r_->text_fit(b, 14, 42, 236, 0.4f, rgbf(0xb8ffcf, 1), false, 0);
+      r_->text("START", 306, 44, 0.32f, rgbf(0x5fe08a, k), 2);
+    } else {
+      r_->text("Buscando versión nueva…", 160, 42, 0.4f, C_MUTED, 1);
+    }
+  } else {
+    char tt[16]; mmss(float(s_->stats.best_time), tt, sizeof(tt));
+    std::snprintf(b, sizeof(b), "Runs %d · Mejor tiempo %s · Mejor nivel %d", int(s_->stats.runs), tt, int(s_->stats.best_level));
+    r_->text(b, 160, 46, 0.34f, C_MUTED, 1);
+  }
   const int pend = progress_pending(*s_, now_ms());
   static const char* const L[9] = {"Jugar", "En grupo", "Pokémon", "Mejoras", "Gacha", "Misiones", "Ajustes", "Créditos", "Salir"};
   for (int i = 0; i < 9; ++i) {
@@ -863,6 +898,12 @@ void App::bottom_menu() {
   r_->text("SELECT: ¡Novedades!", 10, 226, 0.34f, C_GOLD, 0);
   if (news_unseen()) C2D_DrawCircleSolid(14 + r_->text_width("SELECT: ¡Novedades!", 0.34f), 228, 0, 3, C2D_Color32(255, 95, 109, 255));
   if (s_->owns_shiny(s_->partner)) r_->text("Y: normal / shiny", 310, 226, 0.32f, C_MUTED, 2);
+}
+
+// ¿Se ve la barra de la versión nueva en el menú? (buscando, bajando o lista)
+bool App::update_bar() const {
+  const int st = prog3ds::state();
+  return st == prog3ds::ST_CHECKING || st == prog3ds::ST_DOWNLOADING || st == prog3ds::ST_READY;
 }
 
 // ---------------- colección ----------------
@@ -1812,10 +1853,10 @@ void App::in_settings(const UiIn& in) {
       case 8: settings_write(dir_, *st_); go(SC_ACCOUNT); return;
       case 9:
         // A (o tocar): la pantalla de actualizaciones; izquierda/derecha: automáticas sí/no.
-        if ((in.down & KEY_A) || in.tap) { settings_write(dir_, *st_); go(SC_UPDATE); return; }
+        if ((in.down & KEY_A) || in.tap) { settings_write(dir_, *st_); update_back_ = SC_SETTINGS; go(SC_UPDATE); return; }
         st_->datos_auto = !st_->datos_auto;
         settings_write(dir_, *st_);
-        if (st_->datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }   // (al activarlo, se mira ya)
+        if (st_->datos_auto) datos3ds::start_check();   // (al activarlo, se mira ya)
         return;
     }
     apply_settings();
@@ -1844,7 +1885,7 @@ void App::bottom_settings() {
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
   std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
   std::snprintf(v[8], 24, "%.23s", cloud3ds::account().on ? cloud3ds::account().name.c_str() : tr("Sin conectar"));
-  std::snprintf(v[9], 24, "%s %s (A)", tr("Solas:"), tr(st_->datos_auto ? "Sí" : "No"));
+  std::snprintf(v[9], 24, "%s %s (A)", tr("Datos:"), tr(st_->datos_auto ? "Sí" : "No"));
   for (int i = 0; i < 10; ++i) {
     const float y = kSetY + i * kSetStep;
     C2D_DrawRectSolid(6, y, 0, 308, kSetH, i == cur_ ? C_SEL : C_PANEL);

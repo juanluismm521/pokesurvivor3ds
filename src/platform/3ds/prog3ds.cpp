@@ -301,6 +301,7 @@ bool start_rollback() {
 }
 
 bool pending() { return g_pend.on && !g_busy; }
+bool pending_back() { return g_pend.on && g_pend.back; }
 std::string pending_text() { return g_pend.back ? "volver a la versión anterior" : "instalar la versión nueva"; }
 
 std::string apply(void (*show)(const char*, int)) {

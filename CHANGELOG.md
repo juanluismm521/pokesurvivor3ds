@@ -5,6 +5,15 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.14.0 — 2026-10-27
+- **El juego busca la versión nueva cada vez que lo abres** (antes, sólo si activabas
+  «Buscar solas al encender» o desde Ajustes). Se baja sola mientras juegas y se
+  instala al salir.
+- **Barra de actualización en el menú principal**: «Buscando versión nueva…», «Bajando
+  0.14.1 · 45 %» con su barra de progreso y «¡0.14.1 lista! Al salir» en verde.
+  Tocándola o con **START** vas a Actualizaciones (y B te devuelve al menú).
+- La opción de Ajustes (antes «Solas») queda para los datos de equilibrio de la web.
+
 ## 0.13.4 — 2026-10-26
 - **Arreglado «La nube ha rechazado la partida (permiso denegado)»** al entrar con
   la cuenta de pokesurvivor.com. Desde el 21-10 la web cuenta las versiones de la

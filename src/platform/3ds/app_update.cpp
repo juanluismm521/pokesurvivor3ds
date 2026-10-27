@@ -29,7 +29,11 @@ void App::in_update(const UiIn& in) {
   for (int i = 0; i < kRows; ++i) if (in_rect(&in, 10, kRowY + i * kRowStep, 300, kRowStep - 3)) pick = i;
   if (in.down & KEY_A) pick = cur_;
   if ((in.rep & (KEY_DLEFT | KEY_DRIGHT)) && cur_ == 0) pick = 0;
-  if (in.down & KEY_B) { go(SC_SETTINGS); cur_ = 9; return; }
+  if (in.down & KEY_B) {   // (vuelve a donde estabas: el menú o Ajustes)
+    if (update_back_ == SC_MENU) go(SC_MENU);
+    else { go(SC_SETTINGS); cur_ = 9; }
+    return;
+  }
   if (pick < 0) return;
   cur_ = pick;
   const bool busy = prog3ds::state() == prog3ds::ST_CHECKING || prog3ds::state() == prog3ds::ST_DOWNLOADING;
@@ -37,7 +41,7 @@ void App::in_update(const UiIn& in) {
     case 0:
       st_->datos_auto = !st_->datos_auto;
       settings_write(dir_, *st_);
-      if (st_->datos_auto) { datos3ds::start_check(); prog3ds::start_check(true); }
+      if (st_->datos_auto) datos3ds::start_check();
       break;
     case 1:
       if (!busy) prog3ds::start_check(true);   // buscar y, si hay, descargar
@@ -76,7 +80,7 @@ void App::bottom_update() {
   }
   const bool busy = prog3ds::state() == prog3ds::ST_CHECKING || prog3ds::state() == prog3ds::ST_DOWNLOADING;
   const bool newer = e.ok && e.build != PS_BUILD && prog3ds::state() != prog3ds::ST_READY;
-  std::snprintf(b, sizeof(b), "%s %s", tr("Buscar solas al encender:"), tr(st_->datos_auto ? "Sí" : "No"));
+  std::snprintf(b, sizeof(b), "%s %s", tr("Datos de la web, solos:"), tr(st_->datos_auto ? "Sí" : "No"));
   const char* labels[kRows] = {b, busy ? "Buscando…" : newer ? "Descargar la versión nueva" : "Buscar ahora",
                                prog3ds::pending() ? "Instalar ahora (cierra el juego)" : "Instalar ahora (no hay nada listo)",
                                "Volver a la versión anterior"};
@@ -87,6 +91,7 @@ void App::bottom_update() {
     if (i == cur_) C2D_DrawRectSolid(10, y, 0, 3, kRowStep - 3, C_GOLD);
     r_->text(labels[i], 160, y + 4, 0.38f, off ? C_MUTED : C_TEXT, 1);
   }
+  r_->text_wrap("La versión nueva del juego se busca y se baja sola al encender; se instala al salir.", 160, 196, 0.3f, C_MUTED, 290, 1);
   r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 

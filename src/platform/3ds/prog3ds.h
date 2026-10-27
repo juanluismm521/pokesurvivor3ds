@@ -32,6 +32,7 @@ const UpdateEntry& latest(); // la publicada (si se ha podido leer)
 bool can_rollback();
 bool start_rollback();       // prepara la anterior (puede descargar)
 bool pending();              // hay algo que instalar al salir
+bool pending_back();         // y es volver a la anterior
 std::string pending_text();
 // Al salir: instala lo pendiente. show(texto, %) pinta la pantalla mientras.
 // Devuelve el resultado (para el log).

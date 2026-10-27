@@ -45,6 +45,7 @@ class App {
   void start_news_demo(int dex);
   void start_gacha_demo();
   void start_rooms_demo();
+  void start_menu_demo();
   void in_mode(const UiIn& in);
   void in_roomset(const UiIn& in);
   void bottom_roomset();
@@ -242,12 +243,14 @@ class App {
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
   void over_tab_step(int d);
   void orb_next(const Player& me);
+  bool update_bar() const;
+  Scene update_back_ = SC_SETTINGS;   // a dónde vuelve B desde Actualizaciones
   int orb_sel_ = 0;             // esfera elegida (A la usa, B pasa a la siguiente)
   int over_tab_ = -1;           // fin de la partida: de quién es el resumen de arriba (L/R; -1: tuyo)
   int spect_ = -1;              // caído en grupo: a quién sigue la cámara (-1: a ti)
   bool crash_seen_ = false;
   bool news_checked_ = false;
-  bool news_demo_ = false, update_demo_ = false, gacha_demo_ = false, rooms_demo_ = false;
+  bool news_demo_ = false, update_demo_ = false, gacha_demo_ = false, rooms_demo_ = false, menu_demo_ = false;
   float news_t_ = 0;   // ya se ha mirado si hay novedades sin ver     // ya se ha visto el aviso del fallo de la vez anterior
   int auto_mega_up_ = 0;
   float auto_warp_ = 0;         // (dónde empezó el reloj del autotest)
