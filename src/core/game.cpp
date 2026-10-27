@@ -137,6 +137,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
   spawner_reset(*this);
   rift_reset(*this);
   judgment_reset(*this);
+  treasure = Treasure();
   events_reset(*this);
   weather_reset(*this);
   path_clear(*this);
@@ -303,7 +304,9 @@ uint32_t Game::state_hash() const {
     f.v(p.level); f.v(p.xp); f.v(p.kills); f.v(p.coins); f.v(p.nmoves); f.v(p.active_slot);
     f.v(p.choice); f.v(p.picked); f.v(p.item); f.v(p.bonds);
     f.v(p.mega); f.v(p.mega_t); f.v(p.mega_cd);
+    for (int k = 0; k < 4; ++k) { f.v(p.orb_id[k]); f.v(p.orb_n[k]); }
   }
+  f.v(treasure.on); f.v(treasure.x); f.v(treasure.y);
   f.v(enemies.n);
   for (const Enemy& e : enemies) { f.v(e.id); f.v(e.x); f.v(e.y); f.v(e.hp); }
   f.v(projectiles.n);
@@ -713,6 +716,7 @@ void Game::step(const Input* inputs) {
   hazards_update(*this, dt);
   for (int i = 0; i < nplayers; ++i) if (players[i].active) interact_update(*this, players[i], dt);
   rift_update(*this, dt);
+  treasure_update(*this, dt);
   judgment_update(*this, dt);
   events_update(*this, dt);
   weather_update(*this, dt);

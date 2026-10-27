@@ -30,7 +30,7 @@ void gacha_dex_of(const Save& s, int gen, int& have, int& total);
 bool gacha_has_iris(const Save& s, int gen);
 float gacha_shiny_rate(const Save& s, int gen);
 int gacha_pool(int rarity, int gen, int16_t* out);   // Pokémon de una rareza en un banner
-int gacha_featured(int gen, int16_t* out);            // los 3 más fuertes (cartel)
+int gacha_featured(int gen, int16_t* out);            // los 3 legendarios más fuertes (cartel)
 extern int gacha_force_shiny;                        // pruebas: las N próximas salen shiny
 
 // Test de personalidad: puntuaciones por rasgo (en el orden en que se

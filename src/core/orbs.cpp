@@ -13,7 +13,7 @@ const OrbDef kOrbs[ORB_COUNT] = {
     {"slow", "Ralentosfera", true, 0, 0x5fd0ff, "Los enemigos de la pantalla van un 50 % más lentos durante 8 s (los jefes, un 20 %)."},
     {"blowback", "Rafagaesfera", true, 0, 0x9ff0c0, "Lanza lejos a los enemigos que tienes cerca (a los jefes, la mitad)."},
     {"focus", "Focosfera", false, 15, 0xff6f7d, "+25 % de crítico durante 15 s, para ti y los compañeros cercanos."},
-    {"luminous", "Luminosfera", false, 15, 0xffe680, "Ves más campo (la cámara se aleja) durante 15 s, tú y los compañeros cercanos."},
+    {"luminous", "Luminosfera", false, 0, 0xffe680, "Hace brillar un tesoro escondido cerca: sigue la flecha dorada y te dará tickets y monedas."},
     {"quick", "Rapidosfera", false, 10, 0xffb24d, "+40 % de velocidad durante 10 s, para ti y los compañeros cercanos."},
 };
 
@@ -30,24 +30,34 @@ void ring(Game& g, int id, float x, float y, float r = 260) { g.fx.ring(x, y, 10
 void buff_on(Player& p, int id) {
   if (id == ORB_FOCUS) p.crit += 0.25f;
   else if (id == ORB_QUICK) p.spd_mul *= 1.4f;
-  // (ORB_LUMINOUS: lo ve el dibujo y el que hace salir a los enemigos, orb_zoom)
 }
 void buff_off(Player& p, int id) {
   if (id == ORB_FOCUS) p.crit -= 0.25f;
   else if (id == ORB_QUICK) p.spd_mul /= 1.4f;
 }
 
-void buff(Game& g, Player& p, int id) {
+void buff(Game& g, Player& p, int id, const Player& user) {
   if (!(p.orb_buff[id] > 0)) buff_on(p, id);
   p.orb_buff[id] = kOrbs[id].dur;
   g.fx.dmg_text(p.x, p.y - p.body_h - 8, kOrbs[id].name, kOrbs[id].col, true);
+  // Lo que te da, en grande (a quien la recibe en esta consola).
+  if (&p == &g.players[g.local]) {
+    char b[120];
+    if (&p == &user) std::snprintf(b, sizeof(b), "¡%s! %s durante %d s", kOrbs[id].name, orb_effect(id), int(kOrbs[id].dur));
+    else std::snprintf(b, sizeof(b), "¡%s de un compañero! %s durante %d s", kOrbs[id].name, orb_effect(id), int(kOrbs[id].dur));
+    g.say(b, 3.2f);
+  }
 }
 
 // A los enemigos que ve quien la usa.
 void foe(Game& g, const Player& user, int id) {
   ring(g, id, user.x, user.y);
-  const float z = orb_zoom(user);
-  const float hw = g.camera.w / 2 * z + 60, hh = g.camera.h / 2 * z + 60;
+  if (&user == &g.players[g.local]) {
+    char b[120];
+    std::snprintf(b, sizeof(b), "¡%s! %s", kOrbs[id].name, orb_effect(id));
+    g.say(b, 3);
+  }
+  const float hw = g.camera.w / 2 + 60, hh = g.camera.h / 2 + 60;
   for (Enemy& e : g.enemies) {
     if (e.dead || e.arceus) continue;
     const float dx = e.x - user.x, dy = e.y - user.y;
@@ -106,7 +116,9 @@ bool orb_use(Game& g, Player& p, int slot) {
   p.orb_cd = kOrbCd;
   if (--p.orb_n[slot] <= 0) { p.orb_id[slot] = -1; p.orb_n[slot] = 0; }
   g.sfx(SFX_CONFIRM);
-  if (kOrbs[id].foe) {
+  if (id == ORB_LUMINOUS) {
+    orb_place_treasure(g, p);
+  } else if (kOrbs[id].foe) {
     foe(g, p, id);
   } else {
     // A ti y a los compañeros a menos de media pantalla.
@@ -115,7 +127,7 @@ bool orb_use(Game& g, Player& p, int slot) {
       Player& o = g.players[i];
       if (!o.active || o.dead) continue;
       if (&o != &p && dist2(o.x, o.y, p.x, p.y) >= kOrbNear * kOrbNear) continue;
-      buff(g, o, id);
+      buff(g, o, id, p);
     }
   }
   return true;
@@ -129,7 +141,64 @@ void orbs_update(Game& g, Player& p, float dt) {
     if (p.orb_buff[id] > 0 && (p.orb_buff[id] -= dt) <= 0) { p.orb_buff[id] = 0; buff_off(p, id); }
 }
 
-float orb_zoom(const Player& p) { return p.orb_buff[ORB_LUMINOUS] > 0 ? kLuminousZoom : 1.0f; }
+// ---------------- el tesoro de la Luminosfera ----------------
+
+void orb_place_treasure(Game& g, const Player& p) {
+  // Lejos pero no tanto (de 1 a 1,5 pantallas), en suelo por el que se pueda andar.
+  float x = p.x, y = p.y;
+  bool ok = false;
+  for (int i = 0; i < 24 && !ok; ++i) {
+    const float a = g.rng.next() * kTau, d = g.rng.range(700, 1000) * (i < 16 ? 1.0f : 0.5f);
+    x = p.x + std::cos(a) * d; y = p.y + std::sin(a) * d;
+    ok = g.world.is_free(x, y, 16);
+  }
+  if (!ok) { x = p.x + 60; y = p.y; }
+  g.treasure.on = true; g.treasure.x = x; g.treasure.y = y; g.treasure.t = 0;
+  g.fx.ring(p.x, p.y, 10, kOrbNear, kOrbs[ORB_LUMINOUS].col, 0.6f, 5);
+  g.sfx(SFX_SHINY);
+  if (&p == &g.players[g.local]) g.say("¡Luminosfera! Brilla un tesoro cerca: sigue la flecha dorada", 4);
+}
+
+void treasure_update(Game& g, float dt) {
+  Game::Treasure& t = g.treasure;
+  if (!t.on) return;
+  t.t += dt;
+  if (g.rift.arena || judgment_active(g)) { t.on = false; return; }   // (en una arena no)
+  if (t.t > 120) {   // (si no se recoge en 2 min, se apaga)
+    t.on = false;
+    g.say("El tesoro de la Luminosfera se ha apagado", 2.5f);
+    return;
+  }
+  for (int i = 0; i < g.nplayers; ++i) {
+    const Player& p = g.players[i];
+    if (!p.active || p.dead || dist2(p.x, p.y, t.x, t.y) > 34 * 34) continue;
+    // ¡Encontrado! Tickets, monedas y, a veces, un ticket ×10.
+    t.on = false;
+    const int tk = 2 + (g.rng.next() < 0.5f ? 1 : 0);
+    for (int k = 0; k < tk; ++k) pickup_drop(g, PK_TICKET, t.x + g.rng.range(-16, 16), t.y + g.rng.range(-10, 10), 1);
+    for (int k = 0; k < 6; ++k) pickup_drop(g, PK_COIN, t.x + g.rng.range(-20, 20), t.y + g.rng.range(-14, 14), 4);
+    if (g.rng.next() < 0.15f) pickup_drop(g, PK_TICKET10, t.x, t.y - 14, 1);
+    g.fx.burst(t.x, t.y - 10, 0xffe680, 30, 220);
+    g.fx.ring(t.x, t.y, 6, 70, 0xffd23f, 0.5f, 4);
+    g.sfx(SFX_CHEST);
+    g.say("¡Tesoro encontrado!", 2.4f);
+    return;
+  }
+}
+
+
+
+const char* orb_effect(int id) {
+  switch (id) {
+    case ORB_SLUMBER: return "Los enemigos de la pantalla se duermen";
+    case ORB_SLOW: return "Los enemigos de la pantalla van más lentos";
+    case ORB_BLOWBACK: return "Los enemigos cercanos salen volando";
+    case ORB_FOCUS: return "+25 % de crítico";
+    case ORB_LUMINOUS: return "Un tesoro brilla cerca";
+    case ORB_QUICK: return "+40 % de velocidad";
+    default: return "";
+  }
+}
 
 int orb_count(const Player& p) {
   int n = 0;

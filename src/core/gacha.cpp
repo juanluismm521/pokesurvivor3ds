@@ -28,7 +28,13 @@ int gacha_pool(int rarity, int gen, int16_t* out) {
 int gacha_featured(int gen, int16_t* out) {
   int16_t p[256];
   int n = gacha_pool(5, gen, p);
-  std::stable_sort(p, p + n, [](int16_t a, int16_t b) { return mon_by_dex(a)->bst > mon_by_dex(b)->bst; });
+  // (del port: primero los legendarios de verdad; la web pone los 3 de 5★ con más
+  // estadísticas y colaba a Dragonite, Tyranitar, Slaking… en el cartel)
+  std::stable_sort(p, p + n, [](int16_t a, int16_t b) {
+    const Mon *ma = mon_by_dex(a), *mb = mon_by_dex(b);
+    if (ma->leg != mb->leg) return ma->leg > mb->leg;
+    return ma->bst > mb->bst;
+  });
   n = std::min(n, 3);
   for (int i = 0; i < n; ++i) out[i] = p[i];
   return n;

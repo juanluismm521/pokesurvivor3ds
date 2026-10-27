@@ -31,7 +31,9 @@ constexpr int kOrbSlots = 4, kOrbStack = 3;
 constexpr float kOrbCd = 1;
 constexpr float kOrbNear = 384;              // "media pantalla"
 constexpr float kOrbSphereRate = 1.0f / 300; // al derrotar a un Pokémon normal
-constexpr float kLuminousZoom = 1.35f;       // la Luminosfera: se ve un 35 % más de campo
+// La Luminosfera hace brillar un tesoro a 1-1,5 pantallas (game.h, Game::treasure).
+void orb_place_treasure(Game& g, const Player& p);
+void treasure_update(Game& g, float dt);
 
 int orb_roll(Game& g);
 bool orb_can_take(const Player& p, int id);
@@ -41,8 +43,7 @@ void orb_got(Game& g, Player& p, int id);
 // Usar la del hueco `slot` (0-3). → false si no se ha podido (vacío, recarga…).
 bool orb_use(Game& g, Player& p, int slot);
 void orbs_update(Game& g, Player& p, float dt);
-// Zoom de la vista de ese jugador (1, o kLuminousZoom con la Luminosfera).
-float orb_zoom(const Player& p);
 int orb_count(const Player& p);   // cuántas lleva en total
+const char* orb_effect(int id);   // lo que hace, corto («+25 % de crítico»)
 
 }  // namespace ps

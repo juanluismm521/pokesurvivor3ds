@@ -5,6 +5,23 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.15.0 — 2026-10-27
+- **La Luminosfera ahora lleva a un tesoro**: al usarla brilla un tesoro escondido a
+  cierta distancia; una flecha dorada («TESORO · 25 m») y un punto en el minimapa te
+  guían y, al llegar, suelta 2-3 tickets, monedas y a veces un ticket ×10. Si nadie lo
+  coge en 2 minutos, se apaga. (Ya no aleja la vista: con el minimapa no hacía falta.)
+- **Al usar una esfera, sabes lo que hace**: un aviso grande («¡Focosfera! +25 % de
+  crítico durante 15 s») y, mientras dura, una línea en la pantalla de abajo con el
+  tiempo que le queda.
+- **Los avisos del centro ya no se salen de la pantalla**: si son largos se parten en
+  dos líneas (con una banda oscura detrás para leerlos bien).
+- **Gacha**: el cartel de cada banner enseña sus legendarios de verdad (antes colaba a
+  Dragonite, Tyranitar, Slaking…), y con el Amuleto Iris pone «Shiny 2 %».
+- Las esferas van aparte de los objetos: no cambian la probabilidad de que un objeto
+  sea tu megapiedra (sigue igual, con su prueba).
+- Novedades con su título: «¡Esferas y tesoros!».
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.14.0 — 2026-10-27
 - **El juego busca la versión nueva cada vez que lo abres** (antes, sólo si activabas
   «Buscar solas al encender» o desde Ajustes). Se baja sola mientras juegas y se

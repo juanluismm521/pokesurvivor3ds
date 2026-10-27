@@ -32,14 +32,18 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
-    {"Versión 0.13 · Lo nuevo de la web", 0, nullptr, nullptr},
+    {"Versión 0.15 · ¡Esferas y tesoros!", 0, nullptr, nullptr},
     {nullptr, NI_ORB, "Esferas de Mundo Misterioso",
-     "Salen en cofres, jefes y a veces al derrotar a un Pokémon. A usa la elegida, B cambia (o tócala abajo): duermen, frenan o empujan, o te dan crítico, campo o velocidad."},
+     "Salen en cofres, jefes y a veces al derrotar a un Pokémon. A usa la elegida, B cambia (o tócala abajo): duermen, frenan o empujan a los enemigos, o te dan crítico o velocidad."},
+    {nullptr, NI_TICKET, "La Luminosfera y su tesoro",
+     "Hace brillar un tesoro escondido cerca. Sigue la flecha dorada (y el punto del minimapa): al llegar suelta tickets y monedas."},
+    {nullptr, NI_HOME, "Actualizaciones a la vista",
+     "El juego busca la versión nueva al abrirlo y la baja mientras juegas. En el menú verás la barra; START te lleva a Actualizaciones."},
     {nullptr, NI_STAR, "Arceus ya se puede golpear",
      "En la Sentencia lleva una Tabla al azar que le da su tipo. Recibe poco daño y sólo le apuntas sin legendarios cerca. Ellos crecen ahora un 25 %, no el doble."},
     {nullptr, NI_TICKET, "Gacha ×100 y Amuletos Iris",
      "Tira de 100 en 100 (o de 10 en 10). Completa la Pokédex de una región y su Amuleto Iris te da shiny al 2 % en su banner."},
-    {nullptr, NI_FRIENDS, "Modo rápido y salas con contraseña",
+    {nullptr, NI_FRIENDS, "Modo rápido y salas con clave",
      "Jugar: Normal (Sentencia a los 30 min) o Rápido (a los 20). En grupo, la sala elige su modo y puede llevar contraseña (candado en la lista)."},
     {nullptr, NI_UP, "Resumen al acabar",
      "Arriba, el daño y el daño por segundo de cada ataque, el total y tu objeto. En grupo, el de cada compañero con L/R."},
@@ -108,7 +112,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.13";
+constexpr const char* kNewsVersion = "0.15";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

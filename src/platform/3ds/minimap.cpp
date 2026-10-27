@@ -181,6 +181,10 @@ void Minimap::draw(Game& g, Renderer& r, float x, float y, float w, float h, flo
   }
 
   // --- grieta, Pokémon perdido y su casa, Arceus ---
+  if (g.treasure.on) {   // (el tesoro de la Luminosfera: dorado y latiendo)
+    if (to(g.treasure.x, g.treasure.y, sx, sy)) { C2D_DrawCircleSolid(sx, sy, 0, 5 + pulse * 2, rgbf(0xffe680, 0.5f)); dot(sx, sy, 3, rgb(0xffd23f)); }
+    else edge(g.treasure.x, g.treasure.y, rgb(0xffd23f));
+  }
   if (g.rift.open) {
     if (to(g.rift.x, g.rift.y, sx, sy)) { C2D_DrawCircleSolid(sx, sy, 0, 5 + pulse * 2, rgbf(0xb48aff, 0.5f)); dot(sx, sy, 3, rgb(0xb48aff)); }
     else edge(g.rift.x, g.rift.y, rgb(0xb48aff));

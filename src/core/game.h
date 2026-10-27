@@ -523,6 +523,9 @@ struct Game {
     float thief_t = 0; int thieves = 0;
   } events;
   Lost lost;
+  // Tesoro de la Luminosfera (del port, 2026-10-27): brilla a cierta distancia,
+  // una flecha dorada lleva hasta él y al llegar suelta tickets y monedas.
+  struct Treasure { bool on = false; float x = 0, y = 0, t = 0; } treasure;
 
   struct WeatherState { int8_t kind = WX_NONE; float t = 0, dur = 0, check_t = 60, chip_t = 0; } weather;
 

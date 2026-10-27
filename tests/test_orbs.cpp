@@ -124,18 +124,38 @@ TEST_CASE("esferas: las mejoras con tiempo, para ti y los compañeros cercanos; 
   in[0] = Input{}; in[0].cmd = CMD_ORB; in[0].arg = 1;
   g->step(in);
   CHECK(a.spd_mul == doctest::Approx(sm * 1.4f));
-  CHECK(orb_zoom(a) == 1.0f);
   // Se acaban solas y todo vuelve.
   for (int i = 0; i < 16 * 60; ++i) { Input z[3] = {}; g->step(z); }
   CHECK(a.crit == doctest::Approx(ca));
   CHECK(b.crit == doctest::Approx(cb));
   CHECK(a.spd_mul == doctest::Approx(sm));
-  // Luminosfera: se ve más campo (zoom) y los enemigos salen más lejos.
-  orb_add(a, ORB_LUMINOUS);
-  in[0] = Input{}; in[0].cmd = CMD_ORB; in[0].arg = 0;
-  g->step(in);
-  CHECK(orb_zoom(a) == doctest::Approx(kLuminousZoom));
-  CHECK(orb_zoom(b) == doctest::Approx(kLuminousZoom));
+}
+
+TEST_CASE("esferas: la Luminosfera hace brillar un tesoro; al llegar, tickets y monedas") {
+  auto g = solo(12);
+  Player& p = g->players[0];
+  orb_add(p, ORB_LUMINOUS);
+  use(*g, 0);
+  REQUIRE(g->treasure.on);
+  const float d = dist(p.x, p.y, g->treasure.x, g->treasure.y);
+  CHECK(d > 300);                  // (lejos: hay que ir a buscarlo)
+  CHECK(d < 1100);
+  CHECK(g->world.is_free(g->treasure.x, g->treasure.y, 16));
+  // Ir hasta él: suelta tickets y monedas (aquí se recogen al momento) y se apaga.
+  const int t1 = p.t1 + p.t10, c0 = p.coins;
+  p.x = g->treasure.x; p.y = g->treasure.y;
+  wait(*g, 1);
+  CHECK_FALSE(g->treasure.on);
+  CHECK(p.t1 + p.t10 >= t1 + 2);
+  CHECK(p.coins >= c0 + 24);
+  // Si nadie lo coge, a los 2 min se apaga.
+  orb_add(p, ORB_LUMINOUS);
+  orb_place_treasure(*g, p);
+  REQUIRE(g->treasure.on);
+  p.x += 3000;
+  g->treasure.t = 119;
+  treasure_update(*g, 2);
+  CHECK_FALSE(g->treasure.on);
 }
 
 TEST_CASE("esferas: salen en partidas de verdad (jefes, cofres, a veces enemigos) y la partida es determinista") {

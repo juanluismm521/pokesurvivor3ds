@@ -526,15 +526,8 @@ DItem items[1600];
 void Renderer::draw_top(Game& g, float eye) {
   if (eye <= 0) { C2D_TextBufClear(tbuf); props_drawn = 0; }
   const float far = eye * 3.0f, mid = eye * 1.5f;
-  // Luminosfera (esferas): el mundo se ve más lejos. Se dibuja una vista más
-  // grande y se encoge con la matriz de citro2d; el HUD va a su tamaño.
-  if (eye <= 0) { const float zt = orb_zoom(g.me()); zoom += (zt - zoom) * 0.08f; if (std::fabs(zt - zoom) < 0.002f) zoom = zt; }
-  Camera cz = g.camera;
-  cz.w *= zoom; cz.h *= zoom;
-  const Camera& cam = cz;
+  const Camera& cam = g.camera;
   View v{cam.left() - cam.sx, cam.top() - cam.sy};
-  const bool zoomed = zoom > 1.001f;
-  if (zoomed) { C2D_ViewReset(); C2D_ViewScale(1 / zoom, 1 / zoom); }
   const float now = float(g.time);
   World& w = g.world;
 
@@ -558,6 +551,21 @@ void Renderer::draw_top(Game& g, float eye) {
       const u32 c = rgbf(h.color, k > 0.75f && blink ? 0.95f : 0.55f);
       quad(x, y, h.angle, 0, len, -hw - 1, -hw, c);
       quad(x, y, h.angle, 0, len, hw, hw + 1, c);
+    }
+  }
+
+  // --- el tesoro de la Luminosfera: un cofrecito que brilla, con su columna de luz ---
+  if (g.treasure.on && cam.sees(g.treasure.x, g.treasure.y, 60)) {
+    const float x = v.sx(g.treasure.x), y = v.sy(g.treasure.y), k = 0.5f + std::sin(now * 4) * 0.5f;
+    C2D_DrawRectangle(x - 6, y - 70, 0, 6, 70, rgbf(0xffe680, 0), rgbf(0xffe680, 0.35f * k + 0.15f), rgbf(0xffe680, 0), rgbf(0xffe680, 0.35f * k + 0.15f));
+    C2D_DrawRectangle(x, y - 70, 0, 6, 70, rgbf(0xffe680, 0.35f * k + 0.15f), rgbf(0xffe680, 0), rgbf(0xffe680, 0.35f * k + 0.15f), rgbf(0xffe680, 0));
+    ellipse(x, y, 14 + k * 3, 6 + k, rgbf(0xffe680, 0.35f + k * 0.2f));
+    C2D_DrawRectSolid(x - 7, y - 10, 0, 14, 9, rgb(0xb8860b));
+    C2D_DrawRectSolid(x - 7, y - 12, 0, 14, 3, rgb(0xffd23f));
+    C2D_DrawRectSolid(x - 1, y - 8, 0, 2, 3, rgb(0xfff6c0));
+    for (int i = 0; i < 3; ++i) {
+      const float a = now * 2 + i * 2.094f;
+      C2D_DrawRectSolid(std::floor(x + std::cos(a) * 11), std::floor(y - 14 + std::sin(a) * 4 - k * 3), 0, 1, 1, rgb(0xffffff));
     }
   }
 
@@ -999,8 +1007,6 @@ void Renderer::draw_top(Game& g, float eye) {
     }
   }
 
-  if (zoomed) C2D_ViewReset();   // (lo de la pantalla, a su tamaño)
-
   // --- clima (en pantalla) ---
   if (g.weather.kind >= 0) {
     const WeatherDef& d = kWeather[g.weather.kind];
@@ -1076,7 +1082,7 @@ void Renderer::draw_top(Game& g, float eye) {
     // Flechas en el borde: grieta, Pokémon perdido, ladrones, Arceus, shinies.
     const Player& pl = g.pl();
     auto edge = [&](float wx, float wy, uint32_t col, const char* label) {
-      const float sx = v.sx(wx) / zoom, sy = v.sy(wy) / zoom;   // (con la Luminosfera, la vista va encogida)
+      const float sx = v.sx(wx), sy = v.sy(wy);
       if (sx > 0 && sx < TOP_W && sy > 0 && sy < TOP_H) return;
       const float M = 22, ex = clamp(sx, M, TOP_W - M), ey = clamp(sy, M + 20, TOP_H - M - 10);
       const float a = std::atan2(sy - ey, sx - ex);
@@ -1105,6 +1111,10 @@ void Renderer::draw_top(Game& g, float eye) {
       if (e.behavior == BH_THIEF) edge(e.x, e.y - 10, 0xffd23f, mon_by_dex(e.dex)->name);
       else if (e.shiny) edge(e.x, e.y - 10, 0x9ae6ff, "shiny");
     }
+    if (g.treasure.on) {   // (Luminosfera)
+      std::snprintf(b, sizeof(b), "TESORO · %d m", int(dist(pl.x, pl.y, g.treasure.x, g.treasure.y) / 32));
+      edge(g.treasure.x, g.treasure.y - 10, 0xffe680, b);
+    }
     if (g.judg.phase == 2) {
       std::snprintf(b, sizeof(b), "ARCEUS · %d m", int(dist(pl.x, pl.y, g.judg.ax, g.judg.ay) / 32));
       edge(g.judg.ax, g.judg.ay - g.judg.abody_h * 0.5f, 0xffd25e, b);
@@ -1117,8 +1127,22 @@ void Renderer::draw_top(Game& g, float eye) {
       text("Sigue la flecha morada: dentro te espera un legendario", 200, 60, 0.36f, rgbf(0xc9b0ff, a), 1);
     }
     if (g.banner_t > 0 && g.banner[0]) {
+      // Aviso del centro: en una línea si cabe; si no, partido en líneas y, si
+      // aun así es largo, con la letra algo menor (antes se salía por los lados).
       const float a = std::fmin(1.0f, g.banner_t * 1.6f);
-      text(g.banner, 200, 74, 0.52f, rgbf(0xffcb3d, a), 1);
+      const float W = 376;
+      float sz = 0.52f;
+      int lines = 1;
+      if (text_width(g.banner, sz) > W) {
+        sz = 0.44f;
+        lines = int(text_width(g.banner, sz) / W) + 1;
+        if (lines > 2) { sz = 0.36f; lines = int(text_width(g.banner, sz) / W) + 1; }
+      }
+      const float lh = sz * 34, h = lines * lh + 6;
+      C2D_DrawRectSolid(200 - (lines > 1 ? W / 2 + 6 : text_width(g.banner, sz) / 2 + 8), 72, 0,
+                        lines > 1 ? W + 12 : text_width(g.banner, sz) + 16, h, C2D_Color32(10, 14, 28, uint8_t(150 * a)));
+      if (lines == 1) text(g.banner, 200, 74, sz, rgbf(0xffcb3d, a), 1);
+      else text_wrap(g.banner, 200, 74, sz, rgbf(0xffcb3d, a), W, 1);
     }
   }
 
@@ -1411,6 +1435,15 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         std::snprintf(b, sizeof(b), "%s %ds", kPowers[p.power.def].name, int(std::ceil(p.power.t)));
         C2D_DrawRectSolid(MX, ly, 0, text_width(b, 0.32f) + 6, 11, strip);
         text(b, MX + 3, ly + 1, 0.32f, rgb(kPowers[p.power.def].color), 0, false);
+        ly -= 11;
+      }
+      // Las mejoras de las esferas que tienes puestas, con lo que les queda.
+      for (int id = 0; id < ORB_COUNT; ++id) {
+        if (!(p.orb_buff[id] > 0)) continue;
+        std::snprintf(b, sizeof(b), "%s · %ds", orb_effect(id), int(std::ceil(p.orb_buff[id])));
+        C2D_DrawRectSolid(MX, ly, 0, text_width(b, 0.32f) + 6, 11, strip);
+        text(b, MX + 3, ly + 1, 0.32f, rgb(kOrbs[id].col), 0, false);
+        ly -= 11;
       }
       float ry = row0;
       if (p.bonds > 0) {

@@ -2073,7 +2073,7 @@ void App::draw_top(float eye) {
           std::snprintf(b, sizeof(b), "%s %.1f%% · %d", kRarityName[r], double(kGachaRates[r - 1]), gacha_pool(r, gen_, pool));
           r_->text(b, 10, 180 + (5 - r) * 11, 0.3f, rgb(kRarityColor[r]), 0, false);
         }
-        r_->text("Shiny 1%", 390, 224, 0.3f, rgb(0x9ae6ff), 2, false);
+        r_->text(gacha_has_iris(*s_, gen_) ? "Shiny 2% (Amuleto Iris)" : "Shiny 1%", 390, 224, 0.3f, rgb(0x9ae6ff), 2, false);
         break;
       }
       case SC_PULL: top_pull(); break;

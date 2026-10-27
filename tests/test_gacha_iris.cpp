@@ -61,3 +61,14 @@ TEST_CASE("Amuleto Iris: con la Pokédex de la región completa, shiny al 2 % en
   CHECK(rate > 0.014);
   CHECK(rate < 0.027);
 }
+
+TEST_CASE("gacha: el cartel del banner, sólo legendarios de verdad") {
+  for (int gen = 1; gen <= 9; ++gen) {
+    int16_t f[3];
+    const int n = gacha_featured(gen, f);
+    REQUIRE(n == 3);
+    int legs = 0;
+    for (int i = 0; i < kDexCount; ++i) legs += kDex[i].gen == gen && kDex[i].leg && kDex[i].rarity == 5;
+    for (int i = 0; i < n && i < legs; ++i) CHECK_MESSAGE(mon_by_dex(f[i])->leg, mon_by_dex(f[i])->name);
+  }
+}
