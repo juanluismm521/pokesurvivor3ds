@@ -295,5 +295,8 @@ extern const char* const kDataSchema;    // forma de los datos que entiende este
 struct Tr { const char* es; const char* en; };
 extern const Tr kLangEn[];
 extern const int kLangEnCount;
+// Las del port (src/core/lang_en_port.cpp): mandan sobre las de la web.
+extern const Tr kLangEnPort[];
+extern const int kLangEnPortCount;
 
 }  // namespace ps

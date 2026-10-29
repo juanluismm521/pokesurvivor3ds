@@ -328,6 +328,11 @@ w(`const AchCat kAchCats[] = ${arr(G.AchDefs.CATS.map(c => `{${esc(c[0])}, ${esc
 w(`const int kAchCatCount = ${G.AchDefs.CATS.length};`);
 
 // ---------------- idioma ----------------
+// Las megapiedras (del port): su nombre inglés sale del id (charizardite-x → Charizardite X).
+for (const m of MEGAS) {
+  if (!m.stone || !m.stone_item || EN[m.stone]) continue;
+  EN[m.stone] = m.stone_item.split('-').map(w => w.length <= 1 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)).join(' ');
+}
 const tr = Object.entries(EN).filter(([es, en]) => en && es !== en);
 w('const Tr kLangEn[] = {');
 for (const [es, en] of tr) w(`  {${esc(es)}, ${esc(en)}},`);

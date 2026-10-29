@@ -1116,8 +1116,10 @@ void Renderer::draw_top(Game& g, float eye) {
       const float a = std::atan2(sy - ey, sx - ex);
       triangle_arrow(ex, ey, a, 16, 9, BLACK);
       triangle_arrow(ex, ey, a, 14, 7, rgbf(col, 0.65f + std::sin(now * 6.2f) * 0.35f));
-      const float ca = std::cos(a);
-      text(label, ex - ca * 14, ey - std::sin(a) * 12 - 5, 0.34f, rgb(col), ca > 0.3f ? 2 : ca < -0.3f ? 0 : 1);
+      const float ca = std::cos(a), lx = ex - ca * 14, w = text_width(label, 0.34f);
+      // (siempre dentro de la pantalla: en inglés los textos son más largos)
+      const float left = clamp(ca > 0.3f ? lx - w : ca < -0.3f ? lx : lx - w / 2, 2.0f, TOP_W - 2 - w);
+      text(label, left, ey - std::sin(a) * 12 - 5, 0.34f, rgb(col), 0);
     };
     if (g.nplayers > 1)
       for (int i = 0; i < g.nplayers; ++i) {
@@ -1572,8 +1574,9 @@ namespace ps {
 int Renderer::check_texts(FILE* log) {
   int bad = 0, n = 0;
   auto fits1 = [&](const char* s, float maxw) { return text_width(s, 0.28f) <= maxw; };
-  auto fits2 = [&](const char* s, float maxw) {   // (como text_fit2)
-    std::string t = s;
+  auto fits2 = [&](const char* s, float maxw) {   // (como text_fit2, en el idioma elegido)
+    std::string t = i18n_lang() != LANG_ES ? tr(s) : s;
+    s = t.c_str();
     if (text_width(s, 0.32f) <= maxw) return true;
     size_t cut = 0;
     for (size_t i = 0; i < t.size(); ++i) {

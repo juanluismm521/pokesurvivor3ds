@@ -35,23 +35,31 @@ namespace ps {
 bool App::init(Renderer* r, Game* g, Save* s, Settings* st, const char* dir) {
   r_ = r; g_ = g; s_ = s; st_ = st; dir_ = dir;
   apply_settings();
-  // Créditos (tools/gen_credits.py).
-  FILE* f = std::fopen("romfs:/credits.txt", "rb");
-  if (f) {
-    std::fseek(f, 0, SEEK_END);
-    const long n = std::ftell(f);
-    std::fseek(f, 0, SEEK_SET);
-    credits_ = static_cast<char*>(std::malloc(n + 1));
-    const size_t got = std::fread(credits_, 1, n, f);
-    credits_[got] = 0;
-    std::fclose(f);
-    for (char* p = credits_; *p; ++p) if (*p == '\n') { *p = 0; credit_lines_++; }
-  }
+  load_credits();
   backdrop_init();
   g_->now_ms = now_ms();
   if (!s_->partner) { q_ = 0; scores_ = TraitScores(); go(SC_TEST); }
   else go(SC_MENU);
   return true;
+}
+
+// Créditos (tools/gen_credits.py), en el idioma elegido.
+void App::load_credits() {
+  std::free(credits_);
+  credits_ = nullptr;
+  credit_lines_ = 0;
+  credits_lang_ = st_->lang;
+  FILE* f = std::fopen(st_->lang == 1 ? "romfs:/credits_en.txt" : "romfs:/credits.txt", "rb");
+  if (!f && st_->lang == 1) f = std::fopen("romfs:/credits.txt", "rb");
+  if (!f) return;
+  std::fseek(f, 0, SEEK_END);
+  const long n = std::ftell(f);
+  std::fseek(f, 0, SEEK_SET);
+  credits_ = static_cast<char*>(std::malloc(n + 1));
+  const size_t got = std::fread(credits_, 1, n, f);
+  credits_[got] = 0;
+  std::fclose(f);
+  for (char* p = credits_; *p; ++p) if (*p == '\n') { *p = 0; credit_lines_++; }
 }
 
 void App::set_autotest(int dex, bool immortal, float warp, int move) {
@@ -1969,6 +1977,7 @@ void App::top_tickets_badge(float cx, float y) {
 }
 
 void App::bottom_credits() {
+  if (credits_lang_ != st_->lang) load_credits();   // (se ha cambiado de idioma)
   header("Créditos");
   const char* p = credits_;
   int line = 0;

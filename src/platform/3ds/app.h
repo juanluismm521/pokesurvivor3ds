@@ -195,6 +195,8 @@ class App {
   // créditos
   char* credits_ = nullptr;
   int credit_lines_ = 0;
+  int credits_lang_ = -1;
+  void load_credits();
   float tour_t_ = 0;
   int tour_i_ = 0;
   int auto_dex_ = 25;

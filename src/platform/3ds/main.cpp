@@ -9,6 +9,7 @@
 
 #include <malloc.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <cmath>
 #include <cstdio>
@@ -17,6 +18,7 @@
 #include <memory>
 
 #include "core/game.h"
+#include "core/i18n.h"
 #include "core/save_io.h"
 #include "core/settings.h"
 #include "core/version.h"
@@ -234,6 +236,12 @@ int main(int argc, char** argv) {
   if (!loaded) new_save(*save, "Jugador", int64_t(osGetTime()) - 2208988800000LL);
   static Settings settings;
   settings_read(kDir, settings);
+  // «idioma.txt» en la SD (pruebas): en inglés, y lo que no se traduce entero
+  // va a idioma.log al salir (ver tr_record).
+  char idioma_path[96];
+  std::snprintf(idioma_path, sizeof(idioma_path), "%s/idioma.txt", kDir);
+  const bool idioma_test = access(idioma_path, F_OK) == 0;
+  if (idioma_test) { settings.lang = 1; tr_record(true); }
 
   crash3ds::step("nube");
   cloud3ds::init(kDir);
@@ -664,6 +672,13 @@ int main(int argc, char** argv) {
     std::fclose(at.log);
   }
   saver3ds::shutdown();   // (lo que quedara por escribir, antes de salir)
+  if (idioma_test) {
+    std::snprintf(idioma_path, sizeof(idioma_path), "%s/idioma.log", kDir);
+    if (FILE* f = std::fopen(idioma_path, "w")) {
+      tr_misses([](const char* es, const char* en, void* ud) { std::fprintf(static_cast<FILE*>(ud), "%s\t→\t%s\n", es, en); }, f);
+      std::fclose(f);
+    }
+  }
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
   datos3ds::shutdown();
   audio::exit();

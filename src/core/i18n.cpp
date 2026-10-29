@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "core/gamedata.h"
@@ -22,8 +23,13 @@ struct Dict {
   // Trozos: clave en minúsculas → traducción, agrupados por el primer byte.
   std::vector<std::pair<std::string, const char*>> frags[256];
   std::unordered_map<std::string, std::string> cache;
+  // Lo que ya es una traducción: no se vuelve a traducir (el código traduce un
+  // texto con tr() y luego el dibujo lo pasa otra vez por tr()).
+  std::unordered_set<std::string> outs;
 };
 Dict& dict() { static Dict d; return d; }
+bool g_record = false;
+std::vector<std::pair<std::string, std::string>> g_miss;   // (sólo con tr_record)
 // Traducciones en uso: las de fábrica o las de un paquete de datos (datapack).
 const Tr* g_tr = kLangEn;
 int g_ntr = kLangEnCount;
@@ -63,6 +69,10 @@ bool has_letter(const std::string& s) {
   for (unsigned char c : s) if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c >= 0xC0) return true;
   return false;
 }
+bool is_mon_name(const std::string& s) {
+  for (int i = 0; i < kDexCount; ++i) if (s == kDex[i].name) return true;
+  return false;
+}
 bool is_upper(const std::string& s) { return has_letter(s) && upper(s) == s; }
 // ¿Es un carácter de "palabra" (letra o número) el byte de esa posición?
 bool word_byte(unsigned char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c >= 0x80; }
@@ -72,9 +82,11 @@ void build() {
   if (d.built) return;
   d.built = true;
   std::vector<std::pair<std::string, const char*>> fr;
-  for (int i = 0; i < g_ntr; ++i) {
-    const std::string es = g_tr[i].es;
-    const char* en = g_tr[i].en;
+  // Primero las del port (mandan: emplace no pisa) y luego las de la web.
+  for (int i = 0; i < kLangEnPortCount + g_ntr; ++i) {
+    const Tr& t = i < kLangEnPortCount ? kLangEnPort[i] : g_tr[i - kLangEnPortCount];
+    const std::string es = t.es;
+    const char* en = t.en;
     const size_t at = es.find("{x}");
     if (at != std::string::npos) {
       Pattern p;
@@ -85,8 +97,8 @@ void build() {
       p.en = en;
       d.patterns.push_back(std::move(p));
     } else {
-      d.exact[es] = en;
-      d.exact_low[lower(es)] = en;
+      d.exact.emplace(es, en);
+      d.exact_low.emplace(lower(es), en);
       if (es.size() >= 4 || es.find(' ') != std::string::npos) fr.emplace_back(lower(es), en);
     }
   }
@@ -97,7 +109,7 @@ void build() {
 
 std::string keep_case(const std::string& src, const std::string& en) { return is_upper(src) ? upper(en) : en; }
 
-std::string core(const std::string& s);
+std::string core(const std::string& s, TrKind* kind = nullptr);
 
 // Patrón con huecos: los huecos son "(.+?)" anclados al principio y al final.
 bool match_parts(const std::string& body, const std::vector<std::string>& parts, size_t k, size_t pos, std::vector<std::string>& caps) {
@@ -140,8 +152,11 @@ bool try_pattern(const Pattern& p, const std::string& body, bool up, std::string
   return true;
 }
 
-std::string core(const std::string& s) {
+std::string core(const std::string& s, TrKind* kind) {
   Dict& d = dict();
+  TrKind dummy;
+  if (!kind) kind = &dummy;
+  *kind = TRK_NONE;
   // Respeta los espacios de alrededor.
   size_t a = 0, z = s.size();
   while (a < z && (s[a] == ' ' || s[a] == '\n')) ++a;
@@ -150,15 +165,23 @@ std::string core(const std::string& s) {
   if (body.empty()) return s;
   const bool up = is_upper(body);
   auto it = d.exact.find(body);
-  if (it != d.exact.end()) return lead + it->second + tail;
+  if (it != d.exact.end()) { *kind = TRK_EXACT; return lead + it->second + tail; }
   if (up) {
     auto il = d.exact_low.find(lower(body));
-    if (il != d.exact_low.end()) return lead + keep_case(body, il->second) + tail;
+    if (il != d.exact_low.end()) { *kind = TRK_EXACT; return lead + keep_case(body, il->second) + tail; }
   }
-  std::string r;
+  // Si casan varios patrones, el más concreto (más texto fijo); a igualdad, el
+  // primero (los del port van antes).
+  std::string r, best;
+  size_t best_fixed = 0;
+  bool found = false;
   for (const Pattern& p : d.patterns) {
-    if (try_pattern(p, body, up, r)) return lead + keep_case(body, r) + tail;
+    size_t fixed = 0;
+    for (const auto& x : p.parts) fixed += x.size();
+    if (found && fixed <= best_fixed) continue;
+    if (try_pattern(p, body, up, r)) { best = r; best_fixed = fixed; found = true; }
   }
+  if (found) { *kind = TRK_PATTERN; return lead + keep_case(body, best) + tail; }
   // Trozos: palabras enteras, los más largos primero.
   const std::string low = lower(body);
   std::string out;
@@ -180,6 +203,7 @@ std::string core(const std::string& s) {
     }
     if (!hit) out += body[i++];
   }
+  if (changed) *kind = TRK_FRAGS;
   return lead + (changed ? out : body) + tail;
 }
 }  // namespace
@@ -196,9 +220,56 @@ const char* tr(const char* s) {
   Dict& d = dict();
   auto it = d.cache.find(key);
   if (it != d.cache.end()) return it->second.c_str();
-  if (d.cache.size() > 4000) d.cache.clear();
-  auto res = d.cache.emplace(key, core(key));
+  auto io = d.outs.find(key);
+  if (io != d.outs.end()) return io->c_str();
+  if (d.cache.size() > 4000) { d.cache.clear(); d.outs.clear(); }
+  TrKind k = TRK_NONE;
+  auto res = d.cache.emplace(key, core(key, &k));
+  if (res.first->second != key) d.outs.insert(res.first->second);
+  const bool bad = k == TRK_NONE || k == TRK_FRAGS || tr_looks_spanish(res.first->second.c_str());
+  if (g_record && bad && !is_mon_name(key) && g_miss.size() < 3000) {
+    bool seen = false;
+    for (const auto& m : g_miss) if (m.first == key) { seen = true; break; }
+    if (!seen) g_miss.emplace_back(key, res.first->second);
+  }
   return res.first->second.c_str();
+}
+
+void tr_record(bool on) { g_record = on; }
+
+bool tr_looks_spanish(const char* s) {
+  std::string t = lower(s ? s : "");
+  // (nombres que llevan tilde también en inglés)
+  for (const char* ok : {"pokémon", "poké", "pokédex", "español", "flabébé"})
+    for (size_t p; (p = t.find(ok)) != std::string::npos;) t.replace(p, std::strlen(ok), std::strlen(ok), ' ');   // (mismo largo: s y t casan)
+  for (const char* acc : {"á", "é", "í", "ó", "ú", "ñ", "¿", "¡"}) if (t.find(acc) != std::string::npos) return true;
+  static const char* const W[] = {"de", "del", "la", "las", "el", "los", "con", "y", "para", "que", "se", "al", "un", "una", "tu",
+                                  "tus", "su", "sus", "sin", "es", "lo", "ya", "ni", "o", "en", "por", "cada", "hay", "muy", "le"};
+  size_t i = 0;
+  while (i < t.size()) {
+    while (i < t.size() && !word_byte(uint8_t(t[i]))) ++i;
+    size_t j = i;
+    while (j < t.size() && word_byte(uint8_t(t[j]))) ++j;
+    if (j > i) {
+      const std::string w = t.substr(i, j - i);
+      // («Y» y «O» en mayúscula son botones o letras de megas, no la y / o)
+      const bool button = (w == "y" || w == "o") && s[i] != 'y' && s[i] != 'o';
+      for (const char* x : W) if (w == x && !button) return true;
+    }
+    i = j;
+  }
+  return false;
+}
+void tr_misses(void (*fn)(const char*, const char*, void*), void* ud) {
+  for (const auto& m : g_miss) fn(m.first.c_str(), m.second.c_str(), ud);
+}
+
+TrKind tr_kind(const char* s) {
+  if (!s || !*s || !has_letter(s)) return TRK_EXACT;
+  build();
+  TrKind k = TRK_NONE;
+  core(s, &k);
+  return k;
 }
 
 }  // namespace ps

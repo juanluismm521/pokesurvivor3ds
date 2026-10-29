@@ -1,0 +1,45 @@
+# Textos del código que NO se comprueban en inglés (tools/i18n, prueba «i18n»):
+# trozos que se juntan con otros antes de dibujarse (la frase entera tiene su
+# traducción en src/core/lang_en_port.cpp), cabeceras HTTP y cosas que no salen
+# en pantalla. Uno por línea, tal cual lo saca extraer.py. Los nombres de
+# Pokémon no hace falta ponerlos (son iguales en inglés).
+ (¿wifi o nombre mal escrito?).
+ · AUTOTEST
+ · Amuleto Iris
+ · al día solos
+ · le protegen
+ · sp
+). Avisa al creador del juego.
+). Prueba a actualizar el juego.
+Authorization: Bearer 
+CA 
+Conectando con pokesurvivor.com%.*s
+Date:
+Datos actualizados: 
+Datos de la 
+Datos nuevos descartados: 
+Datos nuevos listos: 
+Error del servidor (
+Esperando%.*s
+Google no ha dejado entrar (
+No se encuentra 
+No se ha podido descargar: 
+No se puede comprobar la conexión segura (
+No se puede volver atrás: 
+Paquete descartado: 
+PokeSurvivor3DS/{x} (build {x}; {x})
+PokéSurvivor 3DS {x} · build {x}
+Por seguridad no se ha sincronizado (se perdería 
+Referer
+Referer: 
+SHINY · 
+Sincronizando%.*s
+Su megapiedra: Y en la partida y se convierte en 
+Tienes la versión {x} · build {x} ({x}){x}
+Versión del servidor rechazada: 
+datos de fábrica (el paquete de la SD no vale: 
+el paquete trae datos raros: 
+no se ha podido instalar: 
+openid email profile
+web del 
+{x} FPS{x}

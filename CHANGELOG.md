@@ -5,6 +5,19 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.16.2 — 2026-10-29
+- **El juego, en inglés de verdad.** Había unos 600 textos del port sin traducir o a
+  medias («Se instala al Log out», «La Save of all time»…): menús, avisos, cuenta web,
+  grupo, actualizaciones, esferas, Arceus, novedades… Ahora todo sale en inglés, con
+  los nombres oficiales (Shiny Charm, Mega Stone, Flame Plate, Slumber Orb…).
+- Créditos en inglés, megapiedras con su nombre inglés (Charizardite X, Gengarite…),
+  rasgos de personalidad y los Pokémon paradoja con su nombre inglés (Iron Valiant,
+  Great Tusk…).
+- Arreglado: los avisos largos del centro se cortaban (el de Arceus en el modo rápido
+  perdía «¡aquí se le puede derrotar!» y los de las esferas, el final). También en
+  español.
+- Arreglado: en los créditos, los nombres de archivo perdían los guiones bajos.
+
 ## 0.16.1 — 2026-10-29
 - **Ajustes → Actualizaciones**: el aviso «La versión nueva del juego se busca y se
   baja sola al encender…» ya no se monta encima del último botón.

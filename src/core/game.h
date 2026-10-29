@@ -488,7 +488,7 @@ struct Game {
   bool caught_new[16];
 
   // Aviso grande en pantalla (Spawner.say).
-  char banner[96] = {};
+  char banner[200] = {};   // (los avisos largos: el de Arceus en el modo rápido, el de cada esfera)
   float banner_t = 0;
   void say(const char* text, float secs = 2.6f);
 

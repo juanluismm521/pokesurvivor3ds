@@ -69,12 +69,16 @@ target_include_directories(ps_sim PRIVATE tests)
 target_link_libraries(ps_sim PRIVATE ps_core)
 
 # Herramienta: balanceo de la megapiedra frente a los objetos (ps_balance)
+add_executable(ps_i18n tests/i18n_main.cpp)
+target_link_libraries(ps_i18n PRIVATE ps_core)
 add_executable(ps_balance tests/balance_main.cpp)
 target_include_directories(ps_balance PRIVATE tests)
 target_link_libraries(ps_balance PRIVATE ps_core)
 
 enable_testing()
 add_test(NAME ps_tests COMMAND ps_tests)
+# Todo texto del port, entero en inglés (tools/i18n): extraer.py y ps_i18n estricto.
+add_test(NAME i18n COMMAND sh -c "python3 ${CMAKE_SOURCE_DIR}/tools/i18n/extraer.py >/dev/null && $<TARGET_FILE:ps_i18n> ${CMAKE_SOURCE_DIR}/build/i18n/textos.tsv estricto ${CMAKE_SOURCE_DIR}/tools/i18n/ignorar.txt && $<TARGET_FILE:ps_i18n> datos estricto")
 
 # ps_cloud: la sincronización con pokesurvivor.com desde el PC (con curl), para
 # probarla contra el emulador de Firebase y la web (tools/cloud_e2e.js).

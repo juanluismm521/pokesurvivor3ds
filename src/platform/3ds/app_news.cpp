@@ -37,6 +37,8 @@ const NewsItem kNews[] = {
      "Sólo en el modo Rápido: tumba a sus 8 legendarios y Arceus baja la guardia. Tiene mucha vida y se enfurece, pero si lo derrotas, la partida acaba en victoria."},
     {nullptr, NI_COIN, "Premio y Medalla de Arceus",
      "Ganar da 2500 Pokémonedas y 3 tickets ×10. Tu Pokémon luce la medalla en la Colección y junto a su nombre en el menú. El modo Normal sigue igual."},
+    {nullptr, NI_BOOK, "El juego, en inglés de verdad",
+     "Menús, avisos, novedades, créditos, megapiedras y rasgos: todo traducido (antes había textos a medias). Cámbialo en Ajustes → Idioma."},
     {"Versión 0.15 · ¡Esferas y tesoros!", 0, nullptr, nullptr},
     {nullptr, NI_ORB, "Esferas de Mundo Misterioso",
      "Salen en cofres, jefes y a veces al derrotar a un Pokémon. A usa la elegida, B cambia (o tócala abajo): duermen, frenan o empujan a los enemigos, o te dan crítico o velocidad."},
