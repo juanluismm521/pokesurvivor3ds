@@ -5,6 +5,10 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.16.1 — 2026-10-29
+- **Ajustes → Actualizaciones**: el aviso «La versión nueva del juego se busca y se
+  baja sola al encender…» ya no se monta encima del último botón.
+
 ## 0.16.0 — 2026-10-29
 - **En el modo rápido, Arceus se puede derrotar.** Acuden sólo 8 legendarios
   (arriba pone «LEGENDARIOS x/8»); tumbados todos, Arceus **baja la guardia**: sale su

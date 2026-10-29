@@ -19,7 +19,7 @@ namespace ps {
 
 namespace {
 constexpr int kRows = 4;
-constexpr float kRowY = 118, kRowStep = 26;
+constexpr float kRowY = 118, kRowStep = 22;   // (4 filas hasta y=206: debajo cabe el aviso)
 }  // namespace
 
 void App::in_update(const UiIn& in) {
@@ -89,9 +89,9 @@ void App::bottom_update() {
     const bool off = (i == 2 && !prog3ds::pending()) || (i == 3 && !prog3ds::can_rollback()) || (i > 0 && !prog3ds::supported());
     C2D_DrawRectSolid(10, y, 0, 300, kRowStep - 3, i == cur_ ? C_SEL : C_PANEL);
     if (i == cur_) C2D_DrawRectSolid(10, y, 0, 3, kRowStep - 3, C_GOLD);
-    r_->text(labels[i], 160, y + 4, 0.38f, off ? C_MUTED : C_TEXT, 1);
+    r_->text(labels[i], 160, y + 1, 0.38f, off ? C_MUTED : C_TEXT, 1);
   }
-  r_->text_wrap("La versión nueva del juego se busca y se baja sola al encender; se instala al salir.", 160, 196, 0.3f, C_MUTED, 290, 1);
+  r_->text_wrap("La versión nueva del juego se busca y se baja sola al encender; se instala al salir.", 160, 209, 0.3f, C_MUTED, 290, 1);
   r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
