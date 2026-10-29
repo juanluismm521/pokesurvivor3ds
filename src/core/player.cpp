@@ -216,13 +216,15 @@ void player_fuse(Game& g, Player& p, const int* move_idx, int n, int grow_slot) 
   for (int s = 0; s < p.nslots; ++s) if (p.slot_n[s] && p.slots[s][0] == target_first) p.active_slot = s;
   for (int s = 0; s < p.nslots; ++s) if (p.slot_n[s] && p.slots[s][0] == cur_first) p.active_slot = s;
   arrange(p);
+  // Sigues con el movimiento que tenías elegido (el dueño, 2026-10-30: antes se
+  // pasaba solo al grupo nuevo y parecía que el ataque cambiaba sin querer). Si tu
+  // movimiento es de los que se han unido, sigues en él: el grupo que lo lleva.
   int a = -1, t = 0;
   for (int s = 0; s < p.nslots; ++s) {
-    if (p.slot_n[s] && p.slots[s][0] == cur_first) a = s;
+    for (int j = 0; j < p.slot_n[s]; ++j) if (p.slots[s][j] == cur_first) a = s;
     if (p.slot_n[s] && p.slots[s][0] == target_first) t = s;
   }
-  // Se pasa al grupo, salvo con la Cinta Elección (sigues en el hueco que tenías, si queda).
-  p.active_slot = (p.item == IT_CHOICEBAND && a >= 0) ? a : t;
+  p.active_slot = a >= 0 ? a : t;
   p.bonds = std::max(0, p.bonds - 1);
   proj_clear_orbs(g, int(&p - g.players));
 }

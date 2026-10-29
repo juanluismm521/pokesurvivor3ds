@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "core/game.h"
+#include "core/mega.h"
 
 namespace ps {
 
@@ -13,8 +14,9 @@ const OrbDef kOrbs[ORB_COUNT] = {
     {"slow", "Ralentosfera", true, 0, 0x5fd0ff, "Los enemigos de la pantalla van un 50 % más lentos durante 8 s (los jefes, un 20 %)."},
     {"blowback", "Rafagaesfera", true, 0, 0x9ff0c0, "Lanza lejos a los enemigos que tienes cerca (a los jefes, la mitad)."},
     {"focus", "Focosfera", false, 15, 0xff6f7d, "+25 % de crítico durante 15 s, para ti y los compañeros cercanos."},
-    {"luminous", "Luminosfera", false, 0, 0xffe680, "Hace brillar un tesoro escondido cerca: sigue la flecha dorada y te dará tickets y monedas."},
+    {"luminous", "Luminosfera", false, 0, 0xffe680, "Hace brillar un tesoro escondido cerca: sigue la flecha dorada. Trae lo de un cofre grande, un objeto y tickets y monedas."},
     {"quick", "Rapidosfera", false, 10, 0xffb24d, "+40 % de velocidad durante 10 s, para ti y los compañeros cercanos."},
+    {"heal", "Curaesfera", false, 0, 0x7dffa0, "Cura un 40 % de la vida a todo el equipo, esté donde esté."},
 };
 
 namespace {
@@ -118,6 +120,21 @@ bool orb_use(Game& g, Player& p, int slot) {
   g.sfx(SFX_CONFIRM);
   if (id == ORB_LUMINOUS) {
     orb_place_treasure(g, p);
+  } else if (id == ORB_HEAL) {
+    // A todo el equipo (vivo), esté donde esté.
+    for (int i = 0; i < g.nplayers; ++i) {
+      Player& o = g.players[i];
+      if (!o.active || o.dead) continue;
+      player_heal(g, o, o.max_hp * kOrbHeal);
+      g.fx.ring(o.x, o.y, 8, 70, kOrbs[id].col, 0.5f, 4);
+      g.fx.dmg_text(o.x, o.y - o.body_h - 8, kOrbs[id].name, kOrbs[id].col, true);
+      if (&o == &g.players[g.local]) {
+        char b[120];
+        if (&o == &p) std::snprintf(b, sizeof(b), "¡%s! %s", kOrbs[id].name, orb_effect(id));
+        else std::snprintf(b, sizeof(b), "¡%s de un compañero! %s", kOrbs[id].name, orb_effect(id));
+        g.say(b, 3);
+      }
+    }
   } else if (kOrbs[id].foe) {
     foe(g, p, id);
   } else {
@@ -172,8 +189,15 @@ void treasure_update(Game& g, float dt) {
   for (int i = 0; i < g.nplayers; ++i) {
     const Player& p = g.players[i];
     if (!p.active || p.dead || dist2(p.x, p.y, t.x, t.y) > 34 * 34) continue;
-    // ¡Encontrado! Tickets, monedas y, a veces, un ticket ×10.
+    // ¡Encontrado! Lo de un cofre grande (objetos, esferas, experiencia…), un
+    // objeto seguro y, además, tickets, monedas y, a veces, un ticket ×10.
     t.on = false;
+    {
+      Prop chest{};
+      chest.type = PR_BIGCHEST; chest.x = t.x; chest.y = t.y;
+      g.on_prop_destroyed(chest);
+      pickup_drop(g, PK_ITEM, t.x - 18, t.y - 16, float(roll_item(g)));
+    }
     const int tk = 2 + (g.rng.next() < 0.5f ? 1 : 0);
     for (int k = 0; k < tk; ++k) pickup_drop(g, PK_TICKET, t.x + g.rng.range(-16, 16), t.y + g.rng.range(-10, 10), 1);
     for (int k = 0; k < 6; ++k) pickup_drop(g, PK_COIN, t.x + g.rng.range(-20, 20), t.y + g.rng.range(-14, 14), 4);
@@ -196,6 +220,7 @@ const char* orb_effect(int id) {
     case ORB_FOCUS: return "+25 % de crítico";
     case ORB_LUMINOUS: return "Un tesoro brilla cerca";
     case ORB_QUICK: return "+40 % de velocidad";
+    case ORB_HEAL: return "Todo el equipo recupera un 40 % de vida";
     default: return "";
   }
 }

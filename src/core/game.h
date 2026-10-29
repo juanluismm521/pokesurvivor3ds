@@ -113,7 +113,7 @@ struct Player {
   // con tiempo (segundos que quedan de cada una) y recarga.
   int8_t orb_id[4] = {-1, -1, -1, -1};
   int8_t orb_n[4] = {};
-  float orb_buff[6] = {};
+  float orb_buff[8] = {};   // (por esfera: ORB_COUNT ≤ 8)
   float orb_cd = 0;
   uint8_t orb_seen = 0;         // las que ya te han explicado (bit por esfera)
   int8_t orb_new = -1; float orb_new_t = 0;   // (la casilla recién cogida brilla)

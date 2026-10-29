@@ -5,6 +5,19 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.17.0 — 2026-10-30
+- **Curaesfera**: esfera nueva que cura un 40 % de la vida a todo el equipo, esté donde
+  esté (en grupo, a todos los compañeros vivos).
+- **Banner «Todas»** en el gacha (después de Paldea): todas las regiones juntas, con
+  su propio pity y su Amuleto Iris (la Pokédex entera).
+- Carteles del gacha: Kanto enseña a Dragonite en vez de Articuno; Paldea, a Koraidon
+  y Gholdengo (Miraidon no está en el juego todavía).
+- **El tesoro de la Luminosfera** trae lo de un cofre grande (objetos, esferas,
+  experiencia), un objeto seguro y además tickets y monedas.
+- Arreglado: al unir movimientos (vínculo) el ataque elegido ya no cambia solo.
+- Novedades: «¡Curaesfera y banner Todas!».
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.16.2 — 2026-10-29
 - **El juego, en inglés de verdad.** Había unos 600 textos del port sin traducir o a
   medias («Se instala al Log out», «La Save of all time»…): menús, avisos, cuenta web,

@@ -128,7 +128,7 @@ std::string save_to_json(const Save& s) {
   tk.set("t10", Json::num(s.t10));
   o.set("tickets", std::move(tk));
   Json pity = Json::object();
-  for (int g = 1; g <= 9; ++g) if (s.pity[g]) pity.set(num_key(g), Json::num(s.pity[g]));
+  for (int g = 0; g <= 9; ++g) if (s.pity[g]) pity.set(num_key(g), Json::num(s.pity[g]));
   o.set("pity", std::move(pity));
   o.set("legends", date_map(s.legends, kMaxDex + 1, nullptr));
   o.set("arenas", date_map(s.arenas, T_COUNT, kTypeId));
@@ -239,7 +239,7 @@ bool save_from_json(Save& s, const std::string& text) {
   s.t1 = n0(o["tickets"]["t1"]);
   s.t10 = n0(o["tickets"]["t10"]);
   if (o["pity"].is_num()) s.pity[1] = n0(o["pity"]);   // v1 → v2: un único banner
-  else for (const auto& kv : o["pity"].items()) { const int g = std::atoi(kv.first.c_str()); if (g >= 1 && g <= 9) s.pity[g] = n0(kv.second); }
+  else for (const auto& kv : o["pity"].items()) { const int g = std::atoi(kv.first.c_str()); if (g >= 0 && g <= 9 && !kv.first.empty()) s.pity[g] = n0(kv.second); }
   for (const auto& kv : o["legends"].items()) { const int d = std::atoi(kv.first.c_str()); if (d > 0 && d <= kMaxDex) s.legends[d] = std::max<int64_t>(1, int64_t(kv.second.as_num(1))); }
   for (int t = 0; t < T_COUNT; ++t) if (o["arenas"].has(kTypeId[t])) s.arenas[t] = std::max<int64_t>(1, int64_t(o["arenas"][kTypeId[t]].as_num(1)));
   for (int i = 0; i < IT_COUNT; ++i) if (o["itemsFound"].has(kItems[i].id)) s.items_found[i] = std::max<int64_t>(1, int64_t(o["itemsFound"][kItems[i].id].as_num(1)));

@@ -289,13 +289,22 @@ TEST_CASE("dorado: huecos con atajos y fusiones de vínculos") {
     player_init(g, p, int(C["dex"].as_int()), false, cfg);
     for (const auto& kv : C["bind"].items()) p.bind[move_index(kv.first.c_str())] = int8_t(kv.second.as_int());
     size_t step = 0;
-    auto check = [&](const Json& want) {
+    // fused: tras un vínculo el port sigue con el ataque que tenías (el dueño,
+    // 2026-10-30; la web se pasa al grupo): el hueco activo es el que lo lleva.
+    int8_t was = -1;
+    auto check = [&](const Json& want, bool fused = false) {
       if (want.has("none")) return;
       REQUIRE(int(want["slots"].size()) == p.nslots);
       for (int s = 0; s < p.nslots; ++s) {
         REQUIRE(int(want["slots"][s].size()) == p.slot_n[s]);
         for (int j = 0; j < p.slot_n[s]; ++j)
           CHECK_MESSAGE(std::string(p.moves[p.slots[s][j]].d().id) == want["slots"][s][j].as_str(), "caso " << c << " paso " << step);
+      }
+      if (fused && was >= 0) {
+        bool in = false;
+        for (int j = 0; j < p.slot_n[p.active_slot]; ++j) in = in || p.slots[p.active_slot][j] == was;
+        CHECK_MESSAGE(in, "caso " << c << " paso " << step);
+        return;
       }
       CHECK_MESSAGE(p.active_slot == want["active"].as_int(), "caso " << c << " paso " << step);
     };
@@ -310,8 +319,9 @@ TEST_CASE("dorado: huecos con atajos y fusiones de vínculos") {
       if (!mode) { step++; continue; }
       int idx[4], n = 0;
       for (size_t k = 0; k < C["fuse"][f].size(); ++k) idx[n++] = int(C["fuse"][f][k].as_int());
+      was = p.slot_n[p.active_slot] ? p.slots[p.active_slot][0] : -1;
       player_fuse(g, p, idx, n, mode == 1 ? grow : -1);
-      check(C["steps"][step++]);
+      check(C["steps"][step++], true);
     }
   }
 }

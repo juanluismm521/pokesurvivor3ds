@@ -32,6 +32,15 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.17 · ¡Curaesfera y banner Todas!", 0, nullptr, nullptr},
+    {nullptr, NI_ORB, "Curaesfera",
+     "Una esfera nueva: cura un 40 % de la vida a todo el equipo, esté donde esté. Sale como las demás."},
+    {nullptr, NI_TICKET, "Banner «Todas»",
+     "En el gacha, tras Paldea: todas las regiones juntas, con su propio pity. Kanto luce a Dragonite y Paldea a Koraidon y Gholdengo."},
+    {nullptr, NI_STAR, "Tesoros más grandes",
+     "El tesoro de la Luminosfera trae lo de un cofre grande (objetos, esferas, experiencia) y además tickets y monedas."},
+    {nullptr, NI_FRIENDS, "Vínculos sin sorpresas",
+     "Al unir movimientos sigues con el ataque que tenías elegido (antes se cambiaba solo)."},
     {"Versión 0.16 · ¡Derrota a Arceus!", 0, nullptr, nullptr},
     {nullptr, NI_STAR, "Arceus cae en el modo rápido",
      "Sólo en el modo Rápido: tumba a sus 8 legendarios y Arceus baja la guardia. Tiene mucha vida y se enfurece, pero si lo derrotas, la partida acaba en victoria."},
@@ -119,7 +128,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.16";
+constexpr const char* kNewsVersion = "0.17";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

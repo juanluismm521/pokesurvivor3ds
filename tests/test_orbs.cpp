@@ -176,3 +176,73 @@ TEST_CASE("esferas: salen en partidas de verdad (jefes, cofres, a veces enemigos
   CHECK(a.checksum == b.checksum);
   CHECK(g->state_hash() == h->state_hash());
 }
+
+TEST_CASE("esferas: la Curaesfera cura a todo el equipo, esté donde esté") {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig c; c.seed = 4; c.judged = 1; c.nplayers = 2;
+  c.members[0].dex = 25; c.members[1].dex = 4;
+  g->start_run(c);
+  g->enemies.clear();
+  Player &a = g->players[0], &b = g->players[1];
+  b.x = a.x + 5000;   // (muy lejos)
+  a.hp = a.max_hp * 0.2f; b.hp = b.max_hp * 0.1f;
+  orb_add(a, ORB_HEAL);
+  Input in[2] = {};
+  in[0].cmd = CMD_ORB; in[0].arg = 0;
+  g->step(in);
+  CHECK(a.hp >= a.max_hp * 0.59f);
+  CHECK(b.hp >= b.max_hp * 0.49f);
+  CHECK(orb_count(a) == 0);
+}
+
+TEST_CASE("esferas: el tesoro de la Luminosfera trae lo de un cofre grande y un objeto") {
+  auto g = solo(21);
+  Player& p = g->players[0];
+  orb_add(p, ORB_LUMINOUS);
+  use(*g, 0);
+  REQUIRE(g->treasure.on);
+  const float tx = g->treasure.x, ty = g->treasure.y;
+  p.x = tx + 300; p.y = ty;   // (aún no lo coge)
+  wait(*g, 0.1f);
+  g->pickups.clear();
+  // Llega: suelta objetos, esferas, tickets y monedas (se miran en el suelo).
+  treasure_update(*g, 0);
+  p.x = tx; p.y = ty;
+  const int before = g->pickups.n;
+  g->treasure.on = true;
+  treasure_update(*g, 0.01f);
+  int items = 0, spheres = 0, tickets = 0, coins = 0;
+  for (const Pickup& q : g->pickups) {
+    items += q.kind == PK_ITEM; spheres += q.kind == PK_SPHERE; coins += q.kind == PK_COIN;
+    tickets += q.kind == PK_TICKET || q.kind == PK_TICKET10;
+  }
+  CHECK(g->pickups.n > before);
+  CHECK(items >= 1);
+  CHECK(spheres >= 1);
+  CHECK(tickets >= 3);
+  CHECK(coins >= 15);
+}
+
+TEST_CASE("vínculo: al unir dos movimientos sigues con el ataque que tenías elegido") {
+  auto g = solo(5);
+  Player& p = g->players[0];
+  while (p.nmoves < 3) REQUIRE(player_add_move(*g, p, (p.nmoves * 7 + 3) % kMoveCount));
+  // Elegido el 1.º; se unen el 2.º y el 3.º: no cambia.
+  p.active_slot = 0;
+  const int8_t sel = p.slots[0][0];
+  int idx[2] = {p.slots[1][0], p.slots[2][0]};
+  player_fuse(*g, p, idx, 2, -1);
+  CHECK(p.slots[p.active_slot][0] == sel);
+  // Elegido uno de los que se unen: sigues en él (el grupo que lo lleva).
+  auto h = solo(6);
+  Player& q = h->players[0];
+  while (q.nmoves < 3) REQUIRE(player_add_move(*h, q, (q.nmoves * 5 + 11) % kMoveCount));
+  q.active_slot = 2;
+  const int8_t joined = q.slots[2][0];
+  int idx2[2] = {q.slots[1][0], q.slots[2][0]};
+  player_fuse(*h, q, idx2, 2, -1);
+  bool in_group = false;
+  for (int j = 0; j < q.slot_n[q.active_slot]; ++j) in_group = in_group || q.slots[q.active_slot][j] == joined;
+  CHECK(in_group);
+  CHECK(q.slot_n[q.active_slot] == 2);
+}

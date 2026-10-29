@@ -34,7 +34,7 @@ constexpr int kRing = 256;           // pasos guardados (más que kDelay + kRese
 constexpr int kHashEvery = 60;       // huella cada segundo
 constexpr int kTimeoutFrames = 60 * 20;   // 20 s sin noticias: se le da por ido
 constexpr int kMaxPacket = 1024;
-constexpr uint32_t kMagic = 0x50535341;   // 'PSSA' + versión del protocolo (17: Arceus derrotable en el modo rápido)
+constexpr uint32_t kMagic = 0x50535342;   // 'PSSB' + versión del protocolo (18: Curaesfera y tesoro como un cofre grande)
 // Lo que va en cada paquete: la versión del protocolo mezclada con la huella
 // de los datos del juego (gen_data). Dos 3DS con datos distintos (otra versión
 // de la web) se ignoran: si jugaran juntas, sus partidas se separarían.

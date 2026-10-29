@@ -21,12 +21,25 @@ bool gacha_cost(const Save& s, int n, bool use_t10, int& t1, int& t10) {
 
 int gacha_pool(int rarity, int gen, int16_t* out) {
   int n = 0;
-  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen && kDex[i].rarity == rarity) out[n++] = kDex[i].dex;
+  for (int i = 0; i < kDexCount; ++i) if ((gen == kGachaAll || kDex[i].gen == gen) && kDex[i].rarity == rarity) out[n++] = kDex[i].dex;
   return n;
 }
 
+const BannerDef& gacha_banner(int gen) {
+  static const BannerDef kAll = {kGachaAll, "Todas", {0x2b1055, 0x7597de, 0xf5c542}};
+  return gen >= 1 && gen <= 9 ? kBanners[gen - 1] : kAll;
+}
+
 int gacha_featured(int gen, int16_t* out) {
-  int16_t p[256];
+  // Elegidos a mano (el dueño, 2026-10-30): en Kanto Dragonite en vez de Articuno;
+  // en Paldea, Koraidon, Miraidon y Gholdengo; en «Todas», tres de los más famosos.
+  static const int16_t kAllF[3] = {150, 384, 249}, kPaldea[3] = {1007, 1008, 1000};
+  // (los que no estén en la Pokédex del juego, p. ej. Miraidon, se cambian por el
+  // mejor legendario que quede)
+  const int16_t* pick = gen == kGachaAll ? kAllF : gen == 9 ? kPaldea : nullptr;
+  int n0 = 0;
+  if (pick) for (int i = 0; i < 3; ++i) if (mon_by_dex(pick[i])) out[n0++] = pick[i];
+  int16_t p[1100];
   int n = gacha_pool(5, gen, p);
   // (del port: primero los legendarios de verdad; la web pone los 3 de 5★ con más
   // estadísticas y colaba a Dragonite, Tyranitar, Slaking… en el cartel)
@@ -35,8 +48,13 @@ int gacha_featured(int gen, int16_t* out) {
     if (ma->leg != mb->leg) return ma->leg > mb->leg;
     return ma->bst > mb->bst;
   });
-  n = std::min(n, 3);
-  for (int i = 0; i < n; ++i) out[i] = p[i];
+  for (int i = 0; i < n && n0 < 3; ++i) {
+    bool dup = false;
+    for (int k = 0; k < n0; ++k) dup = dup || out[k] == p[i];
+    if (!dup) out[n0++] = p[i];
+  }
+  n = n0;
+  if (gen == 1) for (int i = 0; i < n; ++i) if (out[i] == 144 && mon_by_dex(149)) out[i] = 149;   // (Articuno → Dragonite)
   return n;
 }
 
@@ -51,7 +69,7 @@ int pool_near(int rarity, int gen, int16_t* out, int& got) {
   }
   got = rarity;
   int n = 0;
-  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen) out[n++] = kDex[i].dex;
+  for (int i = 0; i < kDexCount; ++i) if (gen == kGachaAll || kDex[i].gen == gen) out[n++] = kDex[i].dex;
   return n;
 }
 
@@ -66,7 +84,7 @@ int roll_rarity(Rng& rng, int min = 1) {
 
 void gacha_dex_of(const Save& s, int gen, int& have, int& total) {
   have = total = 0;
-  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen) { total++; if (s.owns(kDex[i].dex)) have++; }
+  for (int i = 0; i < kDexCount; ++i) if (gen == kGachaAll || kDex[i].gen == gen) { total++; if (s.owns(kDex[i].dex)) have++; }
 }
 bool gacha_has_iris(const Save& s, int gen) {
   int have, total;
@@ -88,7 +106,7 @@ int gacha_pull(Save& s, int n, int gen, bool use_t10, Rng& rng, int64_t now_ms, 
   const float rate = gacha_shiny_rate(s, gen);   // (con el Amuleto Iris de esta región, al doble)
   s.t1 -= c1; s.t10 -= c10;
   const int64_t now = now_ms ? now_ms : 1;
-  int16_t list[256];
+  int16_t list[1100];
   for (int i = 0; i < n; ++i) {
     s.pity[gen]++;
     int want;
@@ -104,7 +122,7 @@ int gacha_pull(Save& s, int n, int gen, bool use_t10, Rng& rng, int64_t now_ms, 
     bool shiny = has_shiny(dex) && (gacha_force_shiny > 0 ? (gacha_force_shiny--, true) : rng.next() < rate);
     // Los shiny no se repiten: si ya lo tienes, otro de la misma rareza cuyo shiny te falte.
     if (shiny && s.shiny_at[dex]) {
-      int16_t miss[256]; int nm = 0;
+      int16_t miss[1100]; int nm = 0;
       for (int k = 0; k < nl; ++k) if (has_shiny(list[k]) && !s.shiny_at[list[k]]) miss[nm++] = list[k];
       if (nm) dex = miss[int(rng.next() * nm)];
       else shiny = false;

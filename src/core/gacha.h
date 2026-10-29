@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include "core/rng.h"
+#include "core/gamedata.h"
 #include "core/save.h"
 
 namespace ps {
@@ -30,7 +31,13 @@ void gacha_dex_of(const Save& s, int gen, int& have, int& total);
 bool gacha_has_iris(const Save& s, int gen);
 float gacha_shiny_rate(const Save& s, int gen);
 int gacha_pool(int rarity, int gen, int16_t* out);   // Pokémon de una rareza en un banner
-int gacha_featured(int gen, int16_t* out);            // los 3 legendarios más fuertes (cartel)
+int gacha_featured(int gen, int16_t* out);            // los 3 legendarios del cartel
+// Banner «Todas» (del port, 2026-10-30): gen 0 = todas las regiones juntas (su
+// pity va en pity[0]; su Amuleto Iris, la Pokédex entera).
+constexpr int kGachaAll = 0;
+const BannerDef& gacha_banner(int gen);
+inline int gacha_next(int gen) { return gen == 9 ? kGachaAll : gen == kGachaAll ? 1 : gen + 1; }   // (… Paldea, Todas, Kanto …)
+inline int gacha_prev(int gen) { return gen == 1 ? kGachaAll : gen == kGachaAll ? 9 : gen - 1; }
 extern int gacha_force_shiny;                        // pruebas: las N próximas salen shiny
 
 // Test de personalidad: puntuaciones por rasgo (en el orden en que se

@@ -174,7 +174,8 @@ class App {
   int16_t sum_[100];
   int sum_scroll_ = 0;
   int iris_mask_ = -1;          // Amuletos Iris que ya tenías (bit por región; -1 aún sin mirar)
-  int iris_gen_ = 0;            // la tirada te ha dado el Amuleto Iris de esa región
+  int iris_gen_ = -1;           // la tirada te ha dado el Amuleto Iris de esa región (0 = «Todas»)
+  int bgen_ = 1;                // región del gacha (0 = «Todas», gacha.h)
   int nspins() const { return npulls_ == 100 ? 10 : npulls_; }
   const PullResult& spin(int i) const;
   int npulls_ = 0, pull_i_ = 0;

@@ -583,7 +583,7 @@ void App::in_run(const UiIn& in) {
     if (auto_orbs && !auto_orbs_given_ && g.time > 2 && g.state == ST_PLAYING) {
       auto_orbs_given_ = true;
       Player& p = g.players[g.local];
-      for (int id : {ORB_LUMINOUS, ORB_SLUMBER, ORB_QUICK, ORB_FOCUS, ORB_FOCUS}) orb_add(p, id);
+      for (int id : {ORB_LUMINOUS, ORB_HEAL, ORB_SLUMBER, ORB_QUICK, ORB_FOCUS}) orb_add(p, id);
     }
     if (auto_bond && !coop_) {   // (captura del vínculo con el primero ya elegido)
       Player& p = g.players[g.local];
@@ -1550,8 +1550,8 @@ void App::bottom_upgrades() {
 void App::in_gacha(const UiIn& in) {
   // L/R (o tocar las flechas del selector): región anterior / siguiente.
   // (L/R ya suenan en update(); al tocar suena el clic)
-  if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) gen_ = gen_ == 1 ? 9 : gen_ - 1;
-  if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) gen_ = gen_ == 9 ? 1 : gen_ + 1;
+  if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) bgen_ = gacha_prev(bgen_);
+  if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) bgen_ = gacha_next(bgen_);
   // Se tira de 10 en 10 o de 100 en 100 (web, 22-10-2026: ya no hay ×1).
   // (tras una tirada no queda ningún botón elegido: pulsando A seguido para pasar
   // las animaciones se encadenaban tiradas sin querer; arreglo de la web del 25-10)
@@ -1567,11 +1567,11 @@ void App::in_gacha(const UiIn& in) {
   cur_ = pick;
   const int n = pick < 2 ? 10 : 100;
   const bool t10 = pick == 1 || pick == 3;
-  const bool had_iris = gacha_has_iris(*s_, gen_);
+  const bool had_iris = gacha_has_iris(*s_, bgen_);
   Rng rr(uint32_t(osGetTime()) ^ 0x9e3779b9u);
-  npulls_ = gacha_pull(*s_, n, gen_, t10, rr, now_ms(), pulls_);
+  npulls_ = gacha_pull(*s_, n, bgen_, t10, rr, now_ms(), pulls_);
   if (!npulls_) { audio::play("error"); g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
-  iris_gen_ = !had_iris && gacha_has_iris(*s_, gen_) ? gen_ : 0;
+  iris_gen_ = !had_iris && gacha_has_iris(*s_, bgen_) ? bgen_ : -1;
   progress_check_ach(*s_, now_ms());
   save_now();
   // Resumen de la ×100: de mejor a peor (shiny, rareza, nuevo).
@@ -1626,12 +1626,12 @@ void App::in_pull(const UiIn& in, float dt) {
     if (pull_done_) {
       scene = SC_GACHA;
       cur_ = -1;   // (ningún botón de tirar elegido: otra A no vuelve a tirar)
-      if (iris_gen_) {
+      if (iris_gen_ >= 0) {
         char t[80];
-        std::snprintf(t, sizeof(t), "¡Amuleto Iris de %s!", kBanners[iris_gen_ - 1].name);
+        std::snprintf(t, sizeof(t), "¡Amuleto Iris de %s!", gacha_banner(iris_gen_).name);
         g_notices.push(t, "Tienes su Pokédex completa: shiny al 2 % en su banner", -1);
         audio::play("legend");
-        iris_gen_ = 0;
+        iris_gen_ = -1;
       }
       return;
     }
@@ -1651,13 +1651,13 @@ void App::in_pull(const UiIn& in, float dt) {
 }
 
 void App::bottom_gacha() {
-  const BannerDef& bn = kBanners[gen_ - 1];
+  const BannerDef& bn = gacha_banner(bgen_);
   char b[128];
   std::snprintf(b, sizeof(b), "Gacha · %s", bn.name);
   header(b);
   int all = 0, own = 0;
-  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { all++; if (s_->owns(kDex[i].dex)) own++; }
-  std::snprintf(b, sizeof(b), "Tienes %d de %d · Tiradas sin legendaria: %d / %d", own, all, int(s_->pity[gen_]), kPity5);
+  for (int i = 0; i < kDexCount; ++i) if (bgen_ == kGachaAll || kDex[i].gen == bgen_) { all++; if (s_->owns(kDex[i].dex)) own++; }
+  std::snprintf(b, sizeof(b), "Tienes %d de %d · Tiradas sin legendaria: %d / %d", own, all, int(s_->pity[bgen_]), kPity5);
   r_->text_fit(b, 160, 24, 304, 0.34f, C_MUTED, false, 1);
   std::snprintf(b, sizeof(b), "Tickets: %d · Tickets ×10: %d", int(s_->t1), int(s_->t10));
   r_->text(b, 160, 36, 0.38f, C_GOLD, 1);
@@ -1667,19 +1667,19 @@ void App::bottom_gacha() {
   r_->text_fit(b, 160, 48, 304, 0.32f, own >= all ? C2D_Color32(0xff, 0x8a, 0xd8, 255) : C_MUTED, false, 1);
   // Selector de región: anterior · ACTUAL · siguiente (L/R o tocar a los lados)
   // y un punto por región con la actual marcada.
-  const int prev = gen_ == 1 ? 9 : gen_ - 1, next = gen_ == 9 ? 1 : gen_ + 1;
+  const int prev = gacha_prev(bgen_), next = gacha_next(bgen_);
   C2D_DrawRectSolid(10, 58, 0, 300, 54, C_PANEL);
   const u32 arrow = C2D_Color32(255, 210, 63, 255);
   C2D_DrawTriangle(16, 75, arrow, 24, 69, arrow, 24, 81, arrow, 0);
   C2D_DrawTriangle(304, 75, arrow, 296, 69, arrow, 296, 81, arrow, 0);
   r_->text("L", 30, 69, 0.36f, C_GOLD, 0);
   r_->text("R", 290, 69, 0.36f, C_GOLD, 2);
-  r_->text(kBanners[prev - 1].name, 44, 69, 0.36f, C_MUTED, 0);
-  r_->text(kBanners[next - 1].name, 276, 69, 0.36f, C_MUTED, 2);
+  r_->text(gacha_banner(prev).name, 44, 69, 0.36f, C_MUTED, 0);
+  r_->text(gacha_banner(next).name, 276, 69, 0.36f, C_MUTED, 2);
   r_->text(bn.name, 160, 65, 0.5f, C_GOLD, 1);
-  for (int i = 1; i <= 9; ++i) {
-    const float x = 160 + (i - 5) * 14;
-    if (i == gen_) C2D_DrawRectSolid(x - 3, 95, 0, 7, 7, C_GOLD);
+  for (int i = 1; i <= 10; ++i) {   // (el 10.º punto: «Todas»)
+    const float x = 160 + (i - 5.5f) * 14;
+    if (i % 10 == bgen_) C2D_DrawRectSolid(x - 3, 95, 0, 7, 7, C_GOLD);
     else C2D_DrawRectSolid(x - 2, 96, 0, 5, 5, C2D_Color32(90, 100, 125, 255));
   }
   static const char* const L[4] = {"Tirar ×10 (10 tickets)", "Tirar ×10 (1 ticket ×10)", "Tirar ×100 (100 tickets)", "Tirar ×100 (10 tickets ×10)"};
@@ -2100,35 +2100,36 @@ void App::draw_top(float eye) {
         break;
       }
       case SC_GACHA: {
-        const BannerDef& bn = kBanners[gen_ - 1];
+        const BannerDef& bn = gacha_banner(bgen_);
         C2D_DrawRectangle(0, 0, 0, TW, TH, rgb(bn.color[0], 230), rgb(bn.color[1], 230), rgb(bn.color[1], 230), rgb(bn.color[2], 230));
         char b[64];
-        std::snprintf(b, sizeof(b), "%s Misterioso", bn.name);
+        if (bgen_ == kGachaAll) std::snprintf(b, sizeof(b), "Todas las regiones");
+        else std::snprintf(b, sizeof(b), "%s Misterioso", bn.name);
         r_->text(b, 200, 12, 0.7f, C_GOLD, 1);
         // Flechas a los lados: L / R cambian de región.
         {
-          const int prev = gen_ == 1 ? 9 : gen_ - 1, next = gen_ == 9 ? 1 : gen_ + 1;
+          const int prev = gacha_prev(bgen_), next = gacha_next(bgen_);
           const u32 a = C2D_Color32(255, 255, 255, 200);
           C2D_DrawTriangle(6, 15, a, 13, 9, a, 13, 21, a, 0);
           C2D_DrawTriangle(394, 15, a, 387, 9, a, 387, 21, a, 0);
           char nb[48];
-          std::snprintf(nb, sizeof(nb), "L · %s", kBanners[prev - 1].name);
+          std::snprintf(nb, sizeof(nb), "L · %s", gacha_banner(prev).name);
           r_->text(nb, 17, 10, 0.32f, C_TEXT, 0);
-          std::snprintf(nb, sizeof(nb), "%s · R", kBanners[next - 1].name);
+          std::snprintf(nb, sizeof(nb), "%s · R", gacha_banner(next).name);
           r_->text(nb, 383, 10, 0.32f, C_TEXT, 2);
-          std::snprintf(nb, sizeof(nb), "%d / 9", gen_);
+          std::snprintf(nb, sizeof(nb), "%d / 10", bgen_ == kGachaAll ? 10 : bgen_);
           r_->text(nb, 200, 34, 0.32f, C_TEXT, 1);
         }
         top_tickets_badge(200, 50);
         int16_t f[3];
-        const int nf = gacha_featured(gen_, f);
+        const int nf = gacha_featured(bgen_, f);
         for (int i = 0; i < nf; ++i) draw_mon(f[i], false, 90 + i * 110, 170, 2, 0, 1);
         for (int r = 5; r >= 1; --r) {
-          int16_t pool[256];
-          std::snprintf(b, sizeof(b), "%s %.1f%% · %d", kRarityName[r], double(kGachaRates[r - 1]), gacha_pool(r, gen_, pool));
+          static int16_t pool[1100];
+          std::snprintf(b, sizeof(b), "%s %.1f%% · %d", kRarityName[r], double(kGachaRates[r - 1]), gacha_pool(r, bgen_, pool));
           r_->text(b, 10, 180 + (5 - r) * 11, 0.3f, rgb(kRarityColor[r]), 0, false);
         }
-        r_->text(gacha_has_iris(*s_, gen_) ? "Shiny 2% (Amuleto Iris)" : "Shiny 1%", 390, 224, 0.3f, rgb(0x9ae6ff), 2, false);
+        r_->text(gacha_has_iris(*s_, bgen_) ? "Shiny 2% (Amuleto Iris)" : "Shiny 1%", 390, 224, 0.3f, rgb(0x9ae6ff), 2, false);
         break;
       }
       case SC_PULL: top_pull(); break;
