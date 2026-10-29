@@ -9,6 +9,8 @@
 //            PS_VINCULAR = servidor «vincular», p. ej. http://127.0.0.1:8000)
 //   variables: PS_AUTH (http://127.0.0.1:9099), PS_FS (http://127.0.0.1:8089),
 //              PS_PROJECT (demo-pokesurvivor), PS_KEY (clave), PS_NOW (hora en ms)
+//              PS_SECO=archivo: «en seco», la escritura (:commit) NO se manda: se deja
+//              en ese archivo y se contesta 200 (para probar cuentas reales sin tocarlas)
 #include <curl/curl.h>
 
 #include <cstdio>
@@ -32,6 +34,12 @@ size_t on_header(char* p, size_t sz, size_t n, void* ud) {
   return sz * n;
 }
 bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
+  if (const char* seco = std::getenv("PS_SECO"); seco && *seco && rq.url.size() > 7 && rq.url.compare(rq.url.size() - 7, 7, ":commit") == 0) {
+    if (FILE* f = std::fopen(seco, "wb")) { std::fwrite(rq.body.data(), 1, rq.body.size(), f); std::fclose(f); }
+    std::fprintf(stderr, "(en seco: no se escribe; la escritura, en %s)\n", seco);
+    rs.status = 200; rs.body = "{}";
+    return true;
+  }
   CURL* c = curl_easy_init();
   if (!c) return false;
   curl_slist* hs = nullptr;
