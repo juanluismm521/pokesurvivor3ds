@@ -371,6 +371,8 @@ struct RunSummary {
   float judge_time = -1;
   int judge_bosses = 0;
   double judge_dmg = 0;         // daño a Arceus
+  bool victory = false;         // modo rápido: ¡has derrotado a Arceus!
+  int win_coins = 0, win_t10 = 0;   // su recompensa
   int8_t judge_plate = -1;      // su Tabla (tipo)
   int ncaught = 0;
   int16_t caught_dex[16];
@@ -561,6 +563,10 @@ struct Game {
     int8_t plate = T_FIGHTING;
     double dealt = 0;
     bool shielded = false;
+    // Modo rápido (del port, 2026-10-29): acuden 8 legendarios; tumbados todos,
+    // Arceus baja la guardia (vida de verdad) y se le puede derrotar.
+    bool can_win = false, open = false, won = false;
+    float ahp = 0, ahp_max = 0, won_t = 0;
   } judg;
 
   // Campo de distancias del camino (pathing.js), uno por jugador.
@@ -701,6 +707,9 @@ bool judgment_cinematic(const Game& g);
 float judgment_dmg_k(const Game& g);
 inline bool judgment_shielded(const Game& g) { return g.judg.phase == 2 && g.judg.shielded; }
 void judgment_hit_arceus(Game& g, float d);
+// Modo rápido: cuántos legendarios acuden, y lo que da derrotar a Arceus.
+constexpr int kQuickLegends = 8;
+constexpr int kWinCoins = 2500, kWinT10 = 3;
 const char* plate_name(int type);
 // pathing.cpp
 void path_update(Game& g, float dt);

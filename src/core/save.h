@@ -48,6 +48,8 @@ struct Save {
   int8_t pstart[kMaxDex + 1];            // Movimiento inicial elegido (-1: el de serie)
   int8_t pmove2[kMaxDex + 1];            // segundo movimiento con «Repertorio» (del port: "pmove2"; -1: al azar)
   uint8_t pmega[kMaxDex + 1] = {};       // mejora «Megapiedra» por Pokémon (del port: "pmega")
+  int64_t arceus_win[kMaxDex + 1] = {};  // medalla: cuándo derrotó a Arceus (modo rápido) cada Pokémon (del port: "arceusWin"; 0 nunca)
+  int arceus_medals() const { int n = 0; for (int64_t t : arceus_win) n += t > 0; return n; }
   int32_t pused[kMaxDex + 1] = {};       // partidas jugadas con cada Pokémon
   int32_t t1 = 0, t10 = 0;               // tickets
   int32_t pity[10] = {};                 // por generación del banner

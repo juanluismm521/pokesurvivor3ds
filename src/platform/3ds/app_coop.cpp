@@ -310,7 +310,7 @@ void App::bottom_roomset() {
     if (i == 0) {
       r_->text("Modo", 32, y + 4, 0.36f, C_MUTED);
       r_->text(room_mode_ == MODE_QUICK ? "<  Rápido  >" : "<  Normal  >", 160, y + 16, 0.5f, room_mode_ == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_GOLD, 1);
-      r_->text(room_mode_ == MODE_QUICK ? "La Sentencia a los 20 min" : "La Sentencia a los 30 min", 288, y + 4, 0.3f, C_MUTED, 2);
+      r_->text(room_mode_ == MODE_QUICK ? "Sentencia a los 20 min · Arceus derrotable" : "Sentencia a los 30 min", 288, y + 4, 0.3f, C_MUTED, 2);
     } else if (i == 1) {
       r_->text("Contraseña (opcional)", 32, y + 4, 0.36f, C_MUTED);
       if (room_pass_[0]) {

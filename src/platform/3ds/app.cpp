@@ -102,6 +102,16 @@ void App::start_menu_demo() {
   go(SC_MENU);
 }
 
+// Autotest "modo": la pantalla de elegir modo con el rápido marcado. "medalla": el
+// menú y la Colección (en la región de tu compañero) para ver la medalla de Arceus.
+void App::start_mode_demo(bool medal) {
+  mode_demo_ = medal ? 2 : 1;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  if (medal) go(SC_MENU);
+  else { go(SC_MODE); cur_ = MODE_QUICK; }
+}
+
 void App::start_rooms_demo() {
   rooms_demo_ = true;
   news_t_ = 0;
@@ -361,6 +371,19 @@ void App::update(const UiIn& in0, float dt) {
     if (news_t_ > 40) quit = true;
   }
   if (menu_demo_) { news_t_ += dt; if (news_t_ > 60) quit = true; }
+  if (mode_demo_) {
+    const float t0 = news_t_;
+    news_t_ += dt;
+    if (mode_demo_ == 2 && t0 < 6 && news_t_ >= 6) {   // a la Colección, con el cursor en tu compañero
+      go(SC_DEX);
+      static int16_t list[256];
+      const int n = dex_list(*s_, gen_, filter_, list);
+      for (int j = 0; j < n; ++j) if (list[j] == s_->partner) cur_ = j;
+      scroll_ = cur_ / 6 > 3 ? cur_ / 6 - 3 : 0;
+    }
+    if (news_t_ > 14) quit = true;
+    if (scene == SC_MODE || scene == SC_DEX) return;   // (sin tocar nada)
+  }
   if (rooms_demo_) {
     const float t0 = news_t_;
     news_t_ += dt;
@@ -544,6 +567,10 @@ void App::in_run(const UiIn& in) {
       if (me2.mega >= 0 && auto_mega_t0_ < 0) auto_mega_t0_ = float(g.time);
       if (auto_mega_t0_ < 0 || float(g.time) - auto_mega_t0_ < 3) { gi.ax = gi.ay = 0; still_now_ = true; }
       else still_now_ = false;
+    }
+    if (auto_win && !coop_ && g.judg.phase == 2 && !g.judg.won) {   // (capturas de la victoria: todo más rápido)
+      for (Enemy& e : g.enemies) if (e.boss && !e.arceus && e.hp > 50) e.hp = 50;
+      if (g.judg.open && !auto_win_cut_) { auto_win_cut_ = true; g.judg.ahp = g.judg.ahp_max * 0.12f; }
     }
     if (auto_orbs && !auto_orbs_given_ && g.time > 2 && g.state == ST_PLAYING) {
       auto_orbs_given_ = true;
@@ -817,7 +844,7 @@ const ModeInfo kModes[MODE_COUNT] = {
     {"Normal", "La Sentencia a los 30 minutos",
      "La partida de siempre: aguanta la horda, sube de nivel, cambia de mapa cada 4 minutos y, a los 30, Arceus desciende."},
     {"Rápido", "La Sentencia a los 20 minutos",
-     "Para una partida corta: todo igual, pero Arceus llega a los 20 minutos (con los enemigos y tu nivel de ese momento)."},
+     "Arceus llega a los 20 minutos y aquí SÍ se le puede derrotar: tumba a sus 8 legendarios y bajará la guardia. Difícil: ¡medalla si ganas!"},
 };
 }  // namespace
 
@@ -884,8 +911,16 @@ void App::bottom_menu() {
     }
   } else {
     char tt[16]; mmss(float(s_->stats.best_time), tt, sizeof(tt));
-    std::snprintf(b, sizeof(b), "Runs %d · Mejor tiempo %s · Mejor nivel %d", int(s_->stats.runs), tt, int(s_->stats.best_level));
-    r_->text(b, 160, 46, 0.34f, C_MUTED, 1);
+    const int medals = s_->arceus_medals();
+    if (medals > 0) {   // (con medallas de Arceus: se ven en la lista principal)
+      std::snprintf(b, sizeof(b), "Runs %d · Mejor %s · Nivel %d · Arceus ×%d", int(s_->stats.runs), tt, int(s_->stats.best_level), medals);
+      const float w = r_->text_width(b, 0.34f);
+      r_->text_fit(b, 160, 46, 290, 0.34f, C_MUTED, false, 1);
+      r_->draw_medal(160 + std::fmin(w, 290.0f) / 2 + 9, 52, 4.5f);
+    } else {
+      std::snprintf(b, sizeof(b), "Runs %d · Mejor tiempo %s · Mejor nivel %d", int(s_->stats.runs), tt, int(s_->stats.best_level));
+      r_->text(b, 160, 46, 0.34f, C_MUTED, 1);
+    }
   }
   const int pend = progress_pending(*s_, now_ms());
   static const char* const L[9] = {"Jugar", "En grupo", "Pokémon", "Mejoras", "Gacha", "Misiones", "Ajustes", "Créditos", "Salir"};
@@ -996,6 +1031,7 @@ void App::bottom_dex() {
     const int si = r_->ui_icon[7];
     if (sh && si >= 0) C2D_DrawImageAt(r_->icons.image(si), x + 39, y + 1, 0, nullptr, 0.8f, 0.8f);
     if (dex == s_->partner) C2D_DrawRectSolid(x + (sh ? 33 : 43), y + 3, 0, 4, 4, C_GOLD);
+    if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) r_->draw_medal(x + 7, y + 34, 4.5f);   // (derrotó a Arceus)
   }
   if (!n) r_->text("Ninguno con este filtro.", 160, 110, 0.4f, C_MUTED, 1);
   r_->text(view_shiny_ ? "A: compañero · Y: normales · SELECT: ataques · B: volver" : "A: compañero · Y: shinys · SELECT: ataques · B: volver", 160, 226, 0.32f, C_MUTED, 1);
@@ -1083,6 +1119,10 @@ void App::top_detail(int dex, bool shiny, bool own) {
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 214 + (i % 10) * 18, 162 + (i / 10) * 18, 0);
   }
   if (dex == s_->partner) r_->text("Es tu compañero", 300, 206, 0.4f, C2D_Color32(0x5f, 0xe0, 0x8a, 255), 1);
+  if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) {   // medalla: derrotó a Arceus (modo rápido)
+    r_->draw_medal(214, 226, 7);
+    r_->text("¡Derrotó a Arceus!", 228, 220, 0.38f, C_GOLD, 0);
+  }
 }
 
 // ---------------- colección: sus ataques ----------------
@@ -1992,6 +2032,10 @@ void App::draw_top(float eye) {
         draw_mon(dex, sh, 200, 204, 3);
         r_->text(cur_ == MODE_QUICK ? "20:00" : "30:00", 200, 18, 1.0f, cur_ == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_GOLD, 1);
         r_->text(cur_ == MODE_QUICK ? "Modo rápido" : "Modo normal", 200, 58, 0.5f, C_TEXT, 1);
+        if (cur_ == MODE_QUICK) {   // (aquí Arceus se puede derrotar: con su medalla)
+          r_->draw_medal(118, 92, 8);
+          r_->text("¡Arceus se puede derrotar!", 210, 84, 0.45f, C_GOLD, 1);
+        } else r_->text("Arceus es invencible: aguanta todo lo que puedas", 200, 84, 0.38f, C_MUTED, 1);
         break;
       }
       case SC_MENU: {
@@ -2004,6 +2048,8 @@ void App::draw_top(float eye) {
         // (con la insignia de la cuenta arriba a la izquierda, el nombre más abajo)
         const float ny = cloud3ds::account().on ? 54 : 10;
         r_->text(b, 200, ny, 0.7f, C_TEXT, 1);
+        // Medalla de Arceus de tu compañero, al lado de su nombre.
+        if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) r_->draw_medal(200 + r_->text_width(b, 0.7f) / 2 + 14, ny + 14, 7);
         // Su tipo (o sus dos tipos), como en la Pokédex.
         const Mon* pm = mon_by_dex(dex);
         for (int k = 0; k < 2; ++k) {

@@ -23,6 +23,8 @@ struct Renderer {
   int orb_sel = 0;               // la esfera elegida (A)
   // Una esfera (procedural: bola de su color, sombra y brillo).
   void draw_orb(int id, float cx, float cy, float r, float alpha = 1);
+  // Medalla de Arceus (derrotado en el modo rápido): cinta y disco dorado con su rueda.
+  void draw_medal(float cx, float cy, float s);
   C2D_TextBuf tbuf = nullptr;
   C2D_Font font = nullptr;        // Pixelify (celda de 20 px): textos grandes, a 1× o 2×
   C2D_Font font_small = nullptr;  // Tiny5 (celda de 10 px): textos pequeños, a 1×

@@ -10,6 +10,11 @@
 //      más de daño que el anterior (antes el doble: no había forma de tumbarlos).
 //      El primero, según el daño que hacías a UN enemigo.
 //   (Del 23-10 no se porta, por ahora: el minuto 35 que rompe los objetos.)
+//   5. Modo rápido (del port, 2026-10-29): acuden sólo kQuickLegends legendarios.
+//      Tumbados todos, Arceus BAJA LA GUARDIA: tiene vida de verdad (ARCEUS_HP veces
+//      la del primer legendario), recibe el daño entero y se enfurece (ataca más a
+//      menudo y corre más). Si cae, la partida acaba en victoria (medalla y premio).
+//      En el modo normal todo sigue como en la web: invencible.
 #include <cmath>
 #include <initializer_list>
 #include <cstdio>
@@ -33,6 +38,10 @@ constexpr float T_TITLE = 1.3f, T_FLASH = 4.7f, T_PORT = 5.1f, T_DESC = 5.7f, T_
 constexpr uint32_t GOLD = 0xffd25e;
 constexpr float TS = kTS;
 constexpr float HP_GROW = 1.25f, DMG_GROW = 1.15f;   // cada legendario, respecto al anterior
+// Modo rápido: vida de Arceus con la guardia baja (× la del primer legendario) y
+// cuánto se enfurece. Ajustado con partidas del bot (tests/test_judgment.cpp).
+constexpr float ARCEUS_HP = 40;
+constexpr float RAGE_CD = 0.65f, RAGE_SPD = 1.15f;
 enum { JC_RAIN, JC_CROSS, JC_NOVA };
 
 void sample_dps(Game& g, float dt) {
@@ -144,9 +153,14 @@ void fight(Game& g) {
   const float floor_ = (3200 + t * 9) * 0.35f * coop_scale_hp(g.team_size());
   j.base = std::fmax(floor_, single_dps(g) * 3);
   j.dealt = 0;
-  char b[96];
-  std::snprintf(b, sizeof(b), "¡Arceus lleva la %s! Ahora es de tipo %s", plate_name(j.plate), kTypeName[j.plate]);
-  g.say(b, 4);
+  j.can_win = g.cfg.mode == MODE_QUICK;
+  j.open = j.won = false; j.won_t = 0;
+  char b[128];
+  if (j.can_win)
+    std::snprintf(b, sizeof(b), "¡Arceus lleva la %s (tipo %s)! Tumba a sus %d legendarios y bajará la guardia: ¡aquí se le puede derrotar!",
+                  plate_name(j.plate), kTypeName[j.plate], kQuickLegends);
+  else std::snprintf(b, sizeof(b), "¡Arceus lleva la %s! Ahora es de tipo %s", plate_name(j.plate), kTypeName[j.plate]);
+  g.say(b, j.can_win ? 6 : 4);
   // El blanco de Arceus: un enemigo invisible que va siempre donde está él.
   // Así los ataques le dan como a cualquiera. No se mueve solo, no hace daño al
   // tocarle y no cae nunca (enemy.cpp).
@@ -233,7 +247,7 @@ void cast_tick(Game& g, float dt, Player* tg) {
   }
   if (j.act >= j.awind + 0.35f) {
     j.acast = -1;
-    j.acd = std::fmax(1.4f, 3.2f - j.arena_t * 0.025f);
+    j.acd = std::fmax(1.4f, 3.2f - j.arena_t * 0.025f) * (j.open ? RAGE_CD : 1.0f);
   }
 }
 
@@ -244,7 +258,7 @@ void arceus_tick(Game& g, float dt) {
   if (!tg) { j.aanim.loop(A_IDLE); return; }
   // Más lento que tú al principio; a los ~35 s ya te alcanza.
   const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) + std::fmax(0.0f, j.arena_t - 300) * 0.0015f;
-  const float spd = std::fmax(70.0f, player_spd(g, *tg) * k);
+  const float spd = std::fmax(70.0f, player_spd(g, *tg) * k) * (j.open ? RAGE_SPD : 1.0f);
   float dx, dy;
   norm(tg->x - j.ax, tg->y - j.ay, dx, dy);
   j.ax += dx * spd * dt; j.ay += dy * spd * dt;
@@ -296,6 +310,7 @@ bool is_one_of(const Mon& m, std::initializer_list<int> ts) {
 
 void spawn_boss(Game& g) {
   Game::JudgmentState& j = g.judg;
+  if (j.can_win && j.boss_n >= kQuickLegends) return;   // (modo rápido: sólo esos)
   const int dex = j.q[j.boss_n % j.nq];
   const Mon* mon = mon_by_dex(dex);
   if (!mon) return;
@@ -341,8 +356,30 @@ void judgment_reset(Game& g) { g.judg = Game::JudgmentState(); }
 
 // Daño a Arceus: recibe el 5 % de lo que le hacéis, y cada vez menos (el 1 % a
 // los 10 min de Sentencia), como en la web.
-float judgment_dmg_k(const Game& g) { return 0.05f / (1 + g.judg.arena_t / 150); }
-void judgment_hit_arceus(Game& g, float d) { if (g.judg.phase == 2) g.judg.dealt += d; }
+float judgment_dmg_k(const Game& g) { return g.judg.open ? 1.0f : 0.05f / (1 + g.judg.arena_t / 150); }
+void judgment_hit_arceus(Game& g, float d) {
+  Game::JudgmentState& j = g.judg;
+  if (j.phase != 2 || j.won) return;
+  j.dealt += d;
+  if (!j.open) return;
+  j.ahp -= d;
+  if (j.ahp > 0) return;
+  // ¡Derrotado! Se para todo y, en unos segundos, la partida acaba en victoria.
+  j.ahp = 0; j.won = true; j.won_t = 0;
+  g.pending_levels = 0;   // (que ninguna carta de nivel tape la victoria)
+  j.acast = -1;
+  j.aanim.play(A_FAINT, 0.6f);
+  g.hazards.clear();
+  g.projectiles.clear();
+  for (int i = g.enemies.n - 1; i >= 0; --i) if (!g.enemies[i].arceus) g.enemies.remove_ordered(i);
+  g.flash(0xffffff, 1.0f);
+  g.camera.kick(1.2f);
+  for (int i = 0; i < 5; ++i) g.fx.ring(j.ax, j.ay, 10 + i * 24.0f, 300 + i * 160.0f, i % 2 ? 0xfff3c8 : GOLD, 0.6f + i * 0.3f, 8.0f - i);
+  g.fx.burst(j.ax, j.ay - 30, GOLD, 80, 420);
+  g.fx.burst(j.ax, j.ay - 20, 0xffffff, 40, 300);
+  g.sfx(SFX_LEGEND);
+  g.say("¡HAS DERROTADO A ARCEUS!", 5);
+}
 
 const char* plate_name(int type) {
   static const char* const N[T_COUNT] = {"Tabla Normal", "Tabla Llama", "Tabla Linfa", "Tabla Pradal", "Tabla Trueno", "Tabla Helada",
@@ -412,10 +449,26 @@ void judgment_update(Game& g, float dt) {
     return;
   }
   if (j.phase != 2) return;
+  if (j.won) {   // (victoria: Arceus cae; a los 4 s, el resumen)
+    j.won_t += dt;
+    j.aanim.update(dt);
+    if (j.won_t >= 4) { extern void game_end_run(Game & g, bool dead); g.judg.won = true; game_end_run(g, false); }
+    return;
+  }
   j.arena_t += dt;
   j.touch_cd -= dt; j.spin += dt;
   j.shielded = false;
   for (const Enemy& e : g.enemies) if (e.boss && !e.dead && !e.arceus) { j.shielded = true; break; }
+  // Modo rápido: tumbados todos sus legendarios, Arceus baja la guardia.
+  if (j.can_win && !j.open && j.boss_n >= kQuickLegends && !j.shielded) {
+    j.open = true;
+    j.ahp_max = j.ahp = j.base * ARCEUS_HP;
+    g.flash(0xfff3c8, 0.6f);
+    g.camera.kick(0.8f);
+    for (int i = 0; i < 3; ++i) g.fx.ring(j.ax, j.ay, j.ar, 300 + i * 200.0f, i % 2 ? 0xfff3c8 : GOLD, 0.7f + i * 0.2f, 6.0f - i);
+    g.sfx(SFX_TOLL);
+    g.say("¡Arceus baja la guardia! Ahora sí le haces daño… y está furioso", 4);
+  }
   arceus_tick(g, dt);
   keep_inside(g);
   j.boss_t -= dt;

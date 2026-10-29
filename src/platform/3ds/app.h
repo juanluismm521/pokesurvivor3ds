@@ -46,6 +46,8 @@ class App {
   void start_gacha_demo();
   void start_rooms_demo();
   void start_menu_demo();
+  void start_mode_demo(bool medal);
+  int mode_demo_ = 0;
   void in_mode(const UiIn& in);
   void in_roomset(const UiIn& in);
   void bottom_roomset();
@@ -272,6 +274,8 @@ class App {
   bool auto_bond = false;
   bool auto_hold_over = false;
   int auto_mode = 0;            // autotest "… rapido": modo rápido
+  bool auto_win = false;        // autotest "ganar": Sentencia rápida acelerada (capturas de la victoria)
+  bool auto_win_cut_ = false;
   bool auto_orbs = false;       // autotest "esferas": una de cada al empezar
   bool auto_orbs_given_ = false;
   void over_tab_next();         // (autotest: como pulsar R en el resumen)  // autotest "fin": no vuelve a empezar al acabar (se ve el resumen)    // autotest "vinculo": te da un vínculo y deja marcado el primero (captura)

@@ -5,6 +5,20 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.16.0 — 2026-10-29
+- **En el modo rápido, Arceus se puede derrotar.** Acuden sólo 8 legendarios
+  (arriba pone «LEGENDARIOS x/8»); tumbados todos, Arceus **baja la guardia**: sale su
+  barra de vida, recibe el daño entero… y se enfurece (ataca más a menudo y corre
+  más). Es difícil: tiene mucha vida y, si tardas, su toque acaba siendo mortal.
+- **Si le ganas**: «¡HAS DERROTADO A ARCEUS!», la partida acaba en victoria y te da
+  2500 Pokémonedas y 3 tickets ×10.
+- **Medalla de Arceus** para el Pokémon que lo consiga: en su casilla y su ficha de la
+  Colección, junto a su nombre en el menú principal y en tus estadísticas.
+- La pantalla de modo y la lista de salas avisan de que en el rápido se puede ganar.
+- **El modo normal sigue igual**: Arceus es invencible.
+- Novedades con su título: «¡Derrota a Arceus!».
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.15.0 — 2026-10-27
 - **La Luminosfera ahora lleva a un tesoro**: al usarla brilla un tesoro escondido a
   cierta distancia; una flecha dorada («TESORO · 25 m») y un punto en el minimapa te

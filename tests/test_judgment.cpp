@@ -8,6 +8,8 @@
 #include "core/game.h"
 #include "core/bot.h"
 #include "core/lockstep.h"
+#include "core/save.h"
+#include "core/save_io.h"
 
 using namespace ps;
 
@@ -150,4 +152,65 @@ TEST_CASE("modo rápido: la Sentencia a los 20 minutos (y el modo va con la sala
   RunConfig d;
   REQUIRE(net::read_config(buf, len, d));
   CHECK(d.mode == MODE_QUICK);
+}
+
+TEST_CASE("modo rápido: 8 legendarios, Arceus baja la guardia y se le puede derrotar (medalla y premio)") {
+  std::unique_ptr<Save> sv(new Save());
+  std::unique_ptr<Game> g(new Game());
+  g->debug_immortal = true;
+  RunConfig c; c.dex = 6; c.seed = 21; c.judged = 1; c.demo_time = 1195; c.mode = MODE_QUICK;
+  g->start_run(c);
+  g->save = sv.get();
+  g->now_ms = 123456;
+  Bot bot; bot.init(5);
+  for (int i = 0; i < 60 * 40 && g->judg.phase != 2; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  REQUIRE(g->judg.phase == 2);
+  CHECK(g->judg.can_win);
+  // Acuden sólo 8 (aunque pase el tiempo) y mientras queden, no baja la guardia.
+  for (int i = 0; i < 60 * 60; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  CHECK(g->judg.boss_n == kQuickLegends);
+  // Tumbados todos: baja la guardia, con vida de verdad.
+  for (Enemy& e : g->enemies) if (e.boss && !e.arceus) { e.hp = 1; enemy_hurt(*g, e, 99999, 0xffffff); }
+  for (int i = 0; i < 600 && !g->judg.open; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  REQUIRE(g->judg.open);
+  CHECK(g->judg.ahp_max > g->judg.base * 30);
+  CHECK(judgment_dmg_k(*g) == 1.0f);   // (ahora recibe el daño entero)
+  Enemy* a = nullptr;
+  for (Enemy& e : g->enemies) if (e.arceus) a = &e;
+  REQUIRE(a);
+  const float hp0 = g->judg.ahp;
+  enemy_hurt(*g, *a, 1000, 0xffffff);
+  CHECK(g->judg.ahp == doctest::Approx(hp0 - 1000));
+  // El golpe final: cae y, a los 4 s, victoria.
+  g->judg.ahp = 10;
+  enemy_hurt(*g, *a, 50, 0xffffff);
+  CHECK(g->judg.won);
+  for (int i = 0; i < 60 * 30 && g->state != ST_OVER; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  REQUIRE(g->state == ST_OVER);
+  CHECK(g->summary.victory);
+  CHECK(!g->summary.dead);
+  CHECK(g->summary.win_t10 == kWinT10);
+  CHECK(sv->arceus_win[6] == 123456);
+  CHECK(sv->arceus_medals() == 1);
+  // La medalla se guarda y viaja por la nube sin perderse.
+  Save b;
+  REQUIRE(save_from_json(b, save_to_json(*sv)));
+  CHECK(b.arceus_win[6] == 123456);
+}
+
+TEST_CASE("modo normal: Arceus sigue invencible (legendarios sin fin, sin guardia baja)") {
+  std::unique_ptr<Game> g(new Game());
+  g->debug_immortal = true;
+  RunConfig c; c.dex = 6; c.seed = 21; c.judged = 1; c.demo_time = 1795;
+  g->start_run(c);
+  Bot bot; bot.init(5);
+  for (int i = 0; i < 60 * 40 && g->judg.phase != 2; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  REQUIRE(g->judg.phase == 2);
+  CHECK_FALSE(g->judg.can_win);
+  for (int i = 0; i < 60 * 70; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  for (Enemy& e : g->enemies) if (e.boss && !e.arceus) enemy_hurt(*g, e, 1e9f, 0xffffff);
+  for (int i = 0; i < 30; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+  CHECK(g->judg.boss_n > kQuickLegends);
+  CHECK_FALSE(g->judg.open);
+  CHECK(judgment_dmg_k(*g) < 0.06f);
 }

@@ -75,6 +75,8 @@ struct Autotest {
   float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
   bool menu = false;          // "menu": el menú principal un minuto (con lo que haga al encender)
+  int mode_demo = 0;          // "modo" / "medalla": capturas de la elección de modo y de la medalla
+  bool win = false;           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
   bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
@@ -108,6 +110,8 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "gacha100")) a.gacha100 = true;
   else if (!std::strcmp(first, "salas")) a.rooms = true;
   else if (!std::strcmp(first, "menu")) a.menu = true;
+  else if (!std::strcmp(first, "modo")) a.mode_demo = 1;
+  else if (!std::strcmp(first, "medalla")) a.mode_demo = 2;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
@@ -143,6 +147,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else if (!std::strcmp(w, "rapido")) a.quick = true;
+      else if (!std::strcmp(w, "ganar")) a.win = true;
       else if (!std::strcmp(w, "arranque")) a.boot = true;
       else return false;
       return true;
@@ -269,6 +274,7 @@ int main(int argc, char** argv) {
   if (at.gacha100) { app.start_gacha_demo(); at.on = false; }
   if (at.rooms) { app.start_rooms_demo(); at.on = false; }
   if (at.menu) { app.start_menu_demo(); at.on = false; }
+  if (at.mode_demo) { app.start_mode_demo(at.mode_demo == 2); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
@@ -466,6 +472,7 @@ int main(int argc, char** argv) {
     app.auto_hold_over = at.end_screen;
     app.auto_orbs = at.orbs;
     app.auto_mode = at.quick ? 1 : 0;
+    app.auto_win = at.win;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;

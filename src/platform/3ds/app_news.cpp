@@ -32,6 +32,11 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.16 · ¡Derrota a Arceus!", 0, nullptr, nullptr},
+    {nullptr, NI_STAR, "Arceus cae en el modo rápido",
+     "Sólo en el modo Rápido: tumba a sus 8 legendarios y Arceus baja la guardia. Tiene mucha vida y se enfurece, pero si lo derrotas, la partida acaba en victoria."},
+    {nullptr, NI_COIN, "Premio y Medalla de Arceus",
+     "Ganar da 2500 Pokémonedas y 3 tickets ×10. Tu Pokémon luce la medalla en la Colección y junto a su nombre en el menú. El modo Normal sigue igual."},
     {"Versión 0.15 · ¡Esferas y tesoros!", 0, nullptr, nullptr},
     {nullptr, NI_ORB, "Esferas de Mundo Misterioso",
      "Salen en cofres, jefes y a veces al derrotar a un Pokémon. A usa la elegida, B cambia (o tócala abajo): duermen, frenan o empujan a los enemigos, o te dan crítico o velocidad."},
@@ -112,7 +117,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.15";
+constexpr const char* kNewsVersion = "0.16";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

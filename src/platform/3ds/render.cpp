@@ -327,6 +327,21 @@ void Renderer::draw_orb(int id, float cx, float cy, float r, float alpha) {
   C2D_DrawCircleSolid(cx - r * 0.35f, cy - r * 0.38f, 0, r * 0.28f, C2D_Color32(255, 255, 255, uint8_t(220 * alpha)));
 }
 
+void Renderer::draw_medal(float cx, float cy, float s) {
+  // Cinta (dos tiras) y el disco: borde oscuro, oro, brillo y la rueda de Arceus.
+  const u32 ra = rgb(0x3d6bd6), rb = rgb(0xd6453d);
+  C2D_DrawTriangle(cx - s * 0.55f, cy - s * 1.25f, ra, cx - s * 0.05f, cy - s * 1.25f, ra, cx - s * 0.1f, cy - s * 0.2f, ra, 0);
+  C2D_DrawTriangle(cx + s * 0.55f, cy - s * 1.25f, rb, cx + s * 0.05f, cy - s * 1.25f, rb, cx + s * 0.1f, cy - s * 0.2f, rb, 0);
+  C2D_DrawCircleSolid(cx, cy, 0, s + 1, C2D_Color32(60, 40, 0, 255));
+  C2D_DrawCircleSolid(cx, cy, 0, s, rgb(0xd9a520));
+  C2D_DrawCircleSolid(cx - s * 0.08f, cy - s * 0.08f, 0, s * 0.78f, rgb(0xffd25e));
+  for (int k = 0; k < 8; ++k) {
+    const float a = k * kTau / 8;
+    C2D_DrawCircleSolid(cx + std::cos(a) * s * 0.5f, cy + std::sin(a) * s * 0.5f, 0, std::fmax(0.6f, s * 0.12f), rgb(0xb07a10));
+  }
+  C2D_DrawCircleSolid(cx - s * 0.3f, cy - s * 0.35f, 0, std::fmax(0.6f, s * 0.16f), C2D_Color32(255, 255, 255, 220));
+}
+
 // ---------------- fin de la partida: resumen de ataques (arriba) ----------------
 
 void Renderer::draw_over_summary(Game& g, int pi) {
@@ -1056,9 +1071,16 @@ void Renderer::draw_top(Game& g, float eye) {
     if (boss) {
       bar(80, 6, 240, 7, boss->hp / boss->max_hp, rgb(0xffcb3d));
       text(mon_by_dex(boss->dex)->name, 200, 4, 0.36f, C2D_Color32(32, 22, 10, 255), 1, false);
+    } else if (g.judg.phase == 2 && g.judg.open && g.judg.ahp_max > 0) {
+      // Modo rápido, con la guardia baja: la vida de Arceus (del color de su Tabla).
+      const float k = clamp(g.judg.ahp / g.judg.ahp_max, 0.0f, 1.0f);
+      C2D_DrawRectSolid(48, 3, 0, 304, 13, C2D_Color32(20, 14, 4, 220));
+      C2D_DrawRectSolid(50, 5, 0, 300 * k, 9, rgb(kTypeColor[g.judg.plate]));
+      C2D_DrawRectSolid(50, 5, 0, 300 * k, 3, C2D_Color32(255, 255, 255, 70));
+      text(g.judg.won ? "ARCEUS · ¡DERROTADO!" : "ARCEUS", 200, 4, 0.36f, rgb(0xfff3c8), 1, true);
     }
     char b[96];
-    float info_y = boss ? 16 : 6;
+    float info_y = boss ? 16 : (g.judg.phase == 2 && g.judg.open && g.judg.ahp_max > 0) ? 19 : 6;
     if (g.rift.arena) {
       char t[16]; mmss(rift_time_left(g), t, sizeof(t));
       std::snprintf(b, sizeof(b), "GRIETA · %s", t);
@@ -1074,8 +1096,14 @@ void Renderer::draw_top(Game& g, float eye) {
       char t[16]; mmss(g.judg.arena_t, t, sizeof(t));
       std::snprintf(b, sizeof(b), "SENTENCIA · %s · JEFES %d", t, g.judg.downs);
       text(b, 200, info_y, 0.4f, rgb(0xffd25e), 1); info_y += 12;
-      // Su Tabla (tipo) y el daño que le lleváis.
-      std::snprintf(b, sizeof(b), "%s (%s) · DAÑO A ARCEUS %d%s", plate_name(g.judg.plate), kTypeName[g.judg.plate], int(jsround(float(g.judg.dealt))),
+      // Su Tabla (tipo) y el daño que le lleváis (modo rápido: legendarios que quedan).
+      if (g.judg.can_win && !g.judg.open)
+        std::snprintf(b, sizeof(b), "%s (%s) · LEGENDARIOS %d/%d: túmbalos y bajará la guardia", plate_name(g.judg.plate), kTypeName[g.judg.plate],
+                      g.judg.downs, kQuickLegends);
+      else if (g.judg.open)
+        std::snprintf(b, sizeof(b), "%s (%s) · ¡GUARDIA BAJA! Vida %d / %d", plate_name(g.judg.plate), kTypeName[g.judg.plate],
+                      int(jsround(g.judg.ahp)), int(jsround(g.judg.ahp_max)));
+      else std::snprintf(b, sizeof(b), "%s (%s) · DAÑO A ARCEUS %d%s", plate_name(g.judg.plate), kTypeName[g.judg.plate], int(jsround(float(g.judg.dealt))),
                     g.judg.shielded ? " · le protegen" : "");
       text_fit(b, 200, info_y, 380, 0.34f, rgb(kTypeColor[g.judg.plate]), true, 1);
     }
@@ -1354,7 +1382,13 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text("START: seguir · SELECT: abandonar la partida", 160, 224, 0.34f, rgb(0xeaf2ff), 1);
   } else if (g.state == ST_OVER) {
     const RunSummary& s = g.summary;
-    text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);
+    if (s.victory) {
+      // ¡Arceus derrotado! (modo rápido): título, medalla y premio.
+      const float pulse = 0.75f + 0.25f * std::sin(float(g.time) * 4);
+      text("¡HAS DERROTADO A ARCEUS!", 160, 70, 0.55f, rgbf(0xffd25e, pulse), 1);
+      draw_medal(30, 84, 10);
+      draw_medal(290, 84, 10);
+    } else text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);
     mmss(s.time, t, sizeof(t));
     std::snprintf(b, sizeof(b), "Tiempo %s · Nivel %d · %d derrotados · %d jefes", t, s.level, s.kills, s.bosses);
     text_fit(b, 160, 100, 304, 0.38f, rgb(0xeaf2ff), false, 1);
@@ -1367,7 +1401,10 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       std::snprintf(b, sizeof(b), "Ante Arceus: %s · %d legendarios · daño %d", t, s.judge_bosses, int(jsround(float(s.judge_dmg))));
       text_fit(b, 160, 152, 304, 0.36f, rgb(0xffd25e), false, 1);
     }
-    if (s.record) text("¡Nuevo récord de tiempo!", 160, 168, 0.42f, rgb(0x5fe08a), 1);
+    if (s.victory) {
+      std::snprintf(b, sizeof(b), "Premio: +%d Pokémonedas · +%d tickets ×10 · Medalla de Arceus", s.win_coins, s.win_t10);
+      text_fit(b, 160, 168, 304, 0.36f, rgb(0x5fe08a), true, 1);
+    } else if (s.record) text("¡Nuevo récord de tiempo!", 160, 168, 0.42f, rgb(0x5fe08a), 1);
     if (s.ncaught) {
       char sh[96] = "Shinies:";
       for (int i = 0; i < s.ncaught && i < 4; ++i) {

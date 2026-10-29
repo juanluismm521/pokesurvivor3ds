@@ -201,6 +201,9 @@ std::string save_to_json(const Save& s) {
   Json pm2 = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) if (s.pmove2[d] >= 0 && s.pmove2[d] < kMoveCount) pm2.set(num_key(d), Json::str(kMoves[s.pmove2[d]].id));
   if (pm2.size()) o.set("pmove2", std::move(pm2));
+  Json aw = Json::object();
+  for (int d = 0; d <= kMaxDex; ++d) if (s.arceus_win[d] > 0) aw.set(num_key(d), Json::num(double(s.arceus_win[d])));
+  if (aw.size()) o.set("arceusWin", std::move(aw));
   return o.dump();
 }
 
@@ -295,6 +298,10 @@ bool save_from_json(Save& s, const std::string& text) {
   for (const auto& kv : o["pused"].items()) {
     const int d = std::atoi(kv.first.c_str());
     if (d >= 0 && d <= kMaxDex) s.pused[d] = n0(kv.second);
+  }
+  for (const auto& kv : o["arceusWin"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d >= 0 && d <= kMaxDex && kv.second.is_num() && kv.second.as_num() > 0) s.arceus_win[d] = int64_t(kv.second.as_num());
   }
   for (const auto& kv : o["pmove2"].items()) {
     const int d = std::atoi(kv.first.c_str());

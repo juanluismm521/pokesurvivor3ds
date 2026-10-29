@@ -78,6 +78,13 @@ void save_end_run(Game& g) {
   s.stats.best_level = std::max(s.stats.best_level, int32_t(pl.level));
   s.stats.coins_earned += r.coins;
   if (r.judge_time >= 0) progress_event(g, EV_JUDGEEND, r.judge_bosses, 0, r.judge_time);
+  // Medalla de Arceus (modo rápido): para el Pokémon con el que le has ganado (en
+  // grupo, cada consola la suya) y su premio de tickets ×10.
+  if (r.victory) {
+    const int dex = g.players[g.local].dex;
+    if (dex >= 1 && dex <= kMaxDex && s.arceus_win[dex] <= 0) s.arceus_win[dex] = g.now_ms > 0 ? g.now_ms : 1;
+    s.t10 += r.win_t10;
+  }
   progress_event(g, EV_RUNEND, pl.level, pl.coins, float(g.time));
   g.dirty = true;
 }
