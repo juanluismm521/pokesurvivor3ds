@@ -134,6 +134,8 @@ def publicar(repo=ROOT, notas=''):
         tocar = any(p.startswith(('assets-src/', 'tools/gen_', 'tools/build_assets', 'reference/web/')) for p in cambios.split())
     # Las librerías de Node de tools/ (no van en git): las del repo de trabajo o npm.
     nm = os.path.join(repo, 'tools', 'node_modules')
+    if os.path.islink(nm) and not os.path.exists(nm):
+        os.unlink(nm)   # (enlace roto: p. ej. a la ruta vieja del repo, antes de moverlo)
     if not os.path.exists(nm):
         if repo != ROOT and os.path.isdir(os.path.join(ROOT, 'tools', 'node_modules')):
             os.symlink(os.path.join(ROOT, 'tools', 'node_modules'), nm)
