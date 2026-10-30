@@ -25,6 +25,9 @@ EN = {
     'Sprites': 'Sprites',
     'Sprites de las megaevoluciones': 'Mega Evolution sprites',
     'Datos': 'Data',
+    'Disfraces de Halloween': 'Halloween costumes',
+    'Los disfraces de bruja (Gengar, Pikachu, Umbreon y el sombrero de Kecleon) vienen de PokéSurvivor (JPTER78): pintados con tools/make_skins.py de la web sobre los sprites de SpriteCollab (CC BY-NC 4.0).':
+        'The witch costumes (Gengar, Pikachu, Umbreon and Kecleon\'s hat) come from PokéSurvivor (JPTER78): painted with the website\'s tools/make_skins.py over the SpriteCollab sprites (CC BY-NC 4.0).',
     'Fuente': 'Font',
     'Bibliotecas (3DS)': 'Libraries (3DS)',
     'Marca': 'Trademark',

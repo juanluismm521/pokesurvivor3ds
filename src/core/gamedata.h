@@ -85,6 +85,21 @@ extern const MegaDef kMegas[];
 extern const int kMegaCount;
 extern const SpriteMeta kMegaSpriteMeta[];      // mismo orden que kMegas (n = 0 si no tiene)
 
+// ---------------- disfraces de Halloween (del port; skins.js de la web) ----------------
+// De assets-src/skins/skins.json (tools/fetch_skins.py): sombrero y capa de bruja
+// pintados en las hojas del Pokémon, con número de sprite propio (kSkinSpriteBase + i).
+struct SkinDef {
+  const char* id;      // «bruja-gengar»… (como en la web: save.skins / save.pskin)
+  const char* name;    // «Gengar bruja»
+  int16_t dex;         // de qué Pokémon es
+  int16_t sprite;      // su número de sprite
+  bool sell;           // se vende en la Tienda Kecleon (el sombrero de Kecleon, no)
+};
+constexpr int kSkinSpriteBase = 3900;
+extern const SkinDef kSkins[];
+extern const int kSkinCount;
+extern const SpriteMeta kSkinSpriteMeta[];      // mismo orden que kSkins
+
 // ---------------- movimientos ----------------
 enum Kind : int8_t {
   K_PROJECTILE, K_MELEE, K_BEAM, K_ORBIT, K_NOVA, K_AURA, K_BOOMERANG, K_CHAIN,
@@ -216,6 +231,7 @@ extern const Biome kBiomes[];
 extern const int kBiomeCount;
 constexpr int kNormalBiomes = 3;       // los que se turnan en una run
 constexpr int kArenaBiome0 = 3;        // a partir de aquí, las arenas
+extern const int kBiomeHw;             // Halloween: los 3 de noche (los últimos; runBiome de tiles.js)
 
 enum WeatherKind : int8_t { WX_NONE = -1, WX_SUN, WX_RAIN, WX_SAND, WX_SNOW, WX_FOG, WX_COUNT };
 struct ArenaTheme {

@@ -22,6 +22,7 @@ const PropDef kPropDef[PR_COUNT] = {
   {false, INF, 22, true},    // spring
   {true, INF, 14, false},    // bigchest
   {false, INF, 9, true},     // trap
+  {true, 26, 11, false},     // pumpkin (Halloween)
 };
 inline double H(int32_t x, int32_t y, int32_t s) { return hash(x, y, s); }
 inline uint64_t tkey(int32_t tx, int32_t ty) { return (uint64_t(uint32_t(tx)) << 32) | uint32_t(ty); }
@@ -40,6 +41,14 @@ void World::reset(int32_t s) {
   fade_t_ = -1;
   arena_ = ArenaInfo();
   biome_gen_++;
+}
+
+void World::set_halloween(bool on) {
+  if (on == halloween_) return;
+  halloween_ = on;
+  for (auto& c : cache_) c.valid = false;   // (sus props se vuelven a colocar)
+  last_ = nullptr;
+  terrain_gen_++;
 }
 
 void World::set_biome(int i, bool instant) {
@@ -244,7 +253,9 @@ void World::place_props(Chunk& c) {
     for (int i = 0; i < kChunkTiles; ++i) {
       if (c.terr[j * kChunkTiles + i] != TR_FLOOR) continue;
       const int32_t tx = c.cx * kChunkTiles + i, ty = c.cy * kChunkTiles + j;
-      if (std::hypot(double(tx), double(ty)) < 7) continue;
+      // (Halloween, en el fondo del menú: también calabazas en el claro del centro, que es donde mira la cámara)
+      const bool menu_hw = halloween_ && seed_ == kMenuSeed;
+      if (std::hypot(double(tx), double(ty)) < 7 && !menu_hw) continue;
       if (is_broken(tx, ty)) continue;
 
       // Necesita suelo alrededor para no pegarse a paredes / agua.
@@ -252,6 +263,10 @@ void World::place_props(Chunk& c) {
       for (int b = -1; b <= 1 && open; ++b)
         for (int a = -1; a <= 1; ++a)
           if (ring[(j + b + 1) * R + (i + a + 1)] != TR_FLOOR) { open = false; break; }
+      if (std::hypot(double(tx), double(ty)) < 7) {   // (sólo llega aquí el menú de Halloween)
+        if (open && H(tx, ty, seed_ + 404) > 0.96) make_prop(c, PR_PUMPKIN, tx, ty);
+        continue;
+      }
 
       // Dentro de la arena: la decoración de su tipo (y nada en el pasillo).
       const double ad = arena_dist(tx, ty);
@@ -279,6 +294,8 @@ void World::place_props(Chunk& c) {
       if (type >= 0) { /* ya elegido */ }
       else if (open && h < (grove ? 0.07 : 0.006)) type = PR_TREE;
       else if (open && h > 0.992) type = PR_ROCK;
+      // Halloween: calabazas por todo el mapa (mismo sitio para todos: va con la semilla).
+      else if (open && halloween_ && h > (menu_hw ? 0.955 : 0.972) && h <= 0.985) type = PR_PUMPKIN;
       else if (open && h > 0.985 && h <= 0.992 && H(tx, ty, seed_ + 606) < 0.07) type = PR_CHEST;
       else if (fbm(tx / 5.0, ty / 5.0, seed_ + 707) > 0.66 && H(tx, ty, seed_ + 808) < 0.75) type = PR_GRASS;
       if (type < 0) continue;
@@ -347,7 +364,7 @@ int World::specials_near(float x, float y, float r, Prop** out, int max) {
   int n = 0;
   for_props_in_rect(x - r, y - r, x + r, y + r, [&](Prop& p) {
     if (n >= max) return;
-    if (p.type < PR_ALTAR) return;   // altar, spring, bigchest, trap
+    if (p.type < PR_ALTAR || p.type > PR_TRAP) return;   // altar, spring, bigchest, trap
     if (dist2(x, y, p.x, p.y) <= (r + p.r) * (r + p.r)) out[n++] = &p;
   });
   return n;

@@ -52,6 +52,8 @@ void shutdown();
 bool soc_up();
 // GET por HTTPS (para los paquetes de datos; se puede llamar desde otro hilo).
 bool http_get(const std::string& url, std::string& body, int& status, std::string& err);
+// La hora UTC del servidor (ms), si alguna respuesta la ha traído (cabecera Date).
+bool server_now_ms(int64_t& out);
 // Descarga grande a un archivo (para las versiones nuevas del juego): escribe en
 // `path`.tmp y, si llega entera (tamaño `expect` y huella `hash`), la pasa a
 // `path`. `pct` (0-100) para enseñar el avance; `cancel` la corta.

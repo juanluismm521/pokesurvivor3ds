@@ -1,4 +1,7 @@
-// levelup.cpp — las tres cartas de subida de nivel (levelup.js de la web).
+// levelup.cpp — las cartas de subida de nivel (levelup.js de la web).
+// Del port (el dueño, 2026-10-30): con 8 movimientos (dos vínculos) o desde el
+// nivel kFourLevel salen 4 cartas, y al menos 2 son pasivas (estadísticas); desde
+// kMorePassiveLevel, al menos 3 (llega un momento en que ya no caben más movimientos).
 //   new   aprender un movimiento nuevo (sólo si quedan huecos de los 4)
 //   up    mejorar un movimiento que ya tienes
 //   evo   evolucionar un movimiento al máximo con su condición cumplida (dorada)
@@ -106,12 +109,18 @@ int candidates(Game& g, Player& p, Cand* out) {
 }
 }  // namespace
 
-// 3 cartas distintas, elegidas por peso. Si hay una evolución lista, sale siempre.
+bool levelup_four(const Player& p) { return p.nmoves >= kFourMoves || p.level >= kFourLevel; }
+int levelup_min_passive(const Player& p) { return !levelup_four(p) ? 0 : p.level >= kMorePassiveLevel ? 3 : 2; }
+
+// 3 cartas distintas (o 4: levelup_four), elegidas por peso. Si hay una evolución
+// lista, sale siempre. Con 4, primero las pasivas que tocan y luego el resto.
 void levelup_offer(Game& g, Player& p) {
   Cand pool[kMaxMoves + 32];   // movimientos nuevos + mejoras + estadísticas
   int n = candidates(g, p, pool);
   p.ncards = 0;
-  int used[3], nu = 0;
+  const int want = levelup_four(p) ? 4 : 3;
+  int need_stat = levelup_min_passive(p);
+  int used[4], nu = 0;
   for (int i = 0; i < n; ++i) {
     if (pool[i].c.type != CT_EVO) continue;
     p.cards[p.ncards++] = pool[i].c;
@@ -120,12 +129,21 @@ void levelup_offer(Game& g, Player& p) {
     n--;
     break;
   }
-  while (p.ncards < 3 && n) {
+  while (p.ncards < want && n) {
+    // (mientras falten pasivas, sólo entre las pasivas; si no quedan, entre todas)
+    bool only_stat = false;
+    if (need_stat > 0) for (int i = 0; i < n; ++i) if (pool[i].c.type == CT_STAT) { only_stat = true; break; }
     float total = 0;
-    for (int i = 0; i < n; ++i) total += pool[i].c.w;
+    for (int i = 0; i < n; ++i) if (!only_stat || pool[i].c.type == CT_STAT) total += pool[i].c.w;
     float r = g.rng.next() * total;
-    int idx = 0;
-    for (int i = 0; i < n; ++i) { r -= pool[i].c.w; if (r <= 0) { idx = i; break; } }
+    int idx = -1, first = -1;
+    for (int i = 0; i < n; ++i) {
+      if (only_stat && pool[i].c.type != CT_STAT) continue;
+      if (first < 0) first = i;
+      r -= pool[i].c.w;
+      if (r <= 0) { idx = i; break; }
+    }
+    if (idx < 0) idx = first < 0 ? 0 : first;   // (como la web: si el redondeo deja r > 0, el primero)
     const Cand c = pool[idx];
     for (int q = idx; q < n - 1; ++q) pool[q] = pool[q + 1];
     n--;
@@ -134,6 +152,12 @@ void levelup_offer(Game& g, Player& p) {
     if (dup) continue;
     used[nu++] = c.key;
     p.cards[p.ncards++] = c.c;
+    if (c.c.type == CT_STAT && need_stat > 0) need_stat--;
+  }
+  // La primera vez, se explica (sólo a quien juega en esta consola).
+  if (want == 4 && !p.four_told) {
+    p.four_told = true;
+    if (&p == &g.players[g.local]) g.say("¡Ahora eliges entre 4 cartas! Al menos 2 son pasivas: poder, velocidad, defensa, recarga…", 5);
   }
 }
 

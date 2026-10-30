@@ -20,6 +20,8 @@ const u32 C_GOLD = C2D_Color32(0xff, 0xcb, 0x3d, 255);
 const char* const GEN_NAMES[9] = {"Kanto", "Johto", "Hoenn", "Sinnoh", "Teselia", "Kalos", "Alola", "Galar", "Paldea"};
 // Pokémon que pasean por el menú (CAST de game.js).
 const int16_t CAST[20] = {1, 4, 7, 25, 133, 52, 39, 35, 16, 43, 60, 69, 74, 92, 129, 147, 113, 143, 54, 79};
+// Halloween: paseando por la noche, sobre todo Fantasma (game.js de la web).
+const int16_t CAST_HW[20] = {92, 93, 94, 200, 355, 353, 425, 429, 442, 479, 562, 592, 607, 708, 710, 778, 25, 197, 302, 351};
 
 inline int64_t now_ms() { return int64_t(osGetTime()) - 2208988800000LL; }   // (osGetTime cuenta desde 1900)
 

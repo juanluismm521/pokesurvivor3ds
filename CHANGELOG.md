@@ -5,6 +5,29 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.26.0 — 2026-10-30
+- **¡Halloween!** (del 30 de octubre al 2 de noviembre, hora de España, como en
+  pokesurvivor.com):
+  - Mapa de noche: Huerto de Calabazas, Cementerio Embrujado y Bosque Tenebroso, con
+    calabazas encendidas que se rompen (experiencia, monedas y caramelos).
+  - Dos Pokémon Fantasma más en cada tramo de enemigos.
+  - **Caramelos**: los sueltan los Fantasma y las calabazas, al ritmo del tiempo que
+    aguantas, y 60 de golpe al llegar al gran Gengar.
+  - **Tienda Kecleon** (R en el menú): disfraces de bruja para Gengar, Pikachu y
+    Umbreon por 300 caramelos, para siempre. Se ponen y quitan en la tienda o en la
+    Colección (START) y se ven en la partida y en grupo.
+  - **El gran Gengar bruja** en vez de Arceus en la Sentencia («LA NOCHE DE GENGAR»).
+  - Banner **Noche Espectral** en el gacha: los Fantasma de todas las regiones, shiny
+    al 2 %.
+  - Menú de noche con calabazas y Fantasma paseando, cuenta atrás y **música
+    tenebrosa**.
+  - Caramelos y disfraces se sincronizan con pokesurvivor.com.
+- **4 cartas al subir de nivel**: desde el nivel 25 (o con 8 movimientos) eliges
+  entre 4 cartas, y al menos 2 son pasivas (Vigor, Potencia, Carrera, Reflejos,
+  Coraza…); desde el 40, al menos 3.
+- Novedades: «¡Halloween!».
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.25.0 — 2026-10-30
 (Salto de versión a la 0.25, por decisión del dueño.)
 - **Curaesfera**: nuevo objeto utilizable que cura un 30 % de la vida a todo el

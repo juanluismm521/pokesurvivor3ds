@@ -19,6 +19,8 @@
 #include <initializer_list>
 #include <cstdio>
 
+#include "core/halloween.h"
+#include "core/save.h"
 #include "core/game.h"
 
 namespace ps {
@@ -34,6 +36,16 @@ constexpr float TOUCH = 0.4f;
 float touch_pct(float arena_t) { return std::fmin(1.0f, TOUCH + std::fmax(0.0f, arena_t - 420) / 180 * (1 - TOUCH)); }
 constexpr int ARCEUS = 493;
 constexpr float SCALE = 1.5f;
+// Halloween: el gran Gengar bruja (su disfraz, kSkins «bruja-gengar»), el doble de grande.
+constexpr int GENGAR = 94;
+constexpr float GENGAR_SCALE = 3;
+int boss_dex(const Game& g) { return g.judg.gengar ? GENGAR : ARCEUS; }
+float boss_scale(const Game& g) { return g.judg.gengar ? GENGAR_SCALE : SCALE; }
+int boss_sprite(const Game& g) {
+  if (!g.judg.gengar) return ARCEUS;
+  for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].dex == GENGAR) return kSkins[k].sprite;
+  return GENGAR;
+}
 constexpr float T_TITLE = 1.3f, T_FLASH = 4.7f, T_PORT = 5.1f, T_DESC = 5.7f, T_LAND = 7.9f, T_BACK = 9.1f, T_END = 10.1f;
 constexpr uint32_t GOLD = 0xffd25e;
 constexpr float TS = kTS;
@@ -86,10 +98,12 @@ void start(Game& g) {
   for (int i = 0; i < 40; ++i) j.q[i] = pool[int(g.rng.next() * np)];
   j.tx = -6000 - int32_t(std::floor(g.rng.next() * 2000));
   j.ty = -6000 - int32_t(std::floor(g.rng.next() * 2000));
-  // Su Tabla: uno de los 17 tipos (todos menos Normal), al azar.
+  // Su Tabla: uno de los 17 tipos (todos menos Normal), al azar. (El gran Gengar: Fantasma.)
   int types[T_COUNT], nt = 0;
   for (int t = 0; t < T_COUNT; ++t) if (t != T_NORMAL) types[nt++] = t;
   j.plate = int8_t(types[int(g.rng.next() * nt)]);
+  j.gengar = g.hw;
+  if (j.gengar) j.plate = T_GHOST;
   begin(g);
 }
 
@@ -119,9 +133,9 @@ void port(Game& g) {
   g.views_snap();
   j.a_on = true;
   j.ax = j.cx; j.ay = j.cy - TS * 5; j.lift = 900;
-  j.aanim.init(ARCEUS, SCALE);
-  j.ar = body_radius(ARCEUS, SCALE) * 0.9f;
-  j.abody_h = body_height(ARCEUS, SCALE);
+  j.aanim.init(boss_sprite(g), boss_scale(g));
+  j.ar = body_radius(boss_dex(g), boss_scale(g)) * 0.9f;
+  j.abody_h = body_height(boss_dex(g), boss_scale(g));
   j.acd = 2.2f; j.acast = -1; j.touch_cd = 0; j.spin = 0;
   j.aanim.dir = 0;
 }
@@ -155,23 +169,31 @@ void fight(Game& g) {
   j.dealt = 0;
   j.can_win = g.cfg.mode == MODE_QUICK;
   j.open = j.won = false; j.won_t = 0;
-  char b[128];
-  if (j.can_win)
+  char b[160];
+  if (j.gengar && j.can_win)
+    std::snprintf(b, sizeof(b), "¡El gran Gengar te ha arrastrado a su Noche Espectral! Tumba a sus %d legendarios y bajará la guardia: ¡aquí se le puede derrotar!", kQuickLegends);
+  else if (j.gengar) std::snprintf(b, sizeof(b), "¡El gran Gengar te ha arrastrado a su Noche Espectral!");
+  else if (j.can_win)
     std::snprintf(b, sizeof(b), "¡Arceus lleva la %s (tipo %s)! Tumba a sus %d legendarios y bajará la guardia: ¡aquí se le puede derrotar!",
                   plate_name(j.plate), kTypeName[j.plate], kQuickLegends);
   else std::snprintf(b, sizeof(b), "¡Arceus lleva la %s! Ahora es de tipo %s", plate_name(j.plate), kTypeName[j.plate]);
   g.say(b, j.can_win ? 6 : 4);
+  // Halloween: llegar hasta aquí da un buen puñado de caramelos (en grupo, a todos).
+  if (j.gengar) {
+    g.pl().candy += kCandyJudge;
+    if (g.save) { g.save->candy += kCandyJudge; g.save->candy_known = true; g.dirty = true; }
+  }
   // El blanco de Arceus: un enemigo invisible que va siempre donde está él.
   // Así los ataques le dan como a cualquiera. No se mueve solo, no hace daño al
   // tocarle y no cae nunca (enemy.cpp).
   EnemyDef def;
-  def.dex = ARCEUS; def.hp = 1e9f; def.spd = 0; def.dmg = 0; def.xp = 0; def.behavior = BH_CHASE;
+  def.dex = int16_t(boss_dex(g)); def.hp = 1e9f; def.spd = 0; def.dmg = 0; def.xp = 0; def.behavior = BH_CHASE;
   if (Enemy* e = enemy_spawn(g, def, j.ax, j.ay, Scale3(), false)) {
     e->arceus = true; e->judge = true;
     e->types[0] = j.plate; e->types[1] = T_NONE; e->atk_type = j.plate;
-    e->mon = mon_by_dex(ARCEUS);
-    e->r = body_radius(ARCEUS, SCALE) * 0.9f;
-    e->body_h = body_height(ARCEUS, SCALE);
+    e->mon = mon_by_dex(boss_dex(g));
+    e->r = body_radius(boss_dex(g), boss_scale(g)) * 0.9f;
+    e->body_h = body_height(boss_dex(g), boss_scale(g));
     e->flying = true;
   }
 }
@@ -378,7 +400,7 @@ void judgment_hit_arceus(Game& g, float d) {
   g.fx.burst(j.ax, j.ay - 30, GOLD, 80, 420);
   g.fx.burst(j.ax, j.ay - 20, 0xffffff, 40, 300);
   g.sfx(SFX_LEGEND);
-  g.say("¡HAS DERROTADO A ARCEUS!", 5);
+  g.say(j.gengar ? "¡HAS DERROTADO AL GRAN GENGAR!" : "¡HAS DERROTADO A ARCEUS!", 5);
 }
 
 const char* plate_name(int type) {
@@ -467,7 +489,8 @@ void judgment_update(Game& g, float dt) {
     g.camera.kick(0.8f);
     for (int i = 0; i < 3; ++i) g.fx.ring(j.ax, j.ay, j.ar, 300 + i * 200.0f, i % 2 ? 0xfff3c8 : GOLD, 0.7f + i * 0.2f, 6.0f - i);
     g.sfx(SFX_TOLL);
-    g.say("¡Arceus baja la guardia! Ahora sí le haces daño… y está furioso", 4);
+    g.say(j.gengar ? "¡El gran Gengar baja la guardia! Ahora sí le haces daño… y está furioso"
+                   : "¡Arceus baja la guardia! Ahora sí le haces daño… y está furioso", 4);
   }
   arceus_tick(g, dt);
   keep_inside(g);

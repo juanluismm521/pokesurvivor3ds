@@ -35,9 +35,15 @@ int gacha_featured(int gen, int16_t* out);            // los 3 legendarios del c
 // Banner «Todas» (del port, 2026-10-30): gen 0 = todas las regiones juntas (su
 // pity va en pity[0]; su Amuleto Iris, la Pokédex entera).
 constexpr int kGachaAll = 0;
+// Noche Espectral (web, Halloween 25-10-2026): gen 10, los Pokémon Fantasma de todas
+// las regiones, con shiny al 2 % y su propio pity (pity[10]); sin Amuleto Iris. Sólo
+// se puede tirar en Halloween (gacha_open).
+constexpr int kGachaSpooky = 10;
 const BannerDef& gacha_banner(int gen);
-inline int gacha_next(int gen) { return gen == 9 ? kGachaAll : gen == kGachaAll ? 1 : gen + 1; }   // (… Paldea, Todas, Kanto …)
-inline int gacha_prev(int gen) { return gen == 1 ? kGachaAll : gen == kGachaAll ? 9 : gen - 1; }
+bool gacha_open(int gen, bool event_on);
+// Siguiente / anterior: … Paldea, Todas, (Noche Espectral, en Halloween), Kanto …
+int gacha_next(int gen, bool event_on = false);
+int gacha_prev(int gen, bool event_on = false);
 extern int gacha_force_shiny;                        // pruebas: las N próximas salen shiny
 
 // Test de personalidad: puntuaciones por rasgo (en el orden en que se

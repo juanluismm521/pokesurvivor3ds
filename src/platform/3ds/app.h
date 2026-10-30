@@ -21,7 +21,8 @@ enum Scene : int8_t {
   SC_TEST, SC_RESULT, SC_STARTERS, SC_MENU, SC_DEX, SC_UPGRADES, SC_BIND, SC_BAN, SC_START, SC_GACHA, SC_PULL,
   SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE, SC_NEWS, SC_MOVE2,
   SC_MODE,   // Jugar: normal o rápido
-  SC_ROOMSET  // Crear sala: modo y contraseña
+  SC_ROOMSET,  // Crear sala: modo y contraseña
+  SC_SHOP      // Tienda Kecleon (Halloween: disfraces por caramelos)
 };
 
 struct UiIn {
@@ -64,6 +65,15 @@ class App {
   int denied = 0;               // (autotest) veces que el anfitrión no te ha dejado entrar
   FILE* autolog = nullptr;      // (autotest) el log, para apuntar lo que pasa en la sala
   void bottom_mode();
+  // Halloween (app_shop.cpp): la Tienda Kecleon y la cuenta atrás.
+  void open_shop();
+  void in_shop(const UiIn& in);
+  void bottom_shop();
+  void top_shop();
+  static void hw_time(int64_t ms, char* out, int cap);
+  void start_shop_demo();
+  void shop_demo_step(float dt);
+  bool shop_demo_ = false;
   void start_update_demo();        // autotest "actualizar": busca y baja la versión nueva (para grabarlo)   // autotest "novedades [dex]": las novedades y el menú con ese compañero
   bool tour = false;
   void update(const UiIn& in, float dt);
@@ -175,7 +185,8 @@ class App {
   int sum_scroll_ = 0;
   int iris_mask_ = -1;          // Amuletos Iris que ya tenías (bit por región; -1 aún sin mirar)
   int iris_gen_ = -1;           // la tirada te ha dado el Amuleto Iris de esa región (0 = «Todas»)
-  int bgen_ = 1;                // región del gacha (0 = «Todas», gacha.h)
+  int bgen_ = 1;
+  bool spooky_seen_ = false;     // (Halloween: el gacha ya se abrió en la Noche Espectral)                // región del gacha (0 = «Todas», gacha.h)
   int nspins() const { return npulls_ == 100 ? 10 : npulls_; }
   const PullResult& spin(int i) const;
   int npulls_ = 0, pull_i_ = 0;
@@ -277,7 +288,11 @@ class App {
   bool auto_bond = false;
   bool auto_hold_over = false;
   int auto_mode = 0;            // autotest "… rapido": modo rápido
-  bool auto_win = false;        // autotest "ganar": Sentencia rápida acelerada (capturas de la victoria)
+  bool auto_win = false;
+  bool auto_skin = false;
+  bool menu_hw_ = false;          // el fondo del menú está en modo Halloween (backdrop_init)
+  float hw_check_t_ = 0;        // (autotest «disfraz»: el compañero con su disfraz de Halloween, si tiene)
+  static int skin_for_dex(int dex) { for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].dex == dex) return k; return -1; }        // autotest "ganar": Sentencia rápida acelerada (capturas de la victoria)
   bool auto_win_cut_ = false;
   bool auto_orbs = false;       // autotest "esferas": una de cada al empezar
   bool auto_orbs_given_ = false;

@@ -1,6 +1,8 @@
 // app.cpp — ver app.h.
 #include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
+#include "platform/3ds/hw3ds.h"
+#include "core/halloween.h"
 
 #include <algorithm>
 #include <cctype>
@@ -95,6 +97,7 @@ void App::start_news_demo(int dex) {
 void App::start_gacha_demo(bool all) {
   gacha_demo_ = true;
   if (all) bgen_ = kGachaAll;
+  else if (hw3ds::on()) bgen_ = kGachaSpooky;   // (Halloween: en la Noche Espectral)
   news_t_ = 0;
   news_checked_ = cloud_asked_ = true;
   s_->t1 += 100;
@@ -211,6 +214,9 @@ void App::start_run() {
   cfg.pmove2 = autotest ? int8_t(-1) : s_->pmove2[cfg.dex];
   if (autotest && auto_move_ >= 0) cfg.upgrades[UP_START] = 1;
   cfg.seed = autotest ? 12345u : uint32_t(osGetTime());
+  // Halloween (core/halloween.h): lo que sea al empezar vale toda la partida.
+  cfg.hw = hw3ds::on() ? 1 : 0;
+  cfg.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(cfg.dex) : -1) : skin_worn(*s_, cfg.dex));
   cfg.judged = autotest ? 1 : s_->stats.judged;
   for (int d = 0; d <= kMaxDex; ++d) if (s_->legends[d]) cfg.legends_beaten[d >> 3] |= uint8_t(1 << (d & 7));
   const u64 t0 = svcGetSystemTick();
@@ -231,13 +237,16 @@ void App::start_run() {
 
 void App::backdrop_init() {
   World& w = g_->world;
-  w.reset(4242);
-  w.set_biome(bbiome_, true);
+  // Halloween: el menú de noche, con calabazas y Pokémon Fantasma paseando (game.js de la web).
+  menu_hw_ = hw3ds::on();
+  w.reset(World::kMenuSeed);
+  w.set_halloween(menu_hw_);
+  w.set_biome(menu_hw_ ? kBiomeHw + bbiome_ % 3 : bbiome_, true);
   bcam_ = Camera();
   bcam_.x = 0; bcam_.y = 0;
   for (int i = 0; i < 20; ++i) {
     Wanderer& d = wd_[i];
-    d.dex = CAST[i];
+    d.dex = menu_hw_ ? CAST_HW[i] : CAST[i];
     d.anim.init(d.dex, 1);
     d.r = body_radius(d.dex);
     for (int k = 0; k < 20; ++k) {
@@ -257,7 +266,7 @@ void App::backdrop_step(float dt) {
   bcam_.x += std::cos(bt_ * 0.05f) * 14 * dt;
   bcam_.y += std::sin(bt_ * 0.037f) * 10 * dt;
   bbiome_t_ += dt;
-  if (bbiome_t_ > 30) { bbiome_t_ = 0; bbiome_ = (bbiome_ + 1) % 3; w.set_biome(bbiome_); }
+  if (bbiome_t_ > 30) { bbiome_t_ = 0; bbiome_ = (bbiome_ + 1) % 3; w.set_biome(menu_hw_ ? kBiomeHw + bbiome_ : bbiome_); }
   for (Wanderer& d : wd_) {
     d.t -= dt;
     if (d.t <= 0) {
@@ -306,6 +315,21 @@ void App::draw_backdrop(float dim, float eye) {
     r_->draw_sprite(d.anim, x, y, 0, 1);
   }
   r_->set_parallax(0);
+  // Halloween: la noche (drawNight de la web): velo oscuro y la luz naranja de las calabazas.
+  if (menu_hw_) {
+    C2D_DrawRectSolid(0, 0, 0, TW, TH, C2D_Color32(8, 4, 24, 120));
+    for (int i = 0; i < n; ++i) {
+      const Prop* p = items[i].p;
+      if (!p || p->type != PR_PUMPKIN) continue;
+      const float x = (p->x - vl) * 0.5f, y = (p->y - 14 - vt) * 0.5f;
+      if (x < -60 || x > TW + 60 || y < -60 || y > TH + 60) continue;
+      const float f = 1 + std::sin(bt_ * 7 + p->wiggle) * 0.05f + std::sin(bt_ * 13 + p->wiggle * 2) * 0.03f;
+      for (int k = 0; k < 4; ++k) {
+        const float rr = (16 + k * 9) * f;
+        C2D_DrawEllipseSolid(x - rr, y - rr * 0.8f, 0, rr * 2, rr * 1.6f, C2D_Color32(255, 138, 42, uint8_t(26 - k * 5)));
+      }
+    }
+  }
   const u32 e0 = C2D_Color32(0, 0, 0, 0), e1 = C2D_Color32(0, 0, 0, 110);
   C2D_DrawRectangle(0, 0, 0, TW, 36, e1, e1, e0, e0);
   C2D_DrawRectangle(0, TH - 36, 0, TW, 36, e0, e0, e1, e1);
@@ -373,6 +397,12 @@ namespace { int dex_list(const Save& s, int gen, int filter, int16_t* out); }   
 void App::update(const UiIn& in0, float dt) {
   t_ += dt;
   UiIn in = in0;
+  // Halloween empieza o acaba con el juego abierto (o llega la hora del servidor): en los
+  // menús, el fondo cambia al momento (una partida sigue como empezó: RunConfig::hw).
+  if ((hw_check_t_ -= dt) <= 0) {
+    hw_check_t_ = 2;
+    if (g_->state == ST_UI && hw3ds::on() != menu_hw_) backdrop_init();
+  }
   if (update_demo_) {   // autotest "actualizar": la pantalla de Actualizaciones buscando y bajando
     const float t0 = news_t_;
     news_t_ += dt;
@@ -380,6 +410,7 @@ void App::update(const UiIn& in0, float dt) {
     if (news_t_ > 40) quit = true;
   }
   if (menu_demo_) { news_t_ += dt; if (news_t_ > 60) quit = true; }
+  if (shop_demo_) shop_demo_step(dt);
   if (mode_demo_) {
     const float t0 = news_t_;
     news_t_ += dt;
@@ -412,7 +443,7 @@ void App::update(const UiIn& in0, float dt) {
   if (gacha_demo_) {
     const float t0 = news_t_;
     news_t_ += dt;
-    if (scene == SC_GACHA && t0 < 2 && news_t_ >= 2) { cur_ = 2; in.down |= KEY_A; }        // ×100 (100 tickets)
+    if (scene == SC_GACHA && t0 < 8 && news_t_ >= 8) { cur_ = 2; in.down |= KEY_A; }        // ×100 (100 tickets; antes, 8 s del banner)
     if (scene == SC_PULL && pull_done_ && news_t_ > 30 && int(news_t_ / 2) != int(t0 / 2)) in.rep |= KEY_DDOWN;   // (más cartas)
     if (news_t_ > 40) quit = true;
   }
@@ -504,6 +535,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: in_test(in); break;
     case SC_MENU: in_menu(in); break;
     case SC_MODE: in_mode(in); break;
+    case SC_SHOP: in_shop(in); break;
     case SC_ROOMSET: in_roomset(in); break;
     case SC_DEX: in_dex(in); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: in_upgrades(in); break;
@@ -662,7 +694,10 @@ void App::in_run(const UiIn& in) {
     const int nc = me.ncards > 0 ? me.ncards : 1;
     if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + nc - 1) % nc;
     if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % nc;
-    if (in.tap && in.ty >= 92 && in.ty < 92 + 44 * me.ncards) { r_->card_cursor = (in.ty - 92) / 44; gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); }
+    int tapped = -1;
+    for (int i = 0; i < me.ncards; ++i)
+      if (in.ty >= Renderer::card_y(i, me.ncards) && in.ty < Renderer::card_y(i, me.ncards) + Renderer::card_h(me.ncards)) tapped = i;
+    if (in.tap && tapped >= 0) { r_->card_cursor = tapped; gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); }
     else if (in.down & KEY_A) { gi.cmd = CMD_CARD; gi.arg = int8_t(r_->card_cursor); }
     else if (in.down & KEY_Y) gi.cmd = CMD_REROLL;
   } else if (g.state == ST_CHOICE && me.choice == CH_ITEM) {
@@ -830,6 +865,8 @@ void App::in_menu(const UiIn& in) {
   if (in.down & KEY_SELECT) { audio::play("select"); open_news(); return; }
   // La barra de la versión nueva (o START): a Actualizaciones.
   if ((in.down & KEY_START) || (update_bar() && in_rect(&in, 6, 40, 308, 20))) { audio::play("select"); update_back_ = SC_MENU; go(SC_UPDATE); return; }
+  // Halloween: la Tienda Kecleon (R o su barra).
+  if (hw3ds::on() && ((in.down & KEY_R) || (!update_bar() && in_rect(&in, 6, 40, 308, 20)))) { audio::play("select"); open_shop(); return; }
   if (pick < 0) return;
   cur_ = pick;
   switch (pick) {
@@ -837,7 +874,11 @@ void App::in_menu(const UiIn& in) {
     case 1: cur_ = 0; coop_msg_[0] = 0; coop_fails_ = 0; coop_err_init_ = false; coop_retry_ = 0; go(SC_COOP); break;
     case 2: go(SC_DEX); break;
     case 3: go(SC_UPGRADES); break;
-    case 4: go(SC_GACHA); break;
+    case 4:
+      // Halloween: la primera vez, en la Noche Espectral (como la web).
+      if (hw3ds::on() && !spooky_seen_) { spooky_seen_ = true; bgen_ = kGachaSpooky; }
+      go(SC_GACHA);
+      break;
     case 5: go(SC_GOALS); break;
     case 6: go(SC_SETTINGS); break;
     case 7: go(SC_CREDITS); break;
@@ -894,6 +935,14 @@ void App::bottom_menu() {
   if (t10i >= 0) C2D_DrawImageAt(r_->icons.image(t10i), 60, 28, 0);
   std::snprintf(b, sizeof(b), "%d", int(s_->t10));
   r_->text(b, 76, 27, 0.4f, C_TEXT);
+  // Halloween: los caramelos (también fuera del evento, si te quedan).
+  const bool hw = hw3ds::on();
+  if (hw || s_->candy > 0) {
+    const int ci = r_->ui_icon[16];
+    if (ci >= 0) C2D_DrawImageAt(r_->icons.image(ci), 112, 28, 0);
+    std::snprintf(b, sizeof(b), "%d", int(s_->candy));
+    r_->text(b, 128, 27, 0.4f, C2D_Color32(255, 138, 42, 255));
+  }
   std::snprintf(b, sizeof(b), "Pokémon %d / %d", s_->owned_count(), kDexCount);
   r_->text(b, 312, 27, 0.4f, C_MUTED, 2);
   if (update_bar()) {
@@ -918,6 +967,15 @@ void App::bottom_menu() {
     } else {
       r_->text("Buscando versión nueva…", 160, 42, 0.4f, C_MUTED, 1);
     }
+  } else if (hw) {
+    // Halloween: la Tienda Kecleon (disfraces por caramelos). Tocar o R.
+    const float k = 0.75f + std::sin(t_ * 3) * 0.25f;
+    C2D_DrawRectSolid(6, 40, 0, 308, 20, C2D_Color32(58, 24, 82, 240));
+    C2D_DrawRectSolid(6, 40, 0, 3, 20, rgbf(0xff8a2a, k));
+    const int si = r_->ui_icon[18];
+    if (si >= 0) C2D_DrawImageAt(r_->icons.image(si), 14, 42, 0);
+    r_->text_fit("Tienda Kecleon: disfraces de bruja", 32, 42, 250, 0.4f, C2D_Color32(255, 200, 140, 255), false, 0);
+    r_->text("R", 306, 44, 0.34f, rgbf(0xff8a2a, k), 2);
   } else {
     char tt[16]; mmss(float(s_->stats.best_time), tt, sizeof(tt));
     const int medals = s_->arceus_medals();
@@ -995,6 +1053,15 @@ void App::in_dex(const UiIn& in) {
     const int k = scroll_ * cols + i;
     if (k >= n) break;
     if (in_rect(&in, 4 + (i % cols) * 52, 42 + (i / cols) * 44, 50, 42)) cur_ = k;
+  }
+  // START: ponerse o quitarse su disfraz de Halloween (si lo has comprado).
+  if (n && (in.down & KEY_START) && s_->owns(list[std::min(cur_, n - 1)])) {
+    const int d = list[std::min(cur_, n - 1)], k = skin_for_dex(d);
+    if (k >= 0 && s_->skin_at[k] > 0) {
+      skin_wear(*s_, d, skin_worn(*s_, d) == k ? -1 : k, now_ms());
+      audio::play("select");
+      save_now();
+    }
   }
   if (n && (in.down & KEY_Y)) {   // (toda la lista en shiny: los que tengas en shiny)
     bool any = false;
@@ -1089,8 +1156,15 @@ void App::top_detail(int dex, bool shiny, bool own) {
   C2D_DrawRectSolid(0, 0, 0, TW, TH, C2D_Color32(8, 12, 20, 170));
   const uint32_t tc = kTypeColor[p->types[0]];
   C2D_DrawEllipseSolid(40, 150, 0, 140, 34, rgbf(own ? (shiny ? 0x9ae6ff : tc) : 0x5b83d6, 0.35f));
-  draw_mon(dex, own && shiny && s_->owns_shiny(dex), 110, 170, 3, own ? 0 : 3);
+  // (con su disfraz de Halloween puesto, si lo lleva)
+  const int sk = own ? skin_worn(*s_, dex) : -1;
+  draw_mon(sk >= 0 ? kSkins[sk].sprite : dex, own && shiny && s_->owns_shiny(dex), 110, 170, 3, own ? 0 : 3);
   if (own && s_->owns_shiny(dex)) y_hint(12, 214, shiny);
+  {
+    const int k = skin_for_dex(dex);
+    if (own && k >= 0 && s_->skin_at[k] > 0)
+      r_->text(sk >= 0 ? "START: quitar el disfraz" : "START: ponerle el disfraz", 300, 224, 0.32f, C2D_Color32(255, 160, 80, 255), 1);
+  }
   char b[128];
   std::snprintf(b, sizeof(b), "Nº %03d · %s", p->dex, GEN_NAMES[p->gen - 1]);
   r_->text(b, 300, 14, 0.38f, C_MUTED, 1);
@@ -1551,8 +1625,10 @@ void App::bottom_upgrades() {
 void App::in_gacha(const UiIn& in) {
   // L/R (o tocar las flechas del selector): región anterior / siguiente.
   // (L/R ya suenan en update(); al tocar suena el clic)
-  if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) bgen_ = gacha_prev(bgen_);
-  if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) bgen_ = gacha_next(bgen_);
+  const bool ev = hw3ds::on();
+  if (!gacha_open(bgen_, ev)) bgen_ = 1;   // (se acabó Halloween con el gacha abierto)
+  if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) bgen_ = gacha_prev(bgen_, ev);
+  if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) bgen_ = gacha_next(bgen_, ev);
   // Se tira de 10 en 10 o de 100 en 100 (web, 22-10-2026: ya no hay ×1).
   // (tras una tirada no queda ningún botón elegido: pulsando A seguido para pasar
   // las animaciones se encadenaban tiradas sin querer; arreglo de la web del 25-10)
@@ -1568,6 +1644,7 @@ void App::in_gacha(const UiIn& in) {
   cur_ = pick;
   const int n = pick < 2 ? 10 : 100;
   const bool t10 = pick == 1 || pick == 3;
+  if (!gacha_open(bgen_, hw3ds::on())) return;
   const bool had_iris = gacha_has_iris(*s_, bgen_);
   Rng rr(uint32_t(osGetTime()) ^ 0x9e3779b9u);
   npulls_ = gacha_pull(*s_, n, bgen_, t10, rr, now_ms(), pulls_);
@@ -1657,18 +1734,21 @@ void App::bottom_gacha() {
   std::snprintf(b, sizeof(b), "Gacha · %s", bn.name);
   header(b);
   int all = 0, own = 0;
-  for (int i = 0; i < kDexCount; ++i) if (bgen_ == kGachaAll || kDex[i].gen == bgen_) { all++; if (s_->owns(kDex[i].dex)) own++; }
+  gacha_dex_of(*s_, bgen_, own, all);
   std::snprintf(b, sizeof(b), "Tienes %d de %d · Tiradas sin legendaria: %d / %d", own, all, int(s_->pity[bgen_]), kPity5);
   r_->text_fit(b, 160, 24, 304, 0.34f, C_MUTED, false, 1);
   std::snprintf(b, sizeof(b), "Tickets: %d · Tickets ×10: %d", int(s_->t1), int(s_->t10));
   r_->text(b, 160, 36, 0.38f, C_GOLD, 1);
   // Amuleto Iris de esta región: lo tienes (shiny al 2 %) o lo que te falta.
-  if (own >= all) std::snprintf(b, sizeof(b), "Amuleto Iris de %s · shiny al 2 %%", bn.name);
+  // (la Noche Espectral de Halloween no tiene: sus shiny ya salen al 2 %)
+  if (bgen_ == kGachaSpooky) std::snprintf(b, sizeof(b), "Fantasma de todas las regiones · shiny al 2 %% · hasta el 2 de noviembre");
+  else if (own >= all) std::snprintf(b, sizeof(b), "Amuleto Iris de %s · shiny al 2 %%", bn.name);
   else std::snprintf(b, sizeof(b), "Amuleto Iris: te faltan %d (shiny al 2 %% en este banner)", all - own);
-  r_->text_fit(b, 160, 48, 304, 0.32f, own >= all ? C2D_Color32(0xff, 0x8a, 0xd8, 255) : C_MUTED, false, 1);
+  r_->text_fit(b, 160, 48, 304, 0.32f, bgen_ == kGachaSpooky ? C2D_Color32(255, 160, 80, 255) : own >= all ? C2D_Color32(0xff, 0x8a, 0xd8, 255) : C_MUTED, false, 1);
   // Selector de región: anterior · ACTUAL · siguiente (L/R o tocar a los lados)
   // y un punto por región con la actual marcada.
-  const int prev = gacha_prev(bgen_), next = gacha_next(bgen_);
+  const bool ev = hw3ds::on();
+  const int prev = gacha_prev(bgen_, ev), next = gacha_next(bgen_, ev);
   C2D_DrawRectSolid(10, 58, 0, 300, 54, C_PANEL);
   const u32 arrow = C2D_Color32(255, 210, 63, 255);
   C2D_DrawTriangle(16, 75, arrow, 24, 69, arrow, 24, 81, arrow, 0);
@@ -1678,9 +1758,11 @@ void App::bottom_gacha() {
   r_->text(gacha_banner(prev).name, 44, 69, 0.36f, C_MUTED, 0);
   r_->text(gacha_banner(next).name, 276, 69, 0.36f, C_MUTED, 2);
   r_->text(bn.name, 160, 65, 0.5f, C_GOLD, 1);
-  for (int i = 1; i <= 10; ++i) {   // (el 10.º punto: «Todas»)
-    const float x = 160 + (i - 5.5f) * 14;
-    if (i % 10 == bgen_) C2D_DrawRectSolid(x - 3, 95, 0, 7, 7, C_GOLD);
+  const int ndots = ev ? 11 : 10;   // (el 10.º: «Todas»; el 11.º, la Noche Espectral en Halloween)
+  for (int i = 1; i <= ndots; ++i) {
+    const float x = 160 + (i - (ndots + 1) / 2.0f) * 14;
+    const int gi = i == 10 ? kGachaAll : i == 11 ? kGachaSpooky : i;
+    if (gi == bgen_) C2D_DrawRectSolid(x - 3, 95, 0, 7, 7, C_GOLD);
     else C2D_DrawRectSolid(x - 2, 96, 0, 5, 5, C2D_Color32(90, 100, 125, 255));
   }
   static const char* const L[4] = {"Tirar ×10 (10 tickets)", "Tirar ×10 (1 ticket ×10)", "Tirar ×100 (100 tickets)", "Tirar ×100 (10 tickets ×10)"};
@@ -2035,6 +2117,7 @@ void App::draw_top(float eye) {
         }
         break;
       }
+      case SC_SHOP: top_shop(); break;
       case SC_MODE: {   // (tu compañero y el reloj de la Sentencia del modo elegido)
         const int dex = s_->partner;
         const bool sh = s_->partner_shiny && s_->owns_shiny(dex);
@@ -2052,7 +2135,8 @@ void App::draw_top(float eye) {
         const int dex = s_->partner;
         const bool sh = s_->partner_shiny && s_->owns_shiny(dex);
         C2D_DrawEllipseSolid(140, 186, 0, 120, 30, rgbf(sh ? 0x9ae6ff : kTypeColor[mon_by_dex(dex)->types[0]], 0.3f));
-        draw_mon(dex, sh, 200, 204, 3);
+        const int psk = skin_worn(*s_, dex);
+        draw_mon(psk >= 0 ? kSkins[psk].sprite : dex, sh, 200, 204, 3);
         char b[64];
         std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(dex)->name, sh ? " ★" : "");
         // (con la insignia de la cuenta arriba a la izquierda, el nombre más abajo)
@@ -2069,6 +2153,19 @@ void App::draw_top(float eye) {
           r_->text(kTypeName[pm->types[k]], x + 23, ny + 26, 0.32f, C_TEXT, 1);
         }
         r_->text("PokéSurvivor 3DS · port de juanluismm520", 200, 222, 0.34f, C2D_Color32(255, 255, 255, 140), 1, false);
+        // Halloween: cuenta atrás (desde dos semanas antes, cuánto falta; durante, cuánto queda).
+        {
+          bool on; int64_t ms;
+          if (hw3ds::countdown(on, ms)) {
+            char t[32], cd[80];
+            hw_time(ms, t, sizeof(t));
+            std::snprintf(cd, sizeof(cd), on ? "Halloween termina en %s" : "Halloween empieza en %s", t);
+            const int pi = r_->ui_icon[17];
+            const float w = r_->text_width(cd, 0.38f);
+            if (pi >= 0) C2D_DrawImageAt(r_->icons.image(pi), 200 - w / 2 - 16, 202, 0);
+            r_->text(cd, 200, 200, 0.38f, C2D_Color32(255, 160, 80, 255), 1);
+          }
+        }
         if (s_->owns_shiny(dex)) y_hint(TW - 6 - y_hint_w(), 8, sh);   // (arriba a la derecha, sin salirse)
         mega_badge(dex);
         top_cloud_badge();
@@ -2105,11 +2202,13 @@ void App::draw_top(float eye) {
         C2D_DrawRectangle(0, 0, 0, TW, TH, rgb(bn.color[0], 230), rgb(bn.color[1], 230), rgb(bn.color[1], 230), rgb(bn.color[2], 230));
         char b[64];
         if (bgen_ == kGachaAll) std::snprintf(b, sizeof(b), "Todas las regiones");
+        else if (bgen_ == kGachaSpooky) std::snprintf(b, sizeof(b), "Noche Espectral");
         else std::snprintf(b, sizeof(b), "%s Misterioso", bn.name);
         r_->text(b, 200, 12, 0.7f, C_GOLD, 1);
         // Flechas a los lados: L / R cambian de región.
         {
-          const int prev = gacha_prev(bgen_), next = gacha_next(bgen_);
+          const bool ev = hw3ds::on();
+          const int prev = gacha_prev(bgen_, ev), next = gacha_next(bgen_, ev);
           const u32 a = C2D_Color32(255, 255, 255, 200);
           C2D_DrawTriangle(6, 15, a, 13, 9, a, 13, 21, a, 0);
           C2D_DrawTriangle(394, 15, a, 387, 9, a, 387, 21, a, 0);
@@ -2118,7 +2217,7 @@ void App::draw_top(float eye) {
           r_->text(nb, 17, 10, 0.32f, C_TEXT, 0);
           std::snprintf(nb, sizeof(nb), "%s · R", gacha_banner(next).name);
           r_->text(nb, 383, 10, 0.32f, C_TEXT, 2);
-          std::snprintf(nb, sizeof(nb), "%d / 10", bgen_ == kGachaAll ? 10 : bgen_);
+          std::snprintf(nb, sizeof(nb), "%d / %d", bgen_ == kGachaAll ? 10 : bgen_ == kGachaSpooky ? 11 : bgen_, ev ? 11 : 10);
           r_->text(nb, 200, 34, 0.32f, C_TEXT, 1);
         }
         top_tickets_badge(200, 50);
@@ -2130,7 +2229,7 @@ void App::draw_top(float eye) {
           std::snprintf(b, sizeof(b), "%s %.1f%% · %d", kRarityName[r], double(kGachaRates[r - 1]), gacha_pool(r, bgen_, pool));
           r_->text(b, 10, 180 + (5 - r) * 11, 0.3f, rgb(kRarityColor[r]), 0, false);
         }
-        r_->text(gacha_has_iris(*s_, bgen_) ? "Shiny 2% (Amuleto Iris)" : "Shiny 1%", 390, 224, 0.3f, rgb(0x9ae6ff), 2, false);
+        r_->text(bgen_ == kGachaSpooky ? "Shiny 2% (Halloween)" : gacha_has_iris(*s_, bgen_) ? "Shiny 2% (Amuleto Iris)" : "Shiny 1%", 390, 224, 0.3f, rgb(0x9ae6ff), 2, false);
         break;
       }
       case SC_PULL: top_pull(); break;
@@ -2164,6 +2263,7 @@ void App::draw_bottom() {
     case SC_TEST: case SC_RESULT: case SC_STARTERS: bottom_test(); break;
     case SC_MENU: bottom_menu(); break;
     case SC_MODE: bottom_mode(); break;
+    case SC_SHOP: bottom_shop(); break;
     case SC_ROOMSET: bottom_roomset(); break;
     case SC_DEX: bottom_dex(); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: bottom_upgrades(); break;

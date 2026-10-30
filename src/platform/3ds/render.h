@@ -42,6 +42,9 @@ struct Renderer {
   bool debug_grid = false;
   bool old_3ds = false;          // pinta el suelo más despacio (menos filas por fotograma)
   int card_cursor = 0;
+  // Cartas de nivel: 3 de 44 px o 4 más juntas (levelup_four). Para dibujar y para los toques.
+  static float card_h(int n) { return n > 3 ? 32 : 40; }
+  static float card_y(int i, int n) { return n > 3 ? 84 + i * 35 : 92 + i * 44; }
   int bond_first = -1;   // vínculo: el primer movimiento ya elegido (índice en moves), -1 ninguno
   uint32_t world_seed = 0, terrain_gen = 0;
   // Índices de imágenes de los atlas (buscados al cargar).
@@ -52,7 +55,7 @@ struct Renderer {
   int move_icon[kMaxMoves];
   static constexpr int kMegaMax = 160;   // (más que megas hay: kMegaCount)
   int16_t stone_icon[kMegaMax];   // icono de cada megapiedra (-1: sin dibujo)
-  int ui_icon[16];
+  int ui_icon[20];   // (16 caramelo, 17 calabaza, 18 sombrero de bruja, 19 tienda: Halloween)
 
   bool init();
   void preload_run(Game& g);

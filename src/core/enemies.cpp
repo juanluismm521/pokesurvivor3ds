@@ -145,6 +145,23 @@ void enemies_roll_run(Game& g) {
     ct.from = kTiers[ti].from;
     ct.n = std::min(n, 8);
     for (int i = 0; i < ct.n; ++i) ct.list[i] = enemy_def_for(*list[i], ti);
+    // Halloween (core/halloween.h): en cada tramo, dos Pokémon Fantasma más de su nivel.
+    if (g.hw) {
+      static const Mon* all[1024];
+      static const Mon* ghosts[1024];
+      const int nall = candidates(ti, all);
+      int ng = 0;
+      for (int i = 0; i < nall; ++i) {
+        const Mon& p = *all[i];
+        if (p.types[0] != T_GHOST && p.types[1] != T_GHOST) continue;
+        bool have = false;
+        for (int k = 0; k < ct.n; ++k) have = have || ct.list[k].dex == p.dex;
+        if (!have) ghosts[ng++] = all[i];
+      }
+      const Mon* pick[2];
+      const int np = pick_n(g, ghosts, ng, 2, pick);
+      for (int i = 0; i < np && ct.n < 10; ++i) ct.list[ct.n++] = enemy_def_for(*pick[i], ti);
+    }
   }
   // Uno por tramo: el más rápido de los "normales" pasa a corredor.
   for (int ti = 0; ti < g.ncast; ++ti) {

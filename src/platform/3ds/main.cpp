@@ -31,6 +31,7 @@
 #include "platform/3ds/prog3ds.h"
 #include "platform/3ds/saver3ds.h"
 #include "platform/3ds/net3ds.h"
+#include "platform/3ds/hw3ds.h"
 #include "platform/3ds/render.h"
 
 using namespace ps;
@@ -78,7 +79,10 @@ struct Autotest {
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
   bool menu = false;          // "menu": el menú principal un minuto (con lo que haga al encender)
   int mode_demo = 0;          // "modo" / "medalla": capturas de la elección de modo y de la medalla
-  bool win = false;           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
+  bool win = false;
+  int hw = -1;                // "… halloween" / "… nohalloween": forzar el evento (o quitarlo) en las pruebas
+  bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra un disfraz y lo enseña en el menú (capturas)
+  bool skin = false;          // "… disfraz": el compañero con su disfraz de Halloween           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
   bool gacha_all = false;     // "gachatodas": lo mismo en la región «Todas»
@@ -116,6 +120,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "menu")) a.menu = true;
   else if (!std::strcmp(first, "modo")) a.mode_demo = 1;
   else if (!std::strcmp(first, "medalla")) a.mode_demo = 2;
+  else if (!std::strcmp(first, "tienda")) a.shop_demo = true;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
@@ -131,6 +136,9 @@ void read_autotest(Autotest& a) {
       if (!std::strncmp(extra, "nivel=", 6)) a.level = std::atoi(extra + 6);
       if (!std::strcmp(extra, "fin")) a.end_screen = true;
       if (!std::strcmp(extra, "rapido")) a.quick = true;
+      if (!std::strcmp(extra, "halloween")) a.hw = 1;
+      if (!std::strcmp(extra, "nohalloween")) a.hw = 0;
+      if (!std::strcmp(extra, "disfraz")) a.skin = true;
       if (!std::strncmp(extra, "pass=", 5)) std::snprintf(a.room_pass, sizeof(a.room_pass), "%s", extra + 5);
     }
   }
@@ -152,6 +160,9 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else if (!std::strcmp(w, "rapido")) a.quick = true;
       else if (!std::strcmp(w, "ganar")) a.win = true;
+      else if (!std::strcmp(w, "halloween")) a.hw = 1;
+      else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
+      else if (!std::strcmp(w, "disfraz")) a.skin = true;
       else if (!std::strcmp(w, "arranque")) a.boot = true;
       else return false;
       return true;
@@ -159,6 +170,13 @@ void read_autotest(Autotest& a) {
     char w[24];
     while (std::fscanf(f, "%23s", w) == 1) flag(w);
     if (flag(a.move)) a.move[0] = 0;
+  }
+  // (Halloween y disfraz: en cualquier autotest, también los de pantallas: «menu halloween»)
+  std::rewind(f);
+  for (char w[24]; std::fscanf(f, "%23s", w) == 1;) {
+    if (!std::strcmp(w, "halloween")) a.hw = 1;
+    else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
+    else if (!std::strcmp(w, "disfraz")) a.skin = true;
   }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
@@ -269,6 +287,7 @@ int main(int argc, char** argv) {
   const unsigned long boot_ms = (unsigned long)((svcGetSystemTick() - boot_t0) * 1000ull / SYSCLOCK_ARM11);
   Autotest at;
   read_autotest(at);
+  hw3ds::force(at.hw);   // (pruebas: Halloween sí o no; el menú lo nota solo, App::update)
   if (at.log) {
     bool n3ds = false;
     APT_CheckNew3DS(&n3ds);
@@ -285,6 +304,7 @@ int main(int argc, char** argv) {
   if (at.rooms) { app.start_rooms_demo(); at.on = false; }
   if (at.menu) { app.start_menu_demo(); at.on = false; }
   if (at.mode_demo) { app.start_mode_demo(at.mode_demo == 2); at.on = false; }
+  if (at.shop_demo) { app.start_shop_demo(); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }
@@ -307,8 +327,9 @@ int main(int argc, char** argv) {
     p.cards[0] = Card(); p.cards[0].type = CT_NEW; p.cards[0].move = int16_t(longest);
     p.cards[1] = Card(); p.cards[1].type = CT_UP; p.cards[1].move = 0;
     p.cards[2] = Card(); p.cards[2].type = CT_STAT; p.cards[2].stat = LS_DEF;
-    for (int k = 0; k < 2 && aptMainLoop(); ++k) {
+    for (int k = 0; k < 3 && aptMainLoop(); ++k) {
       if (k == 0) { g->state = ST_LEVELUP; p.picked = false; }
+      else if (k == 1) { p.level = 30; levelup_offer(*g, p); g->state = ST_LEVELUP; p.picked = false; }   // (las 4 cartas, con 2 pasivas)
       else { g->state = ST_CHOICE; p.choice = CH_ITEM; p.item_cur = IT_MEGA_A; p.item_next = IT_SHELLBELL; }
       for (int f = 0; f < 240 && aptMainLoop(); ++f) {
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -461,6 +482,7 @@ int main(int argc, char** argv) {
     std::snprintf(app.auto_pass_, sizeof(app.auto_pass_), "%s", at.room_pass);
     app.autolog = at.log;
     app.auto_quick_ = at.quick;
+    app.auto_skin = at.skin;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
     app.auto_coop_time = int(at.warp);
@@ -483,6 +505,7 @@ int main(int argc, char** argv) {
     app.auto_orbs = at.orbs;
     app.auto_mode = at.quick ? 1 : 0;
     app.auto_win = at.win;
+    app.auto_skin = at.skin;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
@@ -553,7 +576,12 @@ int main(int argc, char** argv) {
       acc = 0;
     }
 
-    audio::music(app.scene == SC_RUN ? g->music : int(MU_VILLAGE));
+    {
+      // (Halloween: en partida, lo que era al empezarla; en los menús, lo de ahora)
+      const int mt = app.scene == SC_RUN ? g->music : int(MU_VILLAGE);
+      const bool hwm = app.scene == SC_RUN ? g->hw : app.menu_hw_;
+      audio::music(mt >= 0 && hwm ? audio::kHwTrack + mt : mt);
+    }
     audio::set_volume(settings.music, settings.sfx);
     audio::update(float(std::fmin(frame_ms, 100.0) / 1000.0));
 

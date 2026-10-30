@@ -120,6 +120,9 @@ struct Player {
   MoveBits banned;              // bit por movimiento (Veto)
   int8_t bind[kMaxMoves];       // movimiento → hueco fijo (Atajos) o -1
   int coins = 0, t1 = 0, t10 = 0;
+  bool four_told = false;       // (ya se le ha explicado lo de las 4 cartas)
+  int candy = 0;                // caramelos de Halloween de esta partida
+  int8_t skin = -1;             // disfraz (índice de kSkins; -1 ninguno)
   double dmg_dealt = 0;
 
   float invuln = 0, flash = 0;
@@ -152,7 +155,7 @@ struct Player {
   float view_x = 0, view_y = 0;
   // Cartas de subir de nivel ofrecidas a este jugador (state == ST_LEVELUP) y
   // si ya ha elegido (en grupo, la partida sigue cuando han elegido todos).
-  Card cards[3];
+  Card cards[4];               // 3 (o 4 con levelup_four: al menos 2 pasivas)
   int ncards = 0;
   bool picked = true;
   // Elección de objeto (choice == CH_ITEM): el que llevas y el nuevo; los que
@@ -305,7 +308,7 @@ struct Projectile {
 };
 
 // ---------------- objetos del suelo ----------------
-enum PickKind : int8_t { PK_XP, PK_XPBIG, PK_HEAL, PK_MAGNET, PK_BOMB, PK_COIN, PK_TICKET, PK_TICKET10, PK_ITEM, PK_SPHERE, PK_COUNT };   // (PK_SPHERE: value = esfera)
+enum PickKind : int8_t { PK_XP, PK_XPBIG, PK_HEAL, PK_MAGNET, PK_BOMB, PK_COIN, PK_TICKET, PK_TICKET10, PK_ITEM, PK_SPHERE, PK_CANDY, PK_COUNT };   // (PK_CANDY: caramelo de Halloween)   // (PK_SPHERE: value = esfera)
 struct Pickup {
   int32_t id = 0;
   int8_t kind = PK_XP;
@@ -373,6 +376,8 @@ struct RunSummary {
   double judge_dmg = 0;         // daño a Arceus
   bool victory = false;         // modo rápido: ¡has derrotado a Arceus!
   int win_coins = 0, win_t10 = 0;   // su recompensa
+  int candy = 0;                    // caramelos de Halloween
+  bool hw = false;                  // partida de Halloween (el gran Gengar en vez de Arceus)
   int8_t judge_plate = -1;      // su Tabla (tipo)
   int ncaught = 0;
   int16_t caught_dex[16];
@@ -400,6 +405,10 @@ struct RunConfig {
   // 1 rápido (a los 20). En grupo lo elige quien crea la sala.
   uint8_t mode = 0;
   uint8_t demo_level = 0;
+  // Halloween (core/halloween.h): la partida es del evento (mapa de noche, caramelos,
+  // el gran Gengar). En grupo lo decide el anfitrión.
+  uint8_t hw = 0;
+  int8_t skin = -1;                      // disfraz puesto (índice de kSkins; -1 ninguno)
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
   // Cooperativo: cada jugador con su Pokémon y sus mejoras (el 0 es el
   // anfitrión). Con nplayers == 1 se usan los campos de arriba.
@@ -418,6 +427,7 @@ struct RunConfig {
     // la partida entera).
     bool immortal = false;
     bool test_stone = false;   // pruebas: empieza con su megapiedra puesta
+    int8_t skin = -1;          // su disfraz de Halloween (índice de kSkins; -1 ninguno)
   };
   int nplayers = 1;
   Member members[4];
@@ -447,6 +457,11 @@ struct Game {
   State state = ST_UI;
   double time = 0;
   int biome = 0;
+  bool hw = false;              // partida de Halloween (RunConfig::hw)
+  // Bioma número i de la partida (runBiome de tiles.js): en Halloween, los 3 de
+  // noche; si no, los de siempre (que van turnándose con los de las arenas, como la web).
+  int run_biome(int i) const { i = i < 0 ? 0 : i; return hw ? kBiomeHw + i % 3 : i % kBiomeHw; }
+  int candy_dropped = 0;        // caramelos soltados (los que van con el tiempo: candy_take)
   int pending_levels = 0;
   Save* save = nullptr;
   int64_t now_ms = 0;           // reloj de la consola (lo pone la plataforma)
@@ -513,7 +528,7 @@ struct Game {
   struct SpawnerState {
     float acc = 0; int boss_idx = 0; float surge_t = 32; int force_shiny = 0;
   } spawner;
-  struct CastTier { int16_t from; int n; EnemyDef list[8]; };
+  struct CastTier { int16_t from; int n; EnemyDef list[10]; };   // (7 y, en Halloween, 2 Fantasma más)
   CastTier cast[8];
   int ncast = 0;
   EnemyDef bosses[8];
@@ -561,6 +576,9 @@ struct Game {
     // tipo), recibe una parte del daño (judgment_dmg_k) y, con legendarios vivos,
     // los ataques no le apuntan (shielded).
     int8_t plate = T_FIGHTING;
+    // Halloween (judgment.js de la web): el gran Gengar bruja en vez de Arceus
+    // (tipo Fantasma, sin Tablas; todo lo demás igual). Va con la partida (Game::hw).
+    bool gengar = false;
     double dealt = 0;
     bool shielded = false;
     // Modo rápido (del port, 2026-10-29): acuden 8 legendarios; tumbados todos,
@@ -665,6 +683,11 @@ bool hazard_inside(const Hazard& h, float x, float y, float r);
 // Multiplicador de la experiencia del equipo (coop.js xpFactor; 1 en solitario).
 float game_xp_factor(const Game& g);
 void levelup_offer(Game& g, Player& p);
+// Las 4 cartas (del port, 2026-10-30): con kFourMoves movimientos (dos vínculos) o
+// desde el nivel kFourLevel; al menos levelup_min_passive de ellas, pasivas.
+constexpr int kFourMoves = 8, kFourLevel = 25, kMorePassiveLevel = 40;
+bool levelup_four(const Player& p);
+int levelup_min_passive(const Player& p);
 void levelup_apply(Game& g, Player& p, const Card& c);
 // interact.cpp
 void interact_update(Game& g, Player& p, float dt);

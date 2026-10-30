@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <cstdio>
 
+#include "core/halloween.h"
 #include "core/game.h"
 #include "core/mega.h"
 #include "core/stats.h"
@@ -169,6 +170,10 @@ void enemy_die(Game& g, Enemy& e) {
     pickup_drop(g, PK_ITEM, e.x - 26, e.y - 10, float(roll_item(g)));
   }
   pickup_drop_xp(g, e.x, e.y, e.xp, e.boss, e.legend, e.judge);
+  // Halloween: caramelos, con el ritmo de candy_take (los Fantasma en cuanto toca;
+  // los demás, sólo si se han ido acumulando).
+  if (g.hw && !e.judge && candy_take(g, g.time, (e.types[0] == T_GHOST || e.types[1] == T_GHOST) ? 1 : 3))
+    pickup_drop(g, PK_CANDY, e.x + g.rng.range(-8, 8), e.y - 6, 1);
   if (e.golden && g.rng.next() < 0.35f) pickup_drop(g, PK_COIN, e.x + 6, e.y - 4, 3);
   // Duende del tesoro: Meowth suelta monedas; Gholdengo, un ticket ×10.
   if (e.behavior == BH_THIEF) {

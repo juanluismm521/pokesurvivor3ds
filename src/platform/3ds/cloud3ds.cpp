@@ -108,6 +108,13 @@ size_t on_header(char* p, size_t sz, size_t n, void* ud) {
   }
   return sz * n;
 }
+// La hora del servidor (cabecera Date de cualquier respuesta): la usa Halloween
+// (hw3ds), como la web, para no fiarse sólo del reloj de la consola.
+namespace {
+volatile int64_t g_srv_ms = 0;      // hora UTC del servidor (ms) …
+volatile uint64_t g_srv_tick = 0;   // … en este tick de la consola
+}
+
 bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   CURL* c = curl_easy_init();
   if (!c) return false;
@@ -130,6 +137,7 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   curl_easy_setopt(c, CURLOPT_TIMEOUT, 25L);
   curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
   const CURLcode r = curl_easy_perform(c);
+  if (rs.date_ms > 0) { g_srv_tick = svcGetSystemTick(); g_srv_ms = rs.date_ms + 500; }   // (la cabecera va en segundos)
   if (r != CURLE_OK) g_curl_err = curl_easy_strerror(r);
   long st = 0;
   curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &st);
@@ -371,6 +379,14 @@ const std::string& error() { return g_err; }
 void finish() { if (g_state != JOB_BUSY) { g_state = JOB_IDLE; g_result = Json(); g_local = Json(); } }
 
 bool soc_up() { return soc_up_impl(); }
+
+bool server_now_ms(int64_t& out) {
+  const int64_t at = g_srv_ms;
+  const uint64_t tick = g_srv_tick;
+  if (!at) return false;
+  out = at + int64_t((svcGetSystemTick() - tick) / (SYSCLOCK_ARM11 / 1000));
+  return true;
+}
 
 bool http_get(const std::string& url, std::string& body, int& status, std::string& err) {
   if (!net_up()) { status = 0; err = "No hay conexión a internet."; return false; }

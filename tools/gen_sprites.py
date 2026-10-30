@@ -193,6 +193,11 @@ def main():
         for m in json.load(open(mf, encoding='utf-8'))['megas']:
             if 'sprite' in m:
                 meta[str(m['id'])] = {k: m['sprite'][k] for k in ('s', 'a', 'sh', 'sa') if k in m['sprite']}
+    # Disfraces de Halloween (del port): 3900 + i (skins.json, tools/fetch_skins.py).
+    sf = os.path.join(ROOT, 'assets-src', 'skins', 'skins.json')
+    if os.path.exists(sf):
+        for k in json.load(open(sf, encoding='utf-8'))['skins']:
+            meta[str(k['sprite_id'])] = {x: k['sprite'][x] for x in ('s', 'a', 'sh', 'sa') if x in k['sprite']}
     dexes = sorted(int(d) for d in meta) if not a.only else [int(x) for x in a.only.split(',')]
     with Pool(a.jobs) as pool:
         results = [r for rs in pool.imap_unordered(job, [(d, meta, a.out, tmp) for d in dexes]) for r in rs]

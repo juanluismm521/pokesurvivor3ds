@@ -52,7 +52,14 @@ struct Save {
   int arceus_medals() const { int n = 0; for (int64_t t : arceus_win) n += t > 0; return n; }
   int32_t pused[kMaxDex + 1] = {};       // partidas jugadas con cada Pokémon
   int32_t t1 = 0, t10 = 0;               // tickets
-  int32_t pity[10] = {};                 // por generación del banner
+  int32_t pity[11] = {};                 // por banner: 0 «Todas» (del port), 1-9 regiones, 10 Noche Espectral (Halloween)
+  // Halloween (web, 25-10-2026): caramelos (bag.candy), disfraces comprados
+  // (skins {id: fecha}) y el que lleva puesto cada Pokémon (pskin {dex: [id, fecha]}).
+  int32_t candy = 0;
+  bool candy_known = false;              // (la partida tiene o ha tenido caramelos: entonces se escribe bag.candy, también el 0)
+  int64_t skin_at[8] = {};               // por índice de kSkins (0 = no lo tiene)
+  int8_t pskin[kMaxDex + 1];             // disfraz puesto (índice de kSkins; -1 ninguno)
+  int64_t pskin_at[kMaxDex + 1] = {};    // cuándo se puso o quitó (gana el más reciente al juntar)
   int64_t legends[kMaxDex + 1] = {};
   int64_t arenas[T_COUNT] = {};
   int64_t items_found[IT_COUNT] = {};

@@ -19,15 +19,37 @@ bool gacha_cost(const Save& s, int n, bool use_t10, int& t1, int& t10) {
   return false;
 }
 
+namespace {
+bool in_banner(const Mon& p, int gen) {
+  if (gen == kGachaSpooky) return p.types[0] == T_GHOST || p.types[1] == T_GHOST;
+  return gen == kGachaAll || p.gen == gen;
+}
+}  // namespace
+
+bool gacha_open(int gen, bool event_on) { return gen == kGachaSpooky ? event_on : gen >= 0 && gen <= 9; }
+int gacha_next(int gen, bool ev) {
+  if (gen == 9) return kGachaAll;
+  if (gen == kGachaAll) return ev ? kGachaSpooky : 1;
+  if (gen == kGachaSpooky) return 1;
+  return gen + 1;
+}
+int gacha_prev(int gen, bool ev) {
+  if (gen == 1) return ev ? kGachaSpooky : kGachaAll;
+  if (gen == kGachaSpooky) return kGachaAll;
+  if (gen == kGachaAll) return 9;
+  return gen - 1;
+}
+
 int gacha_pool(int rarity, int gen, int16_t* out) {
   int n = 0;
-  for (int i = 0; i < kDexCount; ++i) if ((gen == kGachaAll || kDex[i].gen == gen) && kDex[i].rarity == rarity) out[n++] = kDex[i].dex;
+  for (int i = 0; i < kDexCount; ++i) if (in_banner(kDex[i], gen) && kDex[i].rarity == rarity) out[n++] = kDex[i].dex;
   return n;
 }
 
 const BannerDef& gacha_banner(int gen) {
   static const BannerDef kAll = {kGachaAll, "Todas", {0x2b1055, 0x7597de, 0xf5c542}};
-  return gen >= 1 && gen <= 9 ? kBanners[gen - 1] : kAll;
+  static const BannerDef kSpooky = {kGachaSpooky, "Noche Espectral", {0x1a0f2a, 0x3d2266, 0x7a3a12}};
+  return gen >= 1 && gen <= 9 ? kBanners[gen - 1] : gen == kGachaSpooky ? kSpooky : kAll;
 }
 
 int gacha_featured(int gen, int16_t* out) {
@@ -69,7 +91,7 @@ int pool_near(int rarity, int gen, int16_t* out, int& got) {
   }
   got = rarity;
   int n = 0;
-  for (int i = 0; i < kDexCount; ++i) if (gen == kGachaAll || kDex[i].gen == gen) out[n++] = kDex[i].dex;
+  for (int i = 0; i < kDexCount; ++i) if (in_banner(kDex[i], gen)) out[n++] = kDex[i].dex;
   return n;
 }
 
@@ -84,14 +106,15 @@ int roll_rarity(Rng& rng, int min = 1) {
 
 void gacha_dex_of(const Save& s, int gen, int& have, int& total) {
   have = total = 0;
-  for (int i = 0; i < kDexCount; ++i) if (gen == kGachaAll || kDex[i].gen == gen) { total++; if (s.owns(kDex[i].dex)) have++; }
+  for (int i = 0; i < kDexCount; ++i) if (in_banner(kDex[i], gen)) { total++; if (s.owns(kDex[i].dex)) have++; }
 }
 bool gacha_has_iris(const Save& s, int gen) {
+  if (gen == kGachaSpooky) return false;   // (el de Halloween no tiene Amuleto Iris)
   int have, total;
   gacha_dex_of(s, gen, have, total);
   return total > 0 && have >= total;
 }
-float gacha_shiny_rate(const Save& s, int gen) { return gacha_has_iris(s, gen) ? kShinyRateIris : kShinyRate; }
+float gacha_shiny_rate(const Save& s, int gen) { return gen == kGachaSpooky || gacha_has_iris(s, gen) ? kShinyRateIris : kShinyRate; }
 
 int gacha_pull(Save& s, int n, int gen, bool use_t10, Rng& rng, int64_t now_ms, PullResult* out) {
   if (n == 100) {   // diez ×10 seguidas

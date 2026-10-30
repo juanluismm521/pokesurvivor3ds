@@ -56,10 +56,14 @@ const char* const kTrackName[MU_COUNT] = {"forest", "cave", "volcano", "boss", "
 
 bool open_track(int t) {
   if (g_vf_open) { ov_clear(&g_vf); g_vf_open = false; }
+  // (Halloween: kHwTrack + t, la versión tenebrosa; si no está, la de siempre)
+  const bool hw = t >= kHwTrack;
+  if (hw) t -= kHwTrack;
   if (t < 0 || t >= MU_COUNT) return false;
   char path[64];
-  std::snprintf(path, sizeof(path), "romfs:/snd/music_%s.ogg", kTrackName[t]);
+  std::snprintf(path, sizeof(path), "romfs:/snd/music_%s%s.ogg", kTrackName[t], hw ? "_hw" : "");
   FILE* f = std::fopen(path, "rb");
+  if (!f && hw) { std::snprintf(path, sizeof(path), "romfs:/snd/music_%s.ogg", kTrackName[t]); f = std::fopen(path, "rb"); }
   if (!f) return false;
   if (ov_open(f, &g_vf, nullptr, 0) < 0) { std::fclose(f); return false; }
   g_vf_open = true;

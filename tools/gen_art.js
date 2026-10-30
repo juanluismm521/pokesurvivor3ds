@@ -120,6 +120,8 @@ G.Tiles.BIOMES.forEach((B, bi) => {
   for (const [type, vs] of Object.entries(VARIANTS)) for (const v of vs) props.push({ name: `${bi}/${type}/${v}`, cv: G.Tiles.propSprite(bi, type, v) });
 });
 for (let v = 0; v < 4; v++) props.push({ name: `rift/${v}`, cv: G.Tiles.propSprite(0, 'rift', v) });
+// Halloween: calabazas (y agrietadas), sólo en los 3 biomas de noche.
+for (let bi = G.Tiles.HW; bi < G.Tiles.HW + 3; bi++) for (const v of [0, 1]) props.push({ name: `${bi}/pumpkin/${v}`, cv: G.Tiles.propSprite(bi, 'pumpkin', v) });
 
 // ---------------- formas de los ataques ----------------
 const vfx = [];

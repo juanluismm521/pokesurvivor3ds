@@ -53,6 +53,7 @@ static void put_member(W& w, const RunConfig::Member& m) {
   w.u8(m.immortal ? 1 : 0);
   w.u8(m.mega_up);
   w.u8(m.test_stone ? 1 : 0);
+  w.u8(uint8_t(m.skin));
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
@@ -60,6 +61,8 @@ static void get_member(R& r, RunConfig::Member& m) {
   m.immortal = r.u8() != 0;
   m.mega_up = uint8_t(r.u8());
   m.test_stone = r.u8() != 0;
+  m.skin = int8_t(r.u8());
+  if (m.skin < -1 || m.skin >= kSkinCount || (m.skin >= 0 && kSkins[m.skin].dex != m.dex)) m.skin = -1;   // (sólo un disfraz suyo)
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }
   // Lo que llega por la red no se cree a ciegas (web, 20-10-2026: un juego
@@ -81,7 +84,7 @@ int write_config(const RunConfig& c, uint8_t* out, int cap) {
   w.u32(c.seed); w.u32(uint32_t(c.judged)); w.u8(uint32_t(c.nplayers));
   w.raw(c.legends_beaten, int(sizeof(c.legends_beaten)));
   for (int i = 0; i < c.nplayers && i < kMaxPlayers; ++i) put_member(w, c.members[i]);
-  w.u32(c.demo_time); w.u8(c.demo_level); w.u8(c.mode);
+  w.u32(c.demo_time); w.u8(c.demo_level); w.u8(c.mode); w.u8(c.hw ? 1 : 0);
   return w.ok ? w.n : -1;
 }
 
@@ -93,6 +96,7 @@ bool read_config(const uint8_t* b, int len, RunConfig& c) {
   r.raw(c.legends_beaten, int(sizeof(c.legends_beaten)));
   for (int i = 0; i < c.nplayers; ++i) get_member(r, c.members[i]);
   c.demo_time = uint16_t(r.u32()); c.demo_level = uint8_t(r.u8()); c.mode = uint8_t(r.u8()) % MODE_COUNT;
+  c.hw = r.u8() ? 1 : 0;
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
   return r.ok;
 }

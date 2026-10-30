@@ -8,6 +8,7 @@ namespace ps {
 namespace {
 const SpriteMeta* meta(int dex) {
   // Sprites de las megaevoluciones (del port): kMegaSpriteBase + i.
+  if (dex >= kSkinSpriteBase && dex < kSkinSpriteBase + kSkinCount) return &kSkinSpriteMeta[dex - kSkinSpriteBase];
   if (dex >= kMegaSpriteBase && dex < kMegaSpriteBase + kMegaCount)
     return kMegas[dex - kMegaSpriteBase].own_sprite ? &kMegaSpriteMeta[dex - kMegaSpriteBase] : nullptr;
   const Mon* m = mon_by_dex(dex);

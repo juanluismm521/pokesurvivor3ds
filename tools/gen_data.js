@@ -160,6 +160,14 @@ const megaMeta = MEGAS.map(m => {
   if (m.sprite.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(m.sprite.sa[a]))) + '},'); }
   return `  {${m.sprite.s}, ${!!m.sprite.sh}, false, ${alt}, ${arr(ANIMS.map(a => animMeta(m.sprite.a[a])))}},`;
 });
+// Disfraces de Halloween (del port): sus geometrías (antes de escribir kShinyAlt).
+const SKINS_FILE = path.join(ROOT, 'assets-src', 'skins', 'skins.json');
+const SKINS = fs.existsSync(SKINS_FILE) ? JSON.parse(fs.readFileSync(SKINS_FILE, 'utf8')).skins : [];
+const skinMeta = SKINS.map(k => {
+  let alt = -1;
+  if (k.sprite.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(k.sprite.sa[a]))) + '},'); }
+  return `  {${k.sprite.s}, ${!!k.sprite.sh}, false, ${alt}, ${arr(ANIMS.map(a => animMeta(k.sprite.a[a])))}},`;
+});
 w('const SpriteMeta kSpriteMeta[] = {'); metaRows.forEach(w); w('};');
 w('const ShinyAlt kShinyAlt[] = {'); altRows.forEach(w); if (!altRows.length) w('  {}'); w('};');
 w(`const uint8_t kAnimDur[] = ${arr(durs)};`);
@@ -176,6 +184,11 @@ MEGAS.forEach((m, i) => {
 if (!MEGAS.length) w('  {}');
 w('};');
 w(`const int kMegaCount = ${MEGAS.length};`);
+
+// ---------------- disfraces de Halloween (del port: assets-src/skins, tools/fetch_skins.py) ----------------
+w('const SpriteMeta kSkinSpriteMeta[] = {'); skinMeta.forEach(w); if (!SKINS.length) w('  {}'); w('};');
+w(`const SkinDef kSkins[] = ${SKINS.length ? arr(SKINS.map(k => `{${esc(k.id)}, ${esc(k.name)}, ${k.dex}, ${k.sprite_id}, ${!!k.sell}}`)) : '{{}}'};`);
+w(`const int kSkinCount = ${SKINS.length};`);
 
 // ---------------- movimientos ----------------
 w(`const char* const kKindId[K_COUNT] = ${arr(KINDS, esc)};`);
@@ -264,7 +277,8 @@ const biome = B => {
 for (const B of G.Tiles.BIOMES) { if (LIQ.indexOf(B.liquid) < 0 || PROPART.indexOf(B.prop) < 0) fail('bioma ' + B.name); }
 w('const Biome kBiomes[] = {'); for (const B of G.Tiles.BIOMES) w('  ' + biome(B) + ','); w('};');
 w(`const int kBiomeCount = ${G.Tiles.BIOMES.length};`);
-if (G.Tiles.NORMAL !== 3 || G.Tiles.ARENA !== 3) fail('NORMAL/ARENA de tiles.js han cambiado');
+if (G.Tiles.ARENA !== 3 || G.Tiles.HW !== G.Tiles.BIOMES.length - 3) fail('ARENA/HW de tiles.js han cambiado');
+w(`const int kBiomeHw = ${G.Tiles.HW};   // Halloween: los 3 biomas de noche (runBiome de tiles.js)`);
 w('const ArenaTheme kArenaThemes[] = {');
 for (const id of G.Tiles.ARENA_TYPES) {
   const th = G.Tiles.ARENA_THEMES[id], pr = th.props || {};

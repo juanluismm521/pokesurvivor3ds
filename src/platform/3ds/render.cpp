@@ -94,7 +94,7 @@ bool Renderer::init() {
   chunks.init();
   sprites.init();
   minimap.init();
-  static const char* const PT[PR_COUNT] = {"tree", "rock", "chest", "grass", "altar", "spring", "bigchest", "trap"};
+  static const char* const PT[PR_COUNT] = {"tree", "rock", "chest", "grass", "altar", "spring", "bigchest", "trap", "pumpkin"};
   char name[48];
   for (int b = 0; b < kBiomeCount && b < 32; ++b)
     for (int t = 0; t < PR_COUNT; ++t)
@@ -112,14 +112,20 @@ bool Renderer::init() {
     std::snprintf(name, sizeof(name), "stone:%d", k);
     stone_icon[k] = int16_t(k < kMegaCount ? icons.find(name) : -1);
   }
-  static const char* const UI[16] = {"heart", "coin", "ticket", "ticket10", "berry", "magnet", "bomb", "shiny", "shield", "friends", "clock", "star", "bond", "cards", "up", "book"};
-  for (int i = 0; i < 16; ++i) ui_icon[i] = icons.find(UI[i]);
+  static const char* const UI[20] = {"heart", "coin", "ticket", "ticket10", "berry", "magnet", "bomb", "shiny", "shield", "friends", "clock", "star", "bond", "cards", "up", "book",
+                                     "candy", "pumpkin", "witch", "shop"};
+  for (int i = 0; i < 20; ++i) ui_icon[i] = icons.find(UI[i]);
   return true;
 }
 
 // Precarga los Pokémon de la partida (el tuyo, el elenco y los jefes).
 void Renderer::preload_run(Game& g) {
   for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) sprites.get(g.players[i].dex, g.players[i].shiny);
+  // Disfraces de Halloween (y el del gran Gengar, si la partida es de Halloween).
+  for (int i = 0; i < g.nplayers; ++i) {
+    const Player& p = g.players[i];
+    if (p.active && p.skin >= 0 && p.skin < kSkinCount) sprites.get(kSkins[p.skin].sprite, p.shiny && has_shiny(kSkins[p.skin].sprite));
+  }
   // Sus megas (las dos formas, y en shiny si es shiny y la hay): cargadas ya,
   // para que al megaevolucionar no desaparezca un momento mientras carga.
   for (int i = 0; i < g.nplayers; ++i) {
@@ -496,13 +502,15 @@ void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now)
   int variant = 0;
   switch (p.type) {
     case PR_GRASS: variant = std::sin(now * 2.4f + p.wiggle) > 0.55f ? 1 : 0; break;
-    case PR_ROCK: variant = p.hp < p.max_hp * 0.5f ? 1 : 0; break;
+    case PR_ROCK: case PR_PUMPKIN: variant = p.hp < p.max_hp * 0.5f ? 1 : 0; break;
     case PR_ALTAR: variant = p.kind * 2 + (p.used ? 1 : 0); break;
     case PR_SPRING: variant = p.charge < 0.15f ? 1 : 0; break;
     case PR_TRAP: variant = p.kind; break;
     default: break;
   }
-  const int idx = prop_idx[biome][p.type][variant];
+  int idx = prop_idx[biome][p.type][variant];
+  // (las calabazas sólo están dibujadas en los biomas de noche: en otro, p. ej. con una grieta, la de la noche)
+  if (idx < 0 && p.type == PR_PUMPKIN) idx = prop_idx[kBiomeHw][PR_PUMPKIN][variant];
   if (idx < 0) return;
   const Tex3DS_SubTexture& s = props.sub(idx);
   const float x = v.sx(p.x), y = v.sy(p.y);
@@ -510,6 +518,11 @@ void Renderer::draw_prop(const Prop& p, World& w, float vl, float vt, float now)
   if (p.type == PR_ALTAR && !p.used) {
     static const uint32_t AC[4] = {0xff5f6d, 0x5fd4ff, 0xff8ad8, 0xffd23f};
     ellipse(x, y - s.height + 11, 6.5f, 6.5f, rgbf(AC[p.kind & 3], 0.22f + std::sin(now * 3 + p.wiggle) * 0.1f));
+  }
+  if (p.type == PR_PUMPKIN) {
+    // Farol: la luz de dentro, temblando como una vela (world.js de la web).
+    const float a = 0.16f + std::sin(now * 7 + p.wiggle) * 0.04f + std::sin(now * 13 + p.wiggle * 2) * 0.03f;
+    ellipse(x, y - s.height * 0.45f, 26, 18, rgbf(0xff9a3d, a));
   }
   if (p.type == PR_BIGCHEST && p.open > 0)
     dot_ring(x, y - s.height / 2.0f, 13, 13, 2, rgb(0xffd23f), -kPi / 2, -kPi / 2 + kTau * std::fmin(1.0f, p.open / 3.5f));
@@ -621,9 +634,9 @@ void Renderer::draw_top(Game& g, float eye) {
   // --- objetos del suelo ---
   for (const Pickup& p : g.pickups) {
     if (!cam.sees(p.x, p.y, 30)) continue;
-    static const uint32_t COL[PK_COUNT] = {0x7fe0ff, 0xffd95e, 0x5fe08a, 0xff9ed8, 0xff7b3d, 0xffd23f, 0xffd23f, 0xc47bff, 0xffd23f, 0xc9b8ff};
-    static const uint32_t GLOW[PK_COUNT] = {0x2a8fd0, 0xc08a10, 0x1f8f4d, 0xb03d84, 0xb03d10, 0xb8860b, 0xc08a10, 0x8a3fd0, 0xc08a10, 0x7e5be0};
-    static const float R[PK_COUNT] = {4.5f, 7, 6.5f, 6.5f, 6.5f, 5.5f, 7, 8, 9, 8};
+    static const uint32_t COL[PK_COUNT] = {0x7fe0ff, 0xffd95e, 0x5fe08a, 0xff9ed8, 0xff7b3d, 0xffd23f, 0xffd23f, 0xc47bff, 0xffd23f, 0xc9b8ff, 0xff8a2a};
+    static const uint32_t GLOW[PK_COUNT] = {0x2a8fd0, 0xc08a10, 0x1f8f4d, 0xb03d84, 0xb03d10, 0xb8860b, 0xc08a10, 0x8a3fd0, 0xc08a10, 0x7e5be0, 0xb04a10};
+    static const float R[PK_COUNT] = {4.5f, 7, 6.5f, 6.5f, 6.5f, 5.5f, 7, 8, 9, 8, 7};
     const float bounce = std::fabs(std::sin(p.t * 0.8f)) * 3;
     const float r = R[p.kind] * 0.5f;
     const float x = v.sx(p.x), gy = v.sy(p.y), y = v.sy(p.y - 6 - bounce);
@@ -652,6 +665,7 @@ void Renderer::draw_top(Game& g, float eye) {
         case PK_BOMB: ic = ui_icon[6]; break;
         case PK_TICKET: ic = ui_icon[2]; break;
         case PK_TICKET10: ic = ui_icon[3]; break;
+        case PK_CANDY: ic = ui_icon[16]; break;
         case PK_ITEM: {
           ellipse(x, y, 9, 9, rgbf(is_mega_stone(int(p.value)) ? 0xc47bff : 0xffe14d, 0.35f + std::sin(p.t * 1.5f) * 0.15f));
           // (la megapiedra: la de tu Pokémon, que es la que te llevarías)
@@ -662,7 +676,7 @@ void Renderer::draw_top(Game& g, float eye) {
         default: break;
       }
       if (ic >= 0) {
-        const float sz = (p.kind == PK_TICKET10 || p.kind == PK_ITEM ? 24 : 18) * 0.5f;
+        const float sz = (p.kind == PK_TICKET10 || p.kind == PK_ITEM ? 24 : p.kind == PK_CANDY ? 20 : 18) * 0.5f;
         const float k = sz / icons.sub(ic).width;
         C2D_DrawImageAt(icons.image(ic), std::floor(x - sz / 2), std::floor(y - sz / 2), 0, nullptr, k, k);
       }
@@ -758,7 +772,13 @@ void Renderer::draw_top(Game& g, float eye) {
           dot_ring(x, y, r * 2.1f, r * 0.85f, 2, rgbf(kPowers[p.power.def].color, 0.35f + std::sin(now * 8.3f) * 0.15f));
         const float alpha = p.invuln > 0 && !p.dead ? (int(std::floor(p.invuln * 18)) % 2 ? 0.45f : 1) : 1;
         // Transformándose: el Pokémon en blanco brillante.
-        draw_sprite(p.anim, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
+        // Con su disfraz de Halloween (sus hojas: kSkins), salvo megaevolucionado.
+        if (p.skin >= 0 && p.skin < kSkinCount && p.anim.dex == p.dex) {
+          Animator a = p.anim;
+          a.dex = kSkins[p.skin].sprite;
+          a.shiny = p.anim.shiny && has_shiny(a.dex);
+          draw_sprite(a, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
+        } else draw_sprite(p.anim, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
         if (p.mega >= 0) {
           const float cy = y - p.body_h * 0.5f;
           if (p.mega_tf > 0) {
@@ -1015,7 +1035,9 @@ void Renderer::draw_top(Game& g, float eye) {
       const float near = clamp(1 - J.lift / 900, 0.0f, 1.0f);
       const float hw = (40 + near * 40 + std::sin(J.ct * 9) * 6) * 0.5f;
       const float x = v.sx(J.ax), bot = v.sy(J.ay + 6);
-      const u32 edge = C2D_Color32(255, 210, 94, 0), mid = C2D_Color32(255, 248, 220, uint8_t(178 * a));
+      // (Halloween: el del gran Gengar, morado y naranja)
+      const u32 edge = J.gengar ? C2D_Color32(180, 107, 255, 0) : C2D_Color32(255, 210, 94, 0),
+                mid = J.gengar ? C2D_Color32(255, 200, 140, uint8_t(178 * a)) : C2D_Color32(255, 248, 220, uint8_t(178 * a));
       C2D_DrawRectangle(x - hw, 0, 0, hw, bot, edge, mid, edge, mid);
       C2D_DrawRectangle(x, 0, 0, hw, bot, mid, edge, mid, edge);
       ellipse(x, bot, hw * 1.5f, hw * 0.54f, C2D_Color32(255, 243, 200, uint8_t(255 * a * (0.35f + near * 0.55f) * 0.6f)));
@@ -1077,7 +1099,8 @@ void Renderer::draw_top(Game& g, float eye) {
       C2D_DrawRectSolid(48, 3, 0, 304, 13, C2D_Color32(20, 14, 4, 220));
       C2D_DrawRectSolid(50, 5, 0, 300 * k, 9, rgb(kTypeColor[g.judg.plate]));
       C2D_DrawRectSolid(50, 5, 0, 300 * k, 3, C2D_Color32(255, 255, 255, 70));
-      text(g.judg.won ? "ARCEUS · ¡DERROTADO!" : "ARCEUS", 200, 4, 0.36f, rgb(0xfff3c8), 1, true);
+      if (g.judg.gengar) text(g.judg.won ? "GENGAR · ¡DERROTADO!" : "GENGAR", 200, 4, 0.36f, rgb(0xffd9a8), 1, true);
+      else text(g.judg.won ? "ARCEUS · ¡DERROTADO!" : "ARCEUS", 200, 4, 0.36f, rgb(0xfff3c8), 1, true);
     }
     char b[96];
     float info_y = boss ? 16 : (g.judg.phase == 2 && g.judg.open && g.judg.ahp_max > 0) ? 19 : 6;
@@ -1094,17 +1117,20 @@ void Renderer::draw_top(Game& g, float eye) {
     }
     if (g.judg.phase == 2) {
       char t[16]; mmss(g.judg.arena_t, t, sizeof(t));
-      std::snprintf(b, sizeof(b), "SENTENCIA · %s · JEFES %d", t, g.judg.downs);
-      text(b, 200, info_y, 0.4f, rgb(0xffd25e), 1); info_y += 12;
+      // (Halloween: la Noche Espectral del gran Gengar bruja, sin Tabla)
+      const bool gg = g.judg.gengar;
+      std::snprintf(b, sizeof(b), gg ? "NOCHE ESPECTRAL · %s · JEFES %d" : "SENTENCIA · %s · JEFES %d", t, g.judg.downs);
+      text(b, 200, info_y, 0.4f, rgb(gg ? 0xff8a2a : 0xffd25e), 1); info_y += 12;
       // Su Tabla (tipo) y el daño que le lleváis (modo rápido: legendarios que quedan).
+      const char* pn = gg ? "Gengar bruja" : plate_name(g.judg.plate);
       if (g.judg.can_win && !g.judg.open)
-        std::snprintf(b, sizeof(b), "%s (%s) · LEGENDARIOS %d/%d: túmbalos y bajará la guardia", plate_name(g.judg.plate), kTypeName[g.judg.plate],
+        std::snprintf(b, sizeof(b), "%s (%s) · LEGENDARIOS %d/%d: túmbalos y bajará la guardia", pn, kTypeName[g.judg.plate],
                       g.judg.downs, kQuickLegends);
       else if (g.judg.open)
-        std::snprintf(b, sizeof(b), "%s (%s) · ¡GUARDIA BAJA! Vida %d / %d", plate_name(g.judg.plate), kTypeName[g.judg.plate],
+        std::snprintf(b, sizeof(b), "%s (%s) · ¡GUARDIA BAJA! Vida %d / %d", pn, kTypeName[g.judg.plate],
                       int(jsround(g.judg.ahp)), int(jsround(g.judg.ahp_max)));
-      else std::snprintf(b, sizeof(b), "%s (%s) · DAÑO A ARCEUS %d%s", plate_name(g.judg.plate), kTypeName[g.judg.plate], int(jsround(float(g.judg.dealt))),
-                    g.judg.shielded ? " · le protegen" : "");
+      else std::snprintf(b, sizeof(b), gg ? "%s (%s) · DAÑO A GENGAR %d%s" : "%s (%s) · DAÑO A ARCEUS %d%s", pn, kTypeName[g.judg.plate],
+                         int(jsround(float(g.judg.dealt))), g.judg.shielded ? " · le protegen" : "");
       text_fit(b, 200, info_y, 380, 0.34f, rgb(kTypeColor[g.judg.plate]), true, 1);
     }
     // Flechas en el borde: grieta, Pokémon perdido, ladrones, Arceus, shinies.
@@ -1146,7 +1172,7 @@ void Renderer::draw_top(Game& g, float eye) {
       edge(g.treasure.x, g.treasure.y - 10, 0xffe680, b);
     }
     if (g.judg.phase == 2) {
-      std::snprintf(b, sizeof(b), "ARCEUS · %d m", int(dist(pl.x, pl.y, g.judg.ax, g.judg.ay) / 32));
+      std::snprintf(b, sizeof(b), "%s · %d m", g.judg.gengar ? "GENGAR" : "ARCEUS", int(dist(pl.x, pl.y, g.judg.ax, g.judg.ay) / 32));
       edge(g.judg.ax, g.judg.ay - g.judg.abody_h * 0.5f, 0xffd25e, b);
     }
     // Aviso al abrirse una grieta.
@@ -1183,14 +1209,17 @@ void Renderer::draw_top(Game& g, float eye) {
     if (t < 5.2f) C2D_DrawRectSolid(0, 0, 0, TOP_W, TOP_H, C2D_Color32(10, 6, 2, uint8_t(clamp(t / 1.1f, 0.0f, 1.0f) * 0.86f * 255)));
     const float a = clamp((t - 1.3f + 0.3f) / 0.5f, 0.0f, 1.0f) * clamp((4.7f + 0.2f - t) / 0.35f, 0.0f, 1.0f);
     if (a > 0) {
-      dot_ring(200, 80, 56, 56, 2, rgbf(0xffd25e, a * 0.9f));
-      dot_ring(200, 80, 46, 46, 1, rgbf(0xffd25e, a * 0.9f));
+      const uint32_t col = J.gengar ? 0xb46bff : 0xffd25e;
+      dot_ring(200, 80, 56, 56, 2, rgbf(col, a * 0.9f));
+      dot_ring(200, 80, 46, 46, 1, rgbf(col, a * 0.9f));
       Animator big = J.aanim;
       big.cur = A_IDLE; big.frame = 0; big.dir = 0; big.scale = 2;
       draw_sprite(big, 200, 120, 1, a * 0.85f);
-      text("LA SENTENCIA", 200, 148, 0.9f, rgbf(0xffd25e, a), 1);
-      text("DE ARCEUS", 200, 178, 0.7f, rgbf(0xffd25e, a), 1);
-      if (t > 2.9f) text("El tiempo se ha agotado…", 200, 204, 0.4f, rgbf(0xf3e2b0, a * clamp((t - 2.9f) / 0.6f, 0.0f, 1.0f)), 1);
+      // (Halloween: «LA NOCHE DE GENGAR», judgment.js de la web)
+      text(J.gengar ? "LA NOCHE" : "LA SENTENCIA", 200, 148, 0.9f, rgbf(col, a), 1);
+      text(J.gengar ? "DE GENGAR" : "DE ARCEUS", 200, 178, 0.7f, rgbf(col, a), 1);
+      if (t > 2.9f) text(J.gengar ? "¡Truco o trato!" : "El tiempo se ha agotado…", 200, 204, 0.4f,
+                         rgbf(J.gengar ? 0xffd9a8 : 0xf3e2b0, a * clamp((t - 2.9f) / 0.6f, 0.0f, 1.0f)), 1);
     }
     if (t > 5.1f) {
       const float k = clamp((t - 5.1f) / 0.5f, 0.0f, 1.0f) * clamp((10.1f - t) / 0.6f, 0.0f, 1.0f);
@@ -1260,14 +1289,17 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text(g.state == ST_LEVELUP ? "Esperando a que elijan carta…" : "Un compañero está eligiendo…", 160, 96, 0.45f, rgb(0xffcb3d), 1);
     text(names, 160, 116, 0.4f, rgb(0xeaf2ff), 1);
   } else if (g.state == ST_LEVELUP) {
-    std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora", p.level);
-    text(b, 160, 74, 0.5f, rgb(0xffcb3d), 1);
+    const bool four = p.ncards > 3;
+    if (four) std::snprintf(b, sizeof(b), "¡Nivel %d! 4 cartas (%d pasivas)", p.level, levelup_min_passive(p));
+    else std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora", p.level);
+    text_fit(b, 160, four ? 68 : 74, 300, four ? 0.44f : 0.5f, rgb(0xffcb3d), true, 1);
+    const float ch = card_h(p.ncards);
     for (int i = 0; i < p.ncards; ++i) {
       const Card& c = p.cards[i];
-      const float y = 92 + i * 44;
+      const float y = card_y(i, p.ncards);
       const bool sel = i == card_cursor;
-      C2D_DrawRectSolid(10, y, 0, 300, 40, sel ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(30, 40, 62, 255));
-      if (sel) { C2D_DrawRectSolid(10, y, 0, 3, 40, rgb(0xffcb3d)); }
+      C2D_DrawRectSolid(10, y, 0, 300, ch, sel ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(30, 40, 62, 255));
+      if (sel) { C2D_DrawRectSolid(10, y, 0, 3, ch, rgb(0xffcb3d)); }
       const char* title = "";
       const char* desc = "";
       char tag[64] = "";
@@ -1292,14 +1324,16 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         const LevelStatDef& s = kLevelStats[c.stat];
         title = s.title; desc = s.desc; ic = icons.find(s.icon);
         if (c.evo_for >= 0) { std::snprintf(tag, sizeof(tag), "Evoluciona %s", p.moves[c.evo_for].name()); col = 0xffd23f; }
+        else if (four) { std::snprintf(tag, sizeof(tag), "Pasiva"); col = 0x7dffb0; }
         else std::snprintf(tag, sizeof(tag), "Mejora");
       }
-      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + 6, 0, nullptr, 28.0f / icons.sub(ic).width, 28.0f / icons.sub(ic).width);
+      const float isz = four ? 24.0f : 28.0f;
+      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + (ch - isz) / 2, 0, nullptr, isz / icons.sub(ic).width, isz / icons.sub(ic).width);
       const float tw = std::fmax(text_width(tag, 0.34f), fit[0] ? text_width(fit, 0.3f) : 0);
-      text_fit(title, 50, y + 3, 254 - tw - 6, 0.45f, C2D_Color32(240, 244, 255, 255), true);
-      text(tag, 304, y + 4, 0.34f, rgb(col), 2);
-      if (fit[0]) text(fit, 304, y + 14, 0.3f, rgb(0xff8a8a), 2);
-      text_fit2(desc ? desc : "", 50, y + 18, 256, 0.32f, rgb(0xb7c4dc));
+      text_fit(title, 50, y + (four ? 1 : 3), 254 - tw - 6, four ? 0.42f : 0.45f, C2D_Color32(240, 244, 255, 255), true);
+      text(tag, 304, y + (four ? 2 : 4), 0.34f, rgb(col), 2);
+      if (fit[0]) text(fit, 304, y + (four ? 12 : 14), 0.3f, rgb(0xff8a8a), 2);
+      text_fit2(desc ? desc : "", 50, y + (four ? 14 : 18), 256, 0.32f, rgb(0xb7c4dc));
     }
     const int left = 1 + p.reroll_bonus - p.rerolls;
     std::snprintf(b, sizeof(b), "A: elegir · Y: cambiar cartas (%d)", left > 0 ? left : 0);
@@ -1387,20 +1421,22 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     if (s.victory) {
       // ¡Arceus derrotado! (modo rápido): título, medalla y premio.
       const float pulse = 0.75f + 0.25f * std::sin(float(g.time) * 4);
-      text("¡HAS DERROTADO A ARCEUS!", 160, 70, 0.55f, rgbf(0xffd25e, pulse), 1);
+      text(s.hw ? "¡HAS DERROTADO AL GRAN GENGAR!" : "¡HAS DERROTADO A ARCEUS!", 160, 70, 0.55f, rgbf(s.hw ? 0xff8a2a : 0xffd25e, pulse), 1);
       draw_medal(30, 84, 10);
       draw_medal(290, 84, 10);
     } else text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);
     mmss(s.time, t, sizeof(t));
     std::snprintf(b, sizeof(b), "Tiempo %s · Nivel %d · %d derrotados · %d jefes", t, s.level, s.kills, s.bosses);
     text_fit(b, 160, 100, 304, 0.38f, rgb(0xeaf2ff), false, 1);
-    std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", s.coins, s.t1, s.t10);
+    if (s.hw && s.candy > 0) std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10 · %d caramelos", s.coins, s.t1, s.t10, s.candy);
+    else std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", s.coins, s.t1, s.t10);
     text_fit(b, 160, 118, 304, 0.4f, rgb(0xffd23f), false, 1);
     std::snprintf(b, sizeof(b), "tiempo %d · derrotados %d · jefes %d · recogidas %d", s.parts[0], s.parts[1], s.parts[2], s.parts[3]);
     text(b, 160, 136, 0.32f, rgb(0x8fa3c4), 1);
     if (s.judge_time >= 0) {
       mmss(s.judge_time, t, sizeof(t));
-      std::snprintf(b, sizeof(b), "Ante Arceus: %s · %d legendarios · daño %d", t, s.judge_bosses, int(jsround(float(s.judge_dmg))));
+      std::snprintf(b, sizeof(b), s.hw ? "Ante Gengar: %s · %d legendarios · daño %d" : "Ante Arceus: %s · %d legendarios · daño %d", t, s.judge_bosses,
+                    int(jsround(float(s.judge_dmg))));
       text_fit(b, 160, 152, 304, 0.36f, rgb(0xffd25e), false, 1);
     }
     if (s.victory) {
@@ -1427,7 +1463,8 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text(g.world.biome_name(), MX + 3, MY + 1, 0.32f, rgb(0xb7c4dc), 0, false);
     if (g.time < 8 && legend_t <= 0) text("Toca el mapa: qué es cada cosa", MX + MW - 3, MY + 1, 0.32f, rgb(0x9ae6ff), 2, false);
     else {
-      std::snprintf(b, sizeof(b), "%d derrotados · %d monedas", p.kills, p.coins);
+      if (g.hw) std::snprintf(b, sizeof(b), "%d derrotados · %d monedas · %d caramelos", p.kills, p.coins, p.candy);
+      else std::snprintf(b, sizeof(b), "%d derrotados · %d monedas", p.kills, p.coins);
       text(b, MX + MW - 3, MY + 1, 0.32f, rgb(0xffd23f), 2, false);
     }
     {

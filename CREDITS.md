@@ -186,6 +186,10 @@ Las megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras
 [PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).
 <!-- /megas -->
 
+## Disfraces de Halloween
+
+Los disfraces de bruja (Gengar, Pikachu, Umbreon y el sombrero de Kecleon) vienen de PokéSurvivor (JPTER78): pintados con `tools/make_skins.py` de la web sobre los sprites de SpriteCollab (CC BY-NC 4.0).
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

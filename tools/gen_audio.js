@@ -51,7 +51,7 @@ function wav(file, ch, sr, int16) {
   let audio = read('core/audio.js');
   // Exporta las piezas internas y deja reiniciar el contexto para cada grabación.
   audio = inject(audio, '  return {\n    music, sfx,',
-    '  G.__AU = { INST, compile, SFX, init, reset() { ctx = null; }, get ctx() { return ctx; }, get musicBus() { return musicBus; }, get sfxBus() { return sfxBus; } };');
+    '  G.__AU = { INST, compile, spooky, SFX, init, reset() { ctx = null; }, get ctx() { return ctx; }, get musicBus() { return musicBus; }, get sfxBus() { return sfxBus; } };');
   await page.evaluate(src => {
     window.G = {};
     // (los navegadores sin pantalla no tienen permiso de audio en vivo: no hace falta)
@@ -65,9 +65,13 @@ function wav(file, ch, sr, int16) {
   const report = { music: {}, sfx: 0 };
 
   // ---------------- música ----------------
-  for (const name of songs) {
-    const res = await page.evaluate(async ({ name, SR }) => {
-      const song = G.__AU.compile(G.MUSIC[name]);
+  // Cada canción, la de siempre y la de Halloween (music_X_hw.ogg: spooky() de audio.js,
+  // con la campana grave en la raíz de cada compás, como la web esos días).
+  for (const [name, hw] of songs.flatMap(n => [[n, false], [n, true]])) {
+    const res = await page.evaluate(async ({ name, hw, SR }) => {
+      const src = G.MUSIC[name];
+      const song = hw ? G.__AU.compile(Object.assign({}, src, { parts: [...(src.parts || []), { inst: 'toll', octave: 2, vel: 0.55, pattern: 'R...............' }] }), G.__AU.spooky(src))
+                      : G.__AU.compile(src);
       const sd = 60 / song.bpm / 4, loop = song.steps * sd;
       window.__off = new OfflineAudioContext(2, Math.ceil(SR * loop * 3), SR);
       G.__AU.reset(); G.__AU.init();
@@ -97,13 +101,14 @@ function wav(file, ch, sr, int16) {
       const u8 = new Uint8Array(out.buffer);
       for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
       return { b64: btoa(s), loop, rms: Math.sqrt(sum / (2 * n)) };
-    }, { name, SR: MUSIC_SR });
+    }, { name, hw, SR: MUSIC_SR });
     const pcm = Buffer.from(res.b64, 'base64');
     const int16 = new Int16Array(pcm.buffer, pcm.byteOffset, pcm.length / 2);
-    const w = path.join(TMP, name + '.wav');
+    const file = name + (hw ? '_hw' : '');
+    const w = path.join(TMP, file + '.wav');
     wav(w, 2, MUSIC_SR, int16);
-    execFileSync('oggenc', ['-Q', '-q', '3', '-o', path.join(OUT, 'music_' + name + '.ogg'), w]);
-    report.music[name] = { s: +res.loop.toFixed(2), rms: +res.rms.toFixed(4), KB: Math.round(fs.statSync(path.join(OUT, 'music_' + name + '.ogg')).size / 1024) };
+    execFileSync('oggenc', ['-Q', '-q', '3', '-o', path.join(OUT, 'music_' + file + '.ogg'), w]);
+    report.music[file] = { s: +res.loop.toFixed(2), rms: +res.rms.toFixed(4), KB: Math.round(fs.statSync(path.join(OUT, 'music_' + file + '.ogg')).size / 1024) };
     process.stdout.write('.');
   }
 

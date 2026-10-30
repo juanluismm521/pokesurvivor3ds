@@ -1,6 +1,7 @@
 // game.cpp — flujo de la partida y paso principal (game.js de la web).
 //   estados: ui (menús), playing, levelup, paused, choice (objeto o vínculo), over
 #include "core/game.h"
+#include "core/halloween.h"
 #include "core/orbs.h"
 
 #include <cmath>
@@ -91,6 +92,7 @@ static bool in_type_pool(const Player& p, int id) {
 // Un jugador al empezar: Pokémon, atajos, vetos y mejora "Repertorio".
 static void init_player(Game& g, Player& p, const RunConfig& c) {
   player_init(g, p, c.dex, c.shiny, c);
+  p.skin = int8_t(c.skin >= 0 && c.skin < kSkinCount && kSkins[c.skin].dex == c.dex ? c.skin : -1);   // (su disfraz, si es suyo)
   // Atajos: movimientos con hueco fijo, antes de aprender nada.
   for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < kMaxMoves) p.bind[c.pbind[i]] = int8_t(i);
   player_add_move(g, p, move_start_for(c.dex, c.pstart, c.upgrades[UP_START] > 0));
@@ -122,6 +124,8 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
 void Game::start_run(const RunConfig& c, Save* s) {
   cfg = c;
   save = s;
+  hw = c.hw != 0;          // Halloween: antes de sortear enemigos y colocar el mapa
+  candy_dropped = 0;
   rng.reseed(c.seed);
   vrng.reseed(c.seed ^ 0x5bd1e995u);
   fx.clear();
@@ -142,7 +146,8 @@ void Game::start_run(const RunConfig& c, Save* s) {
   weather_reset(*this);
   path_clear(*this);
   world.reset(int32_t(rng.next() * 1e6f));
-  world.set_biome(0, true);
+  world.set_halloween(hw);
+  world.set_biome(run_biome(0), true);
   biome = 0;
   time = 0; pending_levels = 0;
   death_t = 0; flash_t = 0;
@@ -167,6 +172,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       std::memcpy(pc.pban, m.pban, sizeof(pc.pban));
       pc.pstart = m.pstart;
       pc.pmove2 = m.pmove2;
+      pc.skin = m.skin;
     }
     init_player(*this, players[i], pc);
     if (nplayers > 1 && c.members[i].test_stone) player_equip(*this, players[i], IT_MEGA_A);   // (pruebas)
@@ -230,7 +236,7 @@ void Game::on_rescue(int dex) {
 // Lo que pasa al romperse un objeto del escenario (destroyProp de world.js).
 void Game::on_prop_destroyed(const Prop& p) {
   const Biome& B = kBiomes[world.biome()];
-  sfx(p.type == PR_GRASS ? SFX_GRASS : p.type == PR_CHEST ? SFX_CHEST : SFX_BREAK);
+  sfx(p.type == PR_GRASS ? SFX_GRASS : p.type == PR_CHEST ? SFX_CHEST : SFX_BREAK);   // (calabaza: como una roca)
   switch (p.type) {
     case PR_GRASS: {
       fx.burst(p.x, p.y - 6, B.grass[1], 6, 70);
@@ -277,6 +283,16 @@ void Game::on_prop_destroyed(const Prop& p) {
       break;
     }
     case PR_TRAP: interact_trap(*this, p); break;
+    case PR_PUMPKIN: {
+      // Halloween: experiencia, monedas y, si toca (candy_take), un caramelo.
+      fx.burst(p.x, p.y - 10, 0xff8a2a, 18, 160);
+      fx.burst(p.x, p.y - 12, 0xffd23f, 8, 120);
+      fx.ring(p.x, p.y - 8, 4, 30, 0xff8a2a, 0.35f, 3);
+      pickup_drop_xp(*this, p.x, p.y, 8);
+      if (rng.next() < 0.5f) pickup_drop(*this, PK_COIN, p.x + 6, p.y, 2);
+      if (candy_take(*this, time)) pickup_drop(*this, PK_CANDY, p.x - 6, p.y - 4, 1);
+      break;
+    }
     default: break;
   }
 }
@@ -296,12 +312,12 @@ struct Fnv {
 uint32_t Game::state_hash() const {
   Fnv f;
   f.bytes(rng.state(), 16);
-  f.v(time); f.v(state); f.v(pending_levels); f.v(biome);
+  f.v(time); f.v(state); f.v(pending_levels); f.v(biome); f.v(hw); f.v(candy_dropped);
   f.v(next_enemy_id); f.v(next_proj_id); f.v(next_pickup_id);
   for (int i = 0; i < nplayers; ++i) {
     const Player& p = players[i];
     f.v(p.active); f.v(p.dead); f.v(p.x); f.v(p.y); f.v(p.hp); f.v(p.max_hp);
-    f.v(p.level); f.v(p.xp); f.v(p.kills); f.v(p.coins); f.v(p.nmoves); f.v(p.active_slot);
+    f.v(p.level); f.v(p.xp); f.v(p.kills); f.v(p.coins); f.v(p.candy); f.v(p.skin); f.v(p.nmoves); f.v(p.active_slot);
     f.v(p.choice); f.v(p.picked); f.v(p.item); f.v(p.bonds);
     f.v(p.mega); f.v(p.mega_t); f.v(p.mega_cd);
     for (int k = 0; k < 4; ++k) { f.v(p.orb_id[k]); f.v(p.orb_n[k]); }
@@ -501,7 +517,7 @@ static void sync_team(Game& g) {
 void game_on_collect(Game& g, const Pickup& p, Player& who) {
   Player& pl = g.pl();   // el equipo
   const bool mine = &who == &g.players[g.local];
-  static const int8_t SND[PK_COUNT] = {SFX_XP, SFX_XP, SFX_HEAL, SFX_CONFIRM, SFX_BREAK, SFX_COIN, SFX_SHINY, SFX_LEGEND, SFX_LEGEND, SFX_CONFIRM};
+  static const int8_t SND[PK_COUNT] = {SFX_XP, SFX_XP, SFX_HEAL, SFX_CONFIRM, SFX_BREAK, SFX_COIN, SFX_SHINY, SFX_LEGEND, SFX_LEGEND, SFX_CONFIRM, SFX_COIN};
   if (mine || p.kind == PK_BOMB || p.kind == PK_XP || p.kind == PK_XPBIG) g.sfx(SND[p.kind]);
   char b[32];
   switch (p.kind) {
@@ -518,6 +534,15 @@ void game_on_collect(Game& g, const Pickup& p, Player& who) {
       break;
     case PK_SPHERE:
       orb_got(g, who, int(p.value));
+      break;
+    case PK_CANDY:
+      // Caramelos de Halloween: a la Mochila en cuanto se cogen (como los tickets; en grupo, todos).
+      pl.candy += int(p.value);
+      if (g.save) { g.save->candy += int(p.value); g.save->candy_known = true; g.dirty = true; }
+      if (int(p.value) == 1) std::snprintf(b, sizeof(b), "+1 caramelo");
+      else std::snprintf(b, sizeof(b), "+%d caramelos", int(p.value));
+      g.fx.dmg_text(who.x, who.y - who.body_h - 8, b, 0xff8a2a, true);
+      g.fx.ring(who.x, who.y, 6, 44, 0xff8a2a, 0.4f, 3);
       break;
     case PK_TICKET: case PK_TICKET10:
       if (p.kind == PK_TICKET) pl.t1++; else pl.t10++;
@@ -574,6 +599,7 @@ void game_end_run(Game& g, bool dead) {
   s.coins = int(jsround((s.parts[0] + s.parts[1] + s.parts[2] + s.parts[3]) * me.coin_mul));
   s.level = pl.level; s.kills = pl.kills; s.bosses = pl.bosses; s.t1 = pl.t1; s.t10 = pl.t10;
   if (g.judg.phase == 2) { s.judge_time = g.judg.arena_t; s.judge_bosses = g.judg.downs; s.judge_dmg = g.judg.dealt; s.judge_plate = g.judg.plate; }
+  s.candy = pl.candy; s.hw = g.hw;
   if (g.judg.won) {   // ¡Arceus derrotado! (modo rápido): premio
     s.victory = true; s.dead = false;
     s.win_coins = kWinCoins; s.win_t10 = kWinT10;
@@ -692,7 +718,7 @@ void Game::step(const Input* inputs) {
   const int b = int(std::floor(time / 240));
   if (b != biome && !rift.arena && !judgment_active(*this)) {
     biome = b;
-    world.set_biome(b);
+    world.set_biome(run_biome(b));
     sfx(SFX_BIOME);
     char s[96];
     std::snprintf(s, sizeof(s), "— %s —", world.biome_name());

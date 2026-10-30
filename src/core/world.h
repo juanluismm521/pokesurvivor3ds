@@ -25,7 +25,9 @@ constexpr float kCW = kChunkTiles * kTS;   // chunk en mundo (512)
 
 enum Terrain : uint8_t { TR_FLOOR = 0, TR_WALL = 1, TR_LIQUID = 2 };
 enum PropType : int8_t {
-  PR_TREE, PR_ROCK, PR_CHEST, PR_GRASS, PR_ALTAR, PR_SPRING, PR_BIGCHEST, PR_TRAP, PR_COUNT
+  PR_TREE, PR_ROCK, PR_CHEST, PR_GRASS, PR_ALTAR, PR_SPRING, PR_BIGCHEST, PR_TRAP,
+  PR_PUMPKIN,   // Halloween (world.js de la web, 25-10-2026): se rompe a golpes; experiencia, monedas y caramelos
+  PR_COUNT
 };
 
 struct Prop {
@@ -81,6 +83,11 @@ class World {
   int biome() const { return biome_; }
   const char* biome_name() const { return kBiomes[biome_].name; }
   int32_t seed() const { return seed_; }
+  // Halloween (world.js de la web): calabazas por el mapa. Va con la partida (o el
+  // menú); cambiarlo vacía los chunks (los props se colocan al generarlos).
+  static constexpr int32_t kMenuSeed = 4242;   // el mundo del fondo de los menús
+  void set_halloween(bool on);
+  bool halloween() const { return halloween_; }
   void set_arena(bool on, int32_t tx = 0, int32_t ty = 0, float r = 0, int theme = 0);
   const ArenaInfo& arena() const { return arena_; }
 
@@ -150,6 +157,7 @@ class World {
 
   Game* game_ = nullptr;
   int32_t seed_ = 1;
+  bool halloween_ = false;
   int biome_ = 0;
   ArenaInfo arena_;
   float fade_t_ = -1;

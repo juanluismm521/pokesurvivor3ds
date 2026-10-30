@@ -32,6 +32,15 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.26 · ¡Halloween!", 0, nullptr, nullptr},
+    {nullptr, NI_STAR, "Noche de Halloween",
+     "Del 30 de octubre al 2 de noviembre: mapa de noche con calabazas que se rompen, más Pokémon Fantasma y música tenebrosa."},
+    {nullptr, NI_COIN, "Caramelos y Tienda Kecleon",
+     "Los sueltan los Fantasma y las calabazas. En la Tienda Kecleon (R en el menú), disfraces de bruja para Gengar, Pikachu y Umbreon, para siempre."},
+    {nullptr, NI_ORB, "El gran Gengar bruja",
+     "En la Sentencia llega el gran Gengar en vez de Arceus, y llegar hasta él da 60 caramelos. Banner Noche Espectral: Fantasma de todas las regiones."},
+    {nullptr, NI_UP, "4 cartas al subir de nivel",
+     "Desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas; desde el 40, al menos 3."},
     {"Versión 0.25 · ¡Región Todas!", 0, nullptr, nullptr},
     {nullptr, NI_ORB, "Curaesfera", "Nuevo objeto utilizable, cura 30% al equipo."},
     {nullptr, NI_TICKET, "Región Todas", "Se añade la región Todas al gacha: todas las regiones juntas."},
@@ -124,7 +133,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.25";
+constexpr const char* kNewsVersion = "0.26";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

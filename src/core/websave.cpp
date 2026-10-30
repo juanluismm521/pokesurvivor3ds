@@ -17,7 +17,10 @@ namespace web {
 
 namespace {
 const double kNaN = std::numeric_limits<double>::quiet_NaN();
-const char* const kCur[3] = {"c", "t1", "t10"};   // CUR de db.js, en su orden
+// CUR de db.js, en su orden, y los caramelos de Halloween (bag.candy: en la web
+// van en la libreta como "b:candy", igual que el resto de la Mochila, 25-10-2026).
+constexpr int kNCur = 4, kCandy = 3;
+const char* const kCur[kNCur] = {"c", "t1", "t10", "b:candy"};
 
 bool is_obj(const Json& v) { return v.is_obj(); }
 
@@ -71,9 +74,12 @@ int upgrade_by_id(const std::string& id) {
 }
 
 // ---- libreta ----
-double cur_get(const Json& s, int k) { return k == 0 ? num(s["coins"]) : num(s["tickets"][kCur[k]]); }
+double cur_get(const Json& s, int k) {
+  return k == 0 ? num(s["coins"]) : k == kCandy ? num(s["bag"]["candy"]) : num(s["tickets"][kCur[k]]);
+}
 void cur_set(Json& r, int k, double v) {
   if (k == 0) r.set("coins", Json::num(v));
+  else if (k == kCandy) { Json& b = r.ref("bag"); if (!b.is_obj()) b = Json::object(); b.set("candy", Json::num(v)); }
   else r.ref("tickets").set(kCur[k], Json::num(v));
 }
 double led_sum(const Json& led, const char* k) {
@@ -83,6 +89,10 @@ double led_sum(const Json& led, const char* k) {
     if (truthy(kv.second) && truthy(e)) t += num(e[0]) - num(e[1]);
   }
   return t;
+}
+bool led_has(const Json& led, const char* k) {
+  for (const auto& kv : led.items()) if (kv.second.is_obj() && kv.second.has(k)) return true;
+  return false;
 }
 void add_to(Json& led, const std::string& dev, const char* k, double d) {
   if (d == 0 || std::isnan(d)) return;
@@ -146,7 +156,7 @@ void sanitize(Json& s, bool strict) {
       if (!is_obj(e)) { led->items_mut().erase(led->items_mut().begin() + long(i)); continue; }
       for (size_t j = e.items().size(); j-- > 0;) {
         auto& ek = e.items_mut()[j];
-        const bool cur = !std::strcmp(ek.first.c_str(), "c") || ek.first == "t1" || ek.first == "t10";
+        const bool cur = !std::strcmp(ek.first.c_str(), "c") || ek.first == "t1" || ek.first == "t10" || ek.first == "b:candy";
         // (sin strict, las monedas nuevas de una web más nueva se quedan)
         if ((strict && !cur) || !ek.second.is_arr()) { e.items_mut().erase(e.items_mut().begin() + long(j)); continue; }
         ek.second = pair(num(ek.second[0]), num(ek.second[1]));
@@ -268,13 +278,13 @@ Json migrate(Json s, const std::string& name, int64_t now_ms, bool strict) {
 Json led_of(const Json& s, const std::string& dev) {
   if (!is_obj(s["led"])) {
     Json base = Json::object();
-    for (int k = 0; k < 3; ++k) base.set(kCur[k], pair(cur_get(s, k), 0));
+    for (int k = 0; k < kNCur; ++k) if (k != kCandy || cur_get(s, k) > 0) base.set(kCur[k], pair(cur_get(s, k), 0));
     Json led = Json::object();
     led.set("base", base);
     return led;
   }
   Json led = s["led"];
-  for (int k = 0; k < 3; ++k) add_to(led, dev, kCur[k], cur_get(s, k) - std::fmax(0.0, led_sum(led, kCur[k])));
+  for (int k = 0; k < kNCur; ++k) add_to(led, dev, kCur[k], cur_get(s, k) - std::fmax(0.0, led_sum(led, kCur[k])));
   return led;
 }
 
@@ -305,7 +315,11 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
     }
   r.set("led", led);
   if (!truthy(r["tickets"])) { Json tk = Json::object(); tk.set("t1", Json::num(0)); tk.set("t10", Json::num(0)); r.set("tickets", tk); }
-  for (int k = 0; k < 3; ++k) cur_set(r, k, std::fmax(0.0, led_sum(led, kCur[k])));
+  for (int k = 0; k < kNCur; ++k) {
+    // (los caramelos sólo si alguna de las dos los conoce: si no, la partida queda como la de la web)
+    if (k == kCandy && !led_has(led, kCur[k]) && !a["bag"].has("candy") && !b["bag"].has("candy")) continue;
+    cur_set(r, k, std::fmax(0.0, led_sum(led, kCur[k])));
+  }
   for (const char* coll : {"owned", "shiny"}) {
     Json& rc = r.ref(coll);
     if (!truthy(rc)) rc = Json::object();
@@ -374,8 +388,19 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
     if (older["pstart"].is_obj() && rs.is_obj())
       for (const auto& kv : older["pstart"].items()) if (!rs.has(kv.first.c_str())) rs.set(kv.first, kv.second);
   }
+  // Halloween (web, 25-10-2026): el disfraz puesto, el cambio más reciente (pskin
+  // {dex: [id, fecha]}); los comprados (skins), unión como lo conseguido.
+  if (older["pskin"].is_obj()) {
+    Json& rp = r.ref("pskin");
+    if (!rp.is_obj()) rp = Json::object();
+    for (const auto& kv : older["pskin"].items()) {
+      const Json& mine = rp[kv.first.c_str()];
+      if (!truthy(mine) || plus0(kv.second[1]) > plus0(mine[1])) rp.set(kv.first, kv.second);
+    }
+  }
   // Lo conseguido nunca se pierde: unión.
-  for (const char* coll : {"legends", "arenas", "itemsFound", "evoMoves", "ach"}) {
+  for (const char* coll : {"legends", "arenas", "itemsFound", "evoMoves", "ach", "skins"}) {
+    if (!std::strcmp(coll, "skins") && !r.has("skins") && !older.has("skins")) continue;   // (si nadie los tiene, ni la clave)
     Json& rc = r.ref(coll);
     if (!truthy(rc)) rc = Json::object();
     if (older[coll].is_obj())
@@ -459,7 +484,8 @@ namespace {
 bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
-                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pmove2", "arceusWin"};
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pmove2", "arceusWin",
+                                  "skins", "pskin"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }

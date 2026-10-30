@@ -17,6 +17,8 @@ bool ok();
 void set_volume(int music, int sfx);   // 0..100
 // Tema de música (MU_*); MU_NONE = silencio. Cambia con fundido.
 void music(int track);
+// Halloween: kHwTrack + MU_* pide la versión tenebrosa (music_X_hw.ogg, tools/gen_audio.js).
+constexpr int kHwTrack = 100;
 // Efecto por nombre (ver sfx.bin) con separación mínima entre repeticiones.
 void play(const char* name, float vol = 1, float pitch = 1);
 // Efecto de la partida (Game::sfx_queue).

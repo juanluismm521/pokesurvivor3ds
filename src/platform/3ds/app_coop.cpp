@@ -20,6 +20,8 @@
 #include "core/settings.h"
 #include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
+#include "platform/3ds/hw3ds.h"
+#include "core/halloween.h"
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
 
@@ -78,6 +80,8 @@ RunConfig::Member App::my_member() const {
   m.immortal = autotest && auto_immortal_;
   m.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[m.dex];
   m.test_stone = autotest && auto_mega;
+  // Su disfraz de Halloween (pruebas: «disfraz» en el autotest, si lo tiene).
+  m.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(m.dex) : -1) : skin_worn(*s_, m.dex));
   if (std::strcmp(s_->name, "Jugador") != 0) { std::memcpy(m.name, s_->name, sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0; }
   else console_name(m.name, sizeof(m.name));
   return m;
@@ -562,6 +566,7 @@ void App::coop_host_start() {
   for (int i = 0; i < nlobby_; ++i) { c.members[i] = lobby_[i].m; coop_nodes_[i] = lobby_[i].node; }
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
   c.mode = uint8_t(room_mode_);   // (normal o rápido: lo eligió quien creó la sala)
+  c.hw = hw3ds::on() ? 1 : 0;     // (Halloween: lo decide el anfitrión al empezar)
   if (autotest) { c.demo_time = uint16_t(auto_coop_time); c.demo_level = uint8_t(auto_level); }   // (para grabar)
   for (int i = 0; i < kMaxPlayers; ++i) start_acked_[i] = i == 0;
   // Retraso de los controles: en local, el fijo; por internet, lo que tarda en
