@@ -78,6 +78,8 @@ struct Autotest {
   float mega_wait = 0;        // "… megaespera=S": espera S s con la piedra antes de pulsar Y          // "… marca": la posición de tu Pokémon en un cuadradito (para el tráiler)   // "… nivel=N piedra=b": para grabar el tráiler
   float mega_at = 5;          // "… megaen=S": la piedra a los S s de partida
   bool menu = false;          // "menu": el menú principal un minuto (con lo que haga al encender)
+  bool upgrades = false;      // "mejoras": la mejora «Más pasivas…» y las listas de movimientos (capturas)
+  bool treasure = false;      // "… tesoro": el tesoro de la Luminosfera a los 3 s
   int mode_demo = 0;          // "modo" / "medalla": capturas de la elección de modo y de la medalla
   bool win = false;
   int hw = -1;                // "… halloween" / "… nohalloween": forzar el evento (o quitarlo) en las pruebas
@@ -118,6 +120,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "gachatodas")) a.gacha100 = a.gacha_all = true;
   else if (!std::strcmp(first, "salas")) a.rooms = true;
   else if (!std::strcmp(first, "menu")) a.menu = true;
+  else if (!std::strcmp(first, "mejoras")) a.upgrades = true;
   else if (!std::strcmp(first, "modo")) a.mode_demo = 1;
   else if (!std::strcmp(first, "medalla")) a.mode_demo = 2;
   else if (!std::strcmp(first, "tienda")) a.shop_demo = true;
@@ -158,6 +161,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "vinculo")) a.bond = true;
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
+      else if (!std::strcmp(w, "tesoro")) a.treasure = true;
       else if (!std::strcmp(w, "rapido")) a.quick = true;
       else if (!std::strcmp(w, "ganar")) a.win = true;
       else if (!std::strcmp(w, "halloween")) a.hw = 1;
@@ -309,6 +313,7 @@ int main(int argc, char** argv) {
   if (at.gacha100) { app.start_gacha_demo(at.gacha_all); at.on = false; }
   if (at.rooms) { app.start_rooms_demo(); at.on = false; }
   if (at.menu) { app.start_menu_demo(); at.on = false; }
+  if (at.upgrades) { app.start_upgrades_demo(); at.on = false; }
   if (at.mode_demo) { app.start_mode_demo(at.mode_demo == 2); at.on = false; }
   if (at.shop_demo) { app.start_shop_demo(); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
@@ -509,6 +514,7 @@ int main(int argc, char** argv) {
     app.auto_bond = at.bond;
     app.auto_hold_over = at.end_screen;
     app.auto_orbs = at.orbs;
+    app.auto_treasure = at.treasure;
     app.auto_mode = at.quick ? 1 : 0;
     app.auto_win = at.win;
     app.auto_skin = at.skin;

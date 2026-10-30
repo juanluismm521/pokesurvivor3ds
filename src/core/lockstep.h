@@ -34,7 +34,7 @@ constexpr int kRing = 256;           // pasos guardados (más que kDelay + kRese
 constexpr int kHashEvery = 60;       // huella cada segundo
 constexpr int kTimeoutFrames = 60 * 20;   // 20 s sin noticias: se le da por ido
 constexpr int kMaxPacket = 1024;
-constexpr uint32_t kMagic = 0x50535344;   // 'PSSD' + versión del protocolo (20: Halloween: mapa de noche, caramelos, el gran Gengar, disfraces)
+constexpr uint32_t kMagic = 0x50535345;   // 'PSSE' + versión del protocolo (21: la mejora «Más pasivas a niveles altos» en el miembro y el tesoro de 40 s; 20: Halloween)
 // Lo que va en cada paquete: la versión del protocolo mezclada con la huella
 // de los datos del juego (gen_data). Dos 3DS con datos distintos (otra versión
 // de la web) se ignoran: si jugaran juntas, sus partidas se separarían.

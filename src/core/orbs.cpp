@@ -14,7 +14,7 @@ const OrbDef kOrbs[ORB_COUNT] = {
     {"slow", "Ralentosfera", true, 0, 0x5fd0ff, "Los enemigos de la pantalla van un 50 % más lentos durante 8 s (los jefes, un 20 %)."},
     {"blowback", "Rafagaesfera", true, 0, 0x9ff0c0, "Lanza lejos a los enemigos que tienes cerca (a los jefes, la mitad)."},
     {"focus", "Focosfera", false, 15, 0xff6f7d, "+25 % de crítico durante 15 s, para ti y los compañeros cercanos."},
-    {"luminous", "Luminosfera", false, 0, 0xffe680, "Hace brillar un tesoro escondido cerca: sigue la flecha dorada. Trae lo de un cofre grande y monedas extra."},
+    {"luminous", "Luminosfera", false, 0, 0xffe680, "Hace brillar un tesoro lejos: tienes 40 s para llegar siguiendo la flecha dorada. Trae lo de un cofre grande y monedas extra."},
     {"quick", "Rapidosfera", false, 10, 0xffb24d, "+40 % de velocidad durante 10 s, para ti y los compañeros cercanos."},
     {"heal", "Curaesfera", false, 0, 0x7dffa0, "Cura un 30 % de la vida a todo el equipo, esté donde esté."},
 };
@@ -161,11 +161,12 @@ void orbs_update(Game& g, Player& p, float dt) {
 // ---------------- el tesoro de la Luminosfera ----------------
 
 void orb_place_treasure(Game& g, const Player& p) {
-  // Lejos pero no tanto (de 1 a 1,5 pantallas), en suelo por el que se pueda andar.
+  // Lejos (kTreasureMin-kTreasureMax), en suelo por el que se pueda andar; si no hay
+  // sitio, más cerca.
   float x = p.x, y = p.y;
   bool ok = false;
   for (int i = 0; i < 24 && !ok; ++i) {
-    const float a = g.rng.next() * kTau, d = g.rng.range(700, 1000) * (i < 16 ? 1.0f : 0.5f);
+    const float a = g.rng.next() * kTau, d = g.rng.range(kTreasureMin, kTreasureMax) * (i < 16 ? 1.0f : 0.6f);
     x = p.x + std::cos(a) * d; y = p.y + std::sin(a) * d;
     ok = g.world.is_free(x, y, 16);
   }
@@ -173,7 +174,7 @@ void orb_place_treasure(Game& g, const Player& p) {
   g.treasure.on = true; g.treasure.x = x; g.treasure.y = y; g.treasure.t = 0;
   g.fx.ring(p.x, p.y, 10, kOrbNear, kOrbs[ORB_LUMINOUS].col, 0.6f, 5);
   g.sfx(SFX_SHINY);
-  if (&p == &g.players[g.local]) g.say("¡Luminosfera! Brilla un tesoro cerca: sigue la flecha dorada", 4);
+  if (&p == &g.players[g.local]) g.say("¡Luminosfera! Brilla un tesoro lejos: tienes 40 s, sigue la flecha dorada", 4);
 }
 
 void treasure_update(Game& g, float dt) {
@@ -216,7 +217,7 @@ const char* orb_effect(int id) {
     case ORB_SLOW: return "Los enemigos de la pantalla van más lentos";
     case ORB_BLOWBACK: return "Los enemigos cercanos salen volando";
     case ORB_FOCUS: return "+25 % de crítico";
-    case ORB_LUMINOUS: return "Un tesoro brilla cerca";
+    case ORB_LUMINOUS: return "Un tesoro brilla lejos: 40 s para llegar";
     case ORB_QUICK: return "+40 % de velocidad";
     case ORB_HEAL: return "Todo el equipo recupera un 30 % de vida";
     default: return "";

@@ -22,7 +22,9 @@ namespace {
 
 // Ícono de cada novedad.
 enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_CLOUD, NI_ITEM, NI_WEB, NI_COIN, NI_BOND, NI_FAST,
-                         NI_ORB, NI_TICKET, NI_BOOK, NI_FRIENDS };
+                         NI_ORB, NI_TICKET, NI_BOOK, NI_FRIENDS,
+                         // (Halloween y lo de la 0.25-0.26: cada novedad con su dibujo)
+                         NI_CANDY, NI_PUMPKIN, NI_GENGAR, NI_KECLEON, NI_COSTUME, NI_CARDS, NI_HEALORB, NI_LUMORB };
 
 struct NewsItem {
   const char* head;    // si no es null: título de sección (versión)
@@ -33,16 +35,22 @@ struct NewsItem {
 
 const NewsItem kNews[] = {
     {"Versión 0.26 · ¡Halloween!", 0, nullptr, nullptr},
-    {nullptr, NI_STAR, "Noche de Halloween",
+    {nullptr, NI_PUMPKIN, "Noche de Halloween",
      "Del 30 de octubre al 2 de noviembre: mapa de noche con calabazas que se rompen, más Pokémon Fantasma y música tenebrosa."},
-    {nullptr, NI_COIN, "Caramelos y Tienda Kecleon",
-     "Los sueltan los Fantasma y las calabazas. En la Tienda Kecleon (R en el menú), disfraces de bruja para Gengar, Pikachu y Umbreon, para siempre."},
-    {nullptr, NI_ORB, "El gran Gengar bruja",
-     "En la Sentencia llega el gran Gengar en vez de Arceus, y llegar hasta él da 60 caramelos. Banner Noche Espectral: Fantasma de todas las regiones."},
-    {nullptr, NI_UP, "4 cartas al subir de nivel",
-     "Desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas; desde el 40, al menos 3."},
+    {nullptr, NI_CANDY, "Caramelos",
+     "Los sueltan los Pokémon Fantasma y las calabazas, al ritmo del tiempo que aguantas. Llegar hasta el gran Gengar da 60 de golpe."},
+    {nullptr, NI_KECLEON, "Tienda Kecleon",
+     "Arriba a la derecha del menú, con R. En Halloween vende disfraces por caramelos. Próximamente, más cosas en la tienda."},
+    {nullptr, NI_COSTUME, "Disfraces de bruja",
+     "Gengar, Pikachu y Umbreon con sombrero y capa, para siempre. Se ponen en la tienda o en la Colección (START) y se ven en la partida y en grupo."},
+    {nullptr, NI_GENGAR, "El gran Gengar bruja",
+     "En la Sentencia llega el gran Gengar en vez de Arceus. Y en el gacha, la Noche Espectral: los Fantasma de todas las regiones, shiny al 2 %."},
+    {nullptr, NI_CARDS, "Más pasivas a niveles altos",
+     "Mejora nueva (2500): desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas; desde el 40, al menos 3."},
+    {nullptr, NI_LUMORB, "Tesoro a contrarreloj",
+     "El de la Luminosfera brilla más lejos y sólo 40 s: hay que correr. Trae lo de un cofre grande y monedas extra (y en Halloween, caramelo)."},
     {"Versión 0.25 · ¡Región Todas!", 0, nullptr, nullptr},
-    {nullptr, NI_ORB, "Curaesfera", "Nuevo objeto utilizable, cura 30% al equipo."},
+    {nullptr, NI_HEALORB, "Curaesfera", "Nuevo objeto utilizable, cura 30% al equipo."},
     {nullptr, NI_TICKET, "Región Todas", "Se añade la región Todas al gacha: todas las regiones juntas."},
     {nullptr, NI_STAR, "Gacha", "Se arreglan ciertos bugs del gacha que no aparecían Pokémon representativos."},
     {nullptr, NI_COIN, "Cofres", "Los cofres pequeños se abren al pasar. Los grandes se abren desde un poco más lejos y ya no se llevan tus golpes."},
@@ -199,6 +207,20 @@ void App::bottom_news() {
         break;
       case NI_ITEM: r_->draw_item_icon(IT_LEFTOVERS, ix - 10, iy - 10 + bob, 20); break;
       case NI_ORB: r_->draw_orb(int(t_ / 1.2f + i) % ORB_COUNT, ix, iy + bob, 10); break;
+      case NI_HEALORB: r_->draw_orb(ORB_HEAL, ix, iy + bob, 10); break;
+      case NI_LUMORB: r_->draw_orb(ORB_LUMINOUS, ix, iy + bob, 10); break;
+      case NI_CANDY: case NI_PUMPKIN: case NI_CARDS: {
+        const int ic = r_->ui_icon[n.icon == NI_CANDY ? 16 : n.icon == NI_PUMPKIN ? 17 : 13];
+        if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), ix - 12, iy - 12 + bob, 0, nullptr, 2, 2);
+        break;
+      }
+      case NI_GENGAR: case NI_KECLEON: case NI_COSTUME: {
+        // (su sprite en pequeño: el gran Gengar bruja, Kecleon con sombrero, Pikachu bruja)
+        const char* id = n.icon == NI_GENGAR ? "bruja-gengar" : n.icon == NI_KECLEON ? "hat" : "bruja-pikachu";
+        for (int k = 0; k < kSkinCount; ++k)
+          if (!std::strcmp(kSkins[k].id, id)) draw_mon(kSkins[k].sprite, false, ix, iy + 13 + bob, n.icon == NI_GENGAR ? 0.9f : 1.1f);
+        break;
+      }
       default: {
         static const char* const kIc[] = {"", "", "up", "star", "heart", "clock", "", "", "", "coin", "bond", "clock", "", "ticket10", "book", "friends"};
         const int ic = r_->icons.find(kIc[n.icon]);

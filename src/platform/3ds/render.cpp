@@ -595,6 +595,11 @@ void Renderer::draw_top(Game& g, float eye) {
       const float a = now * 2 + i * 2.094f;
       C2D_DrawRectSolid(std::floor(x + std::cos(a) * 11), std::floor(y - 14 + std::sin(a) * 4 - k * 3), 0, 1, 1, rgb(0xffffff));
     }
+    // (los segundos que le quedan, encima)
+    char tb[16];
+    const int left = std::max(0, int(std::ceil(kTreasureTime - g.treasure.t)));
+    std::snprintf(tb, sizeof(tb), "%d s", left);
+    text(tb, x, y - 30, 0.36f, left <= 10 ? rgb(0xff7a6a) : rgb(0xffe680), 1);
   }
 
   // --- campos en el suelo ---
@@ -1168,8 +1173,10 @@ void Renderer::draw_top(Game& g, float eye) {
       else if (e.shiny) edge(e.x, e.y - 10, 0x9ae6ff, "shiny");
     }
     if (g.treasure.on) {   // (Luminosfera)
-      std::snprintf(b, sizeof(b), "TESORO · %d m", int(dist(pl.x, pl.y, g.treasure.x, g.treasure.y) / 32));
-      edge(g.treasure.x, g.treasure.y - 10, 0xffe680, b);
+      // (con lo que le queda: en los últimos 10 s, en rojo)
+      const int left = std::max(0, int(std::ceil(kTreasureTime - g.treasure.t)));
+      std::snprintf(b, sizeof(b), "TESORO · %d m · %d s", int(dist(pl.x, pl.y, g.treasure.x, g.treasure.y) / 32), left);
+      edge(g.treasure.x, g.treasure.y - 10, left <= 10 ? 0xff7a6a : 0xffe680, b);
     }
     if (g.judg.phase == 2) {
       std::snprintf(b, sizeof(b), "%s · %d m", g.judg.gengar ? "GENGAR" : "ARCEUS", int(dist(pl.x, pl.y, g.judg.ax, g.judg.ay) / 32));

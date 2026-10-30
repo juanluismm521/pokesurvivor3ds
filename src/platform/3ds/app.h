@@ -47,6 +47,7 @@ class App {
   void start_gacha_demo(bool all = false);
   void start_rooms_demo();
   void start_menu_demo();
+  void start_upgrades_demo();
   void start_mode_demo(bool medal);
   int mode_demo_ = 0;
   void in_mode(const UiIn& in);
@@ -72,6 +73,7 @@ class App {
   void top_shop();
   static void hw_time(int64_t ms, char* out, int cap);
   void start_shop_demo();
+  void top_shop_badge();          // menú, arriba a la derecha: la Tienda Kecleon (R)
   void shop_demo_step(float dt);
   bool shop_demo_ = false;
   void start_update_demo();        // autotest "actualizar": busca y baja la versión nueva (para grabarlo)   // autotest "novedades [dex]": las novedades y el menú con ese compañero
@@ -144,6 +146,7 @@ class App {
   void in_dex_moves(const UiIn& in, int dex);
   void bottom_dex_moves(int dex);
   void top_dex_move(int dex);
+  void top_pick_move(int id);
   int dex_moves(int dex, int16_t* out);
   void y_hint(float x, float y, bool shiny);   // botón Y que se pulsa solo · «Normal · Shiny»
   float y_hint_w();                            // (su ancho)
@@ -297,6 +300,9 @@ class App {
   bool auto_win_cut_ = false;
   bool auto_orbs = false;       // autotest "esferas": una de cada al empezar
   bool auto_orbs_given_ = false;
+  bool auto_treasure = false;   // autotest "tesoro": el de la Luminosfera a los 3 s
+  bool auto_treasure_given_ = false;
+  bool up_demo_ = false;
   void over_tab_next();         // (autotest: como pulsar R en el resumen)  // autotest "fin": no vuelve a empezar al acabar (se ve el resumen)    // autotest "vinculo": te da un vínculo y deja marcado el primero (captura)
  private:
   bool cloud_want_ = false;     // sincronizar en cuanto se pueda (había otra en marcha)

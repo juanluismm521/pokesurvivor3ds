@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "core/halloween.h"
+#include "core/i18n.h"
 #include "core/progress.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/app_ui.h"
@@ -103,6 +104,7 @@ void App::bottom_shop() {
   r_->text(b, 26, 26, 0.42f, C2D_Color32(255, 138, 42, 255));
   r_->text_wrap("Disfraces de bruja para siempre, por caramelos. Los sueltan los Pokémon Fantasma y las calabazas en Halloween.",
                 160, 44, 0.32f, C_MUTED, 296, 1);
+  const bool ev = hw3ds::on();
   int list[8];
   const int n = sellable(list);
   for (int i = 0; i < n; ++i) {
@@ -113,18 +115,19 @@ void App::bottom_shop() {
     C2D_DrawRectSolid(10, y, 0, 300, kRowH - 4, sel ? C_SEL : C_PANEL);
     if (sel) C2D_DrawRectSolid(10, y, 0, 3, kRowH - 4, C_GOLD);
     const bool owned = s_->skin_at[k] > 0, worn = skin_worn(*s_, sk.dex) == k;
-    draw_mon(sk.sprite, false, 34, y + 36, 0.75f);
+    draw_mon(sk.sprite, false, 34, y + 37, sk.dex == 94 ? 0.75f : 0.95f);   // (Gengar ya es grande)
     r_->text_fit(sk.name, 64, y + 3, 236, 0.44f, sel ? C_GOLD : C_TEXT);
     // Segunda línea: el precio (o si es tuyo) a la derecha y qué hace A a la izquierda.
     if (!owned) {
       std::snprintf(b, sizeof(b), "%d caramelos", kSkinPrice);
-      r_->text(b, 302, y + 21, 0.38f, s_->candy >= kSkinPrice ? C2D_Color32(255, 138, 42, 255) : C2D_Color32(140, 110, 70, 255), 2);
-      r_->text("A: comprar", 64, y + 23, 0.32f, C_MUTED);
+      r_->text(b, 302, y + 21, 0.38f, ev && s_->candy >= kSkinPrice ? C2D_Color32(255, 138, 42, 255) : C2D_Color32(140, 110, 70, 255), 2);
+      r_->text(ev ? "A: comprar" : "Sólo en Halloween", 64, y + 23, 0.32f, C_MUTED);
     } else {
       r_->text(worn ? "Lo lleva puesto" : "Comprado", 302, y + 21, 0.38f, C2D_Color32(0x5f, 0xe0, 0x8a, 255), 2);
       r_->text(!s_->owns(sk.dex) ? "Te falta ese Pokémon" : worn ? "A: quitárselo" : "A: ponérselo", 64, y + 23, 0.32f, C_MUTED);
     }
   }
+  r_->text("Próximamente, más cosas en la Tienda Kecleon", 160, 212, 0.32f, C2D_Color32(126, 224, 122, 255), 1);
   r_->text("A: comprar o ponérselo · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
@@ -134,10 +137,11 @@ void App::top_shop() {
   const int n = sellable(list);
   int hat = -1;
   for (int k = 0; k < kSkinCount; ++k) if (!kSkins[k].sell) hat = k;
-  r_->text("Tienda Kecleon", 200, 8, 0.7f, C2D_Color32(255, 138, 42, 255), 1);
-  r_->text("¡Bienvenido! Esta noche, disfraces de bruja.", 200, 34, 0.38f, C_TEXT, 1);
+  const bool ev = hw3ds::on();
+  r_->text("Tienda Kecleon", 200, 8, 0.7f, ev ? C2D_Color32(255, 138, 42, 255) : C_GOLD, 1);
+  r_->text_wrap(ev ? "¡Bienvenido! Esta noche, disfraces de bruja." : "¡Bienvenido! Pronto habrá más cosas en la tienda.", 200, 32, 0.38f, C_TEXT, 380, 1);
   C2D_DrawEllipseSolid(40, 186, 0, 120, 26, C2D_Color32(0, 0, 0, 70));
-  if (hat >= 0) draw_mon(kSkins[hat].sprite, false, 100, 204, 2.5f);
+  draw_mon(ev && hat >= 0 ? kSkins[hat].sprite : 352, false, 100, 204, 2.5f);
   if (n) {
     const SkinDef& sk = kSkins[list[clamp(cur_, 0, n - 1)]];
     C2D_DrawEllipseSolid(230, 186, 0, 120, 26, C2D_Color32(0, 0, 0, 70));
@@ -151,6 +155,34 @@ void App::top_shop() {
     std::snprintf(b, sizeof(b), "Halloween termina en %s", t);
     r_->text(b, 200, 222, 0.36f, C2D_Color32(255, 200, 140, 255), 1);
   }
+}
+
+// El botón R de la consola (gris, alargado), que se pulsa solo cada poco (como el X de la cuenta).
+static void r_button(Renderer* r, float cx, float cy, float t) {
+  const float ph = std::fmod(t + 0.35f, 1.4f);
+  const bool down = ph > 0.7f && ph < 0.92f;
+  const float dy = down ? 1.5f : 0;
+  C2D_DrawRectSolid(cx - 10, cy - 6 + 1.5f, 0, 20, 13, C2D_Color32(30, 34, 48, 255));
+  C2D_DrawRectSolid(cx - 10, cy - 6 + dy, 0, 20, 12, down ? C2D_Color32(120, 128, 150, 255) : C2D_Color32(165, 172, 192, 255));
+  C2D_DrawRectSolid(cx - 10, cy - 6 + dy, 0, 20, 2, C2D_Color32(220, 226, 240, 255));
+  r->text("R", cx, cy - 6 + dy, 0.36f, C2D_Color32(30, 34, 48, 255), 1, false);
+}
+
+// Menú, arriba a la derecha: la Tienda Kecleon (R). En Halloween, Kecleon de bruja.
+void App::top_shop_badge() {
+  const bool hw = hw3ds::on();
+  const float w = 144, h = 46, x0 = TW - 4 - w, y0 = 4;
+  C2D_DrawRectSolid(x0, y0, 0, w, h, C2D_Color32(12, 18, 32, 200));
+  C2D_DrawRectSolid(x0, y0, 0, 2, h, hw ? C2D_Color32(255, 138, 42, 255) : C2D_Color32(95, 205, 115, 255));
+  int hat = -1;
+  for (int k = 0; k < kSkinCount; ++k) if (!kSkins[k].sell) hat = k;
+  draw_mon(hw && hat >= 0 ? kSkins[hat].sprite : 352, false, x0 + 22, y0 + h - 2, 1.3f);
+  const u32 col = hw ? C2D_Color32(255, 160, 80, 255) : C_TEXT;
+  // (en inglés, «Kecleon / Shop»: Kecleon Shop)
+  const bool es = i18n_lang() == LANG_ES;
+  r_->text_fit(es ? "Tienda" : "Kecleon", x0 + 42, y0 + 6, 74, 0.38f, col);
+  r_->text_fit(es ? "Kecleon" : "Tienda", x0 + 42, y0 + 22, 74, 0.38f, col);
+  r_button(r_, x0 + w - 14, y0 + h / 2, t_);
 }
 
 // «2 d 11:03:42» o «11:03:42» (cuenta atrás de Halloween).

@@ -13,19 +13,33 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   - Dos Pokémon Fantasma más en cada tramo de enemigos.
   - **Caramelos**: los sueltan los Fantasma y las calabazas, al ritmo del tiempo que
     aguantas, y 60 de golpe al llegar al gran Gengar.
-  - **Tienda Kecleon** (R en el menú): disfraces de bruja para Gengar, Pikachu y
+  - **Tienda Kecleon** (arriba a la derecha del menú, con R; Kecleon con sombrero en
+    Halloween y normal el resto del año): disfraces de bruja para Gengar, Pikachu y
     Umbreon por 300 caramelos, para siempre. Se ponen y quitan en la tienda o en la
-    Colección (START) y se ven en la partida y en grupo.
+    Colección (START) y se ven en la partida y en grupo. Próximamente, más cosas.
+  - Las calabazas se rompen al pasar por encima, con tus ataques o con disparos
+    enemigos.
   - **El gran Gengar bruja** en vez de Arceus en la Sentencia («LA NOCHE DE GENGAR»).
   - Banner **Noche Espectral** en el gacha: los Fantasma de todas las regiones, shiny
     al 2 %.
   - Menú de noche con calabazas y Fantasma paseando, cuenta atrás y **música
     tenebrosa**.
   - Caramelos y disfraces se sincronizan con pokesurvivor.com.
-- **4 cartas al subir de nivel**: desde el nivel 25 (o con 8 movimientos) eliges
-  entre 4 cartas, y al menos 2 son pasivas (Vigor, Potencia, Carrera, Reflejos,
-  Coraza…); desde el 40, al menos 3.
-- Novedades: «¡Halloween!».
+- Mejora nueva **«Más pasivas a niveles altos»** (2500 Pokémonedas, por Pokémon):
+  desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son
+  pasivas (Vigor, Potencia, Carrera, Reflejos, Coraza…); desde el 40, al menos 3.
+- **Tesoro a contrarreloj**: el de la Luminosfera sale más lejos (4-6 pantallas) y
+  dura 40 s (la flecha dice los metros y los segundos; en rojo los últimos 10). Trae
+  lo de un cofre grande y 10 monedas extra (y en Halloween, un caramelo).
+- Al elegir el segundo movimiento (y el inicial), cada ataque dice si es **Físico o
+  Especial**; arriba, lo que rinde con tu Pokémon (su lado fuerte, al 100 %).
+- Tus ataques atraviesan los cofres (grandes y pequeños) y ya no apuntan a los
+  pequeños.
+- Al acabar la partida, «Sincronizando» ya no tapa el resumen (sólo sale en el menú).
+- La primera vez, el juego sale en el idioma de la consola (español si lo es; si no,
+  inglés). El 3D va apagado de serie.
+- Por internet, en grupo, ya no se ve ni se cambia el servidor.
+- Novedades: «¡Halloween!», con dibujo propio en cada una.
 - (Juego en grupo: protocolo nuevo; actualizad todos.)
 
 ## 0.25.0 — 2026-10-30

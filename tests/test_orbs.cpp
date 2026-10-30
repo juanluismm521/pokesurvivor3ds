@@ -8,6 +8,7 @@
 #include "core/game.h"
 #include "core/orbs.h"
 #include "sim.h"
+#include "treasure_sim.h"
 
 using namespace ps;
 
@@ -132,14 +133,15 @@ TEST_CASE("esferas: las mejoras con tiempo, para ti y los compañeros cercanos; 
 }
 
 TEST_CASE("esferas: la Luminosfera hace brillar un tesoro; al llegar, tickets y monedas") {
+  CHECK(kTreasureTime == doctest::Approx(40));   // (el dueño, 2026-10-30)
   auto g = solo(12);
   Player& p = g->players[0];
   orb_add(p, ORB_LUMINOUS);
   use(*g, 0);
   REQUIRE(g->treasure.on);
   const float d = dist(p.x, p.y, g->treasure.x, g->treasure.y);
-  CHECK(d > 300);                  // (lejos: hay que ir a buscarlo)
-  CHECK(d < 1100);
+  CHECK(d > kTreasureMin * 0.6f - 1);   // (lejos: hay que correr a por él)
+  CHECK(d < kTreasureMax + 1);
   CHECK(g->world.is_free(g->treasure.x, g->treasure.y, 16));
   // Ir hasta él: suelta tickets y monedas (aquí se recogen al momento) y se apaga.
   const int t1 = p.t1 + p.t10, c0 = p.coins;
@@ -148,12 +150,12 @@ TEST_CASE("esferas: la Luminosfera hace brillar un tesoro; al llegar, tickets y 
   CHECK_FALSE(g->treasure.on);
   CHECK(p.t1 + p.t10 >= t1 + 1);    // (los del cofre grande: 1-3)
   CHECK(p.coins >= c0 + 40);
-  // Si nadie lo coge, a los 3 min se apaga (y no antes).
+  // Si nadie lo coge, a los 40 s se apaga (y no antes).
   orb_add(p, ORB_LUMINOUS);
   orb_place_treasure(*g, p);
   REQUIRE(g->treasure.on);
   p.x += 3000;
-  g->treasure.t = 150;
+  g->treasure.t = kTreasureTime - 5;
   treasure_update(*g, 2);
   CHECK(g->treasure.on);
   g->treasure.t = kTreasureTime - 1;
@@ -319,4 +321,41 @@ TEST_CASE("cofres: el grande se abre a tu lado (un poco más lejos que en la web
   h->debug_immortal = true;
   for (int i = 0; i < 5 * 60; ++i) { q.x = cx - 90; q.y = cy; Input in{}; h->step(&in); }
   CHECK(prop_alive(*h, PR_BIGCHEST, cx, cy));
+}
+
+TEST_CASE("esferas: el tesoro de la Luminosfera cae casi siempre lejos (desafiante, pero a tiempo)") {
+  // En 40 tiradas: casi todas a kTreasureMin-kTreasureMax y, con el Pokémon más lento
+  // (velocidad 80), siempre se llega en línea recta antes de los 40 s.
+  auto g = solo(31);
+  Player& p = g->players[0];
+  int far = 0;
+  for (int i = 0; i < 40; ++i) {
+    orb_place_treasure(*g, p);
+    const float d = dist(p.x, p.y, g->treasure.x, g->treasure.y);
+    if (d >= kTreasureMin - 1) far++;
+    CHECK(d / 80 < kTreasureTime);
+    CHECK(g->world.is_free(g->treasure.x, g->treasure.y, 16));
+  }
+  CHECK(far >= 30);
+}
+
+TEST_CASE("esferas: el tesoro, equilibrado: en partidas de verdad se llega, pero no sobra tiempo") {
+  // El bot juega hasta el minuto 4, usa la Luminosfera y va al tesoro rodeando
+  // muros (treasure_sim.h; build-pc/ps_tesoro lo mide en más casos). Un Pokémon
+  // normal (Hypno, velocidad 106) llega siempre y tarda más de 12 s (no es un
+  // paseo); el más lento (Shuckle, 80), también llega.
+  float sum = 0;
+  int n = 0;
+  for (uint32_t seed : {1097u, 1114u, 1131u}) {
+    const TreasureTry r = treasure_try(seed, 97, 4);
+    if (!r.placed) continue;
+    CHECK(r.path);
+    CHECK(r.reached);
+    CHECK(r.secs > 12);
+    sum += r.secs; n++;
+  }
+  REQUIRE(n >= 2);
+  CHECK(sum / n < kTreasureTime * 0.65f);   // (le sobra margen para los enemigos)
+  const TreasureTry slow = treasure_try(1213u, 213, 4);
+  if (slow.placed) CHECK(slow.reached);
 }

@@ -17,6 +17,7 @@
 #include "core/mega.h"
 #include "core/orbs.h"
 #include "core/save_io.h"
+#include "core/stats.h"
 #include "core/version.h"
 #include "core/datapack.h"
 #include "platform/3ds/datos3ds.h"
@@ -107,6 +108,19 @@ void App::start_gacha_demo(bool all) {
 // Autotest "salas": la pantalla de crear sala (rápido, con contraseña) y una
 // lista de salas de ejemplo (candado, modo rápido), sin red.
 // Autotest "menu": el menú principal un minuto (la barra de la versión nueva).
+// Autotest "mejoras": Pokémonedas de sobra y el compañero con «Ataque inicial» y
+// «Repertorio» comprados (para ver las listas con Físico / Especial).
+void App::start_upgrades_demo() {
+  up_demo_ = true;
+  news_t_ = 0;
+  news_checked_ = cloud_asked_ = true;
+  if (s_->coins < 9000) s_->coins = 9000;
+  s_->pfour[s_->partner] = 0;
+  s_->pupg[s_->partner][UP_START] = uint8_t(kUpgrades[UP_START].max);
+  s_->pupg[s_->partner][UP_MOVES] = uint8_t(kUpgrades[UP_MOVES].max);
+  go(SC_MENU);
+}
+
 void App::start_menu_demo() {
   menu_demo_ = true;
   news_t_ = 0;
@@ -412,6 +426,17 @@ void App::update(const UiIn& in0, float dt) {
   }
   if (menu_demo_) { news_t_ += dt; if (news_t_ > 60) quit = true; }
   if (shop_demo_) shop_demo_step(dt);
+  if (up_demo_) {   // autotest "mejoras": «Más pasivas a niveles altos», el segundo movimiento y el inicial
+    const float t0 = news_t_;
+    news_t_ += dt;
+    auto at = [&](float t) { return t0 < t && news_t_ >= t; };
+    if (at(1)) { go(SC_UPGRADES); cur_ = four_row(); scroll_ = std::max(0, cur_ - 6); }
+    if (at(6)) in.down |= KEY_A;   // (la compra)
+    if (at(10)) { scene = SC_MOVE2; cur_ = 2; scroll_ = 0; }
+    if (at(14)) cur_ = 3;
+    if (at(18)) { scene = SC_START; cur_ = 1; scroll_ = 0; }
+    if (news_t_ > 23) quit = true;
+  }
   if (mode_demo_) {
     const float t0 = news_t_;
     news_t_ += dt;
@@ -438,7 +463,8 @@ void App::update(const UiIn& in0, float dt) {
       scene = SC_COOP;
       cur_ = 1;
     }
-    if (news_t_ > 14) quit = true;
+    if (t0 < 11 && news_t_ >= 11) { coop_online_ = true; nrooms_ = 0; }   // (la pestaña «Por internet», sin el servidor a la vista)
+    if (news_t_ > 17) quit = true;
     return;   // (sin red ni entrada: sólo se dibuja)
   }
   if (gacha_demo_) {
@@ -618,6 +644,10 @@ void App::in_run(const UiIn& in) {
       auto_orbs_given_ = true;
       Player& p = g.players[g.local];
       for (int id : {ORB_LUMINOUS, ORB_HEAL, ORB_SLUMBER, ORB_QUICK, ORB_FOCUS}) orb_add(p, id);
+    }
+    if (auto_treasure && !auto_treasure_given_ && g.time > 3 && g.state == ST_PLAYING) {   // (el tesoro, para las capturas)
+      auto_treasure_given_ = true;
+      orb_place_treasure(g, g.players[g.local]);
     }
     if (auto_bond && !coop_) {   // (captura del vínculo con el primero ya elegido)
       Player& p = g.players[g.local];
@@ -866,8 +896,8 @@ void App::in_menu(const UiIn& in) {
   if (in.down & KEY_SELECT) { audio::play("select"); open_news(); return; }
   // La barra de la versión nueva (o START): a Actualizaciones.
   if ((in.down & KEY_START) || (update_bar() && in_rect(&in, 6, 40, 308, 20))) { audio::play("select"); update_back_ = SC_MENU; go(SC_UPDATE); return; }
-  // Halloween: la Tienda Kecleon (R o su barra).
-  if (hw3ds::on() && ((in.down & KEY_R) || (!update_bar() && in_rect(&in, 6, 40, 308, 20)))) { audio::play("select"); open_shop(); return; }
+  // R: la Tienda Kecleon (arriba a la derecha).
+  if (in.down & KEY_R) { audio::play("select"); open_shop(); return; }
   if (pick < 0) return;
   cur_ = pick;
   switch (pick) {
@@ -968,15 +998,6 @@ void App::bottom_menu() {
     } else {
       r_->text("Buscando versión nueva…", 160, 42, 0.4f, C_MUTED, 1);
     }
-  } else if (hw) {
-    // Halloween: la Tienda Kecleon (disfraces por caramelos). Tocar o R.
-    const float k = 0.75f + std::sin(t_ * 3) * 0.25f;
-    C2D_DrawRectSolid(6, 40, 0, 308, 20, C2D_Color32(58, 24, 82, 240));
-    C2D_DrawRectSolid(6, 40, 0, 3, 20, rgbf(0xff8a2a, k));
-    const int si = r_->ui_icon[18];
-    if (si >= 0) C2D_DrawImageAt(r_->icons.image(si), 14, 42, 0);
-    r_->text_fit("Tienda Kecleon: disfraces de bruja", 32, 42, 250, 0.4f, C2D_Color32(255, 200, 140, 255), false, 0);
-    r_->text("R", 306, 44, 0.34f, rgbf(0xff8a2a, k), 2);
   } else {
     char tt[16]; mmss(float(s_->stats.best_time), tt, sizeof(tt));
     const int medals = s_->arceus_medals();
@@ -1292,6 +1313,41 @@ void App::top_dex_move(int dex) {
 // ---------------- mejoras ----------------
 
 namespace {
+// Etiqueta «Físico» / «Especial» / «Mejora» de un ataque en las listas de elegir
+// (centrada en cx). Con el lado fuerte del Pokémon, en dorado; el otro, apagado.
+void cat_tag(Renderer* r, int id, const Mon* mon, float cx, float y) {
+  const MoveDef& d = kMoves[id];
+  const bool buff = d.kind == K_BUFF || d.cat < 0;
+  const bool good = !buff && stats_fit(mon, d.cat) >= 0.999f;
+  C2D_DrawRectSolid(cx - 24, y + 2, 0, 48, 14, buff ? C2D_Color32(30, 40, 62, 255) : d.cat == CAT_PHYSICAL ? C2D_Color32(120, 52, 30, 255) : C2D_Color32(40, 60, 130, 255));
+  r->text(buff ? "Mejora" : d.cat == CAT_PHYSICAL ? "Físico" : "Especial", cx, y + 2, 0.32f, buff ? C_MUTED : good ? C_GOLD : C2D_Color32(200, 205, 220, 255), 1);
+}
+}  // namespace
+
+// Arriba, en «Ataque inicial» y «Repertorio»: el ataque del cursor, de qué tipo es,
+// si es físico o especial y lo que rinde con este Pokémon (su lado fuerte, al 100 %).
+void App::top_pick_move(int id) {
+  const MoveDef& d = kMoves[id];
+  const Mon* m = mon_by_dex(up_dex_);
+  C2D_DrawRectSolid(196, 36, 0, 200, 150, C2D_Color32(8, 12, 20, 190));
+  const int ic = r_->move_icon[id];
+  if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 202, 42, 0, nullptr, 2, 2);
+  r_->text_fit(d.name, 240, 44, 150, 0.46f, C_TEXT, true);
+  C2D_DrawRectSolid(240, 62, 0, 64, 16, rgb(kTypeColor[d.type]));
+  r_->text(kTypeName[d.type], 272, 63, 0.34f, C_TEXT, 1);
+  const bool buff = d.kind == K_BUFF || d.cat < 0;
+  C2D_DrawRectSolid(310, 62, 0, 70, 16, buff ? C2D_Color32(30, 40, 62, 255) : d.cat == CAT_PHYSICAL ? C2D_Color32(120, 52, 30, 255) : C2D_Color32(40, 60, 130, 255));
+  r_->text(buff ? "Mejora" : d.cat == CAT_PHYSICAL ? "Físico" : "Especial", 345, 63, 0.34f, buff ? C_MUTED : C_GOLD, 1);
+  r_->text_wrap(d.desc, 202, 84, 0.34f, C_TEXT, 188);
+  if (buff) return;
+  char b[96];
+  const int pct = int(std::lround(stats_fit(m, d.cat) * 100));
+  if (pct >= 100) std::snprintf(b, sizeof(b), "Es su lado fuerte: rinde al 100 %%");
+  else std::snprintf(b, sizeof(b), "No es su lado fuerte: rinde al %d %%", pct);
+  r_->text_wrap(b, 202, 160, 0.32f, pct >= 100 ? C_GOLD : C2D_Color32(255, 150, 120, 255), 188);
+}
+
+namespace {
 // Orden alfabético en español (sin acentos y la ñ tras la n, como localeCompare 'es').
 int es_key(const char*& p) {
   const unsigned char c = static_cast<unsigned char>(*p);
@@ -1450,7 +1506,7 @@ void App::in_upgrades(const UiIn& in) {
     if (in.down & KEY_B) { save_now(); scene = SC_UPGRADES; cur_ = UP_BAN; }
     return;
   }
-  const int n = atajos_row() + 1;   // las de la web, «Megapiedra» (si tiene mega) y Atajos
+  const int n = atajos_row() + 1;   // las de la web, «Megapiedra» (si tiene mega), «Más pasivas…» y Atajos
   if (cur_ >= n) cur_ = n - 1;      // (al cambiar a un Pokémon sin mega)
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 1) % n;
   if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % n;
@@ -1540,8 +1596,9 @@ void App::bottom_upgrades() {
       C2D_DrawRectSolid(10, y, 0, 300, 18, scroll_ + i == cur_ ? C_SEL : C_PANEL);
       const int ic = r_->move_icon[id];
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 14, y + 1, 0);
-      r_->text_fit(kMoves[id].name, 36, y + 2, id == base ? 160 : 210, 0.36f, id == cur ? C_GOLD : C_TEXT, true);
-      if (id == base) r_->text("(de serie)", 250, y + 3, 0.3f, C_MUTED, 2);
+      r_->text_fit(kMoves[id].name, 36, y + 2, 118, 0.36f, id == cur ? C_GOLD : C_TEXT, true);
+      cat_tag(r_, id, mon_by_dex(up_dex_), 182, y);
+      if (id == base) r_->text("(de serie)", 256, y + 3, 0.3f, C_MUTED, 2);
       if (id == cur) r_->text("ELEGIDO", 304, y + 2, 0.32f, C_GOLD, 2);
     }
     r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
@@ -1561,7 +1618,8 @@ void App::bottom_upgrades() {
       else {
         const int ic = r_->move_icon[id];
         if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 14, y + 1, 0);
-        r_->text_fit(kMoves[id].name, 36, y + 2, 210, 0.36f, on ? C_GOLD : C_TEXT, true);
+        r_->text_fit(kMoves[id].name, 36, y + 2, 150, 0.36f, on ? C_GOLD : C_TEXT, true);
+        cat_tag(r_, id, mon_by_dex(up_dex_), 222, y);
       }
       if (on) r_->text("ELEGIDO", 304, y + 2, 0.32f, C_GOLD, 2);
     }
@@ -1601,7 +1659,7 @@ void App::bottom_upgrades() {
       const bool got = s_->pfour[up_dex_] > 0;
       const int ic = r_->ui_icon[13];   // (cartas)
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 1, 0, nullptr, 2, 2);
-      r_->text_fit("Más pasivas a niveles altos", 38, y + 1, 168, 0.38f, C_TEXT, true);
+      r_->text_fit("Más pasivas a niveles altos", 38, y + 1, 228, 0.38f, C_TEXT, true);   // (largo: hasta el precio)
       r_->text_fit("Nivel 25: 4 cartas, 2 pasivas", 38, y + 13, 168, 0.28f, C_MUTED);
       C2D_DrawRectSolid(210, y + 18, 0, 4, 4, got ? C_GOLD : C2D_Color32(60, 70, 96, 255));
       if (got) r_->text("Máx.", 308, y + 4, 0.36f, C_MUTED, 2);
@@ -2170,14 +2228,17 @@ void App::draw_top(float eye) {
         std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(dex)->name, sh ? " ★" : "");
         // (con la insignia de la cuenta arriba a la izquierda, el nombre más abajo)
         const float ny = cloud3ds::account().on ? 54 : 10;
-        r_->text(b, 200, ny, 0.7f, C_TEXT, 1);
+        // (arriba, si es largo, se aparta a la izquierda de la Tienda Kecleon: top_shop_badge)
+        const float nw = r_->text_width(b, 0.7f) + (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0 ? 24 : 0);
+        const float nx = ny < 50 ? std::max(6 + nw / 2, std::min(200.0f, TW - 4 - 144 - 6 - nw / 2)) : 200;
+        r_->text(b, nx, ny, 0.7f, C_TEXT, 1);
         // Medalla de Arceus de tu compañero, al lado de su nombre.
-        if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) r_->draw_medal(200 + r_->text_width(b, 0.7f) / 2 + 14, ny + 14, 7);
+        if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) r_->draw_medal(nx + r_->text_width(b, 0.7f) / 2 + 14, ny + 14, 7);
         // Su tipo (o sus dos tipos), como en la Pokédex.
         const Mon* pm = mon_by_dex(dex);
         for (int k = 0; k < 2; ++k) {
           if (pm->types[k] < 0) continue;
-          const float x = pm->types[1] >= 0 ? 150 + k * 52 : 177;
+          const float x = nx + (pm->types[1] >= 0 ? -50 + k * 52 : -23);
           C2D_DrawRectSolid(x, ny + 26, 0, 46, 14, rgb(kTypeColor[pm->types[k]]));
           r_->text(kTypeName[pm->types[k]], x + 23, ny + 26, 0.32f, C_TEXT, 1);
         }
@@ -2189,13 +2250,17 @@ void App::draw_top(float eye) {
             char t[32], cd[80];
             hw_time(ms, t, sizeof(t));
             std::snprintf(cd, sizeof(cd), on ? "Halloween termina en %s" : "Halloween empieza en %s", t);
+            // (con megapiedras, a la izquierda de su panel, que está abajo a la derecha: ver mega_badge)
+            const int nm = mega_count(dex);
+            const float right = nm ? TW - 8 - std::max(92.0f, nm * 26.0f + (nm - 1) * 14.0f + 24) - 6 : TW - 6;
+            const float cx = nm ? (6 + 18 + right) / 2 : 200, maxw = right - 6 - 18;
+            const float w = r_->text_fit(cd, cx, 200, maxw, 0.38f, C2D_Color32(255, 160, 80, 255), false, 1);
             const int pi = r_->ui_icon[17];
-            const float w = r_->text_width(cd, 0.38f);
-            if (pi >= 0) C2D_DrawImageAt(r_->icons.image(pi), 200 - w / 2 - 16, 202, 0);
-            r_->text(cd, 200, 200, 0.38f, C2D_Color32(255, 160, 80, 255), 1);
+            if (pi >= 0) C2D_DrawImageAt(r_->icons.image(pi), cx - w / 2 - 16, 202, 0);
           }
         }
-        if (s_->owns_shiny(dex)) y_hint(TW - 6 - y_hint_w(), 8, sh);   // (arriba a la derecha, sin salirse)
+        top_shop_badge();                                                 // (arriba a la derecha: la Tienda Kecleon, R)
+        if (s_->owns_shiny(dex)) y_hint(TW - 6 - y_hint_w(), 56, sh);  // (debajo, sin salirse)
         mega_badge(dex);
         top_cloud_badge();
         break;
@@ -2209,8 +2274,15 @@ void App::draw_top(float eye) {
       }
       case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: {
         const bool sh = up_dex_ == s_->partner && s_->partner_shiny && s_->owns_shiny(up_dex_);
-        draw_mon(up_dex_, sh, 200, 200, 3);
-        r_->text(mon_by_dex(up_dex_)->name, 200, 14, 0.6f, C_TEXT, 1);
+        const bool pick = scene == SC_START || scene == SC_MOVE2;   // (el ataque a la derecha)
+        draw_mon(up_dex_, sh, pick ? 96 : 200, 200, 3);
+        r_->text(mon_by_dex(up_dex_)->name, pick ? 96 : 200, 14, 0.6f, C_TEXT, 1);
+        if (scene == SC_START || scene == SC_MOVE2) {
+          int16_t ids[kMaxMoves];
+          const int n = scene == SC_START ? start_choices_sorted(up_dex_, ids) : move2_choices_sorted(*s_, up_dex_, ids);
+          const int row = scene == SC_START ? cur_ : cur_ - 1;   // (en «Repertorio», la fila 0 es «al azar»)
+          if (row >= 0 && row < n) top_pick_move(ids[row]);
+        }
         if (scene == SC_UPGRADES && cur_ < UP_COUNT) r_->text_wrap(kUpgrades[cur_].unit, 200, 44, 0.42f, C_GOLD, 340, 1);
         else if (scene == SC_UPGRADES && cur_ == four_row())
           r_->text_wrap("Desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas: poder, velocidad, defensa, recarga… Desde el 40, al menos 3.",
