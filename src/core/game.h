@@ -130,6 +130,7 @@ struct Player {
   // que queda, la recarga, la transformación y lo que hay que deshacer.
   int8_t mega = -1;
   uint8_t mega_up = 0;          // nivel de la mejora «Megapiedra» (probabilidad)
+  bool four_up = false;         // mejora «Más pasivas a niveles altos» (las 4 cartas: levelup_four)
   float mega_t = 0, mega_cd = 0, mega_tf = 0;
   float mega_dhp = 0;           // vida máxima que da la mega (se quita al acabar)
   float mega_regen = 0;         // regeneración que da la mega (se quita al acabar)
@@ -392,6 +393,7 @@ struct RunConfig {
   bool shiny = false;
   uint8_t upgrades[UP_COUNT] = {};
   uint8_t mega_up = 0;                   // mejora «Megapiedra» (del port: Save::pmega)
+  bool four_up = false;                  // mejora «Más pasivas a niveles altos» (del port: Save::pfour)
   int8_t pbind[4] = {-1, -1, -1, -1};   // movimientos con hueco fijo
   int8_t pban[3] = {-1, -1, -1};
   int8_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
@@ -417,6 +419,7 @@ struct RunConfig {
     bool shiny = false;
     uint8_t upgrades[UP_COUNT] = {};
   uint8_t mega_up = 0;                   // mejora «Megapiedra» (del port: Save::pmega)
+    bool four_up = false;
     int8_t pbind[4] = {-1, -1, -1, -1};
     int8_t pban[3] = {-1, -1, -1};
     int8_t pstart = -1;
@@ -683,9 +686,10 @@ bool hazard_inside(const Hazard& h, float x, float y, float r);
 // Multiplicador de la experiencia del equipo (coop.js xpFactor; 1 en solitario).
 float game_xp_factor(const Game& g);
 void levelup_offer(Game& g, Player& p);
-// Las 4 cartas (del port, 2026-10-30): con kFourMoves movimientos (dos vínculos) o
-// desde el nivel kFourLevel; al menos levelup_min_passive de ellas, pasivas.
+// Las 4 cartas (del port, 2026-10-30), con la mejora «Más pasivas a niveles altos»
+// (Player::four_up): con kFourMoves movimientos (dos vínculos) o desde el nivel kFourLevel; al menos levelup_min_passive de ellas, pasivas.
 constexpr int kFourMoves = 8, kFourLevel = 25, kMorePassiveLevel = 40;
+constexpr int kFourUpCost = 2500;   // la mejora (una vez por Pokémon, en Mejoras)
 bool levelup_four(const Player& p);
 int levelup_min_passive(const Player& p);
 void levelup_apply(Game& g, Player& p, const Card& c);

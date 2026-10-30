@@ -862,7 +862,10 @@ void combat_resolve(Game& g, float dt) {
 
     // --- disparos enemigos: paredes y objetos sólidos dan cobertura ---
     if (!p->friendly) {
-      if (g.world.projectile_block(p->x, p->y, p->r, nullptr)) {
+      Prop* hit = nullptr;
+      if (g.world.projectile_block(p->x, p->y, p->r, &hit)) {
+        // (Halloween: un disparo enemigo también rompe las calabazas)
+        if (hit && hit->type == PR_PUMPKIN) g.world.damage_prop(hit, p->dmg, p->color);
         g.fx.burst(p->x, p->y - kLift, p->color, 5, 70);
         g.projectiles.remove_ordered(i);
         continue;
@@ -884,7 +887,7 @@ void combat_resolve(Game& g, float dt) {
     if (p->orb && p->ghost) continue;
     if (!p->orb) {
       Prop* bp = nullptr;
-      const int block = g.world.projectile_block(p->x, p->y, p->r, &bp);
+      const int block = g.world.projectile_block(p->x, p->y, p->r, &bp, true);   // (los cofres no paran tus ataques)
       if (block == 1 || (block == 2 && !bp->destructible)) {
         g.fx.burst(p->x, p->y - kLift, p->color, 5, 80);
         g.projectiles.remove_ordered(i);

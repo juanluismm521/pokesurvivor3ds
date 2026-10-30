@@ -147,7 +147,8 @@ class App {
   int dex_moves(int dex, int16_t* out);
   void y_hint(float x, float y, bool shiny);   // botón Y que se pulsa solo · «Normal · Shiny»
   float y_hint_w();                            // (su ancho)
-  int atajos_row() const;                      // Mejoras: fila de «Atajos» (tras «Megapiedra» si tiene mega)
+  int atajos_row() const;
+  int four_row() const;                      // Mejoras: fila de «Atajos» (tras «Megapiedra» si tiene mega)
   // Texto que cabe en `maxw`: baja la letra si hace falta y, si ni así, lo corta con «…».
   void fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = true);   // botón Y que se pulsa solo · «Normal · Shiny»
   void top_pull();

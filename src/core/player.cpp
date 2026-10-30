@@ -42,6 +42,7 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
   p.reroll_bonus = k.rerolls;
   p.crit = k.crit;
   p.mega_up = cfg.mega_up;
+  p.four_up = cfg.four_up;
   for (auto& b : p.bind) b = -1;
   for (int s = 0; s < 4; ++s) for (int j = 0; j < 4; ++j) p.slots[s][j] = -1;
 }

@@ -114,7 +114,7 @@ class World {
   // Empuja un círculo fuera de paredes y objetos sólidos; true si ha chocado.
   bool collide(float& x, float& y, float r);
   // 0 = nada, 1 = pared, 2 = prop sólido (en *prop)
-  int projectile_block(float x, float y, float r, Prop** prop);
+  int projectile_block(float x, float y, float r, Prop** prop, bool through_chests = false);
 
   // --- daño a objetos (los efectos van a Game) ---
   bool damage_prop(Prop* p, float amount, uint32_t color);

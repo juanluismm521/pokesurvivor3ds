@@ -168,6 +168,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       pc.dex = m.dex; pc.shiny = m.shiny;
       std::memcpy(pc.upgrades, m.upgrades, sizeof(pc.upgrades));
       pc.mega_up = m.mega_up;
+      pc.four_up = m.four_up;
       std::memcpy(pc.pbind, m.pbind, sizeof(pc.pbind));
       std::memcpy(pc.pban, m.pban, sizeof(pc.pban));
       pc.pstart = m.pstart;

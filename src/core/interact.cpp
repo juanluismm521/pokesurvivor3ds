@@ -2,6 +2,7 @@
 //   altar     da un poder de 25 s (Furia, Rayo, Imán o Prisa) y se apaga
 //   spring    cura mientras estás encima; se agota y se recarga sola
 //   chest     (del port, 2026-10-30) se abre al pasar por encima, no a golpes
+//   pumpkin   (Halloween) se rompe al pasar por encima, con tus ataques o con disparos enemigos
 //   bigchest  quédate a su lado 3,5 s y se abre (desde un poco más lejos que en la web)
 //   trap      salta al pisarla (tú o un enemigo): veneno, pegajosa o explosiva
 #include <cmath>
@@ -59,7 +60,8 @@ void interact_update(Game& g, Player& pl, float dt) {
   if (!pl.dead) {
     Prop* near[8];
     const int nc = g.world.props_in_circle(pl.x, pl.y, pl.r + CHEST_TOUCH, near, 8);
-    for (int i = 0; i < nc; ++i) if (near[i]->type == PR_CHEST && !near[i]->gone) g.world.break_prop(near[i]);
+    // (y las calabazas de Halloween, igual: pasando por encima)
+    for (int i = 0; i < nc; ++i) if ((near[i]->type == PR_CHEST || near[i]->type == PR_PUMPKIN) && !near[i]->gone) g.world.break_prop(near[i]);
   }
   Prop* list[64];
   const int n = g.world.specials_near(pl.x, pl.y, 720, list, 64);

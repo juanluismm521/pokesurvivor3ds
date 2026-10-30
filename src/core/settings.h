@@ -7,12 +7,13 @@ namespace ps {
 
 struct Settings {
   int lang = 0;               // 0 español, 1 inglés
+  bool lang_set = false;      // (leído del archivo; si no, la plataforma pone el de la consola)
   int quality = -1;           // -1 auto, 0 baja, 1 media, 2 alta
   bool dmg_numbers = true;
   bool calm = false;          // menos sacudidas y destellos
   bool fps = false;           // contador de FPS
   int music = 70, sfx = 80;   // volumen 0..100
-  bool stereo = true;         // 3D (si el deslizador está subido)
+  bool stereo = false;        // 3D (si el deslizador está subido). Desactivado de serie (el dueño, 2026-10-30)
   // Servidor para jugar online (repositorio pokesurvivor-relay): IP o dominio y puerto.
   char server[64] = "pokesurvivor3ds.duckdns.org";
   int server_port = 24873;

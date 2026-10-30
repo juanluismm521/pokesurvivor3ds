@@ -368,6 +368,12 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
       for (const auto& kv : older["pmega"].items())
         rm.set(kv.first, Json::num(std::fmax(plus0(rm[kv.first.c_str()]), plus0(kv.second))));
     }
+    if (older["pfour"].is_obj()) {
+      Json& rf4 = r.ref("pfour");
+      if (!rf4.is_obj()) rf4 = Json::object();
+      for (const auto& kv : older["pfour"].items())
+        rf4.set(kv.first, Json::num(std::fmax(plus0(rf4[kv.first.c_str()]), plus0(kv.second))));
+    }
     // Del port: medallas de Arceus (modo rápido). Se juntan las dos copias (la web no
     // las conoce: así nunca se pierde una).
     if (older["arceusWin"].is_obj()) {
@@ -484,7 +490,7 @@ namespace {
 bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
-                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pmove2", "arceusWin",
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin",
                                   "skins", "pskin"};
   for (const char* q : K) if (k == q) return true;
   return false;

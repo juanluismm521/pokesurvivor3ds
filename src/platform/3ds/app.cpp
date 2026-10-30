@@ -208,6 +208,7 @@ void App::start_run() {
   cfg.shiny = autotest ? auto_shiny : s_->partner_shiny && s_->owns_shiny(cfg.dex);
   for (int k = 0; k < UP_COUNT; ++k) cfg.upgrades[k] = autotest ? 0 : s_->pupg[cfg.dex][k];
   cfg.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[cfg.dex];
+  cfg.four_up = autotest ? true : s_->pfour[cfg.dex] > 0;   // (en las pruebas, con las 4 cartas)
   for (int k = 0; k < 4; ++k) cfg.pbind[k] = autotest ? -1 : s_->pbind[cfg.dex][k];
   for (int k = 0; k < 3; ++k) cfg.pban[k] = autotest ? -1 : s_->pban[cfg.dex][k];
   cfg.pstart = autotest ? int8_t(auto_move_) : s_->pstart[cfg.dex];
@@ -1127,7 +1128,8 @@ void App::fit_text(const char* s, float x, float y, float maxw, float size, u32 
   r_->text((t + "…").c_str(), x, y + (size - sz) * 18, sz, color, 0, shadow);
 }
 
-int App::atajos_row() const { return UP_COUNT + (has_mega(up_dex_) ? 1 : 0); }
+int App::four_row() const { return UP_COUNT + (has_mega(up_dex_) ? 1 : 0); }   // «Más pasivas a niveles altos» (del port)
+int App::atajos_row() const { return four_row() + 1; }
 
 float App::y_hint_w() {
   return 51 + r_->text_width("Normal", 0.38f) + r_->text_width("Shiny", 0.38f);
@@ -1457,6 +1459,19 @@ void App::in_upgrades(const UiIn& in) {
   for (int i = 0; i < 7; ++i) if (in_rect(&in, 6, 28 + i * 28, 308, 26)) { if (cur_ == scroll_ + i) { /* toque doble: comprar */ } cur_ = scroll_ + i; }
   if (in.down & KEY_A) {
     if (cur_ == atajos_row()) { scene = SC_BIND; cur_ = 0; return; }
+    if (cur_ == four_row()) {   // «Más pasivas a niveles altos» (del port): una vez, kFourUpCost
+      if (!s_->pfour[up_dex_] && s_->coins >= kFourUpCost) {
+        s_->coins -= kFourUpCost;
+        s_->pfour[up_dex_] = 1;
+        audio::play("coin");
+        audio::play("buy");
+        save_now();
+        char b[96];
+        std::snprintf(b, sizeof(b), "%s · Más pasivas a niveles altos", mon_by_dex(up_dex_)->name);
+        g_notices.push(b, "Desde el nivel 25: 4 cartas, al menos 2 pasivas", -1);
+      }
+      return;
+    }
     if (cur_ == UP_COUNT) {   // «Megapiedra» (del port)
       uint8_t& ml = s_->pmega[up_dex_];
       const int price = mega_up_cost(ml);
@@ -1582,6 +1597,20 @@ void App::bottom_upgrades() {
     const float y = 28 + i * 28;
     C2D_DrawRectSolid(6, y, 0, 308, 26, k == cur_ ? C_SEL : C_PANEL);
     if (k == atajos_row()) { r_->text("Atajos de movimientos", 160, y + 6, 0.4f, C_TEXT, 1); continue; }
+    if (k == four_row()) {   // «Más pasivas a niveles altos» (del port)
+      const bool got = s_->pfour[up_dex_] > 0;
+      const int ic = r_->ui_icon[13];   // (cartas)
+      if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 1, 0, nullptr, 2, 2);
+      r_->text_fit("Más pasivas a niveles altos", 38, y + 1, 168, 0.38f, C_TEXT, true);
+      r_->text_fit("Nivel 25: 4 cartas, 2 pasivas", 38, y + 13, 168, 0.28f, C_MUTED);
+      C2D_DrawRectSolid(210, y + 18, 0, 4, 4, got ? C_GOLD : C2D_Color32(60, 70, 96, 255));
+      if (got) r_->text("Máx.", 308, y + 4, 0.36f, C_MUTED, 2);
+      else {
+        std::snprintf(b, sizeof(b), "%d", kFourUpCost);
+        r_->text(b, 308, y + 2, 0.38f, s_->coins >= kFourUpCost ? C_GOLD : C2D_Color32(140, 110, 70, 255), 2);
+      }
+      continue;
+    }
     if (k == UP_COUNT) {   // «Megapiedra» (del port, sólo con mega)
       const int ml = s_->pmega[up_dex_];
       r_->draw_mega_stone(mega_index(up_dex_, 0), 10, y + 1, 24);
@@ -2089,7 +2118,7 @@ void App::draw_top(float eye) {
     }
     if (still_now_) g_->players[g_->local].anim.dir = int8_t(dir_from_angle(kPi / 2));   // (grabación: mirando abajo)
     r_->draw_top(*g_, eye); coop_overlay();
-    if (g_->state == ST_OVER) { r_->draw_over_summary(*g_, over_tab_ < 0 ? g_->local : over_tab_); top_cloud_badge(); }   // (se sube a la nube al acabar: que se vea)
+    if (g_->state == ST_OVER) r_->draw_over_summary(*g_, over_tab_ < 0 ? g_->local : over_tab_);   // (la insignia de la nube, sólo en el menú: aquí tapaba el resumen)
   }
   else {
     if (eye <= 0) C2D_TextBufClear(r_->tbuf);
@@ -2183,6 +2212,9 @@ void App::draw_top(float eye) {
         draw_mon(up_dex_, sh, 200, 200, 3);
         r_->text(mon_by_dex(up_dex_)->name, 200, 14, 0.6f, C_TEXT, 1);
         if (scene == SC_UPGRADES && cur_ < UP_COUNT) r_->text_wrap(kUpgrades[cur_].unit, 200, 44, 0.42f, C_GOLD, 340, 1);
+        else if (scene == SC_UPGRADES && cur_ == four_row())
+          r_->text_wrap("Desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas: poder, velocidad, defensa, recarga… Desde el 40, al menos 3.",
+                        200, 40, 0.38f, C_GOLD, 360, 1);
         else if (scene == SC_UPGRADES && cur_ == UP_COUNT && has_mega(up_dex_)) {
           // (sus megas: con dos, X e Y o normal y Z)
           std::string ms;

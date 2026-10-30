@@ -54,6 +54,7 @@ static void put_member(W& w, const RunConfig::Member& m) {
   w.u8(m.mega_up);
   w.u8(m.test_stone ? 1 : 0);
   w.u8(uint8_t(m.skin));
+  w.u8(m.four_up ? 1 : 0);
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
@@ -62,6 +63,7 @@ static void get_member(R& r, RunConfig::Member& m) {
   m.mega_up = uint8_t(r.u8());
   m.test_stone = r.u8() != 0;
   m.skin = int8_t(r.u8());
+  m.four_up = r.u8() != 0;
   if (m.skin < -1 || m.skin >= kSkinCount || (m.skin >= 0 && kSkins[m.skin].dex != m.dex)) m.skin = -1;   // (sólo un disfraz suyo)
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }

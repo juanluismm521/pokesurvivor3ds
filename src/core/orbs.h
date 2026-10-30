@@ -33,6 +33,7 @@ constexpr int kOrbSlots = 4, kOrbStack = 3;
 constexpr float kOrbCd = 1;
 constexpr float kOrbNear = 384;              // "media pantalla"
 constexpr float kOrbSphereRate = 1.0f / 300; // al derrotar a un Pokémon normal
+constexpr float kTreasureTime = 180;          // el tesoro de la Luminosfera brilla 3 min (luego se apaga)
 // La Luminosfera hace brillar un tesoro a 1-1,5 pantallas (game.h, Game::treasure).
 void orb_place_treasure(Game& g, const Player& p);
 void treasure_update(Game& g, float dt);

@@ -146,14 +146,17 @@ TEST_CASE("esferas: la Luminosfera hace brillar un tesoro; al llegar, tickets y 
   p.x = g->treasure.x; p.y = g->treasure.y;
   wait(*g, 1);
   CHECK_FALSE(g->treasure.on);
-  CHECK(p.t1 + p.t10 >= t1 + 2);
-  CHECK(p.coins >= c0 + 24);
-  // Si nadie lo coge, a los 2 min se apaga.
+  CHECK(p.t1 + p.t10 >= t1 + 1);    // (los del cofre grande: 1-3)
+  CHECK(p.coins >= c0 + 40);
+  // Si nadie lo coge, a los 3 min se apaga (y no antes).
   orb_add(p, ORB_LUMINOUS);
   orb_place_treasure(*g, p);
   REQUIRE(g->treasure.on);
   p.x += 3000;
-  g->treasure.t = 119;
+  g->treasure.t = 150;
+  treasure_update(*g, 2);
+  CHECK(g->treasure.on);
+  g->treasure.t = kTreasureTime - 1;
   treasure_update(*g, 2);
   CHECK_FALSE(g->treasure.on);
 }
@@ -196,7 +199,7 @@ TEST_CASE("esferas: la Curaesfera cura a todo el equipo, esté donde esté") {
   CHECK(orb_count(a) == 0);
 }
 
-TEST_CASE("esferas: el tesoro de la Luminosfera trae lo de un cofre grande y un objeto") {
+TEST_CASE("esferas: el tesoro de la Luminosfera trae lo de un cofre grande y monedas extra (sin pasarse)") {
   auto g = solo(21);
   Player& p = g->players[0];
   orb_add(p, ORB_LUMINOUS);
@@ -218,10 +221,11 @@ TEST_CASE("esferas: el tesoro de la Luminosfera trae lo de un cofre grande y un 
     tickets += q.kind == PK_TICKET || q.kind == PK_TICKET10;
   }
   CHECK(g->pickups.n > before);
-  CHECK(items >= 1);
+  CHECK(items <= 1);                // (como mucho el del cofre grande, la mitad de las veces)
   CHECK(spheres >= 1);
-  CHECK(tickets >= 3);
-  CHECK(coins >= 15);
+  CHECK(tickets >= 1);
+  CHECK(tickets <= 4);
+  CHECK(coins >= 19);               // (9 del cofre grande y 10 extra)
 }
 
 TEST_CASE("vínculo: al unir dos movimientos sigues con el ataque que tenías elegido") {

@@ -109,7 +109,7 @@ int candidates(Game& g, Player& p, Cand* out) {
 }
 }  // namespace
 
-bool levelup_four(const Player& p) { return p.nmoves >= kFourMoves || p.level >= kFourLevel; }
+bool levelup_four(const Player& p) { return p.four_up && (p.nmoves >= kFourMoves || p.level >= kFourLevel); }
 int levelup_min_passive(const Player& p) { return !levelup_four(p) ? 0 : p.level >= kMorePassiveLevel ? 3 : 2; }
 
 // 3 cartas distintas (o 4: levelup_four), elegidas por peso. Si hay una evolución

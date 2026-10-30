@@ -79,6 +79,7 @@ RunConfig::Member App::my_member() const {
   m.pmove2 = autotest ? -1 : s_->pmove2[m.dex];
   m.immortal = autotest && auto_immortal_;
   m.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[m.dex];
+  m.four_up = autotest || s_->pfour[m.dex] > 0;
   m.test_stone = autotest && auto_mega;
   // Su disfraz de Halloween (pruebas: «disfraz» en el autotest, si lo tiene).
   m.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(m.dex) : -1) : skin_worn(*s_, m.dex));
@@ -130,25 +131,8 @@ volatile bool g_conn_ok = false;
 void App::in_coop(const UiIn& in) {
   // (mientras el otro hilo conecta, no se cambia nada de la red: espera)
   const bool connecting = g_conn_state == 1 || g_scan_state == 1;   // (o buscando salas)
-  if (!connecting) net3ds::set_server(st_->server, st_->server_port);
-  // Por internet: Y (o tocar la fila) cambia el servidor (IP o dominio y puerto).
-  if (!connecting && coop_online_ && !auto_coop_ && ((in.down & KEY_Y) || in_rect(&in, 20, 86, 280, 12))) {
-    char host[64], port[8], cur[8];
-    std::snprintf(cur, sizeof(cur), "%d", st_->server_port);
-    if (ask_text("IP o dominio del servidor", st_->server, host, sizeof(host), false)) {
-      if (!settings_valid_host(host)) { std::snprintf(coop_msg_, sizeof(coop_msg_), "Ese servidor no vale (sólo letras, cifras, puntos y guiones)"); return; }
-      int p = st_->server_port;
-      if (ask_text("Puerto (normalmente 24873)", cur, port, sizeof(port), true)) p = std::atoi(port);
-      if (p <= 0 || p > 65535) { std::snprintf(coop_msg_, sizeof(coop_msg_), "Ese puerto no vale (1-65535)"); return; }
-      std::snprintf(st_->server, sizeof(st_->server), "%s", host);
-      st_->server_port = p;
-      settings_write(dir_, *st_);
-      net3ds::set_server(st_->server, st_->server_port);
-      nrooms_ = 0; scanned_ = false; coop_retry_ = 0; coop_fails_ = 0; coop_err_init_ = false;
-      std::snprintf(coop_msg_, sizeof(coop_msg_), "Servidor: %s:%d", st_->server, st_->server_port);
-    }
-    return;
-  }
+  // (el servidor no se enseña ni se cambia: siempre el oficial, el dueño 2026-10-30)
+  if (!connecting) { static const Settings kDef; net3ds::set_server(kDef.server, kDef.server_port); }
   // Pestañas: cerca (juego local) o por internet.
   bool sw = false;
   if (in.down & (KEY_L | KEY_R)) sw = true;
@@ -345,9 +329,6 @@ void App::bottom_coop() {
   // hay) y debajo las salas, que se buscan solas: nada se pisa con 5.
   const char* status = nullptr;
   if (coop_online_) {
-    // Servidor (se cambia con Y o tocando aquí).
-    std::snprintf(b, sizeof(b), "Servidor: %s:%d  (Y: cambiar)", st_->server, st_->server_port);
-    r_->text(b, 160, 88, 0.32f, C2D_Color32(154, 230, 255, 255), 1);
     static char conn[48];
     std::snprintf(conn, sizeof(conn), coop_fails_ ? "Conectando con el servidor… (intento %d)" : "Conectando con el servidor…", coop_fails_ + 1);
     if (!net3ds::ready() && !coop_msg_[0]) status = conn;

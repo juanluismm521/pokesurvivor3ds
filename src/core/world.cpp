@@ -376,7 +376,7 @@ Prop* World::nearest_breakable(float x, float y, float r) {
   Prop* best = nullptr;
   float bd = r * r;
   for (int i = 0; i < n; ++i) {
-    if (!list[i]->solid) continue;
+    if (!list[i]->solid || list[i]->type == PR_CHEST) continue;   // (los cofres pequeños se abren al pasar, no a golpes)
     const float d = dist2(x, y, list[i]->x, list[i]->y);
     if (d < bd) { bd = d; best = list[i]; }
   }
@@ -424,13 +424,15 @@ bool World::collide(float& ex, float& ey, float r) {
   return hit;
 }
 
-int World::projectile_block(float x, float y, float r, Prop** prop) {
+int World::projectile_block(float x, float y, float r, Prop** prop, bool through_chests) {
   const int32_t tx = tile_of(x), ty = tile_of(y);
   if (terrain_at(tx, ty) == TR_WALL) return 1;
   for (int b = -1; b <= 1; ++b)
     for (int a = -1; a <= 1; ++a) {
       Prop* p = prop_at_tile(tx + a, ty + b);
-      if (p && p->solid && dist2(x, y, p->x, p->y) < (r + p->r) * (r + p->r)) { if (prop) *prop = p; return 2; }
+      if (!p || !p->solid) continue;
+      if (through_chests && (p->type == PR_CHEST || p->type == PR_BIGCHEST)) continue;   // (del port: tus ataques los atraviesan)
+      if (dist2(x, y, p->x, p->y) < (r + p->r) * (r + p->r)) { if (prop) *prop = p; return 2; }
     }
   return 0;
 }

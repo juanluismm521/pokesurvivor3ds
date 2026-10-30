@@ -310,9 +310,10 @@ TEST_CASE("4 cartas: con 8 movimientos o desde el nivel 25, y al menos 2 pasivas
   for (uint32_t seed = 1; seed <= 30; ++seed) {
     auto g = run(false, seed, 25);
     Player& p = g->players[0];
-    levelup_offer(*g, p);
-    CHECK(p.ncards == 3);                         // (al principio, 3 como siempre)
     p.level = kFourLevel;
+    levelup_offer(*g, p);
+    CHECK(p.ncards == 3);                         // (sin la mejora, 3 como siempre)
+    p.four_up = true;
     levelup_offer(*g, p);
     REQUIRE(p.ncards == 4);
     int st = 0;
@@ -333,6 +334,7 @@ TEST_CASE("4 cartas: con 8 movimientos o desde el nivel 25, y al menos 2 pasivas
   // Con 8 movimientos, aunque el nivel sea bajo.
   auto g = run(false, 5, 25);
   Player& p = g->players[0];
+  p.four_up = true;
   CHECK_FALSE(levelup_four(p));
   p.nmoves = kFourMoves;
   CHECK(levelup_four(p));

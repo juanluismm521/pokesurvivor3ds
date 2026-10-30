@@ -217,6 +217,9 @@ std::string save_to_json(const Save& s) {
   Json pmg = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) if (s.pmega[d] > 0) pmg.set(num_key(d), Json::num(s.pmega[d]));
   if (pmg.size()) o.set("pmega", std::move(pmg));   // (sólo si hay: si no, la partida de la web queda idéntica)
+  Json pf = Json::object();
+  for (int d = 0; d <= kMaxDex; ++d) if (s.pfour[d] > 0) pf.set(num_key(d), Json::num(1));
+  if (pf.size()) o.set("pfour", std::move(pf));
   // Del port: el segundo movimiento elegido con «Repertorio».
   Json pm2 = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) if (s.pmove2[d] >= 0 && s.pmove2[d] < kMoveCount) pm2.set(num_key(d), Json::str(kMoves[s.pmove2[d]].id));
@@ -339,6 +342,10 @@ bool save_from_json(Save& s, const std::string& text) {
     const int d = std::atoi(kv.first.c_str());
     if (d < 0 || d > kMaxDex || !kv.second.is_str()) continue;
     s.pmove2[d] = int8_t(move_index(kv.second.as_str().c_str()));
+  }
+  for (const auto& kv : o["pfour"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d >= 0 && d <= kMaxDex) s.pfour[d] = n0(kv.second) > 0 ? 1 : 0;
   }
   for (const auto& kv : o["pmega"].items()) {
     const int d = std::atoi(kv.first.c_str());

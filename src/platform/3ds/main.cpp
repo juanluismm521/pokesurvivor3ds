@@ -256,6 +256,12 @@ int main(int argc, char** argv) {
   if (!loaded) new_save(*save, "Jugador", int64_t(osGetTime()) - 2208988800000LL);
   static Settings settings;
   settings_read(kDir, settings);
+  // Sin idioma elegido (la primera vez): el de la consola; español si lo es, si no inglés.
+  if (!settings.lang_set) {
+    u8 cl = CFG_LANGUAGE_ES;
+    if (R_SUCCEEDED(cfguInit())) { CFGU_GetSystemLanguage(&cl); cfguExit(); }
+    settings.lang = cl == CFG_LANGUAGE_ES ? 0 : 1;
+  }
   // «idioma.txt» en la SD (pruebas): en inglés, y lo que no se traduce entero
   // va a idioma.log al salir (ver tr_record).
   char idioma_path[96];
@@ -329,7 +335,7 @@ int main(int argc, char** argv) {
     p.cards[2] = Card(); p.cards[2].type = CT_STAT; p.cards[2].stat = LS_DEF;
     for (int k = 0; k < 3 && aptMainLoop(); ++k) {
       if (k == 0) { g->state = ST_LEVELUP; p.picked = false; }
-      else if (k == 1) { p.level = 30; levelup_offer(*g, p); g->state = ST_LEVELUP; p.picked = false; }   // (las 4 cartas, con 2 pasivas)
+      else if (k == 1) { p.level = 30; p.four_up = true; levelup_offer(*g, p); g->state = ST_LEVELUP; p.picked = false; }   // (las 4 cartas, con 2 pasivas)
       else { g->state = ST_CHOICE; p.choice = CH_ITEM; p.item_cur = IT_MEGA_A; p.item_next = IT_SHELLBELL; }
       for (int f = 0; f < 240 && aptMainLoop(); ++f) {
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);

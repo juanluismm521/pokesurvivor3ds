@@ -17,7 +17,7 @@ std::string settings_to_json(const Settings& s) {
   o.set("fps", Json::boolean(s.fps));
   o.set("music", Json::num(s.music));
   o.set("sfx", Json::num(s.sfx));
-  o.set("stereo", Json::boolean(s.stereo));
+  o.set("stereo3d", Json::boolean(s.stereo));
   o.set("server", Json::str(s.server));
   o.set("serverPort", Json::num(s.server_port));
   o.set("cloudNever", Json::boolean(s.cloud_never));
@@ -32,6 +32,7 @@ bool settings_from_json(Settings& s, const std::string& text) {
   if (!o.parse(text) || !o.is_obj()) return false;
   s = Settings();
   s.lang = o["lang"].as_str() == "en" ? 1 : 0;
+  s.lang_set = o["lang"].is_str();
   const std::string& q = o["quality"].as_str();
   s.quality = q == "low" ? 0 : q == "mid" ? 1 : q == "high" ? 2 : -1;
   if (o.has("dmgNumbers")) s.dmg_numbers = o["dmgNumbers"].as_bool();
@@ -39,7 +40,9 @@ bool settings_from_json(Settings& s, const std::string& text) {
   s.fps = o["fps"].as_bool();
   if (o.has("music")) s.music = int(o["music"].as_int(70));
   if (o.has("sfx")) s.sfx = int(o["sfx"].as_int(80));
-  if (o.has("stereo")) s.stereo = o["stereo"].as_bool();
+  // (desde el 30-10-2026 el 3D va apagado de serie: el «stereo» de antes, que casi
+  // nadie tocó, no cuenta; sólo «stereo3d», lo que elijas a partir de ahora)
+  if (o.has("stereo3d")) s.stereo = o["stereo3d"].as_bool();
   if (o["server"].is_str() && settings_valid_host(o["server"].as_str().c_str())) std::snprintf(s.server, sizeof(s.server), "%s", o["server"].as_str().c_str());
   // El servidor por defecto era la IP del VPS; ahora es su dominio (si cambia
   // de máquina, sólo hay que cambiar el dominio).
