@@ -5,17 +5,21 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
-## 0.17.0 — 2026-10-30
-- **Curaesfera**: esfera nueva que cura un 40 % de la vida a todo el equipo, esté donde
-  esté (en grupo, a todos los compañeros vivos).
-- **Banner «Todas»** en el gacha (después de Paldea): todas las regiones juntas, con
+## 0.25.0 — 2026-10-30
+(Salto de versión a la 0.25, por decisión del dueño.)
+- **Curaesfera**: nuevo objeto utilizable que cura un 30 % de la vida a todo el
+  equipo, esté donde esté.
+- **Región «Todas»** en el gacha (después de Paldea): todas las regiones juntas, con
   su propio pity y su Amuleto Iris (la Pokédex entera).
-- Carteles del gacha: Kanto enseña a Dragonite en vez de Articuno; Paldea, a Koraidon
-  y Gholdengo (Miraidon no está en el juego todavía).
-- **El tesoro de la Luminosfera** trae lo de un cofre grande (objetos, esferas,
-  experiencia), un objeto seguro y además tickets y monedas.
+- Se arreglan ciertos bugs del gacha que no aparecían Pokémon representativos: Kanto
+  enseña a Dragonite; Paldea, a Koraidon y Gholdengo (Miraidon no está en el juego).
+- **Cofres**: los pequeños se abren al pasar por encima (ya no a golpes ni paran tus
+  disparos); los grandes se abren igual, desde un poco más lejos, y no se llevan tus
+  golpes.
+- El tesoro de la Luminosfera trae lo de un cofre grande (objetos, esferas,
+  experiencia) y además tickets y monedas.
 - Arreglado: al unir movimientos (vínculo) el ataque elegido ya no cambia solo.
-- Novedades: «¡Curaesfera y banner Todas!».
+- Novedades: «¡Región Todas!».
 - (Juego en grupo: protocolo nuevo; actualizad todos.)
 
 ## 0.16.2 — 2026-10-29

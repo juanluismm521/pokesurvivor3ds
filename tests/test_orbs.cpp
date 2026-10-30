@@ -190,8 +190,9 @@ TEST_CASE("esferas: la Curaesfera cura a todo el equipo, esté donde esté") {
   Input in[2] = {};
   in[0].cmd = CMD_ORB; in[0].arg = 0;
   g->step(in);
-  CHECK(a.hp >= a.max_hp * 0.59f);
-  CHECK(b.hp >= b.max_hp * 0.49f);
+  CHECK(a.hp >= a.max_hp * 0.49f);
+  CHECK(b.hp >= b.max_hp * 0.39f);
+  CHECK(b.hp < b.max_hp * 0.45f);   // (un 30 %, no más)
   CHECK(orb_count(a) == 0);
 }
 
@@ -245,4 +246,73 @@ TEST_CASE("vínculo: al unir dos movimientos sigues con el ataque que tenías el
   for (int j = 0; j < q.slot_n[q.active_slot]; ++j) in_group = in_group || q.slots[q.active_slot][j] == joined;
   CHECK(in_group);
   CHECK(q.slot_n[q.active_slot] == 2);
+}
+
+// ---------------- cofres (del port, 2026-10-30) ----------------
+namespace {
+// El cofre más cercano de ese tipo (posición), buscando por el mapa.
+bool find_prop(Game& g, int type, float& x, float& y, float& r) {
+  const Player& p = g.players[0];
+  float best = 1e30f;
+  g.world.for_props_in_rect(p.x - 2500, p.y - 2500, p.x + 2500, p.y + 2500, [&](Prop& q) {
+    if (q.type != type || q.gone) return;
+    const float d = dist2(p.x, p.y, q.x, q.y);
+    if (d < best) { best = d; x = q.x; y = q.y; r = q.r; }
+  });
+  return best < 1e30f;
+}
+bool prop_alive(Game& g, int type, float x, float y) {
+  bool alive = false;
+  g.world.for_props_in_rect(x - 4, y - 4, x + 4, y + 4, [&](Prop& q) { if (q.type == type && !q.gone && q.x == x && q.y == y) alive = true; });
+  return alive;
+}
+}  // namespace
+
+TEST_CASE("cofres: el pequeño no se abre a golpes, se abre al pasar; no frena los disparos") {
+  for (uint32_t seed : {3u, 8u, 15u}) {
+    auto g = solo(seed);
+    Player& p = g->players[0];
+    float cx, cy, cr;
+    REQUIRE(find_prop(*g, PR_CHEST, cx, cy, cr));
+    // A golpes no: ni con mucho daño.
+    Prop* hit[8];
+    const int nh = g->world.props_in_circle(cx, cy, 2, hit, 8);
+    for (int i = 0; i < nh; ++i) if (hit[i]->type == PR_CHEST) g->world.damage_prop(hit[i], 1e6f, 0xffffff);
+    CHECK(prop_alive(*g, PR_CHEST, cx, cy));
+    // Lejos: sigue cerrado.
+    p.x = cx + 200; p.y = cy;
+    wait(*g, 0.2f);
+    CHECK(prop_alive(*g, PR_CHEST, cx, cy));
+    // Al tocarlo: se abre y suelta monedas.
+    const int before = g->pickups.n;
+    p.x = cx - (p.r + cr + 2); p.y = cy;
+    wait(*g, 0.1f);
+    CHECK_FALSE(prop_alive(*g, PR_CHEST, cx, cy));
+    CHECK(g->pickups.n > before);
+  }
+}
+
+TEST_CASE("cofres: el grande se abre a tu lado (un poco más lejos que en la web) y no se lleva los golpes") {
+  auto g = solo(4);
+  Player& p = g->players[0];
+  float cx, cy, cr;
+  REQUIRE(find_prop(*g, PR_BIGCHEST, cx, cy, cr));
+  // No es un blanco: los disparos y golpes no lo tocan.
+  Prop* hit[8];
+  int n = g->world.props_in_circle(cx, cy, 4, hit, 8), bigs = 0;
+  for (int i = 0; i < n; ++i) bigs += hit[i]->type == PR_BIGCHEST;
+  CHECK(bigs == 0);
+  // A la distancia que antes no llegaba (radio viejo de la web + 4): ahora sí, en 3,5 s.
+  const float old_r = std::fmax(46.0f, cr + p.r + 24);
+  p.x = cx - (old_r + 4); p.y = cy;
+  g->debug_immortal = true;
+  for (int i = 0; i < 4 * 60 && prop_alive(*g, PR_BIGCHEST, cx, cy); ++i) { p.x = cx - (old_r + 4); p.y = cy; Input in{}; g->step(&in); }
+  CHECK_FALSE(prop_alive(*g, PR_BIGCHEST, cx, cy));
+  // Pero no desde lejos (sin pasarse): a 90 no se abre.
+  auto h = solo(4);
+  Player& q = h->players[0];
+  REQUIRE(find_prop(*h, PR_BIGCHEST, cx, cy, cr));
+  h->debug_immortal = true;
+  for (int i = 0; i < 5 * 60; ++i) { q.x = cx - 90; q.y = cy; Input in{}; h->step(&in); }
+  CHECK(prop_alive(*h, PR_BIGCHEST, cx, cy));
 }

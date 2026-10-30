@@ -18,7 +18,7 @@ struct Player;
 
 // ORB_HEAL (del port, 2026-10-30): cura a todo el equipo, esté donde esté.
 enum OrbId : int8_t { ORB_SLUMBER, ORB_SLOW, ORB_BLOWBACK, ORB_FOCUS, ORB_LUMINOUS, ORB_QUICK, ORB_HEAL, ORB_COUNT };
-constexpr float kOrbHeal = 0.4f;   // (Curaesfera) de la vida máxima
+constexpr float kOrbHeal = 0.3f;   // (Curaesfera) de la vida máxima
 struct OrbDef {
   const char* id;
   const char* name;

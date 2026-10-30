@@ -16,7 +16,7 @@ const OrbDef kOrbs[ORB_COUNT] = {
     {"focus", "Focosfera", false, 15, 0xff6f7d, "+25 % de crítico durante 15 s, para ti y los compañeros cercanos."},
     {"luminous", "Luminosfera", false, 0, 0xffe680, "Hace brillar un tesoro escondido cerca: sigue la flecha dorada. Trae lo de un cofre grande, un objeto y tickets y monedas."},
     {"quick", "Rapidosfera", false, 10, 0xffb24d, "+40 % de velocidad durante 10 s, para ti y los compañeros cercanos."},
-    {"heal", "Curaesfera", false, 0, 0x7dffa0, "Cura un 40 % de la vida a todo el equipo, esté donde esté."},
+    {"heal", "Curaesfera", false, 0, 0x7dffa0, "Cura un 30 % de la vida a todo el equipo, esté donde esté."},
 };
 
 namespace {
@@ -220,7 +220,7 @@ const char* orb_effect(int id) {
     case ORB_FOCUS: return "+25 % de crítico";
     case ORB_LUMINOUS: return "Un tesoro brilla cerca";
     case ORB_QUICK: return "+40 % de velocidad";
-    case ORB_HEAL: return "Todo el equipo recupera un 40 % de vida";
+    case ORB_HEAL: return "Todo el equipo recupera un 30 % de vida";
     default: return "";
   }
 }

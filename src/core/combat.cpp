@@ -912,6 +912,7 @@ void combat_resolve(Game& g, float dt) {
         g.world.damage_prop(prop, p->dmg, p->color);
         continue;
       }
+      if (prop->type == PR_CHEST) continue;   // (los cofres no paran los disparos: se abren al pasar)
       if (has_id(p->phits, p->nphits, prop->id)) continue;
       if (p->nphits < 16) p->phits[p->nphits++] = prop->id;
       const bool solid = prop->solid;

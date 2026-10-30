@@ -1,7 +1,8 @@
 // interact.cpp — altares, manantiales, cofres con candado y trampas (interact.js).
 //   altar     da un poder de 25 s (Furia, Rayo, Imán o Prisa) y se apaga
 //   spring    cura mientras estás encima; se agota y se recarga sola
-//   bigchest  quédate a su lado 3,5 s y se abre
+//   chest     (del port, 2026-10-30) se abre al pasar por encima, no a golpes
+//   bigchest  quédate a su lado 3,5 s y se abre (desde un poco más lejos que en la web)
 //   trap      salta al pisarla (tú o un enemigo): veneno, pegajosa o explosiva
 #include <cmath>
 #include <cstdio>
@@ -12,6 +13,8 @@ namespace ps {
 
 namespace {
 constexpr float CHEST_TIME = 3.5f;
+constexpr float CHEST_TOUCH = 8;             // cofre pequeño: se abre al tocarlo
+constexpr float BIG_R_MIN = 54, BIG_R_PAD = 30;   // cofre grande: radio (la web, 46 y 24)
 constexpr float POWER_TIME = 25;
 constexpr float TRAP_R = 74;
 
@@ -52,6 +55,12 @@ void use_power(Game& g, Player& pl, Prop& p) {
 }  // namespace
 
 void interact_update(Game& g, Player& pl, float dt) {
+  // Cofres pequeños: se abren al tocarlos.
+  if (!pl.dead) {
+    Prop* near[8];
+    const int nc = g.world.props_in_circle(pl.x, pl.y, pl.r + CHEST_TOUCH, near, 8);
+    for (int i = 0; i < nc; ++i) if (near[i]->type == PR_CHEST && !near[i]->gone) g.world.break_prop(near[i]);
+  }
   Prop* list[64];
   const int n = g.world.specials_near(pl.x, pl.y, 720, list, 64);
   for (int i = 0; i < n; ++i) {
@@ -67,7 +76,7 @@ void interact_update(Game& g, Player& pl, float dt) {
         break;
       }
       case PR_BIGCHEST: {
-        const float rr = std::fmax(46.0f, p.r + pl.r + 24);
+        const float rr = std::fmax(BIG_R_MIN, p.r + pl.r + BIG_R_PAD);
         if (!pl.dead && d2 < rr * rr) {
           if (p.open == 0) g.sfx(SFX_SELECT);
           p.open += dt;

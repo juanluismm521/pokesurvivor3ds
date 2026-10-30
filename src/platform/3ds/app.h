@@ -43,7 +43,7 @@ class App {
   // Recorrido por todas las pantallas (para sacar capturas en el emulador).
   void start_tour();
   void start_news_demo(int dex);
-  void start_gacha_demo();
+  void start_gacha_demo(bool all = false);
   void start_rooms_demo();
   void start_menu_demo();
   void start_mode_demo(bool medal);

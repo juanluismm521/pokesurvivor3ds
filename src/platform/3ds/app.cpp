@@ -92,8 +92,9 @@ void App::start_news_demo(int dex) {
 }
 
 // Autotest "gacha100": 100 tickets, tirada ×100 en el banner de tu compañero y su resumen.
-void App::start_gacha_demo() {
+void App::start_gacha_demo(bool all) {
   gacha_demo_ = true;
+  if (all) bgen_ = kGachaAll;
   news_t_ = 0;
   news_checked_ = cloud_asked_ = true;
   s_->t1 += 100;

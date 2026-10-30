@@ -422,6 +422,7 @@ int World::projectile_block(float x, float y, float r, Prop** prop) {
 
 bool World::damage_prop(Prop* p, float amount, uint32_t color) {
   if (!p->destructible || p->hp <= 0) return false;
+  if (p->type == PR_CHEST) return false;   // (del port, 2026-10-30: se abre al pasar, no a golpes; interact.cpp)
   p->hp -= amount;
   p->flash = 0.08f;
   if (p->type != PR_GRASS && game_) game_->fx.spark(p->x, p->y - 10, color, 0, -1, 3);

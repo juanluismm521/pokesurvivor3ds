@@ -81,6 +81,7 @@ struct Autotest {
   bool win = false;           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
+  bool gacha_all = false;     // "gachatodas": lo mismo en la región «Todas»
   bool news = false, update_demo = false;   // "actualizar": Actualizaciones buscando y bajando (para grabarlo)        // "novedades [dex]": la pantalla de novedades y el menú con ese compañero (capturas)
   bool textos = false;      // "textos": mide los textos de movimientos, objetos y megas (los que no caben, al log)
   int fallo = 0;            // "fallo [hilo]": se rompe a propósito (prueba de fallo.log), en el principal o en un hilo
@@ -110,6 +111,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "textos")) a.textos = true;
   else if (!std::strcmp(first, "actualizar")) a.update_demo = true;
   else if (!std::strcmp(first, "gacha100")) a.gacha100 = true;
+  else if (!std::strcmp(first, "gachatodas")) a.gacha100 = a.gacha_all = true;
   else if (!std::strcmp(first, "salas")) a.rooms = true;
   else if (!std::strcmp(first, "menu")) a.menu = true;
   else if (!std::strcmp(first, "modo")) a.mode_demo = 1;
@@ -279,7 +281,7 @@ int main(int argc, char** argv) {
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
   if (at.tour) { app.start_tour(); at.on = false; }
   if (at.news) { app.start_news_demo(at.dex); at.on = false; }
-  if (at.gacha100) { app.start_gacha_demo(); at.on = false; }
+  if (at.gacha100) { app.start_gacha_demo(at.gacha_all); at.on = false; }
   if (at.rooms) { app.start_rooms_demo(); at.on = false; }
   if (at.menu) { app.start_menu_demo(); at.on = false; }
   if (at.mode_demo) { app.start_mode_demo(at.mode_demo == 2); at.on = false; }
