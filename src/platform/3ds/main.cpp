@@ -65,7 +65,8 @@ struct Autotest {
   bool coop_mega = false;   // "coop … mega": empiezan con su megapiedra
   int level = 0, stone = 0;
   bool mark = false, peace = false, still = false;   // "… paz": sin enemigos
-  char room_pass[12] = "";   // grupo: "pass=X": contraseña de la sala (anfitrión) o la que prueba el invitado
+  char room_pass[12] = "";
+  char room_host[16] = "";   // grupo: "sala=NOMBRE": el invitado entra en la sala de ese anfitrión (y no en la primera)   // grupo: "pass=X": contraseña de la sala (anfitrión) o la que prueba el invitado
   bool boot = false;          // "… arranque": lo que hace al encender (buscar versión nueva si está activado)
   int prog_state = -1;
   bool quick = false;         // "… rapido": modo rápido (la Sentencia a los 20 min)
@@ -112,7 +113,6 @@ void read_autotest(Autotest& a) {
   char role[8] = "";
   if (std::fscanf(f, "%15s", first) == 1 && !std::strcmp(first, "ui")) a.tour = true;
   else if (!std::strcmp(first, "https")) a.https = true;
-  else if (!std::strcmp(first, "datos")) a.datos = true;
   else if (!std::strcmp(first, "galeria")) a.galeria = true;
   else if (!std::strcmp(first, "textos")) a.textos = true;
   else if (!std::strcmp(first, "actualizar")) a.update_demo = true;
@@ -130,8 +130,8 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "nube") && std::fscanf(f, "%31s %63s", a.user, a.pass) == 2) a.nube = true;
   else if (!std::strcmp(first, "coop") && std::fscanf(f, "%7s %f %d %d", role, &a.seconds, &a.dex, &imm) >= 1) {
     a.coop = true; a.host = !std::strcmp(role, "host"); a.look = !std::strcmp(role, "mirar"); a.immortal = imm != 0;
-    char extra[16] = "";
-    while (std::fscanf(f, "%15s", extra) == 1) {
+    char extra[40] = "";
+    while (std::fscanf(f, "%39s", extra) == 1) {
       if (!std::strcmp(extra, "online")) a.online = true;
       if (!std::strcmp(extra, "morir")) a.die = true;
       if (!std::strcmp(extra, "mega")) a.coop_mega = true;
@@ -142,7 +142,8 @@ void read_autotest(Autotest& a) {
       if (!std::strcmp(extra, "halloween")) a.hw = 1;
       if (!std::strcmp(extra, "nohalloween")) a.hw = 0;
       if (!std::strcmp(extra, "disfraz")) a.skin = true;
-      if (!std::strncmp(extra, "pass=", 5)) std::snprintf(a.room_pass, sizeof(a.room_pass), "%s", extra + 5);
+      if (!std::strncmp(extra, "pass=", 5)) std::snprintf(a.room_pass, sizeof(a.room_pass), "%.11s", extra + 5);
+      if (!std::strncmp(extra, "sala=", 5)) std::snprintf(a.room_host, sizeof(a.room_host), "%.15s", extra + 5);
     }
   }
   else {
@@ -421,23 +422,6 @@ int main(int argc, char** argv) {
     }
     at.on = false;
     app.quit = true;   // (al salir se instala)
-  } else if (at.datos) {
-    // Busca datos nuevos, los aplica si los hay, lo apunta y se cierra.
-    const u64 t0 = osGetTime();
-    datos3ds::start_check();
-    while (aptMainLoop() && datos3ds::busy() && osGetTime() - t0 < 60000) gspWaitForVBlank();
-    std::string msg;
-    const bool applied = datos3ds::apply_pending(msg);
-    if (at.log) {
-      std::fprintf(at.log, "datos: %s · %s · programa nuevo en la web: %s · %.1f s\n", datos3ds::status().c_str(), applied ? msg.c_str() : "nada aplicado",
-                   datos3ds::newer_program() ? "sí" : "no", (osGetTime() - t0) / 1000.0);
-      std::fprintf(at.log, "Impactrueno: daño %.1f · Placaje: %s · Pikachu: vida %d\n", double(kMoves[move_index("thunder-shock")].v[MS_DMG]), kMoves[move_index("tackle")].name, int(mon_by_dex(25)->hp));
-      std::fclose(at.log); at.log = nullptr;
-    }
-    datos3ds::shutdown();
-    cloud3ds::shutdown();
-    audio::exit(); C2D_Fini(); C3D_Fini(); gfxExit(); romfsExit();
-    return 0;
   }
   if (at.https) {
     std::string err;
@@ -486,11 +470,11 @@ int main(int argc, char** argv) {
     // dueño, 2026-10-27); se instala al salir. La opción de Ajustes es para los
     // datos de equilibrio de la web.
     prog3ds::start_check(true);
-    if (settings.datos_auto) datos3ds::start_check();
-    if (at.boot && at.log) { std::fprintf(at.log, "arranque: buscar versión nueva SÍ · datos de la web %s\n", settings.datos_auto ? "SÍ" : "no"); std::fflush(at.log); }
+    if (at.boot && at.log) { std::fprintf(at.log, "arranque: buscar versión nueva SÍ\n"); std::fflush(at.log); }
   }
   if (at.on && at.coop) {
     std::snprintf(app.auto_pass_, sizeof(app.auto_pass_), "%s", at.room_pass);
+    std::snprintf(app.auto_room_, sizeof(app.auto_room_), "%s", at.room_host);
     app.autolog = at.log;
     app.auto_quick_ = at.quick;
     app.auto_skin = at.skin;
@@ -723,7 +707,6 @@ int main(int argc, char** argv) {
     }
   }
   if (!at.on && g->dirty) { save->updated = int64_t(osGetTime()) - 2208988800000LL; save_write_file(kDir, *save); }
-  datos3ds::shutdown();
   audio::exit();
   romfsExit();   // (el .3dsx se puede cambiar cuando ya no se lee de él)
   // Versión nueva (o volver a la anterior) pendiente: se instala ahora.

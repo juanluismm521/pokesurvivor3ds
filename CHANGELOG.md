@@ -5,6 +5,17 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.26.2 — 2026-10-31
+- **Los datos del juego van con cada versión** (decisión del dueño): ya no se bajan
+  aparte de la web (fuera «Datos de la web, solos» de Ajustes y Actualizaciones). Al
+  arrancar se borra el paquete de datos que quedara en la SD, así que todos los que
+  tienen la misma versión tienen los mismos datos. Cuando la web oficial tenga datos
+  nuevos, el dueño decide si van en la siguiente versión. (Un paquete viejo del 19-10,
+  sólo con 91 traducciones de menos, hacía que dos consolas 0.26.1 no se vieran en
+  una sala.)
+- Sala: si entra alguien con otra versión del juego (o el anfitrión la tiene), se avisa
+  («actualizad los dos») en vez de quedarse esperando sin decir nada.
+
 ## 0.26.1 — 2026-10-31
 - **Grupo por internet más fluido: el servidor hace de anfitrión.** Antes, los botones
   de un invitado iban al servidor, al anfitrión, otra vez al servidor y al invitado

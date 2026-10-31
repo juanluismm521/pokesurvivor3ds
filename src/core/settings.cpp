@@ -21,7 +21,6 @@ std::string settings_to_json(const Settings& s) {
   o.set("server", Json::str(s.server));
   o.set("serverPort", Json::num(s.server_port));
   o.set("cloudNever", Json::boolean(s.cloud_never));
-  o.set("datosAuto", Json::boolean(s.datos_auto));
   o.set("novedades", Json::str(s.news_seen));
   o.set("modo", Json::num(s.play_mode));
   return o.dump();
@@ -52,7 +51,6 @@ bool settings_from_json(Settings& s, const std::string& text) {
     s.server_port = p > 0 && p < 65536 ? p : 24873;
   }
   s.cloud_never = o["cloudNever"].as_bool();
-  s.datos_auto = o["datosAuto"].as_bool(false);
   std::snprintf(s.news_seen, sizeof(s.news_seen), "%s", o["novedades"].as_str().c_str());
   if (o.has("modo")) s.play_mode = int(o["modo"].as_int(0)) == 1 ? 1 : 0;
   if (s.music < 0 || s.music > 100) s.music = 70;

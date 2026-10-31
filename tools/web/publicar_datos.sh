@@ -12,7 +12,15 @@
 # datos) y ultimo.json (el esquema más reciente: a los programas viejos les
 # dice que hay uno nuevo). Los paquetes de esquemas viejos se quedan, así los
 # programas viejos siguen recibiendo lo último que les vale.
+#
+# DESACTIVADO desde la 0.26.2 (31-10-2026, decisión del dueño): los datos van con cada
+# versión del port y las consolas ya no los bajan aparte (un paquete distinto de los
+# datos de fábrica hacía que dos consolas de la misma versión no se vieran en grupo).
+# Sólo publica con PS_DATOS_FORZAR=1 (para las consolas viejas, si hiciera falta).
 set -euo pipefail
+if [ "${PS_DATOS_FORZAR:-0}" != 1 ]; then
+  echo "publicar_datos: desactivado (los datos van con cada versión del port; PS_DATOS_FORZAR=1 para forzar)"; exit 0
+fi
 cd "$(dirname "$0")/../.."
 DEST=${1:-${PS_DATOS_DIR:-/root/docker/pokesurvivor/servidor/datos/www/datos}}
 TMP=$(mktemp -d)

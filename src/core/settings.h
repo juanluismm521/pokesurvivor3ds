@@ -20,7 +20,6 @@ struct Settings {
   bool cloud_never = false;   // «Nunca»: no preguntar al abrir por la cuenta de pokesurvivor.com
   // «Comprobar actualizaciones automáticamente»: al encender (con wifi) baja los
   // datos nuevos de la web (datos3ds). Desactivado de serie (decisión del dueño).
-  bool datos_auto = false;
   char news_seen[16] = "";    // últimas novedades vistas (las de ahora se abren solas una vez)
   int play_mode = 0;          // último modo elegido en Jugar (0 normal, 1 rápido)
 };

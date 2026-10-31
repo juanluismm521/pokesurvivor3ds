@@ -18,8 +18,8 @@
 namespace ps {
 
 namespace {
-constexpr int kRows = 4;
-constexpr float kRowY = 118, kRowStep = 22;   // (4 filas hasta y=206: debajo cabe el aviso)
+constexpr int kRows = 3;
+constexpr float kRowY = 128, kRowStep = 24;   // (3 filas hasta y=200: debajo cabe el aviso)
 }  // namespace
 
 void App::in_update(const UiIn& in) {
@@ -28,7 +28,6 @@ void App::in_update(const UiIn& in) {
   int pick = -1;
   for (int i = 0; i < kRows; ++i) if (in_rect(&in, 10, kRowY + i * kRowStep, 300, kRowStep - 3)) pick = i;
   if (in.down & KEY_A) pick = cur_;
-  if ((in.rep & (KEY_DLEFT | KEY_DRIGHT)) && cur_ == 0) pick = 0;
   if (in.down & KEY_B) {   // (vuelve a donde estabas: el menú o Ajustes)
     if (update_back_ == SC_MENU) go(SC_MENU);
     else { go(SC_SETTINGS); cur_ = 9; }
@@ -39,17 +38,12 @@ void App::in_update(const UiIn& in) {
   const bool busy = prog3ds::state() == prog3ds::ST_CHECKING || prog3ds::state() == prog3ds::ST_DOWNLOADING;
   switch (pick) {
     case 0:
-      st_->datos_auto = !st_->datos_auto;
-      settings_write(dir_, *st_);
-      if (st_->datos_auto) datos3ds::start_check();
-      break;
-    case 1:
       if (!busy) prog3ds::start_check(true);   // buscar y, si hay, descargar
       break;
-    case 2:
+    case 1:
       if (prog3ds::pending()) quit = true;     // al salir se instala (main)
       break;
-    case 3:
+    case 2:
       if (!busy) prog3ds::start_rollback();
       break;
   }
@@ -80,18 +74,17 @@ void App::bottom_update() {
   }
   const bool busy = prog3ds::state() == prog3ds::ST_CHECKING || prog3ds::state() == prog3ds::ST_DOWNLOADING;
   const bool newer = e.ok && e.build != PS_BUILD && prog3ds::state() != prog3ds::ST_READY;
-  std::snprintf(b, sizeof(b), "%s %s", tr("Datos de la web, solos:"), tr(st_->datos_auto ? "Sí" : "No"));
-  const char* labels[kRows] = {b, busy ? "Buscando…" : newer ? "Descargar la versión nueva" : "Buscar ahora",
+  const char* labels[kRows] = {busy ? "Buscando…" : newer ? "Descargar la versión nueva" : "Buscar ahora",
                                prog3ds::pending() ? "Instalar ahora (cierra el juego)" : "Instalar ahora (no hay nada listo)",
                                "Volver a la versión anterior"};
   for (int i = 0; i < kRows; ++i) {
     const float y = kRowY + i * kRowStep;
-    const bool off = (i == 2 && !prog3ds::pending()) || (i == 3 && !prog3ds::can_rollback()) || (i > 0 && !prog3ds::supported());
+    const bool off = (i == 1 && !prog3ds::pending()) || (i == 2 && !prog3ds::can_rollback()) || !prog3ds::supported();
     C2D_DrawRectSolid(10, y, 0, 300, kRowStep - 3, i == cur_ ? C_SEL : C_PANEL);
     if (i == cur_) C2D_DrawRectSolid(10, y, 0, 3, kRowStep - 3, C_GOLD);
     r_->text(labels[i], 160, y + 1, 0.38f, off ? C_MUTED : C_TEXT, 1);
   }
-  r_->text_wrap("La versión nueva del juego se busca y se baja sola al encender; se instala al salir.", 160, 209, 0.3f, C_MUTED, 290, 1);
+  r_->text_wrap("La versión nueva del juego (con sus datos) se busca y se baja sola al encender; se instala al salir.", 160, 206, 0.3f, C_MUTED, 290, 1);
   r_->text("A: elegir · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 

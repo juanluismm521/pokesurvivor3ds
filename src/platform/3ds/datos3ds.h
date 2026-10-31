@@ -1,35 +1,20 @@
-// datos3ds.h — la consola se actualiza sola los datos del juego (core/datapack):
-// números de equilibrio, nombres, textos y traducciones de la web.
-//
-//   - Al arrancar, SIN red: si en la SD hay un paquete (datos.json) que vale
-//     para este programa, se usa. Sin conexión, se juega con el último bajado
-//     (o con los datos de fábrica).
-//   - Con wifi, en segundo plano: baja el índice y el paquete de su versión del
-//     servidor del proyecto (los publica tools/web/publicar_datos.sh) y, si es nuevo y vale,
-//     lo deja listo. Se aplica en cuanto no hay una partida en marcha.
-//   - Si la web ya pide un programa nuevo (otro esquema), lo dice: los datos
-//     siguen llegando mientras la forma sea la misma.
+// datos3ds.h — los datos del juego (números de equilibrio, nombres, textos) van SIEMPRE
+// con cada versión del port: desde la 0.26.2 (31-10-2026, decisión del dueño) ya no se
+// bajan aparte de la web. Así todos los que tienen la misma versión tienen los mismos
+// datos (si no, en grupo no se ven: la huella de los datos va en cada paquete del
+// lockstep) y cuando hay datos nuevos en la web, el dueño decide si van en la siguiente.
+// Al arrancar, si en la SD quedaba un paquete de antes (datos.json), se borra.
 #pragma once
 #include <string>
 
 namespace ps {
 namespace datos3ds {
 
-// Lee y aplica el paquete de la SD (sin red). Devuelve el texto para el log.
+// Quita el paquete de datos que pudiera quedar en la SD. Devuelve el texto para el log.
 std::string init(const char* dir);
-// Dirección del servidor de datos (…/datos/, o la de datos_url.txt).
+// Dirección del servidor del proyecto (…/datos/, o la de datos_url.txt en pruebas):
+// de ahí salen las versiones del programa (prog3ds).
 const std::string& base();
-// Comprobación en segundo plano (una a la vez).
-void start_check();
-bool busy();
-// Hay un paquete nuevo bajado y comprobado: aplicarlo (fuera de la partida).
-bool pending();
-bool apply_pending(std::string& msg);
-// Lo último que ha pasado (para Ajustes y el autotest).
-std::string status();
-// La web tiene cambios que piden un programa nuevo.
-bool newer_program();
-void shutdown();
 
 }  // namespace datos3ds
 }  // namespace ps

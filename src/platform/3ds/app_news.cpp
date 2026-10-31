@@ -34,6 +34,9 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.26.2 · Todos iguales", 0, nullptr, nullptr},
+    {nullptr, NI_FRIENDS, "Los mismos datos para todos",
+     "Los datos del juego vienen siempre con cada versión: ya no se bajan aparte. Así, en grupo, todos los que tenéis la misma versión os veis."},
     {"Versión 0.26.1 · Grupo más fluido", 0, nullptr, nullptr},
     {nullptr, NI_FRIENDS, "Sin retraso de invitado",
      "Por internet, ahora el servidor junta los botones de todos: van y vuelven por el camino corto, igual para cada jugador. Los que se unen notan mucho menos retraso."},
@@ -146,7 +149,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.26.1";
+constexpr const char* kNewsVersion = "0.26.2";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

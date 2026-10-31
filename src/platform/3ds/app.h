@@ -62,6 +62,7 @@ class App {
   uint8_t room_flags_ = 0;
   // Autotest del grupo: contraseña de la sala (anfitrión) o la que prueba el invitado, y modo.
   char auto_pass_[12] = "";
+  char auto_room_[16] = "";   // autotest «sala=NOMBRE»: el invitado entra sólo en la sala de ese anfitrión
   bool auto_quick_ = false;
   int denied = 0;               // (autotest) veces que el anfitrión no te ha dejado entrar
   FILE* autolog = nullptr;      // (autotest) el log, para apuntar lo que pasa en la sala
@@ -219,7 +220,6 @@ class App {
   int auto_move_ = -1;
   float auto_pause_ = -1;        // autotest con movimiento: pausa un rato (resumen en las capturas)
   bool auto_paused_ = false;
-  bool newer_told_ = false;      // ya se ha dicho que hay un programa nuevo
   bool auto_immortal_ = true;
   // cooperativo
   RunConfig::Member my_member() const;
@@ -238,6 +238,7 @@ class App {
   struct LobbyMate { uint16_t node = 0; RunConfig::Member m; int rtt = 0; };
   bool coop_online_ = false;    // «En grupo»: por internet (si no, cerca)
   LobbyMate lobby_[kMaxPlayers];
+  float other_ver_t_ = 0;       // sala: hace poco llegó algo de otra versión del juego (segundos que quedan del aviso)
   int nlobby_ = 0;
   net3ds::Room rooms_[8];
   int nrooms_ = 0;

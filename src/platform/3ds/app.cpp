@@ -472,7 +472,8 @@ void App::update(const UiIn& in0, float dt) {
       room_flags_ = net3ds::ROOM_QUICK | net3ds::ROOM_LOCKED;
       scene = SC_LOBBY;
     }
-    if (news_t_ > 22) quit = true;
+    if (t0 < 19 && news_t_ >= 19) other_ver_t_ = 99;   // (y el aviso de otra versión en la sala)
+    if (news_t_ > 24) quit = true;
     return;   // (sin red ni entrada: sólo se dibuja)
   }
   if (gacha_demo_) {
@@ -530,19 +531,11 @@ void App::update(const UiIn& in0, float dt) {
   }
   g_->now_ms = now_ms();
   cloud_tick();
-  // Datos nuevos de la web: se aplican en el menú (nunca en plena partida ni en una sala).
+  // (avisos sólo en los menús: nunca en plena partida ni en una sala)
   const bool calm = scene != SC_RUN && scene != SC_COOP && scene != SC_LOBBY && !coop_;
   {   // versión nueva del juego descargada: se avisa una vez
     static bool told = false;
     if (!told && calm && prog3ds::state() == prog3ds::ST_READY) { told = true; g_notices.push("Versión nueva del juego lista", "Se instala al salir (Ajustes → Actualizaciones)", -1); }
-  }
-  if (calm && datos3ds::pending()) {
-    std::string m;
-    if (datos3ds::apply_pending(m)) g_notices.push("Datos del juego al día", ("web del " + datapack_current().fecha).c_str(), -1);
-  }
-  if (calm && datos3ds::newer_program() && !newer_told_) {
-    newer_told_ = true;
-    g_notices.push("Hay una versión nueva del juego", "con lo último de la web", -1);
   }
   // Novedades sin ver: se abren solas una vez (antes de preguntar por la cuenta).
   if (scene == SC_MENU && !news_checked_ && !autotest && !tour) {
@@ -2077,13 +2070,8 @@ void App::in_settings(const UiIn& in) {
       case 6: st_->sfx = clamp(st_->sfx + d * 10, 0, 100); break;
       case 7: st_->stereo = !st_->stereo; break;
       case 8: settings_write(dir_, *st_); go(SC_ACCOUNT); return;
-      case 9:
-        // A (o tocar): la pantalla de actualizaciones; izquierda/derecha: automáticas sí/no.
-        if ((in.down & KEY_A) || in.tap) { settings_write(dir_, *st_); update_back_ = SC_SETTINGS; go(SC_UPDATE); return; }
-        st_->datos_auto = !st_->datos_auto;
-        settings_write(dir_, *st_);
-        if (st_->datos_auto) datos3ds::start_check();   // (al activarlo, se mira ya)
-        return;
+      case 9:   // la pantalla de actualizaciones (los datos van con cada versión: 0.26.2)
+        settings_write(dir_, *st_); update_back_ = SC_SETTINGS; go(SC_UPDATE); return;
     }
     apply_settings();
   }
@@ -2111,7 +2099,7 @@ void App::bottom_settings() {
   std::snprintf(v[6], 24, "%d %%", st_->sfx);
   std::snprintf(v[7], 24, "%s", tr(st_->stereo ? "Sí" : "No"));
   std::snprintf(v[8], 24, "%.23s", cloud3ds::account().on ? cloud3ds::account().name.c_str() : tr("Sin conectar"));
-  std::snprintf(v[9], 24, "%s %s (A)", tr("Datos:"), tr(st_->datos_auto ? "Sí" : "No"));
+  std::snprintf(v[9], 24, "%s (A)", kVersion);
   for (int i = 0; i < 10; ++i) {
     const float y = kSetY + i * kSetStep;
     C2D_DrawRectSolid(6, y, 0, 308, kSetH, i == cur_ ? C_SEL : C_PANEL);
@@ -2123,7 +2111,7 @@ void App::bottom_settings() {
   // De qué versión de la web son los datos (reference/web/UPSTREAM, por gen_data).
   char ver[96];
   const DataPackInfo& dp = datapack_current();
-  std::snprintf(ver, sizeof(ver), "Versión %s · datos del %s%s", kVersion, dp.on ? dp.fecha.c_str() : kWebBaseDate, dp.on ? " · al día solos" : "");
+  std::snprintf(ver, sizeof(ver), "Versión %s · datos de la web del %s", kVersion, dp.on ? dp.fecha.c_str() : kWebBaseDate);
   r_->text(ver, 160, 215, 0.28f, C_MUTED, 1);
   r_->text("Izquierda/derecha: cambiar · B: guardar y volver", 160, 226, 0.32f, C_MUTED, 1);
 }

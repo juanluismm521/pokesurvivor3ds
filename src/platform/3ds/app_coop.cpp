@@ -222,7 +222,10 @@ void App::in_coop(const UiIn& in) {
   // Autotest: el anfitrión crea la sala; el otro espera a que salga en la lista.
   if (auto_coop_) {
     if (auto_host_) pick = 0;
-    else if (nrooms_ > 0 && !auto_look) pick = 1;
+    else if (nrooms_ > 0 && !auto_look) {
+      if (!auto_room_[0]) pick = 1;
+      else for (int i = 0; i < nrooms_; ++i) if (!std::strcmp(rooms_[i].host, auto_room_)) pick = 1 + i;   // (sólo la de ese anfitrión)
+    }
   }
   if (pick < 0 || scanning) return;   // (mientras busca, no se toca la red: un momento)
   cur_ = pick;
@@ -390,9 +393,12 @@ void App::lobby_net(float dt) {
   uint16_t from = 0;
   int len;
   const bool host = net3ds::is_host();
+  if (other_ver_t_ > 0) other_ver_t_ -= dt;
   while ((len = net3ds::poll(buf, sizeof(buf), &from)) > 0) {
     uint8_t type;
-    if (!get_header(buf, len, type)) continue;
+    // Algo de otra consola de la sala que no es de esta versión (o de otros datos):
+    // no se entienden; se avisa en vez de esperar en silencio (31-10-2026).
+    if (!get_header(buf, len, type)) { if (len >= 5) other_ver_t_ = 3; continue; }
     const uint8_t* p = buf + 5;
     const int pl = len - 5;
     if (host && type == net::MSG_HELLO) {
@@ -549,7 +555,12 @@ void App::bottom_lobby() {
       C2D_DrawRectSolid(lx + 4, y + 10, 0, 1, 3, C2D_Color32(40, 30, 10, 255));
     }
   }
-  if (host) {
+  if (other_ver_t_ > 0 && (!host || nlobby_ < 2)) {
+    // (otra versión del juego en la sala: no se ven; lo dice en vez de esperar sin más)
+    r_->text_fit(host ? "Alguien con otra versión del juego intenta entrar" : "El anfitrión tiene otra versión del juego", 160, 190, 290, 0.38f,
+                 C2D_Color32(255, 138, 150, 255), false, 1);
+    r_->text_fit("Actualizad los dos (Ajustes → Actualizaciones)", 160, 205, 290, 0.32f, C_MUTED, false, 1);
+  } else if (host) {
     if (nlobby_ >= 2) button(20, 188, 280, 30, "¡Empezar!", true);
     else r_->text_fit("Esperando a que entre alguien…", 160, 197, 290, 0.4f, C_MUTED, false, 1);
   } else {
