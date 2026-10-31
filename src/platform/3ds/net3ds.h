@@ -44,6 +44,9 @@ uint16_t node_mask();            // bit 0 = nodo 1 (el anfitrión), bit 1 = nodo
 uint16_t my_node();
 void set_room_info(int players); // anfitrión: cuántos hay (lo ven al buscar)
 void close_room();               // anfitrión: al empezar, que no entre nadie más
+// Por internet, anfitrión al empezar: que el servidor junte las entradas de la
+// partida (relay::Client::lock). false en local o con un servidor viejo.
+bool server_lock(uint32_t magic, int n, int delay, const uint16_t* nodes);
 int rtt_ms();                    // ping con el servidor (por internet; 0 en local)
 const char* room_code();         // código de la sala (por internet)
 const char* last_error();

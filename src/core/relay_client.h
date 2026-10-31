@@ -43,6 +43,11 @@ class Client {
   const char* code() const { return code_; }
   int rtt_ms() const { return rtt_; }
   void set_open(bool open);     // anfitrión: cerrar la sala al empezar
+  // Anfitrión, al empezar: que el SERVIDOR junte las entradas de la partida
+  // (relay.py LOCK, 31-10-2026): magia del lockstep, jugadores, retraso y el nodo
+  // de cada uno. false si el servidor es viejo (no contesta) o no quiere: entonces,
+  // como siempre (el anfitrión las junta). Luego, las entradas van al nodo 0.
+  bool lock(uint32_t magic, int n, int delay, const uint16_t* nodes, int timeout_ms = 1200);
   bool closed_by_host() const { return kicked_; }
 
   bool send(uint16_t to, const void* data, int len);

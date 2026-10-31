@@ -7,7 +7,11 @@
 //   anfitrión -> todos      ROSTER quién hay en la sala (cada 0,3 s)
 //   anfitrión -> todos      START  la partida (RunConfig) y el nodo de cada
 //                                  jugador; se repite hasta que cada uno
-//                                  manda sus primeras entradas
+//                                  manda sus primeras entradas (por internet,
+//                                  con el servidor de anfitrión: hasta que
+//                                  llega el primer paso, que ya lleva las de
+//                                  todos). Bit 7 del retraso: el servidor junta
+//                                  las entradas (relay.py LOCK)
 //   cualquiera              BYE    me voy
 #include <3ds.h>
 
@@ -132,7 +136,8 @@ void App::in_coop(const UiIn& in) {
   // (mientras el otro hilo conecta, no se cambia nada de la red: espera)
   const bool connecting = g_conn_state == 1 || g_scan_state == 1;   // (o buscando salas)
   // (el servidor no se enseña ni se cambia: siempre el oficial, el dueño 2026-10-30)
-  if (!connecting) { static const Settings kDef; net3ds::set_server(kDef.server, kDef.server_port); }
+  // (en las pruebas automáticas, el de settings.json: un servidor de pruebas)
+  if (!connecting) { static const Settings kDef; const Settings& s = autotest ? *st_ : kDef; net3ds::set_server(s.server, s.server_port); }
   // Pestañas: cerca (juego local) o por internet.
   bool sw = false;
   if (in.down & (KEY_L | KEY_R)) sw = true;
@@ -354,7 +359,11 @@ void App::bottom_coop() {
       tx = 42;
     }
     r_->text_fit(b, tx, y + 3, 200 - (tx - 30), 0.34f, C_TEXT, false, 0);
-    if (rooms_[i].flags & net3ds::ROOM_QUICK) r_->text("Rápido", 254, y + 3, 0.32f, C2D_Color32(0xff, 0x9a, 0x4d, 255), 2);
+    if (rooms_[i].flags & net3ds::ROOM_QUICK) {   // (etiqueta naranja: se lee mejor que el texto naranja suelto)
+      const float w = r_->text_width("Rápido", 0.32f) + 8;
+      C2D_DrawRectSolid(254 - w, y + 3, 0, w, 12, C2D_Color32(0xff, 0x9a, 0x4d, 255));
+      r_->text("Rápido", 254 - w / 2, y + 3, 0.32f, C2D_Color32(40, 20, 6, 255), 1, false);
+    }
     std::snprintf(b, sizeof(b), "%d / 4", rooms_[i].players);
     r_->text(b, 292, y + 3, 0.34f, C_MUTED, 2);
   }
@@ -437,7 +446,8 @@ void App::lobby_net(float dt) {
       if (pl < 1) continue;
       const int n = p[0];
       if (n < 2 || n > kMaxPlayers || pl < 2 + 2 * n) continue;
-      const int delay = p[1];
+      const int delay = p[1] & 0x7F;
+      const bool relay = (p[1] & 0x80) != 0;   // (el servidor junta las entradas)
       uint16_t nodes[kMaxPlayers];
       for (int i = 0; i < n; ++i) nodes[i] = uint16_t(p[2 + 2 * i] | p[3 + 2 * i] << 8);
       RunConfig cfg;
@@ -447,7 +457,7 @@ void App::lobby_net(float dt) {
       for (int i = 0; i < n; ++i) if (nodes[i] == me) idx = i;
       if (idx <= 0) continue;
       for (int i = 0; i < n; ++i) coop_nodes_[i] = nodes[i];
-      coop_begin(cfg, idx, delay);
+      coop_begin(cfg, idx, delay, relay);
       return;
     } else if (!host && type == net::MSG_DENY && from == net3ds::kHostNode) {
       denied++;
@@ -502,7 +512,7 @@ void App::in_lobby(const UiIn& in, float dt) {
   if (scene != SC_LOBBY) return;
   const bool host = net3ds::is_host();
   if (in.down & KEY_B) { coop_leave(); go(SC_COOP); return; }
-  const bool go_now = (in.down & KEY_A) || in_rect(&in, 20, 186, 280, 30) || (auto_coop_ && host && lobby_t_ > 1.5f);
+  const bool go_now = (in.down & KEY_A) || in_rect(&in, 20, 188, 280, 30) || (auto_coop_ && host && lobby_t_ > 1.5f);
   if (host && nlobby_ >= 2 && go_now) coop_host_start();
 }
 
@@ -512,26 +522,38 @@ void App::bottom_lobby() {
   if (net3ds::online()) std::snprintf(b, sizeof(b), "%s %s · ping %d ms", host ? "Tu sala" : "Sala", net3ds::room_code(), net3ds::rtt_ms());
   else std::snprintf(b, sizeof(b), "%s", host ? "Tu sala" : "En la sala");
   header(b);
-  // Modo y candado de la sala, arriba a la derecha (bajo la cabecera).
-  std::snprintf(b, sizeof(b), "%s%s", (room_flags_ & net3ds::ROOM_QUICK) ? "Modo rápido (20 min)" : "Modo normal (30 min)",
-                (room_flags_ & net3ds::ROOM_LOCKED) ? (host ? " · con contraseña" : " · con contraseña") : "");
-  r_->text(b, 300, 172, 0.32f, (room_flags_ & net3ds::ROOM_QUICK) ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, 2);
   for (int i = 0; i < kMaxPlayers; ++i) {
-    const float y = 30 + i * 38;
-    C2D_DrawRectSolid(20, y, 0, 280, 34, C_PANEL);
-    if (i >= nlobby_) { r_->text("(libre)", 160, y + 11, 0.36f, C_MUTED, 1); continue; }
+    const float y = 26 + i * 35;
+    C2D_DrawRectSolid(20, y, 0, 280, 32, C_PANEL);
+    if (i >= nlobby_) { r_->text("(libre)", 160, y + 10, 0.36f, C_MUTED, 1); continue; }
     const RunConfig::Member& m = lobby_[i].m;
-    C2D_DrawRectSolid(20, y, 0, 3, 34, rgb(kMateColor[i]));
-    draw_mon(m.dex, m.shiny, 46, y + 30, 1);
-    r_->text(m.name, 72, y + 4, 0.45f, rgb(kMateColor[i]), 0);
+    C2D_DrawRectSolid(20, y, 0, 3, 32, rgb(kMateColor[i]));
+    draw_mon(m.dex, m.shiny, 46, y + 29, 1);
+    r_->text(m.name, 72, y + 3, 0.45f, rgb(kMateColor[i]), 0);
     std::snprintf(b, sizeof(b), "%s%s", mon_by_dex(m.dex) ? mon_by_dex(m.dex)->name : "?", i == 0 ? " · anfitrión" : "");
-    r_->text(b, 72, y + 20, 0.34f, C_MUTED, 0);
+    r_->text(b, 72, y + 19, 0.34f, C_MUTED, 0);
+  }
+  // Modo y candado de la sala, en su franja bajo los jugadores (antes, en letra
+  // pequeña encima del cuarto hueco: no se leía).
+  {
+    const bool quick = (room_flags_ & net3ds::ROOM_QUICK) != 0, locked = (room_flags_ & net3ds::ROOM_LOCKED) != 0;
+    const float y = 165;
+    C2D_DrawRectSolid(20, y, 0, 280, 20, quick ? C2D_Color32(74, 38, 12, 255) : C2D_Color32(28, 36, 58, 255));
+    if (quick) C2D_DrawRectSolid(20, y, 0, 3, 20, C2D_Color32(0xff, 0x9a, 0x4d, 255));
+    r_->text_fit(quick ? "Modo rápido (20 min)" : "Modo normal (30 min)", 160, y + 2, 236, 0.45f,
+                 quick ? C2D_Color32(0xff, 0xb3, 0x6b, 255) : C_TEXT, false, 1);
+    if (locked) {   // con contraseña: el candado (como en la lista de salas)
+      const float lx = 284;
+      C2D_DrawRectSolid(lx, y + 8, 0, 9, 7, C_GOLD);
+      C2D_DrawRectSolid(lx + 2, y + 4, 0, 5, 1, C_GOLD); C2D_DrawRectSolid(lx + 1, y + 5, 0, 1, 3, C_GOLD); C2D_DrawRectSolid(lx + 7, y + 5, 0, 1, 3, C_GOLD);
+      C2D_DrawRectSolid(lx + 4, y + 10, 0, 1, 3, C2D_Color32(40, 30, 10, 255));
+    }
   }
   if (host) {
-    if (nlobby_ >= 2) button(20, 186, 280, 30, "¡Empezar!", true);
-    else r_->text("Esperando a que entre alguien…", 160, 196, 0.4f, C_MUTED, 1);
+    if (nlobby_ >= 2) button(20, 188, 280, 30, "¡Empezar!", true);
+    else r_->text_fit("Esperando a que entre alguien…", 160, 197, 290, 0.4f, C_MUTED, false, 1);
   } else {
-    r_->text("Esperando a que el anfitrión empiece…", 160, 196, 0.4f, C_MUTED, 1);
+    r_->text_fit("Esperando a que el anfitrión empiece…", 160, 197, 290, 0.4f, C_MUTED, false, 1);
   }
   r_->text(host ? "A: empezar · B: cerrar la sala" : "B: salir de la sala", 160, 226, 0.32f, C_MUTED, 1);
 }
@@ -553,16 +575,26 @@ void App::coop_host_start() {
   // Retraso de los controles: en local, el fijo; por internet, lo que tarda en
   // ir y volver lo de cada uno por el servidor (con margen).
   int delay = net::kDelay;
+  bool relay = false;
   if (net3ds::online()) {
     int worst = 0;
     for (int i = 1; i < nlobby_; ++i) worst = std::max(worst, lobby_[i].rtt);
-    delay = clamp(int(std::ceil((net3ds::rtt_ms() + worst) / 16.7)) + 3, net::kDelay, 30);
+    // Mejor: que el servidor junte las entradas (dos tramos en vez de cuatro). Cada
+    // uno necesita cubrir sólo SU ida y vuelta al servidor; se empieza con la peor y
+    // el servidor ajusta la de cada uno en un par de segundos.
+    const int rtt = std::max(net3ds::rtt_ms(), worst);
+    const int d = clamp(int(std::ceil(rtt / 16.7)) + 3, net::kDelay / 2 + 1, 30);
+    uint16_t nodes[kMaxPlayers];
+    for (int i = 0; i < nlobby_; ++i) nodes[i] = coop_nodes_[i];
+    relay = net3ds::server_lock(net::wire_magic(), nlobby_, d, nodes);
+    delay = relay ? d : clamp(int(std::ceil((net3ds::rtt_ms() + worst) / 16.7)) + 3, net::kDelay, 30);
+    if (autolog) { std::fprintf(autolog, "grupo: %s · retraso %d pasos (ping %d ms, el peor invitado %d ms)\n", relay ? "el servidor junta las entradas" : "el anfitrión junta las entradas (servidor viejo)", delay, net3ds::rtt_ms(), worst); std::fflush(autolog); }
   }
   net3ds::close_room();
-  coop_begin(c, 0, delay);
+  coop_begin(c, 0, delay, relay);
 }
 
-void App::coop_begin(const RunConfig& cfg, int idx, int delay) {
+void App::coop_begin(const RunConfig& cfg, int idx, int delay, bool relay) {
   coop_cfg_ = cfg;
   coop_ = true;
   g_->local = idx;
@@ -580,7 +612,7 @@ void App::coop_begin(const RunConfig& cfg, int idx, int delay) {
   coop_over_t_ = 0;
   quit_t_ = -1;
   coop_msg_[0] = 0;
-  ls_.begin(idx, cfg.nplayers, delay);
+  ls_.begin(idx, cfg.nplayers, delay, relay);
   scene = SC_RUN;
 }
 
@@ -596,29 +628,38 @@ void App::coop_net() {
   while ((len = net3ds::poll(buf, sizeof(buf), &from)) > 0) {
     uint8_t type;
     if (!get_header(buf, len, type)) continue;
+    // Con el servidor de anfitrión, los pasos llegan del nodo 0 (el servidor).
+    if (from == 0) { if (ls_.relay() && type == net::MSG_BUNDLE) ls_.on_packet(buf, len, 0); continue; }
     int idx = -1;
     for (int i = 0; i < coop_cfg_.nplayers; ++i) if (coop_nodes_[i] == from) idx = i;
     if (idx < 0) continue;
     if (type == net::MSG_INPUT) start_acked_[idx] = true;
     if (type == net::MSG_INPUT || type == net::MSG_BUNDLE) ls_.on_packet(buf, len, idx);
   }
-  if (ls_.host()) {
-    // START hasta que cada uno mande sus primeras entradas.
+  if (ls_.me() == 0) {
+    // START hasta que cada uno mande sus primeras entradas (con el servidor de
+    // anfitrión no las vemos: hasta que llega el primer paso, que ya las lleva).
     bool all = true;
-    for (int i = 1; i < coop_cfg_.nplayers; ++i) if (!start_acked_[i] && !ls_.gone(i)) all = false;
+    if (ls_.relay()) all = ls_.received() > 0;
+    else for (int i = 1; i < coop_cfg_.nplayers; ++i) if (!start_acked_[i] && !ls_.gone(i)) all = false;
     if (!all) {
       uint8_t b[1024];
       int n = put_header(b, net::MSG_START);
       b[n++] = uint8_t(coop_cfg_.nplayers);
-      b[n++] = uint8_t(ls_.advised(1));   // (el retraso con el que empiezan los invitados; luego el anfitrión lo ajusta a cada uno)
+      // (el retraso con el que empiezan los invitados; luego el anfitrión, o el
+      // servidor, lo ajusta a cada uno; bit 7: el servidor junta las entradas)
+      b[n++] = uint8_t(ls_.relay() ? (ls_.delay() & 0x7F) | 0x80 : ls_.advised(1));
       for (int i = 0; i < coop_cfg_.nplayers; ++i) { b[n++] = uint8_t(coop_nodes_[i]); b[n++] = uint8_t(coop_nodes_[i] >> 8); }
       const int w = net::write_config(coop_cfg_, b + n, int(sizeof(b)) - n);
       if (w > 0) net3ds::send(net3ds::kBroadcast, b, n + w);
     }
-    // Quien se ha desconectado de la radio, fuera ya (sin esperar 20 s).
-    const uint16_t mask = net3ds::node_mask();
-    for (int i = 1; i < coop_cfg_.nplayers; ++i)
-      if (!ls_.gone(i) && start_acked_[i] && !(mask & (1u << (coop_nodes_[i] - 1)))) ls_.drop(i);
+    // Quien se ha desconectado de la radio, fuera ya (sin esperar 20 s). (Con el
+    // servidor de anfitrión, lo hace él.)
+    if (ls_.host()) {
+      const uint16_t mask = net3ds::node_mask();
+      for (int i = 1; i < coop_cfg_.nplayers; ++i)
+        if (!ls_.gone(i) && start_acked_[i] && !(mask & (1u << (coop_nodes_[i] - 1)))) ls_.drop(i);
+    }
   }
 }
 
@@ -652,6 +693,7 @@ void App::advance(double& acc, float dt) {
     return;
   }
   coop_net();
+  if (ls_.relay()) ls_.set_rtt(net3ds::rtt_ms());   // (el servidor calcula tu retraso con él)
   if (pending_input.cmd == CMD_QUIT && quit_t_ < 0) quit_t_ = 0;
   int steps = 0;
   while (acc >= kStepMs && steps < 4) {
@@ -667,11 +709,12 @@ void App::advance(double& acc, float dt) {
   if (acc > kStepMs * 4) acc = kStepMs * 4;   // (esperando a alguien: no se acumula)
   net::Packet pk[2];
   const int np = ls_.outbox(pk, 2);
-  for (int k = 0; k < np; ++k) net3ds::send(pk[k].to < 0 ? net3ds::kBroadcast : net3ds::kHostNode, pk[k].data, pk[k].len);
+  // (to = 0: al que junta las entradas: el anfitrión o, por internet, el servidor: su nodo 0)
+  for (int k = 0; k < np; ++k) net3ds::send(pk[k].to < 0 ? net3ds::kBroadcast : ls_.relay() ? 0 : net3ds::kHostNode, pk[k].data, pk[k].len);
   ls_.tick_frame();
   if (g_->state == ST_OVER) { coop_over_t_ += dt; return; }
   if (ls_.desync()) coop_end("Las consolas se han desincronizado (fallo del juego). Partida terminada.");
-  else if (ls_.lost_host()) coop_end("Se ha perdido la conexión con el anfitrión.");
+  else if (ls_.lost_host()) coop_end(ls_.relay() ? "Se ha perdido la conexión con el servidor." : "Se ha perdido la conexión con el anfitrión.");
   else if (!g_->me().active) coop_end(nullptr);                              // te has ido (o te han quitado)
   else if (quit_t_ >= 0 && (quit_t_ += dt) > 4) coop_end(nullptr);          // pediste irte y no llega
 }
@@ -698,7 +741,7 @@ void App::coop_overlay() {
       }
     char b[96];
     if (names[0]) std::snprintf(b, sizeof(b), "Esperando a %s…", names);
-    else std::snprintf(b, sizeof(b), "%s", ls_.host() ? "Esperando…" : "Esperando al anfitrión…");
+    else std::snprintf(b, sizeof(b), "%s", ls_.host() ? "Esperando…" : ls_.relay() ? "Esperando al servidor…" : "Esperando al anfitrión…");
     C2D_DrawRectSolid(0, 100, 0, TW, 30, C2D_Color32(0, 0, 0, 170));
     r_->text(b, 200, 108, 0.45f, C_GOLD, 1);
   }

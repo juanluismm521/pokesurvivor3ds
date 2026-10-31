@@ -17,6 +17,13 @@
 // (CMD_QUIT) en un paso y todos lo quitan en ese mismo paso. Si las huellas
 // no coinciden, se avisa (desincronización) y se acaba.
 //
+// Por internet, desde el 31-10-2026, el anfitrión es el SERVIDOR (relay.py, LOCK;
+// begin(..., relay = true)): todos, también el jugador 0, son «invitados» que le
+// mandan sus entradas (to = 0: al nodo 0 del servidor) y reciben de él los paquetes
+// de paso. Así cada entrada hace dos tramos (consola -> servidor -> consola) en vez
+// de cuatro, igual para todos, y el servidor decide el retraso de cada uno y compara
+// las huellas. Si el servidor no sabe hacerlo (viejo), como antes.
+//
 // Sin nada de la 3DS: el transporte (UDS) lo pone la plataforma, que pasa los
 // paquetes que llegan (on_packet) y manda los que salen (outbox). Así se
 // prueba en PC con varias "consolas" en el mismo programa.
@@ -34,7 +41,7 @@ constexpr int kRing = 256;           // pasos guardados (más que kDelay + kRese
 constexpr int kHashEvery = 60;       // huella cada segundo
 constexpr int kTimeoutFrames = 60 * 20;   // 20 s sin noticias: se le da por ido
 constexpr int kMaxPacket = 1024;
-constexpr uint32_t kMagic = 0x50535345;   // 'PSSE' + versión del protocolo (21: la mejora «Más pasivas a niveles altos» en el miembro y el tesoro de 40 s; 20: Halloween)
+constexpr uint32_t kMagic = 0x50535346;   // 'PSSF' + versión del protocolo (22: el servidor como anfitrión, START con su bandera; 21: «Más pasivas…» y el tesoro de 40 s; 20: Halloween)
 // Lo que va en cada paquete: la versión del protocolo mezclada con la huella
 // de los datos del juego (gen_data). Dos 3DS con datos distintos (otra versión
 // de la web) se ignoran: si jugaran juntas, sus partidas se separarían.
@@ -81,13 +88,22 @@ class Lockstep {
  public:
   // me: tu número (0 = anfitrión); n: jugadores al empezar; delay: pasos de
   // adelanto (en local kDelay; por internet, según el ping).
-  void begin(int me, int n, int delay = kDelay);
+  // relay: el servidor junta las entradas (por internet); nadie es anfitrión.
+  void begin(int me, int n, int delay = kDelay, bool relay = false);
+  bool relay() const { return relay_; }
+  int64_t received() const { return bundled_; }   // (invitado: pasos que ya le han llegado)
+  // Con el servidor de anfitrión: tu ping con él (se lo dice cada envío; con él
+  // calcula tu retraso) y cuántas veces te has quedado parado esperando.
+  void set_rtt(int ms) { rtt_ = ms < 0 ? 0 : ms > 65535 ? 65535 : ms; }
+  int starved() const { return starved_; }
+  // Cuántos pasos por delante va lo que pulsas ahora (la latencia de tus controles).
+  int ahead() const { return int(local_ - sim_); }
   int delay() const { return delay_; }
   // Anfitrión: el retraso que aconseja a cada jugador (lo mide él: con cuánta
   // antelación le llegan sus entradas). Va en cada paquete de paso.
   int advised(int p) const { return want_[p & (kMaxPlayers - 1)]; }
   bool active() const { return on_; }
-  bool host() const { return me_ == 0; }
+  bool host() const { return me_ == 0 && !relay_; }   // (el que junta las entradas)
   int me() const { return me_; }
 
   // ¿Se puede dar ya el paso siguiente? (hay entradas de todos)
@@ -120,7 +136,7 @@ class Lockstep {
 
  private:
   static constexpr int kHashRing = 16;
-  bool on_ = false;
+  bool on_ = false, relay_ = false;
   int me_ = 0, n_ = 1, delay_ = kDelay;
   int64_t sim_ = 0;                  // siguiente paso a simular
   int64_t local_ = 0;                // siguiente paso para el que falta tu entrada
@@ -133,6 +149,10 @@ class Lockstep {
   int64_t acked_[kMaxPlayers] = {};  // anfitrión: hasta dónde ha recibido cada uno (para no reenviar sin fin)
   int heard_[kMaxPlayers] = {};      // fotogramas desde su último mensaje
   int frames_ = 0, stall_ = 0;
+  int rtt_ = 0, starved_ = 0;              // ping con el servidor; pasos que no se pudieron dar (faltaba alguien)
+  int slack_min_ = 255;                    // el menor colchón (pasos ya recibidos de sobra al dar uno) desde el último envío
+  int64_t sent_local_ = -1, sent_ack_ = -1;   // invitado: lo último mandado (no se repite cada fotograma)
+  int sent_frame_ = 0;
   uint32_t my_hash_[kHashRing] = {};
   int64_t last_hash_tick_ = -1;
   // huellas que han llegado de los demás (anfitrión) o del anfitrión

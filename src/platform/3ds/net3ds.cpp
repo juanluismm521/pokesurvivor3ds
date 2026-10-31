@@ -123,6 +123,10 @@ void close_room() {
   else if (g_room && g_host) udsSetNewConnectionsBlocked(true, true, false);
 }
 
+bool server_lock(uint32_t magic, int n, int delay, const uint16_t* nodes) {
+  return g_online && g_rc.lock(magic, n, delay, nodes);
+}
+
 void set_room_info(int players) {
   if (g_online) return;
   if (!g_room || !g_host) return;

@@ -105,12 +105,17 @@ bool read_config(const uint8_t* b, int len, RunConfig& c) {
 
 // ---------------- lockstep ----------------
 
-void Lockstep::begin(int me, int n, int delay) {
+void Lockstep::begin(int me, int n, int delay, bool relay) {
   on_ = true;
+  relay_ = relay;
+  sent_local_ = sent_ack_ = -1;
+  sent_frame_ = 0;
+  starved_ = 0;
+  slack_min_ = 255;
   delay = delay < 2 ? 2 : delay > kRing / 4 ? kRing / 4 : delay;
   // El anfitrión, el mínimo (sus entradas no viajan); los invitados empiezan
   // con el que se calculó al empezar y el anfitrión lo ajusta para cada uno.
-  delay_ = me == 0 ? std::min(delay, kDelay) : delay;
+  delay_ = me == 0 && !relay ? std::min(delay, kDelay) : delay;
   for (int i = 0; i < kMaxPlayers; ++i) { want_[i] = i == 0 ? delay_ : delay; lead_min_[i] = 1 << 20; calm_[i] = 0; waited_[i] = 0; }
   me_ = me; n_ = n;
   sim_ = local_ = bundled_ = 0;
@@ -129,8 +134,10 @@ void Lockstep::begin(int me, int n, int delay) {
 bool Lockstep::ready() const { return on_ && sim_ < bundled_; }
 
 // El invitado se adelanta según lo último que ha llegado del anfitrión (no
-// según lo que ha simulado): si no, cada paso esperaría una ida y vuelta.
-bool Lockstep::want_local() const { return on_ && local_ < (host() ? sim_ : std::max(sim_, bundled_)) + delay_; }
+// según lo que ha simulado): si no, cada paso esperaría una ida y vuelta. El
+// anfitrión, y con el servidor de anfitrión todos, según lo simulado: así
+// marcan el ritmo (si todos se adelantaran según lo recibido, nadie lo marcaría).
+bool Lockstep::want_local() const { return on_ && local_ < (host() || relay_ ? sim_ : std::max(sim_, bundled_)) + delay_; }
 
 void Lockstep::push_local(const Input& in) {
   const Input q = quantize(in);
@@ -140,7 +147,8 @@ void Lockstep::push_local(const Input& in) {
 }
 
 bool Lockstep::step(Game& g) {
-  if (!ready()) return false;
+  if (!ready()) { starved_++; slack_min_ = 0; return false; }
+  if (int(bundled_ - sim_ - 1) < slack_min_) slack_min_ = int(bundled_ - sim_ - 1);
   const int slot = int(sim_ % kRing);
   Input ins[kMaxPlayers];
   for (int i = 0; i < n_; ++i) ins[i] = in_[slot][i];
@@ -282,6 +290,10 @@ int Lockstep::outbox(Packet* out, int max) {
     }
     pk.to = -1;
   } else {
+    // Sin nada nuevo (ni entradas ni pasos recibidos), se repite sólo cada 100 ms
+    // (por si se perdió): menos paquetes cuando se espera a alguien.
+    if (local_ == sent_local_ && bundled_ == sent_ack_ && frames_ - sent_frame_ < 6) return 0;
+    sent_local_ = local_; sent_ack_ = bundled_; sent_frame_ = frames_;
     // Todo lo que el anfitrión aún no ha repartido (no sólo las últimas
     // kResend: si el retraso sube, las entradas saltan varios pasos de golpe y
     // las del hueco no llegarían nunca). Sin pasar de lo que cabe.
@@ -293,6 +305,10 @@ int Lockstep::outbox(Packet* out, int max) {
     w.u8(MSG_INPUT); w.u8(uint32_t(me_)); w.u32(uint32_t(from)); w.u8(uint32_t(count));
     w.u32(uint32_t(bundled_)); w.u32(uint32_t(int32_t(ht))); w.u32(hh);
     for (int k = 0; k < count; ++k) { uint8_t b[kInputBytes]; pack_input(mine_[(from + k) % kRing], b); w.raw(b, kInputBytes); }
+    // (para el servidor de anfitrión: tu ping y cuántas veces te has parado; el
+    // anfitrión de siempre no lo lee;
+    // y el menor colchón desde el último envío: si a todos les sobra, baja el retraso)
+    if (relay_) { w.u16(uint32_t(rtt_)); w.u16(uint32_t(starved_ & 0xFFFF)); w.u8(uint32_t(std::min(255, slack_min_))); slack_min_ = 255; }
     pk.to = 0;
   }
   pk.len = w.ok ? w.n : 0;

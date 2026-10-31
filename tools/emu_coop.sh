@@ -57,6 +57,10 @@ PY
   fi
   local SD="$D/data/azahar-emu/sdmc/3ds/pokesurvivor-3ds"
   mkdir -p "$SD"; rm -f "$SD/autotest.log"
+  # COOP_SERVER=ip:puerto: por internet, contra ese servidor de pruebas (y no el oficial)
+  if [ -n "${COOP_SERVER:-}" ]; then
+    echo "{\"lang\":\"es\",\"datosAuto\":false,\"novedades\":\"0.26\",\"server\":\"${COOP_SERVER%:*}\",\"serverPort\":${COOP_SERVER##*:}}" > "$SD/settings.json"
+  fi
   # COOP_MORIR=1: el invitado no es inmortal y se deja matar (para ver al caído
   # mirando a sus compañeros con L/R).
   if [ "${COOP_MORIR:-0}" = 1 ] && [ "$2" = join ]; then echo "coop $2 $SECS $3 0${ONLINE:+ online} morir" > "$SD/autotest.txt"

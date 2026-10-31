@@ -18,8 +18,8 @@ namespace relay {
 
 namespace {
 const uint8_t kMagic[4] = {'P', 'S', 'R', '1'};
-enum : uint8_t { HOST = 1, JOIN, LIST, SEND, PING, INFO, BYE, LIST2 };
-enum : uint8_t { ROOM = 101, JOINED, ROOMS, DATA, PEERS, PONG, ERR, ROOMS2 };
+enum : uint8_t { HOST = 1, JOIN, LIST, SEND, PING, INFO, BYE, LIST2, LOCK };
+enum : uint8_t { ROOM = 101, JOINED, ROOMS, DATA, PEERS, PONG, ERR, ROOMS2, LOCKED };
 }  // namespace
 
 namespace {
@@ -245,6 +245,27 @@ void Client::leave() {
   if (node_) raw_send(BYE, nullptr, 0);
   node_ = mask_ = 0;
   qn_ = 0;
+}
+
+bool Client::lock(uint32_t magic, int n, int delay, const uint16_t* nodes, int timeout_ms) {
+  if (node_ != 1 || n < 2 || n > 4) return false;
+  uint8_t body[16];
+  for (int k = 0; k < 4; ++k) body[k] = uint8_t(magic >> (8 * k));
+  body[4] = uint8_t(n); body[5] = uint8_t(delay);
+  for (int i = 0; i < n; ++i) body[6 + i] = uint8_t(nodes[i]);
+  uint8_t buf[1300];
+  int len = 0;
+  const std::string before = error;
+  // Un servidor viejo no contesta (no conoce LOCK): se repite un poco y se rinde.
+  for (int tries = 0; tries < 4; ++tries) {
+    raw_send(LOCK, body, 6 + n);
+    if (wait_for(LOCKED, buf, sizeof(buf), timeout_ms / 4, len) && len >= 9 &&
+        uint32_t(buf[5] | buf[6] << 8 | buf[7] << 16 | uint32_t(buf[8]) << 24) == magic)
+      { error = before; return true; }
+    if (!error.empty() && error.find("contesta") == std::string::npos) break;   // (ERR: el servidor no quiere)
+  }
+  error = before;
+  return false;
 }
 
 void Client::set_open(bool open) {

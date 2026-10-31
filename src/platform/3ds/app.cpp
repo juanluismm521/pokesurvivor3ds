@@ -464,7 +464,15 @@ void App::update(const UiIn& in0, float dt) {
       cur_ = 1;
     }
     if (t0 < 11 && news_t_ >= 11) { coop_online_ = true; nrooms_ = 0; }   // (la pestaña «Por internet», sin el servidor a la vista)
-    if (news_t_ > 17) quit = true;
+    if (t0 < 16 && news_t_ >= 16) {   // (la sala ya creada, en modo rápido y con contraseña)
+      nlobby_ = 3;
+      for (int i = 0; i < 3; ++i) { lobby_[i].node = uint16_t(i + 1); lobby_[i].m = my_member(); }
+      lobby_[1].m.dex = 94; lobby_[2].m.dex = 448;
+      std::snprintf(lobby_[1].m.name, 16, "BETO"); std::snprintf(lobby_[2].m.name, 16, "Cris");
+      room_flags_ = net3ds::ROOM_QUICK | net3ds::ROOM_LOCKED;
+      scene = SC_LOBBY;
+    }
+    if (news_t_ > 22) quit = true;
     return;   // (sin red ni entrada: sólo se dibuja)
   }
   if (gacha_demo_) {

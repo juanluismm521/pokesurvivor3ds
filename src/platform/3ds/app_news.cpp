@@ -34,6 +34,11 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.26.1 · Grupo más fluido", 0, nullptr, nullptr},
+    {nullptr, NI_FRIENDS, "Sin retraso de invitado",
+     "Por internet, ahora el servidor junta los botones de todos: van y vuelven por el camino corto, igual para cada jugador. Los que se unen notan mucho menos retraso."},
+    {nullptr, NI_HEART, "Si el anfitrión se va, seguís",
+     "Por internet, la partida sigue para los demás aunque el anfitrión salga. Y en la sala, el modo rápido se ve bien claro."},
     {"Versión 0.26 · ¡Halloween!", 0, nullptr, nullptr},
     {nullptr, NI_PUMPKIN, "Noche de Halloween",
      "Del 30 de octubre al 2 de noviembre: mapa de noche con calabazas que se rompen, más Pokémon Fantasma y música tenebrosa."},
@@ -141,7 +146,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.26";
+constexpr const char* kNewsVersion = "0.26.1";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

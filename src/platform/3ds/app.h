@@ -226,7 +226,7 @@ class App {
   void lobby_net(float dt);
   void lobby_send_roster();
   void coop_host_start();
-  void coop_begin(const RunConfig& cfg, int idx, int delay);
+  void coop_begin(const RunConfig& cfg, int idx, int delay, bool relay = false);
   void coop_end(const char* msg);
   void coop_net();               // paquetes de la partida en grupo
   void coop_leave();             // sale de la sala y apaga la radio

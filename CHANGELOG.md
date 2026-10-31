@@ -5,6 +5,29 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.26.1 — 2026-10-31
+- **Grupo por internet más fluido: el servidor hace de anfitrión.** Antes, los botones
+  de un invitado iban al servidor, al anfitrión, otra vez al servidor y al invitado
+  (cuatro tramos); el anfitrión no notaba retraso y los invitados, mucho. Ahora cada
+  consola manda sus botones al servidor, que junta los de todos y se los reparte: dos
+  tramos, igual para todos.
+  - El servidor calcula el retraso de cada uno con su ping y el del peor, y un margen
+    que sube si alguien se para y baja sólo si a todos les sobra colchón (así no da
+    tirones para probar).
+  - Medido en PC con el servidor de verdad y ping simulado: con dos consolas a 60 ms,
+    el invitado pasa de ~360 ms a ~135 ms de retraso de los controles (el anfitrión,
+    de 100 a 135), sin tirones; con tres (70/70/140 ms), los invitados de ~380/460 ms
+    a ~185/215 ms y el de mal ping ya no se para.
+  - Si el anfitrión sale de una partida por internet, los demás siguen jugando.
+  - Con un servidor viejo, todo sigue como antes (el anfitrión junta los botones).
+  - Por internet, menos paquetes: si no hay nada nuevo, la consola no repite el mismo
+    envío cada fotograma (cada 100 ms).
+- Sala: el modo («Modo rápido (20 min)») en su franja, en letra grande y con candado
+  si tiene contraseña (antes, letra pequeña encima del cuarto hueco); en la lista de
+  salas, «Rápido» en etiqueta naranja; «Esperando a que el anfitrión empiece…» ya no
+  se sale de la pantalla.
+- (Juego en grupo: protocolo nuevo; actualizad todos.)
+
 ## 0.26.0 — 2026-10-30
 - **¡Halloween!** (del 30 de octubre al 2 de noviembre, hora de España, como en
   pokesurvivor.com):
