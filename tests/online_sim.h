@@ -3,7 +3,7 @@
 // programa con el mismo bucle de fotogramas que la 3DS (app_coop.cpp: reloj, reloj
 // elástico, hasta 4 pasos por fotograma), cada una con su red de casa (ping, vaivén,
 // picos de wifi y paquetes perdidos) y su reloj, que nunca va exacto al de las demás.
-// Lo usan tests/test_relay.cpp y la herramienta ps_red (build-rel: sin sanitizers,
+// Lo usan tests/test_relay.cpp y la herramienta ps_red (en un build sin sanitizers,
 // para que la CPU no meta ruido en las medidas).
 #pragma once
 #include <signal.h>

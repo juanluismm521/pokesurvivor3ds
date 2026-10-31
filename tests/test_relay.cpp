@@ -207,7 +207,7 @@ TEST_CASE("relay: la sala anuncia candado y modo (banderas); el nombre llega lim
 
 // ---------------- el servidor como anfitrión (relay.py LOCK, 31-10-2026) ----------------
 // Con el servidor de verdad y casas de mentira (ping, vaivén, picos, pérdidas y relojes
-// que no van exactos: online_sim.h; build-rel/ps_red lo mide en más redes).
+// que no van exactos: online_sim.h; ps_red lo mide en más redes).
 using online_sim::Home;
 
 TEST_CASE("online: el servidor junta las entradas (LOCK): 3 consolas no se separan") {

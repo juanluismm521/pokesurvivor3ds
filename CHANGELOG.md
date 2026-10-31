@@ -18,7 +18,7 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
     poco colchón, el suyo va un poco más despacio (como mucho un 10 %, no se nota) en
     vez de quedarse parado.
   - Medido con el servidor de verdad, redes de casa de mentira (ping, vaivén, picos,
-    pérdidas) y relojes que no van exactos (build-rel/ps_red): con dos casas a 60 ms,
+    pérdidas) y relojes que no van exactos (ps_red): con dos casas a 60 ms,
     el invitado pasa de ~360 ms de retraso de los controles (a saltos) a ~190 ms, igual
     que el anfitrión (antes 83), y 0 tirones; con wifi regular, de ~500 ms a ~230-280.
   - Si el anfitrión sale de una partida por internet, los demás siguen jugando.

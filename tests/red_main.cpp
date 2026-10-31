@@ -1,7 +1,7 @@
 // red_main.cpp — herramienta: ¿cómo va el juego en grupo por internet en casas de
 // verdad? El anfitrión de siempre (el anfitrión junta los botones) contra el servidor
 // de anfitrión (relay.py LOCK), en varias redes, con el servidor real y relojes que no
-// van exactos (ver online_sim.h). Compílalo sin sanitizers (build-rel) para medir.
+// van exactos (ver online_sim.h). Compílalo sin sanitizers para medir (cmake -B /tmp/build-red -DPS_SANITIZE=OFF -DCMAKE_BUILD_TYPE=Release).
 //   ps_red [segundos por partida] [repeticiones] [colchón del reloj elástico]
 #include <cstdio>
 #include <cstdlib>
