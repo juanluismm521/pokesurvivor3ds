@@ -11,6 +11,7 @@
 #include <cstring>
 #include <ctime>
 
+#include "core/dns_fallback.h"
 #include "core/update.h"
 #include "core/version.h"
 #include "gen/build.h"
@@ -118,6 +119,7 @@ volatile uint64_t g_srv_tick = 0;   // … en este tick de la consola
 bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   CURL* c = curl_easy_init();
   if (!c) return false;
+  curl_slist* res = nullptr;
   curl_slist* hs = nullptr;
   for (const auto& h : rq.headers) hs = curl_slist_append(hs, h.c_str());
   curl_easy_setopt(c, CURLOPT_URL, rq.url.c_str());
@@ -136,13 +138,20 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 10L);
   curl_easy_setopt(c, CURLOPT_TIMEOUT, 25L);
   curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
-  const CURLcode r = curl_easy_perform(c);
+  CURLcode r = curl_easy_perform(c);
+  if (dnsfb::retry_by_address(c, r, rq.url) && (res = dnsfb::dns_fallback(c, rq.url))) {   // (el DNS no lo encuentra o lo bloquea: por su dirección)
+    rs.body.clear();
+    r = curl_easy_perform(c);
+  } else if (r == CURLE_OK) {
+    dnsfb::remember_ip(c, rq.url);
+  }
   if (rs.date_ms > 0) { g_srv_tick = svcGetSystemTick(); g_srv_ms = rs.date_ms + 500; }   // (la cabecera va en segundos)
   if (r != CURLE_OK) g_curl_err = curl_easy_strerror(r);
   long st = 0;
   curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &st);
   rs.status = r == CURLE_OK ? int(st) : 0;
   curl_slist_free_all(hs);
+  curl_slist_free_all(res);
   curl_easy_cleanup(c);
   return r == CURLE_OK;
 }
@@ -434,8 +443,12 @@ bool http_download(const std::string& url, const std::string& path, uint64_t exp
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 30L);
   curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(c, CURLOPT_FAILONERROR, 1L);
-  const CURLcode r = curl_easy_perform(c);
+  CURLcode r = curl_easy_perform(c);
+  curl_slist* res = nullptr;
+  if (d.got == 0 && dnsfb::retry_by_address(c, r, url) && (res = dnsfb::dns_fallback(c, url)))   // (el DNS no lo encuentra o lo bloquea: por su dirección)
+    r = curl_easy_perform(c);
   curl_easy_cleanup(c);
+  curl_slist_free_all(res);
   const bool closed = std::fclose(d.f) == 0;
   uint8_t got[32];
   d.h.done(got);

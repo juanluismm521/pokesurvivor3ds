@@ -58,6 +58,7 @@ class Client {
   std::string error;
 
  private:
+  bool use_fallback();           // (no contesta en la dirección del DNS: la de reserva, una vez)
   bool raw_send(uint8_t type, const void* body, int len);
   int raw_recv(uint8_t* buf, int cap, int timeout_ms);   // un paquete del servidor (o 0)
   bool wait_for(uint8_t type, uint8_t* buf, int cap, int timeout_ms, int& len);
@@ -66,6 +67,8 @@ class Client {
   uint8_t addr_[16] = {};        // sockaddr_in
   uint16_t node_ = 0, mask_ = 0;
   char code_[5] = {};
+  char host_[64] = {};
+  bool fell_back_ = false;
   int rtt_ = 0;
   uint64_t last_ping_ = 0;
   bool kicked_ = false;
@@ -84,6 +87,13 @@ uint64_t now_ms();
 // conectar al wifi, aunque el servidor exista).
 bool last_good_address(const char* host, char* ip, int cap);
 void remember_address(const char* host, const char* ip);
+// La dirección de reserva de un servidor, para cuando el DNS de la consola no lo
+// encuentra (un usuario de Reddit, 31-10-2026: el DNS de su casa no resolvía
+// pokesurvivor3ds.duckdns.org): la última buena o, si nunca la hubo, la que trae el
+// juego para el servidor del proyecto. false si no hay ninguna.
+bool fallback_address(const char* host, char* ip, int cap);
+constexpr const char* kProjectHost = "pokesurvivor3ds.duckdns.org";
+constexpr const char* kProjectIp = "217.154.98.19";   // (si cambia, sólo se usa cuando falla el DNS)
 
 }  // namespace relay
 }  // namespace ps

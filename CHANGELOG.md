@@ -29,6 +29,12 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   si tiene contraseña (antes, letra pequeña encima del cuarto hueco); en la lista de
   salas, «Rápido» en etiqueta naranja; «Esperando a que el anfitrión empiece…» ya no
   se sale de la pantalla.
+- **Si el DNS de casa no encuentra el servidor** (en Reddit: «pokesurvivor3ds.duckdns.org
+  can't be found»: hay routers, operadores y bloqueadores que no resuelven los
+  dominios duckdns.org o los mandan a 0.0.0.0), el juego llega igual por la dirección
+  del servidor: el juego en grupo, las actualizaciones y los datos (por HTTPS, con su
+  certificado). Probado en PC con un DNS de mentira que dice «no existe», 0.0.0.0 o una
+  dirección muerta (build-pc/ps_dns).
 - (Juego en grupo: protocolo nuevo; actualizad todos.)
 
 ## 0.26.0 — 2026-10-30

@@ -252,3 +252,14 @@ TEST_CASE("online: dos casas con wifi normal: el invitado, mucho menos retraso y
   CHECK(b.hitches[0] < 15); CHECK(b.hitches[1] < 15);          // (casi ninguno: la prueba corre con sanitizers)
   CHECK(b.speed[0] > 58.5);                                    // (a su velocidad: el reloj elástico casi no frena)
 }
+
+TEST_CASE("relay: dirección de reserva del servidor del proyecto (si el DNS de casa no lo encuentra)") {
+  char ip[48];
+  CHECK(relay::fallback_address(relay::kProjectHost, ip, sizeof(ip)));   // (sin haberlo resuelto nunca: la del juego)
+  CHECK(std::string(ip) == relay::kProjectIp);
+  CHECK(!relay::fallback_address("otro.servidor.invalid", ip, sizeof(ip)));
+  relay::remember_address(relay::kProjectHost, "10.1.2.3");                  // (la última buena manda)
+  CHECK(relay::fallback_address(relay::kProjectHost, ip, sizeof(ip)));
+  CHECK(std::string(ip) == "10.1.2.3");
+  relay::remember_address(relay::kProjectHost, relay::kProjectIp);
+}

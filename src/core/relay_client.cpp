@@ -29,8 +29,16 @@ namespace {
 char g_cache_host[64] = {};
 in_addr g_cache_addr = {};
 
+// Una dirección que no sirve: 0.0.0.0 o 127.x (lo que dan Pi-hole, AdGuard y muchos
+// routers cuando bloquean un dominio).
+bool useless(const in_addr& a) {
+  const uint32_t h = ntohl(a.s_addr);
+  return h == 0 || (h >> 24) == 127;
+}
+
 bool resolve(const char* host, in_addr& out) {
   if (inet_pton(AF_INET, host, &out) == 1) return true;
+  const bool project = !std::strcmp(host, kProjectHost);
   for (int tries = 0; tries < 4; ++tries) {
     addrinfo hints;
     std::memset(&hints, 0, sizeof(hints));
@@ -42,6 +50,7 @@ bool resolve(const char* host, in_addr& out) {
       for (addrinfo* a = res; a && !ok; a = a->ai_next)
         if (a->ai_family == AF_INET && a->ai_addr) { out = reinterpret_cast<sockaddr_in*>(a->ai_addr)->sin_addr; ok = true; }
       freeaddrinfo(res);
+      if (ok && project && useless(out)) break;   // (bloqueado: a la de reserva)
       if (ok) {
         std::snprintf(g_cache_host, sizeof(g_cache_host), "%s", host);
         g_cache_addr = out;
@@ -49,7 +58,7 @@ bool resolve(const char* host, in_addr& out) {
       }
     }
     hostent* he = gethostbyname(host);
-    if (he && he->h_addr_list[0]) {
+    if (he && he->h_addr_list[0] && !(project && useless(*reinterpret_cast<in_addr*>(he->h_addr_list[0])))) {
       std::memcpy(&out, he->h_addr_list[0], 4);
       std::snprintf(g_cache_host, sizeof(g_cache_host), "%s", host);
       g_cache_addr = out;
@@ -57,9 +66,17 @@ bool resolve(const char* host, in_addr& out) {
     }
   }
   if (g_cache_host[0] && !std::strcmp(g_cache_host, host)) { out = g_cache_addr; return true; }
+  // (nunca se ha resuelto: la del servidor del proyecto, si es él)
+  if (!std::strcmp(host, kProjectHost) && inet_pton(AF_INET, kProjectIp, &out) == 1) return true;
   return false;
 }
 }  // namespace
+
+bool fallback_address(const char* host, char* ip, int cap) {
+  if (last_good_address(host, ip, cap)) return true;
+  if (host && !std::strcmp(host, kProjectHost)) { std::snprintf(ip, size_t(cap), "%s", kProjectIp); return true; }
+  return false;
+}
 
 bool last_good_address(const char* host, char* ip, int cap) {
   if (!g_cache_host[0] || std::strcmp(g_cache_host, host) != 0) return false;
@@ -81,6 +98,8 @@ uint64_t now_ms() {
 
 bool Client::open(const char* host, int port) {
   close();
+  std::snprintf(host_, sizeof(host_), "%s", host ? host : "");
+  fell_back_ = false;
   sockaddr_in sa;
   std::memset(&sa, 0, sizeof(sa));
   sa.sin_family = AF_INET;
@@ -189,6 +208,7 @@ bool Client::create(const char* name, int timeout_ms, uint8_t flags) {
     }
     if (!error.empty() && error.find("contesta") == std::string::npos) return false;
   }
+  if (use_fallback()) return create(name, timeout_ms, flags);   // (no contesta en la que dio el DNS: por la de reserva)
   return false;
 }
 
@@ -218,6 +238,7 @@ int Client::list(RoomInfo* out, int max, int timeout_ms) {
       return got;
     }
   }
+  if (use_fallback()) return list(out, max, timeout_ms);   // (no contesta en la que dio el DNS: por la de reserva)
   return 0;
 }
 
@@ -238,7 +259,22 @@ bool Client::join(const char* code, const char* name, int timeout_ms) {
     }
     if (!error.empty() && error.find("contesta") == std::string::npos) return false;
   }
+  if (use_fallback()) return join(code, name, timeout_ms);   // (no contesta en la que dio el DNS: por la de reserva)
   return false;
+}
+
+// El DNS de casa dio una dirección en la que no contesta nadie (p. ej. la de un
+// operador que redirige): una vez, la del servidor del proyecto que trae el juego.
+bool Client::use_fallback() {
+  if (fell_back_ || fd_ < 0 || std::strcmp(host_, kProjectHost) != 0) return false;
+  sockaddr_in* sa = reinterpret_cast<sockaddr_in*>(addr_);
+  in_addr a;
+  if (inet_pton(AF_INET, kProjectIp, &a) != 1 || a.s_addr == sa->sin_addr.s_addr) return false;
+  fell_back_ = true;
+  sa->sin_addr = a;
+  remember_address(host_, kProjectIp);
+  error.clear();
+  return true;
 }
 
 void Client::leave() {
