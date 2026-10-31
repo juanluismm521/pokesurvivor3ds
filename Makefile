@@ -34,7 +34,8 @@ include $(DEVKITARM)/3ds_rules
 TARGET		:=	pokesurvivor-3ds
 BUILD		:=	build
 SOURCES		:=	src/platform/3ds src/core
-# Código generado por tools/gen_data.js (no se sube a git)
+# Código generado por tools/gen_data.js (gamedata.cpp va en git para quien
+# compile sin reference/web; build.h no)
 GENDIR		:=	src/gen
 DATA		:=	data
 INCLUDES	:=	src
@@ -173,7 +174,8 @@ endif
 #---------------------------------------------------------------------------------
 all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(T3XHFILES)
 	@mkdir -p $(ROMFS)
-	@node tools/gen_data.js $(GENDIR)/gamedata.cpp
+	@if [ -d reference/web/js/data ]; then node tools/gen_data.js $(GENDIR)/gamedata.cpp; \
+	else echo "Sin reference/web: se usa $(GENDIR)/gamedata.cpp tal cual"; fi
 	@tools/gen_build.sh $(GENDIR)/build.h
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 

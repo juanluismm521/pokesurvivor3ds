@@ -1,7 +1,6 @@
 # Seguir a la web: cómo mantener el port al día
 
-*Investigación del 2026-10-19. Las herramientas están en `tools/web/` y el plan
-en `PLAN.md` > Fase 11.*
+*Investigación del 2026-10-19. Las herramientas están en `tools/web/`.*
 
 ## En resumen
 - La web cambia **muy deprisa**: 98 commits en 10 días y 12 commits en los 4
@@ -57,8 +56,8 @@ Para 60 FPS hay **16,7 ms** en total (y eso sin dibujar de verdad ni sonido).
 Además, cargar el JS tarda 5-6 s y el reloj del emulador cuenta casi una
 instrucción por ciclo: en la consola real (cachés pequeñas) iría igual o peor.
 **Conclusión:** de 5 a 10 veces demasiado lento en la New 3DS y unas 20 en la
-vieja. Se descarta para la partida. (Con `jsbench.3dsx` el dueño puede medirlo
-en su consola: ver `PROGRESS.md`.)
+vieja. Se descarta para la partida. (Con `jsbench.3dsx` se puede medir en la
+consola.)
 
 Hallazgo útil: QuickJS-ng en ARM con `-O2` necesita `-fno-strict-aliasing
 -fwrapv`. Sin eso, el operador `...` da «out of memory».
@@ -81,16 +80,10 @@ Tres capas, de más automática a menos:
    funciones exactas han cambiado en cada archivo, a qué archivo C++
    corresponden (`tools/web/mapa.json`) y qué módulos y campos nuevos tiene la
    web (`tools/web/forma.js` compara la «forma» de `G.*` entre versiones).
-3. **Portar la lógica: con una persona en el bucle.** La hace alguien, o una
-   persona que se lance a mano, siguiendo `tools/web/PORTAR.md`
-   y la lista del informe. Las pruebas deciden: los casos dorados se regeneran
+3. **Portar la lógica: con una persona en el bucle.** La hace una persona, siguiendo la lista
+   del informe. Las pruebas deciden: los casos dorados se regeneran
    del JS nuevo, así que si el port no hace lo mismo que la web, fallan. Encima
    van la simulación de 30 min con ASan/UBSan y el emulador.
-
-   (Se intentó que `auto.sh` lanzara un asistente él solo desde cron, sin nadie
-   delante. Los permisos de un asistente no dejan crear eso sin que el dueño lo
-   decida, y es razonable: es un agente con acceso total trabajando sin
-   supervisión. Ver *Preguntas* en `PROGRESS.md`.)
 
 ## 3. Las herramientas (`tools/web/`)
 | Archivo | Qué hace |

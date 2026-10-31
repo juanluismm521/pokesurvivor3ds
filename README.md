@@ -1,176 +1,180 @@
 # PokéSurvivor 3DS
 
-*[English version](README.en.md)*
+*English · [Español](README.es.md)*
 
-Port **homebrew** para **Nintendo 3DS** de [PokéSurvivor](https://pokesurvivor.com),
-el *bullet-heaven* con Pokémon y sprites de *Pokémon Mundo Misterioso*.
-Es el mismo juego que la web —los 966 Pokémon, los ataques, las grietas, la
-Sentencia de Arceus, el gacha, las misiones y logros— hecho a medida para la
-consola: dos pantallas, botones, pantalla táctil y 3D.
+A **homebrew** port for the **Nintendo 3DS** of [PokéSurvivor](https://pokesurvivor.com),
+the Pokémon *bullet-heaven* with *Pokémon Mystery Dungeon* sprites. It is the
+same game as the web version —all 966 Pokémon, the moves, rifts, Arceus'
+Judgment, the gacha, missions and achievements— tailored to the console: two
+screens, buttons, touch screen and 3D.
 
-> Proyecto de fans **sin ánimo de lucro**, sin relación con Nintendo, Game Freak
-> ni The Pokémon Company. Gratis siempre: no se puede vender ni poner anuncios.
+<p align="center">
+  <img src="docs/img/mega-charizard.webp" alt="Mega Charizard on the 3DS" width="400">
+  <img src="docs/img/cooperativo.webp" alt="Online co-op on the 3DS" width="400">
+</p>
 
-## Qué tiene
+**Website and downloads: [pokesurvivor3ds.com](https://www.pokesurvivor3ds.com)** ·
+**Support the port: [Ko-fi](https://ko-fi.com/juanluismm521)** ☕
 
-### El juego
-- **Toda la partida de la web**, portada a C++ y comprobada número a número con
-  el código original: daño, tabla de tipos, experiencia, aparición de enemigos,
-  el pintado del terreno, los movimientos, las misiones... (casos dorados).
-- **Menús completos**: test de personalidad, compañero, colección (Pokédex con
-  shinies), mejoras por Pokémon con atajos y vetos, **gacha con tragaperras** y
-  selector de región (L/R), misiones, logros, estadísticas, ajustes y créditos.
-- **Pantalla de arriba**: la partida a 400×240, píxel exacto, con **3D**
-  opcional (suelo al fondo, Pokémon delante).
-- **Pantalla de abajo**: vida, nivel, reloj, tus ataques (tócalos para
-  cambiar) y un **minimapa** con el terreno de verdad, lo que ves arriba, tú,
-  tus compañeros, enemigos, jefes, cofres, altares, la grieta, Arceus...
-  **Toca el mapa** para ver qué es cada icono.
-- **Textos nítidos**: Pixelify Sans para lo grande y Tiny5 (8 px) para lo
-  pequeño, siempre a escala entera.
-- **Sonido**: la música y los efectos de la web, grabados de su sintetizador.
-- **Calidad automática**: alta en la New 3DS, media en la 3DS vieja (el suelo
-  se pinta en otro núcleo para no dar tirones). Se ve en Ajustes → Calidad.
-- **Sin tirones**: los Pokémon nuevos se cargan en segundo plano.
-- **Idiomas**: español e inglés (las traducciones de la web).
+> A **non-profit** fan project, not affiliated with Nintendo, Game Freak or
+> The Pokémon Company. Always free: it may not be sold or carry ads.
 
-### Jugar en grupo (hasta 4 consolas)
-En **En grupo**, con **L/R** eliges:
-- **Cerca**: juego local de la 3DS, sin internet.
-- **Por internet**: con cualquiera, a través de un **servidor de relevo**
-  (ver más abajo). El servidor se configura en la propia consola (botón Y):
-  IP o dominio y puerto.
+## Install on the console
+You need a 3DS with custom firmware (Luma3DS). Both ways use the same save.
 
-Una consola crea la sala; las demás buscan y entran; el anfitrión pulsa
-**¡Empezar!**. Reglas de la web: más enemigos y con más vida cuantos más
-seáis, nivel y experiencia del equipo, las cartas salen a la vez y se espera a
-todos, a un compañero caído se le levanta quedándose 3 s a su lado y la
-partida acaba si caéis todos. Cada uno ve su Pokémon y a los demás con su
-nombre, su color y una flecha cuando salen de la pantalla.
+### A. With the QR code (no cables)
+1. Open **FBI** → **Remote Install** → **Scan QR Code**.
+2. Point the 3DS camera at this QR code and confirm.
 
-Por dentro es **lockstep**: cada consola manda sólo sus botones (8 bytes por
-paso) y todas calculan exactamente la misma partida. Si una se desconecta,
-las demás siguen; si alguna se separase, se avisa. Por internet, el retraso
-de los controles se ajusta solo según el ping.
+<p align="center"><img src="docs/img/qr-fbi.png" alt="QR code to install with FBI" width="220"></p>
 
-### La misma partida en la web y en la 3DS
-**Ajustes → Cuenta de pokesurvivor.com → Entrar** con tu usuario y contraseña
-de la web. Las dos partidas **se juntan sin perder nada** (Pokémon, shinies,
-monedas, tickets, mejoras, logros...) igual que lo hace la web entre dos
-ordenadores, y después se sincroniza sola al encender y al acabar cada partida,
-o con «Sincronizar ahora». En la web, recarga la página para ver lo de la 3DS.
+It always installs the latest version
+(`http://pokesurvivor3ds.duckdns.org/datos/programa/ultimo.cia`).
 
-- Sólo cuentas de **usuario y contraseña** (las de Google no se pueden usar en
-  la consola). La contraseña **no se guarda**: sólo un token de sesión.
-- **A prueba de actualizaciones de la web**:
-  - si la web cambia el formato de la partida, la 3DS no toca nada y pide
-    actualizar el juego;
-  - lo que la 3DS no conoce (Pokémon, mejoras, monedas o campos nuevos)
-    **nunca se borra** y no se recorta nada a los máximos de la 3DS;
-  - la 3DS sólo escribe lo que ella ha cambiado;
-  - si una fusión fuera a perder algo, no se sube nada;
-  - antes de cada sincronización guarda copias en la SD.
+### B. Copying the files
+- **On the HOME Menu, like any other game** (with its icon, banner and
+  sound): copy `pokesurvivor-3ds.cia` to the SD card and open **FBI** → *SD* →
+  the file → *Install CIA*.
+- **From the Homebrew Launcher:** copy `pokesurvivor-3ds.3dsx` to `sd:/3ds/`.
 
-## Instalar en la consola
-1. Una 3DS con *custom firmware* (Luma3DS).
-2. Elige una de las dos formas (las dos usan la misma partida):
-   - **En el menú HOME, como un juego más** (con su icono, banner y sonido):
-     copia `pokesurvivor-3ds.cia` a la SD, abre **FBI** → *SD* → el archivo →
-     *Install CIA*. Sale en el menú principal; se borra desde Configuración
-     de la consola → Gestión de datos → Programas, o con FBI → *Titles*.
-   - **Desde el Homebrew Launcher:** copia `pokesurvivor-3ds.3dsx` a `sd:/3ds/`.
-   - **Actualizaciones:** Ajustes → Actualizaciones → «Buscar solas al
-     encender: Sí». El juego descarga solo las versiones nuevas (firmadas por
-     el proyecto) y se instalan **al salir del juego**. En la misma pantalla:
-     «Instalar ahora» y «Volver a la versión anterior».
-3. Para el sonido hace falta `sd:/3ds/dspfirm.cdc` (se saca una vez con DSP1).
-4. Para jugar por internet y sincronizar con la web, la consola necesita wifi.
+Downloads are on [pokesurvivor3ds.com](https://www.pokesurvivor3ds.com).
 
-Archivos que el juego usa en `sd:/3ds/pokesurvivor-3ds/`:
+### Notes
+- **Updates:** the game looks for new versions by itself on boot, downloads
+  them (signed by the project) and installs them **when you quit**.
+  **Settings → Updates** has «Install now» and «Go back to the previous version».
+- **Sound** needs `sd:/3ds/dspfirm.cdc` (dump it once with DSP1).
+- **Online play** and **web sync** need Wi-Fi.
 
-| Archivo | Qué es |
+## Features
+
+### The game
+- **The whole web game**, ported to C++ and checked number by number against
+  the original code: damage, type chart, experience, enemy spawns, terrain
+  painting, moves, missions... (golden tests).
+- **Complete menus**: personality test, partner, collection (Pokédex with
+  shinies), per-Pokémon upgrades, **slot-machine gacha** with a region
+  selector, missions, achievements, stats, settings and credits.
+- **Mega Evolutions** (a port extra): 91 Megas with their Mega Stones.
+- **Top screen**: the game at 400×240, pixel-perfect, with optional **3D**.
+- **Bottom screen**: health, level, timer, your moves (tap to switch) and a
+  **minimap** with the real terrain, your teammates, enemies, bosses, chests,
+  altars, the rift, Arceus... **Tap the map** for a legend.
+- **Sound**: the web's music and sound effects, recorded from its synth.
+- **Automatic quality**: high on New 3DS, medium on the old 3DS.
+- **Languages**: English and Spanish.
+
+### Play in a group (up to 4 consoles)
+In **Play in a group**, **L/R** switches between:
+- **Nearby**: 3DS local wireless, no internet needed.
+- **Online**: with anyone, through the project's server. Rooms can have a
+  password and a «fast» mode.
+
+One console creates a room, the others join, and the host presses **Start!**.
+More and tougher enemies the more players, shared team level, level-up cards
+for everyone at once, and a downed teammate is revived by standing next to
+them for 3 s.
+
+Under the hood it is **lockstep**: each console only sends its button presses
+and they all compute exactly the same game. Online, the server gathers
+everyone's inputs and adjusts the delay to each player's connection.
+
+### The same save on the web and on the 3DS
+**Settings → pokesurvivor.com account → Log in** with your web username and
+password (or with Google by scanning a QR code). Both saves are **merged
+without losing anything** (Pokémon, shinies, coins, tickets, upgrades,
+achievements...) and then it syncs by itself on boot and after every run.
+
+- The password is **never stored**, only a session token.
+- **Safe against web updates**: anything the 3DS doesn't know is **never
+  deleted**, the 3DS only writes what it changed, and if a merge would lose
+  anything, nothing is uploaded. Backups are written to the SD card before
+  every sync.
+
+Files in `sd:/3ds/pokesurvivor-3ds/`:
+
+| File | What it is |
 |---|---|
-| `save.json` (+ `save.bak`) | tu partida (el mismo formato que la web) |
-| `settings.json` | ajustes (también el servidor para jugar online) |
-| `cuenta.json` | la sesión de pokesurvivor.com (sin contraseña) |
-| `save.antes-de-sincronizar.json`, `nube.copia.json` | copias de seguridad de la última sincronización |
+| `save.json` (+ `save.bak`) | your save (same format as the web) |
+| `settings.json` | settings (including the online server) |
+| `cuenta.json` | the pokesurvivor.com session (no password) |
+| `save.antes-de-sincronizar.json`, `nube.copia.json` | backups of the last sync |
 
-## Controles
-| Botón | Acción |
+## Controls
+| Button | Action |
 |---|---|
-| Circle Pad / cruceta | Moverse |
-| L / R (o X, ZL/ZR) | Cambiar de ataque (o tocar el hueco abajo) |
-| START | Pausa (SELECT en la pausa: abandonar la partida) |
-| Arriba/abajo + A, o tocar | Elegir carta de nivel, objeto o vínculo |
-| Y | Megaevolucionar (con la megapiedra puesta) · en las cartas de nivel: cambiarlas |
-| Tocar el minimapa | Leyenda del mapa |
-| START + SELECT | Salir del juego |
+| Circle Pad / D-Pad | Move |
+| L / R (or X, ZL/ZR) | Switch move (or tap the slot below) |
+| START | Pause (SELECT while paused: quit the run) |
+| Up/down + A, or tap | Pick a level-up card, item or bond |
+| Y | Mega Evolve (with the Mega Stone equipped) · on level-up cards: reroll |
+| Tap the minimap | Map legend |
+| START + SELECT | Exit the game |
 
-En grupo, START no para la partida (te quedas quieto).
+When playing together, START doesn't stop the game (you just stand still).
 
-## El servidor para jugar online
-Está en **su propio repositorio, [pokesurvivor3ds-server](https://github.com/juanluismm521/pokesurvivor3ds-server)**: un solo archivo de
-Python con **Docker** y una guía sencilla para montarlo (VPS, Raspberry Pi o
-PC de casa). Por defecto la consola usa el del proyecto; cada uno puede poner
-el suyo en **En grupo → Por internet → Y**.
+## The online server
+It lives in **its own repository,
+[pokesurvivor3ds-server](https://github.com/juanluismm521/pokesurvivor3ds-server)**:
+a single Python file with **Docker** and an easy setup guide (VPS, Raspberry Pi
+or home PC). By default the console uses the project's server; anyone can set
+their own in **Play in a group → Online → Y**.
 
-## Compilar
-Todo se hace en Linux (en el proyecto, un VPS sin pantalla):
+## Building
+Everything is built on Linux:
 
 ```bash
-tools/setup_vps.sh                       # devkitPro (imagen Docker oficial), Node, Python, Azahar...
-tools/build_assets.sh                    # recursos de la web → romfs/ (sprites, arte, fuente, sonido)
+tools/setup_vps.sh                       # devkitPro (official Docker image), Node, Python, Azahar...
 source tools/env.sh && make              # → pokesurvivor-3ds.3dsx
-tools/make_cia.sh                        # → pokesurvivor-3ds.cia (menú HOME; baja makerom y bannertool)
-tools/publicar_programa.py publicar|volver|estado   # versiones para que las consolas se actualicen solas
-cmake -S . -B build-pc && cmake --build build-pc -j2 && (cd build-pc && ctest)   # pruebas en PC
+tools/make_cia.sh                        # → pokesurvivor-3ds.cia
+cmake -S . -B build-pc && cmake --build build-pc -j2 && (cd build-pc && ctest)   # PC tests
 ```
 
-Las pruebas del juego online usan el servidor
+The original web code is **not included** in this repository (it belongs to
+its author). The game tables generated from it are included
+(`src/gen/gamedata.cpp`, `tests/web-generado/`), so the C++ code and the PC
+tests build without it. Rebuilding the console assets (`tools/build_assets.sh`:
+sprites, art, music) and the golden tests needs a copy of the web code in
+`reference/web/`.
+
+The online tests use the server
 ([pokesurvivor3ds-server](https://github.com/juanluismm521/pokesurvivor3ds-server));
-CMake lo busca en `../docker/pokesurvivor-relay` (se cambia con
-`-DPS_RELAY_PY=ruta/relay.py`; si no está, se saltan con un aviso). Más comandos (emulador, autotest, pruebas de grupo y de la nube) en
-[`las normas del proyecto`](las normas del proyecto) → *Comandos*.
+CMake looks for it next to this repository (change it with
+`-DPS_RELAY_PY=path/relay.py`).
 
-## Cómo se ha probado
-Cada parte tiene pruebas, y una tarea no se da por hecha hasta que pasan:
-- **Casos dorados**: el JS original de la web se ejecuta en node y sus
-  resultados se comparan con los del port (daño, tipos, experiencia, terreno,
-  movimientos, gacha, misiones, i18n, la fusión de partidas de `db.js`...).
-- **Simulación sin pantalla** con AddressSanitizer y UBSan: un bot juega
-  partidas enteras (hasta la Sentencia, también de 3 jugadores) sin cuelgues,
-  NaN ni fugas, y sin pasar los topes.
-- **Cooperativo**: varias "consolas" en el mismo programa con una red falsa
-  (retraso, pérdidas, desorden, desconexiones) que nunca se separan; y con el
-  **servidor de verdad**.
-- **Emulador Azahar** (bajo Xvfb): capturas de cada pantalla, autotest con FPS
-  y memoria, partidas de 30 min, **dos consolas emuladas jugando juntas** en
-  local y por internet con las mismas huellas.
-- **Sincronización**: la **web original** en Chromium contra el emulador de
-  Firebase y la "3DS" en medio; una web "del futuro" que pasa por la 3DS sin
-  perder nada; y HTTPS con los servidores reales de Google desde la consola
-  emulada.
+## Testing
+- **Golden tests**: the web's original JS runs in Node and its results are
+  compared with the port's (damage, types, experience, terrain, moves, gacha,
+  missions, save merging...).
+- **Headless simulation** with AddressSanitizer and UBSan: a bot plays whole
+  runs (also with 3 players) with no hangs, NaNs or leaks.
+- **Co-op**: several "consoles" in one program over a fake network (delay,
+  loss, reordering, disconnections) that never desync, and against the real
+  server.
+- **Azahar emulator** (under Xvfb): screenshots, autotests with FPS and memory,
+  30-minute runs and **two emulated consoles playing together**.
+- **Sync**: the original web in Chromium against the Firebase emulator with
+  the "3DS" in the middle.
 
-## Qué hay en el repositorio
-| Carpeta | Qué es |
+## What's in the repository
+| Folder | What it is |
 |---|---|
-| `src/core/` | El juego en C++17, sin nada de la 3DS (se compila también en Linux): partida, lockstep, fusión de partidas, cliente de la nube y del servidor |
-| `src/platform/3ds/` | Gráficos (citro2d), sonido (ndsp), botones y táctil, juego local (UDS), red (curl + mbedTLS), menús, minimapa |
-| `tests/` | Pruebas (doctest): sueltas, casos dorados, simulación, cooperativo, online, nube |
-| `tools/` | Generadores de la web a formatos de la 3DS, casos dorados, emulador, pruebas de grupo y de la nube |
-| `reference/web/` | El código original de la web (**sólo se lee**: es la fuente de verdad) |
-| `assets-src/` | Sprites PNG originales, fuentes e icono |
+| `src/core/` | The game in C++17, with nothing 3DS-specific (it also builds on Linux): game logic, lockstep, save merging, cloud and server clients |
+| `src/platform/3ds/` | Graphics (citro2d), sound (ndsp), buttons and touch, local play (UDS), network (curl + mbedTLS), menus, minimap |
+| `tests/` | Tests (doctest): unit, golden, simulation, co-op, online, cloud |
+| `tools/` | Converters to 3DS formats, golden tests, emulator, co-op and cloud tests, publishing |
+| `assets-src/` | Original PNG sprites, fonts and icon |
+| `docs/` | Notes and images |
 
-Documentos: [`PLAN.md`](PLAN.md) (fases y decisiones),
-[`PROGRESS.md`](PROGRESS.md) (diario, medidas y qué probar en la consola),
-[`GDD.md`](GDD.md) (diseño del juego).
+[`GDD.md`](GDD.md) has the game design (in Spanish) and
+[`CHANGELOG.md`](CHANGELOG.md) every version.
 
-## Licencias y créditos
-- Gracias ante todo a **JPTER78**, creador de PokéSurvivor
-  ([github.com/JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)),
-  y a **juanluismm521**, que lo ha traído a la 3DS
-  ([github.com/juanluismm521/pokesurvivor3ds](https://github.com/juanluismm521/pokesurvivor3ds)).
-- Código: PolyForm Noncommercial 1.0.0 (`LICENSE`, `LICENSE-NONCOMMERCIAL.md`).
-- Sprites: PMD Sprite Collab, CC BY-NC 4.0. Todos los artistas en
-  [`CREDITS.md`](CREDITS.md); también salen en el juego.
-- Fuentes: Pixelify Sans y Tiny5 (SIL OFL, `assets-src/fonts/`).
+## Licenses and credits
+- Thanks above all to **JPTER78**, creator of PokéSurvivor
+  ([pokesurvivor.com](https://pokesurvivor.com)).
+- 3DS port by **[juanluismm521](https://github.com/juanluismm521)** ·
+  [Ko-fi](https://ko-fi.com/juanluismm521).
+- Code: PolyForm Noncommercial 1.0.0 (`LICENSE`, `LICENSE-NONCOMMERCIAL.md`).
+- Sprites: PMD Sprite Collab, CC BY-NC 4.0. All artists in
+  [`CREDITS.md`](CREDITS.md); they are also shown in the game.
+- Fonts: Pixelify Sans and Tiny5 (SIL OFL, `assets-src/fonts/`).

@@ -19,17 +19,31 @@ if(PS_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
-# Tablas del juego generadas desde la web (tools/gen_data.js)
+# Tablas del juego generadas desde la web (tools/gen_data.js). El código de la
+# web (reference/web) no va en el repositorio público: sin él se usan las tablas
+# ya generadas que sí van (src/gen/gamedata.cpp y tests/web-generado/).
 find_program(NODE node REQUIRED)
-file(GLOB WEB_DATA CONFIGURE_DEPENDS reference/web/js/data/*.js reference/web/js/world/tiles.js
-     reference/web/js/systems/*.js reference/web/js/entities/vfx.js)
-set(GEN_DATA ${CMAKE_BINARY_DIR}/gen/gamedata.cpp)
-set(GEN_PACK ${CMAKE_BINARY_DIR}/gen/paquete.json)   # paquete de datos (lo que la 3DS baja sola)
-add_custom_command(OUTPUT ${GEN_DATA} ${GEN_PACK}
-  COMMAND ${CMAKE_COMMAND} -E env PS_PAQUETE=${GEN_PACK} ${NODE} ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${GEN_DATA}
-  DEPENDS ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
-          ${CMAKE_SOURCE_DIR}/assets-src/megas/megas.json ${CMAKE_SOURCE_DIR}/assets-src/skins/skins.json
-  COMMENT "Generando las tablas del juego")
+set(PS_HAY_WEB OFF)
+if(EXISTS ${CMAKE_SOURCE_DIR}/reference/web/js/data)
+  set(PS_HAY_WEB ON)
+endif()
+set(WEB_GEN ${CMAKE_SOURCE_DIR}/tests/web-generado)
+if(PS_HAY_WEB)
+  file(GLOB WEB_DATA CONFIGURE_DEPENDS reference/web/js/data/*.js reference/web/js/world/tiles.js
+       reference/web/js/systems/*.js reference/web/js/entities/vfx.js)
+  set(GEN_DATA ${CMAKE_BINARY_DIR}/gen/gamedata.cpp)
+  set(GEN_PACK ${CMAKE_BINARY_DIR}/gen/paquete.json)   # paquete de datos del juego
+  add_custom_command(OUTPUT ${GEN_DATA} ${GEN_PACK}
+    COMMAND ${CMAKE_COMMAND} -E env PS_PAQUETE=${GEN_PACK} ${NODE} ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${GEN_DATA}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${GEN_PACK} ${WEB_GEN}/paquete.json
+    DEPENDS ${CMAKE_SOURCE_DIR}/tools/gen_data.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
+            ${CMAKE_SOURCE_DIR}/assets-src/megas/megas.json ${CMAKE_SOURCE_DIR}/assets-src/skins/skins.json
+    COMMENT "Generando las tablas del juego")
+else()
+  message(STATUS "Sin reference/web: se usan las tablas ya generadas (src/gen, tests/web-generado)")
+  set(GEN_DATA ${CMAKE_SOURCE_DIR}/src/gen/gamedata.cpp)
+  set(GEN_PACK ${WEB_GEN}/paquete.json)
+endif()
 
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp src/core/*.c)
 add_library(ps_core STATIC ${CORE_SOURCES} ${GEN_DATA})
@@ -43,15 +57,21 @@ add_executable(ps_tests ${TEST_SOURCES})
 target_compile_options(ps_tests PRIVATE -fexceptions)
 target_include_directories(ps_tests PRIVATE ${DOCTEST_INCLUDE} tests)
 target_link_libraries(ps_tests PRIVATE ps_core)
-# Casos dorados: el JS original ejecutado con node (tools/golden/golden.js)
-set(GOLDEN_DIR ${CMAKE_BINARY_DIR}/golden)
-add_custom_command(OUTPUT ${GOLDEN_DIR}/golden.json
-  COMMAND ${NODE} ${CMAKE_SOURCE_DIR}/tools/golden/golden.js ${GOLDEN_DIR}
-  DEPENDS ${CMAKE_SOURCE_DIR}/tools/golden/golden.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
-          ${CMAKE_SOURCE_DIR}/reference/web/js/world/world.js
-  COMMENT "Sacando los casos dorados del JS de la web")
-add_custom_target(golden DEPENDS ${GOLDEN_DIR}/golden.json)
-add_dependencies(ps_tests golden)
+# Casos dorados: el JS original ejecutado con node (tools/golden/golden.js).
+# Se copian a tests/web-generado/golden para quien compile sin reference/web.
+if(PS_HAY_WEB)
+  set(GOLDEN_DIR ${CMAKE_BINARY_DIR}/golden)
+  add_custom_command(OUTPUT ${GOLDEN_DIR}/golden.json
+    COMMAND ${NODE} ${CMAKE_SOURCE_DIR}/tools/golden/golden.js ${GOLDEN_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${GOLDEN_DIR} ${WEB_GEN}/golden
+    DEPENDS ${CMAKE_SOURCE_DIR}/tools/golden/golden.js ${CMAKE_SOURCE_DIR}/tools/lib/websandbox.js ${WEB_DATA}
+            ${CMAKE_SOURCE_DIR}/reference/web/js/world/world.js
+    COMMENT "Sacando los casos dorados del JS de la web")
+  add_custom_target(golden DEPENDS ${GOLDEN_DIR}/golden.json)
+  add_dependencies(ps_tests golden)
+else()
+  set(GOLDEN_DIR ${WEB_GEN}/golden)
+endif()
 # El servidor de relevo (jugar online) vive en su propio repositorio, al lado.
 # El servidor de relevo (repo pokesurvivor3ds-server): en el VPS, al lado de este repo (servidor/).
 if(EXISTS "${CMAKE_SOURCE_DIR}/../servidor/relay.py")

@@ -1,9 +1,8 @@
 # Portar una actualización de la web al port de 3DS
 
-Guía para quien porte (una persona o alguien lanzada a mano)
-una versión nueva de la web cuando `tools/web/actualizar.sh` dice **portar**.
-Las normas de `las normas del proyecto` siguen mandando: español, sin firmas de IA en los
-commits, `reference/web` sólo se lee, y nada de la 3DS en `src/core`.
+Guía para quien porte una versión nueva de la web cuando
+`tools/web/actualizar.sh` dice **portar**. Normas: español, `reference/web`
+sólo se lee, y nada de la 3DS en `src/core`.
 
 ## 0. Punto de partida
 - Rama aparte (`web/<commit>`), nunca directamente en `main`.
@@ -51,7 +50,7 @@ original) y a `tests/test_golden.cpp` (compara el C++). Si un dorado viejo deja
 de cuadrar con la web nueva, es que hay que portar algo más: no se toca el
 dorado, se arregla el port.
 
-## 4. Pruebas (obligatorias, como en las normas del proyecto)
+## 4. Pruebas (obligatorias)
 ```bash
 tools/web/actualizar.sh pruebas      # make (sin avisos nuevos) + ctest (dorados y simulación con ASan/UBSan)
 ./build-pc/ps_sim 7 25 1800 1         # partida de 30 min con el bot (topes, NaN...)

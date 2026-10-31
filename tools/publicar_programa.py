@@ -132,6 +132,10 @@ def publicar(repo=ROOT, notas=''):
     if not tocar and last:
         cambios = subprocess.run(['git', 'diff', '--name-only', last, 'HEAD'], cwd=repo, capture_output=True, text=True).stdout
         tocar = any(p.startswith(('assets-src/', 'tools/gen_', 'tools/build_assets', 'reference/web/')) for p in cambios.split())
+    # El código de la web (reference/, no va en git): el del repo de trabajo del VPS.
+    ref = os.path.join(repo, 'reference')
+    if repo != ROOT and not os.path.exists(ref) and os.path.isdir(os.path.join(ROOT, 'reference', 'web')):
+        os.symlink(os.path.join(ROOT, 'reference'), ref)
     # Las librerías de Node de tools/ (no van en git): las del repo de trabajo o npm.
     nm = os.path.join(repo, 'tools', 'node_modules')
     if os.path.islink(nm) and not os.path.exists(nm):

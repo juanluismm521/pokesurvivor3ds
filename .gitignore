@@ -27,6 +27,26 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .DS_Store
-src/gen/
+# Generado: build.h sí se rehace siempre; gamedata.cpp va en git (para compilar sin reference/web)
+src/gen/build.h
 tools/firebase-emu/*.log
 tools/web/auto.conf
+
+# Código original de la web (es de su autor: sólo en el VPS, no se publica)
+reference/
+# Carpeta de compilación vieja (sólo en el VPS)
+build-rel/
+build-*/
+jsbench.3dsx
+
+# Asistentes de IA y notas de trabajo (sólo en el VPS)
+CLAUDE.md
+PLAN.md
+PROGRESS.md
+.claude/
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.aider*
+.github/copilot-instructions.md

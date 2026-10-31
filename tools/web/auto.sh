@@ -9,8 +9,7 @@
 #                 las consolas lo bajan solas al encender, sin cambiar de programa.
 #                 Si hay lógica que portar, prepara una rama web/<commit> con
 #                 la web nueva y los datos ya regenerados, y avisa: portarla es
-#                 cosa de una persona (o de alguien que alguien
-#                 lance a mano), siguiendo tools/web/PORTAR.md.
+#                 cosa de una persona, siguiendo la lista del informe.
 #
 # Todo se hace en un worktree aparte (WORKTREE), nunca en la copia de trabajo
 # de main: aunque algo salga mal, main no se toca hasta que pasa todo.
