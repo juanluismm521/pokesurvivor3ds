@@ -78,6 +78,12 @@ target_link_libraries(ps_balance PRIVATE ps_core)
 add_executable(ps_tesoro tests/treasure_main.cpp)
 target_include_directories(ps_tesoro PRIVATE tests)
 target_link_libraries(ps_tesoro PRIVATE ps_core)
+# Herramienta: el juego en grupo por internet en casas de verdad (ps_red; mejor en un
+# build sin sanitizers: cmake -DPS_SANITIZE=OFF -DCMAKE_BUILD_TYPE=Release)
+add_executable(ps_red tests/red_main.cpp)
+target_include_directories(ps_red PRIVATE tests)
+target_link_libraries(ps_red PRIVATE ps_core)
+target_compile_definitions(ps_red PRIVATE PS_RELAY_PY="${PS_RELAY_PY}")
 
 enable_testing()
 add_test(NAME ps_tests COMMAND ps_tests)

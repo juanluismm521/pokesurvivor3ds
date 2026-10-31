@@ -57,9 +57,14 @@ PY
   fi
   local SD="$D/data/azahar-emu/sdmc/3ds/pokesurvivor-3ds"
   mkdir -p "$SD"; rm -f "$SD/autotest.log"
-  # COOP_SERVER=ip:puerto: por internet, contra ese servidor de pruebas (y no el oficial)
-  if [ -n "${COOP_SERVER:-}" ]; then
-    echo "{\"lang\":\"es\",\"datosAuto\":false,\"novedades\":\"0.26\",\"server\":\"${COOP_SERVER%:*}\",\"serverPort\":${COOP_SERVER##*:}}" > "$SD/settings.json"
+  # COOP_SERVER=ip:puerto: por internet, contra ese servidor de pruebas (y no el oficial).
+  # COOP_SERVER_A / COOP_SERVER_B: uno para cada consola (p. ej. cada una por su
+  # tools/udp_lag.py, con su ping).
+  local srv="${COOP_SERVER:-}"
+  if [ "$1" = A ] && [ -n "${COOP_SERVER_A:-}" ]; then srv="$COOP_SERVER_A"; fi
+  if [ "$1" = B ] && [ -n "${COOP_SERVER_B:-}" ]; then srv="$COOP_SERVER_B"; fi
+  if [ -n "$srv" ]; then
+    echo "{\"lang\":\"es\",\"datosAuto\":false,\"novedades\":\"0.26.1\",\"server\":\"${srv%:*}\",\"serverPort\":${srv##*:}}" > "$SD/settings.json"
   fi
   # COOP_MORIR=1: el invitado no es inmortal y se deja matar (para ver al caído
   # mirando a sus compañeros con L/R).

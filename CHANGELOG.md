@@ -8,16 +8,19 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 ## 0.26.1 — 2026-10-31
 - **Grupo por internet más fluido: el servidor hace de anfitrión.** Antes, los botones
   de un invitado iban al servidor, al anfitrión, otra vez al servidor y al invitado
-  (cuatro tramos); el anfitrión no notaba retraso y los invitados, mucho. Ahora cada
-  consola manda sus botones al servidor, que junta los de todos y se los reparte: dos
-  tramos, igual para todos.
-  - El servidor calcula el retraso de cada uno con su ping y el del peor, y un margen
-    que sube si alguien se para y baja sólo si a todos les sobra colchón (así no da
-    tirones para probar).
-  - Medido en PC con el servidor de verdad y ping simulado: con dos consolas a 60 ms,
-    el invitado pasa de ~360 ms a ~135 ms de retraso de los controles (el anfitrión,
-    de 100 a 135), sin tirones; con tres (70/70/140 ms), los invitados de ~380/460 ms
-    a ~185/215 ms y el de mal ping ya no se para.
+  (cuatro tramos); el anfitrión no notaba retraso y los invitados, mucho, y a saltos.
+  Ahora cada consola manda sus botones al servidor, que junta los de todos y se los
+  reparte: dos tramos, igual para todos.
+  - El servidor calcula el retraso de cada uno con su ping (su pico reciente) y el del
+    peor, más un margen que sube si alguien da un tirón o se queda sin colchón y baja
+    si a todos les sobra.
+  - **Reloj elástico**: el reloj de cada consola nunca va exacto al de las demás; con
+    poco colchón, el suyo va un poco más despacio (como mucho un 10 %, no se nota) en
+    vez de quedarse parado.
+  - Medido con el servidor de verdad, redes de casa de mentira (ping, vaivén, picos,
+    pérdidas) y relojes que no van exactos (build-rel/ps_red): con dos casas a 60 ms,
+    el invitado pasa de ~360 ms de retraso de los controles (a saltos) a ~190 ms, igual
+    que el anfitrión (antes 83), y 0 tirones; con wifi regular, de ~500 ms a ~230-280.
   - Si el anfitrión sale de una partida por internet, los demás siguen jugando.
   - Con un servidor viejo, todo sigue como antes (el anfitrión junta los botones).
   - Por internet, menos paquetes: si no hay nada nuevo, la consola no repite el mismo

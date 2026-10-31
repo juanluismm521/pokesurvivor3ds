@@ -694,6 +694,8 @@ void App::advance(double& acc, float dt) {
   }
   coop_net();
   if (ls_.relay()) ls_.set_rtt(net3ds::rtt_ms());   // (el servidor calcula tu retraso con él)
+  // Reloj elástico (ver Lockstep::clock_rate): con poco colchón, un poco más despacio.
+  acc -= double(dt) * 1000.0 * (1.0 - ls_.clock_rate());
   if (pending_input.cmd == CMD_QUIT && quit_t_ < 0) quit_t_ = 0;
   int steps = 0;
   while (acc >= kStepMs && steps < 4) {

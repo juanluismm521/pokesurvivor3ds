@@ -671,8 +671,9 @@ int main(int argc, char** argv) {
       const net::Lockstep& ls = app.lockstep();
       if (ls.last_hash_tick() > 0 && ls.last_hash_tick() % 600 == 0 && ls.last_hash_tick() != at.hash_logged) {
         at.hash_logged = ls.last_hash_tick();
-        std::fprintf(at.log, "huella paso %lld = %08lx · jugadores %d · esperando %d fotogramas · desincronizado %s · retraso %d · ping %d ms\n", at.hash_logged,
-                     (unsigned long)ls.last_hash(), g->team_size(), ls.stall_frames(), ls.desync() ? "SÍ" : "no", ls.delay(), net3ds::rtt_ms());
+        std::fprintf(at.log, "huella paso %lld = %08lx · jugadores %d · esperando %d fotogramas · desincronizado %s · retraso %d · ping %d ms · por delante %d · tirones %d · saltos %d · %s\n", at.hash_logged,
+                     (unsigned long)ls.last_hash(), g->team_size(), ls.stall_frames(), ls.desync() ? "SÍ" : "no", ls.delay(), net3ds::rtt_ms(),
+                     ls.ahead(), ls.starved(), ls.bursts(), ls.relay() ? "servidor" : ls.host() ? "anfitrión" : "invitado");
         std::fflush(at.log);
       }
     }

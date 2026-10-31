@@ -110,7 +110,8 @@ void Lockstep::begin(int me, int n, int delay, bool relay) {
   relay_ = relay;
   sent_local_ = sent_ack_ = -1;
   sent_frame_ = 0;
-  starved_ = 0;
+  starved_ = bursts_ = steps_frame_ = 0;
+  failed_frame_ = false;
   slack_min_ = 255;
   delay = delay < 2 ? 2 : delay > kRing / 4 ? kRing / 4 : delay;
   // El anfitrión, el mínimo (sus entradas no viajan); los invitados empiezan
@@ -147,8 +148,10 @@ void Lockstep::push_local(const Input& in) {
 }
 
 bool Lockstep::step(Game& g) {
-  if (!ready()) { starved_++; slack_min_ = 0; return false; }
-  if (int(bundled_ - sim_ - 1) < slack_min_) slack_min_ = int(bundled_ - sim_ - 1);
+  if (!ready()) { failed_frame_ = true; return false; }
+  // El colchón, al empezar el fotograma (lo que ya había de sobra antes de ponerse al día).
+  if (steps_frame_ == 0 && int(bundled_ - sim_ - 1) < slack_min_) slack_min_ = int(bundled_ - sim_ - 1);
+  steps_frame_++;
   const int slot = int(sim_ % kRing);
   Input ins[kMaxPlayers];
   for (int i = 0; i < n_; ++i) ins[i] = in_[slot][i];
@@ -318,6 +321,11 @@ int Lockstep::outbox(Packet* out, int max) {
 void Lockstep::tick_frame() {
   if (!on_) return;
   frames_++;
+  // Tirón: tocaba avanzar y no se pudo ni un paso. (Ir por detrás del propio reloj,
+  // pero avanzando, no lo es: el reloj de cada consola nunca va exacto al de las demás.)
+  if (failed_frame_ && steps_frame_ == 0) { starved_++; slack_min_ = 0; }
+  if (steps_frame_ >= 2) bursts_++;
+  failed_frame_ = false; steps_frame_ = 0;
   for (int i = 0; i < kMaxPlayers; ++i) if (heard_[i] < 1 << 30) heard_[i]++;
   stall_ = ready() ? 0 : stall_ + 1;
   if (host()) {

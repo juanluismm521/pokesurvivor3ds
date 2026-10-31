@@ -37,9 +37,12 @@ Sincronizando%.*s
 Su megapiedra: Y en la partida y se convierte en 
 Tienes la versión {x} · build {x} ({x}){x}
 Versión del servidor rechazada: 
+anfitrión
 datos de fábrica (el paquete de la SD no vale: 
 el paquete trae datos raros: 
+invitado
 no se ha podido instalar: 
 openid email profile
+servidor
 web del 
 {x} FPS{x}

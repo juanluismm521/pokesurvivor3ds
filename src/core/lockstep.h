@@ -28,6 +28,7 @@
 // paquetes que llegan (on_packet) y manda los que salen (outbox). Así se
 // prueba en PC con varias "consolas" en el mismo programa.
 #pragma once
+#include <algorithm>
 #include <cstdint>
 
 #include "core/game.h"
@@ -95,9 +96,25 @@ class Lockstep {
   // Con el servidor de anfitrión: tu ping con él (se lo dice cada envío; con él
   // calcula tu retraso) y cuántas veces te has quedado parado esperando.
   void set_rtt(int ms) { rtt_ = ms < 0 ? 0 : ms > 65535 ? 65535 : ms; }
+  // Tirones: fotogramas en los que tocaba avanzar y no se pudo ni un paso (faltaba
+  // alguien). Saltos: fotogramas con dos pasos o más de golpe (poniéndose al día).
   int starved() const { return starved_; }
+  int bursts() const { return bursts_; }
   // Cuántos pasos por delante va lo que pulsas ahora (la latencia de tus controles).
   int ahead() const { return int(local_ - sim_); }
+  // Pasos que ya se pueden dar (recibidos o juntados y aún no simulados): el colchón.
+  int buffered() const { return int(bundled_ - sim_); }
+  // Reloj elástico: a qué velocidad debe ir tu reloj (1 = el de verdad). El reloj de
+  // cada consola nunca va exacto al de las demás y la que va un pelín más deprisa se
+  // come el colchón y, al llegar algo tarde, da un tirón. Con menos colchón del
+  // buscado (cushion pasos), un poco más despacio (como mucho un 10 %: no se nota);
+  // nunca más deprisa que el tiempo de verdad. cushion 0: apagado.
+  double clock_rate() const {
+    if (!on_ || cushion_ <= 0) return 1.0;
+    const int b = buffered();
+    return b >= cushion_ ? 1.0 : std::max(0.90, 1.0 - 0.035 * (cushion_ - b));
+  }
+  void set_cushion(int c) { cushion_ = c; }
   int delay() const { return delay_; }
   // Anfitrión: el retraso que aconseja a cada jugador (lo mide él: con cuánta
   // antelación le llegan sus entradas). Va en cada paquete de paso.
@@ -150,7 +167,10 @@ class Lockstep {
   int heard_[kMaxPlayers] = {};      // fotogramas desde su último mensaje
   int frames_ = 0, stall_ = 0;
   int rtt_ = 0, starved_ = 0;              // ping con el servidor; pasos que no se pudieron dar (faltaba alguien)
-  int slack_min_ = 255;                    // el menor colchón (pasos ya recibidos de sobra al dar uno) desde el último envío
+  int slack_min_ = 255;                    // el menor colchón (pasos ya recibidos de sobra al empezar cada fotograma) desde el último envío
+  int bursts_ = 0, steps_frame_ = 0;       // saltos; pasos dados en este fotograma
+  int cushion_ = 3;                        // colchón buscado por el reloj elástico (pasos)
+  bool failed_frame_ = false;              // en este fotograma se quiso dar un paso y faltaba
   int64_t sent_local_ = -1, sent_ack_ = -1;   // invitado: lo último mandado (no se repite cada fotograma)
   int sent_frame_ = 0;
   uint32_t my_hash_[kHashRing] = {};
