@@ -5,6 +5,22 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.26.3 — 2026-11-01
+- **No se pierde lo de una partida al sincronizar con pokesurvivor.com** (Reddit: «encontró
+  un shiny, lo derrotó y no se lo dio»). La sincronización que empieza al acabar una
+  partida se hacía con la partida de ese momento; si volvías a jugar en seguida y
+  terminaba mientras, al acabar la partida nueva pisaba lo ganado en ella (shinies,
+  caramelos, tickets...). Ahora se vuelve a juntar con lo de esa partida.
+- **«+1 proyectil» ya dispara uno más** en Bola Neblina, Energibola, Canto Helado, Sombra
+  Vil, Beso Drenaje, Golpe Bajo, Bola Voltio, Bomba Germen, Bomba Ácida, Rayo Señal, Joya
+  de Luz y Disparo Espejo: esos ataques no decían cuántos disparan y la mejora sumaba a
+  cero (también pasa en la web).
+- Modo rápido: en la Sentencia (el gran Gengar del minuto 20), la velocidad baja menos.
+  El tope (contra la huida sin fin de un Arceus invencible) quitaba un 30-50 % con un
+  Pokémon rápido; ahora lo que pasa de 170 cuenta la mitad. El modo normal, como la web.
+- Halloween: al llegar al gran Gengar se ve «+60 caramelos», y los caramelos que quedaban
+  en el suelo ya no se pierden con el viaje a su arena.
+
 ## 0.26.2 — 2026-10-31
 - **Los datos del juego van con cada versión** (decisión del dueño): ya no se bajan
   aparte de la web (fuera «Datos de la web, solos» de Ajustes y Actualizaciones). Al

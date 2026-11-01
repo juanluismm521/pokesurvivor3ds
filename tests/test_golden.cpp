@@ -235,7 +235,10 @@ TEST_CASE("dorado: movimientos (5 niveles y evolución)") {
     for (int s = 0; s < MS_NUM; ++s) {
       if (v[s].is_null()) { CHECK_MESSAGE(!m.has_(s), r[0].as_str() << " " << kMoveStatId[s]); continue; }
       CHECK_MESSAGE(m.has_(s), r[0].as_str() << " " << kMoveStatId[s]);
-      CHECK_MESSAGE(close_rel(m.v[s], v[s].as_num()), r[0].as_str() << " nv" << r[1].as_int() << " " << kMoveStatId[s]);
+      // (arreglo del port, moves.cpp count_base: «+1 proyectil» en un ataque sin
+      // `count` suma a los que ya dispara, 1; la web suma a 0 y se queda en 1)
+      const double want = s == MS_COUNT && !(kMoves[def].has & (1u << MS_COUNT)) ? v[s].as_num() + 1 : v[s].as_num();
+      CHECK_MESSAGE(close_rel(m.v[s], want), r[0].as_str() << " nv" << r[1].as_int() << " " << kMoveStatId[s]);
     }
   }
   const Json& pool = golden()["pool"];

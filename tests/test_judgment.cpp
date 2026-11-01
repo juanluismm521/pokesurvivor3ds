@@ -214,3 +214,27 @@ TEST_CASE("modo normal: Arceus sigue invencible (legendarios sin fin, sin guardi
   CHECK_FALSE(g->judg.open);
   CHECK(judgment_dmg_k(*g) < 0.06f);
 }
+
+TEST_CASE("modo rápido: en la Sentencia la velocidad baja menos que en el normal (Reddit, 01-11-2026)") {
+  // Lo de la web en el modo normal, igual que siempre.
+  CHECK(judgment_cap_spd(120) == doctest::Approx(120));
+  CHECK(judgment_cap_spd(310) == doctest::Approx(175));
+  // Modo rápido: hasta 170 nada; lo que pase, la mitad. Un Pokémon rápido con
+  // todo (310) se queda en 240 (-23 %) en vez de en 175 (-44 %).
+  CHECK(judgment_cap_spd_quick(160) == doctest::Approx(160));
+  CHECK(judgment_cap_spd_quick(310) == doctest::Approx(240));
+  for (float s = 0; s < 600; s += 7) CHECK(judgment_cap_spd_quick(s) >= judgment_cap_spd(s));
+  // Y es lo que usa la partida.
+  for (int mode = 0; mode < 2; ++mode) {
+    std::unique_ptr<Game> g(new Game());
+    g->debug_immortal = true;
+    RunConfig c; c.dex = 6; c.seed = 4; c.judged = 1; c.mode = PlayMode(mode);
+    c.demo_time = (mode == MODE_QUICK ? kJudgmentAtQuick : kJudgmentAt) - 2;
+    g->start_run(c);
+    for (int i = 0; i < 60 * 30 && g->judg.phase != 2; ++i) { Input in{}; g->step(&in); }
+    REQUIRE(g->judg.phase == 2);
+    Player& p = g->players[0];
+    p.spd_mul = 310.0f / p.base_spd;
+    CHECK(player_spd(*g, p) == doctest::Approx(mode == MODE_QUICK ? 240 : 175));
+  }
+}

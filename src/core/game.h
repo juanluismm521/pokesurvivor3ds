@@ -728,6 +728,10 @@ void judgment_note_dmg(Game& g, float d, const Enemy& e);
 bool judgment_active(const Game& g);
 // Velocidad con tope suave en la Sentencia: lo que pase de 130 cuenta un 25 %.
 inline float judgment_cap_spd(float s) { return s <= 130 ? s : 130 + (s - 130) * 0.25f; }
+// En el modo rápido (del port, 01-11-2026), más suave: lo que pase de 170 cuenta la
+// mitad. El tope de la web es contra la huida sin fin de un Arceus invencible; aquí
+// se le puede ganar, y con un Pokémon rápido el de la web quitaba un 30-50 %.
+inline float judgment_cap_spd_quick(float s) { return s <= 170 ? s : 170 + (s - 170) * 0.5f; }
 bool judgment_cinematic(const Game& g);
 // Arceus en la pelea: qué parte del daño recibe (el 5 %, y cada vez menos) y
 // si le protegen los legendarios (entonces no se le apunta).

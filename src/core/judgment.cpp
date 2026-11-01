@@ -119,6 +119,13 @@ void port(Game& g) {
   g.projectiles.clear();
   combat_clear_fields(g);
   g.hazards.clear();
+  // Los caramelos que quedaban en el suelo no se pierden con el viaje: se dan.
+  int candy = 0;
+  for (const Pickup& o : g.pickups) if (o.kind == PK_CANDY) candy += int(o.value);
+  if (candy) {
+    g.pl().candy += candy;
+    if (g.save) { g.save->candy += candy; g.save->candy_known = true; g.dirty = true; }
+  }
   g.pickups.clear();
   events_reset(g);
   weather_clear(g);
@@ -182,6 +189,12 @@ void fight(Game& g) {
   if (j.gengar) {
     g.pl().candy += kCandyJudge;
     if (g.save) { g.save->candy += kCandyJudge; g.save->candy_known = true; g.dirty = true; }
+    // Que se vea (antes se sumaban sin decir nada).
+    const Player& me = g.me();
+    char c[32];
+    std::snprintf(c, sizeof(c), "+%d caramelos", kCandyJudge);
+    g.fx.dmg_text(me.x, me.y - me.body_h - 8, c, 0xff8a2a, true);
+    g.fx.ring(me.x, me.y, 6, 60, 0xff8a2a, 0.5f, 3);
   }
   // El blanco de Arceus: un enemigo invisible que va siempre donde está él.
   // Así los ataques le dan como a cualquiera. No se mueve solo, no hace daño al

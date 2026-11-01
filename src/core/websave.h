@@ -40,6 +40,11 @@ Json overlay_changes(const Json& raw, const Json& was, const Json& now);
 // formato conocido (claves nuevas) se UNE en vez de quedarse sólo lo del más
 // nuevo.
 Json merge_safe(const Json& a, const Json& b, int64_t now_ms);
+// Al acabar una sincronización (se pidió con la partida tal como estaba al
+// empezarla): ¿hay que juntar otra vez con la de ahora? Sí si se guardó algo
+// mientras (`updated` cambió) o si hay cambios SIN guardar (`dirty`: un shiny, un
+// caramelo... de una partida que acaba de terminar; si no, se perderían).
+inline bool sync_changed_since(int64_t updated_now, int64_t updated_t0, bool dirty) { return dirty || updated_now != updated_t0; }
 // ¿Pierde `merged` algo que tenía `prev` (Pokémon, shinies, legendarios,
 // logros, mejoras, estadísticas...)? Si sí, dice qué en `what`.
 bool loses_progress(const Json& prev, const Json& merged, std::string& what);

@@ -155,6 +155,24 @@ TEST_CASE("halloween: en partidas enteras salen caramelos, la partida es determi
   }
 }
 
+TEST_CASE("halloween: modo rápido, el gran Gengar del minuto 20 también da sus caramelos") {
+  std::unique_ptr<Save> s(new Save());
+  std::unique_ptr<Game> g(new Game());
+  g->debug_immortal = true;
+  RunConfig c; c.dex = 6; c.seed = 4; c.judged = 1; c.mode = MODE_QUICK; c.demo_time = kJudgmentAtQuick - 5; c.hw = 1;
+  g->start_run(c, s.get());
+  const int antes = s->candy;
+  // Dos caramelos en el suelo, lejos: con el viaje a la arena también se dan.
+  pickup_drop(*g, PK_CANDY, g->players[0].x + 900, g->players[0].y, 1);
+  pickup_drop(*g, PK_CANDY, g->players[0].x - 900, g->players[0].y, 1);
+  for (int i = 0; i < 60 * 30 && g->judg.phase != 2; ++i) { Input in{}; g->step(&in); }
+  REQUIRE(g->judg.phase == 2);
+  CHECK(g->judg.gengar);
+  MESSAGE("caramelos: partida " << g->players[0].candy << " · partida guardada " << s->candy << " (antes " << antes << ")");
+  CHECK(s->candy - antes >= kCandyJudge + 2);
+  CHECK(g->players[0].candy >= kCandyJudge + 2);
+}
+
 TEST_CASE("halloween: en la Sentencia, el gran Gengar bruja (Fantasma) y un puñado de caramelos") {
   std::unique_ptr<Save> s(new Save());
   std::unique_ptr<Game> g(new Game());

@@ -152,8 +152,9 @@ void App::cloud_tick() {
   if (st != cloud3ds::JOB_DONE) return;
   if (scene == SC_RUN && g_->state != ST_OVER) return;   // (en plena partida, se espera)
   Json merged = cloud3ds::result();
-  // Si has cambiado algo mientras (una compra...), se junta otra vez.
-  if (s_->updated != cloud_t0_updated_) {
+  // Si has cambiado algo mientras (una compra, o lo de la partida que acaba de
+  // terminar y aún no se ha guardado), se junta otra vez.
+  if (web::sync_changed_since(s_->updated, cloud_t0_updated_, g_->dirty)) {
     Json mine = save_full_json(*s_);
     const int64_t now = now_ms() + cloud3ds::account().delta;
     mine = web::migrate(mine, "", now, false);

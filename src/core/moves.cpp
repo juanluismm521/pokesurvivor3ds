@@ -4,6 +4,12 @@
 namespace ps {
 
 namespace {
+// Los proyectiles que dispara de verdad un ataque que no dice `count` (combat.cpp:
+// std::max(N, count)). Arreglo del port (01-11-2026, Reddit): en la web, «+1
+// proyectil» le suma 1 a NADA (0 + 1 = 1) y Bola Neblina, Bola Voltio, Bomba
+// Ácida... seguían disparando uno. Aquí se suma a los que ya dispara.
+float count_base(int kind) { return kind == K_NOVA ? 3.0f : kind == K_CONE ? 2.0f : 1.0f; }
+
 void apply_mods(MoveInst& s, const Ladder& L) {
   for (int i = 0; i < L.n; ++i) {
     const int k = L.m[i].stat;
@@ -14,8 +20,8 @@ void apply_mods(MoveInst& s, const Ladder& L) {
         s.v[k] = val;
         s.has |= 1u << k;
         break;
-      case 2:  // ADD: (s[k] || 0) + m
-        s.v[k] = (s.has_(k) ? s.v[k] : 0.0f) + val;
+      case 2:  // ADD: (s[k] || 0) + m (count: los que ya dispara, ver count_base)
+        s.v[k] = (s.has_(k) ? s.v[k] : k == MS_COUNT ? count_base(s.kind()) : 0.0f) + val;
         s.has |= 1u << k;
         break;
       default:  // se asigna

@@ -68,7 +68,8 @@ float player_spd(Game& g, const Player& p) {
   float slow = 1;
   if (p.in_liquid) { const LiquidFx le = g.world.liquid_effect(p.mon->types); if (le.slow > 0) slow = le.slow; }
   // En la Sentencia, la velocidad tiene tope suave (contra la huida sin fin).
-  return judgment_active(g) ? judgment_cap_spd(s * slow * w) : s * slow * w;
+  if (!judgment_active(g)) return s * slow * w;
+  return g.cfg.mode == MODE_QUICK ? judgment_cap_spd_quick(s * slow * w) : judgment_cap_spd(s * slow * w);
 }
 
 float player_reduction(const Player& p) { return std::fmin(0.8f, p.dmg_reduce + p.buffs[BS_DEF].n * p.buffs[BS_DEF].amount); }
