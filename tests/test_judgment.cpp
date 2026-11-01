@@ -238,3 +238,71 @@ TEST_CASE("modo rápido: en la Sentencia la velocidad baja menos que en el norma
     CHECK(player_spd(*g, p) == doctest::Approx(mode == MODE_QUICK ? 240 : 175));
   }
 }
+
+// El fallo de la 0.35.0 (01-11-2026, fallo.log de un invitado y Reddit: «al ganar en el
+// rápido se cierra»): el golpe final de un DISPARO llamaba a judgment_hit_arceus desde
+// dentro de combat_resolve, que vaciaba la lista de disparos mientras se recorría; luego
+// se quitaba «su» disparo y la lista quedaba con -1. Al dibujar: data abort.
+TEST_CASE("modo rápido: ganar con el golpe final de un disparo no rompe las listas") {
+  for (int hw = 0; hw < 2; ++hw)
+    for (int extra = 0; extra < 3; ++extra) {   // (y con otros disparos en la lista, delante y detrás)
+      CAPTURE(hw); CAPTURE(extra);
+      std::unique_ptr<Game> g(new Game());
+      g->debug_immortal = true;
+      RunConfig c; c.dex = 25; c.seed = 21 + extra; c.judged = 1; c.demo_time = 1195; c.mode = MODE_QUICK; c.hw = uint8_t(hw);
+      g->start_run(c);
+      Bot bot; bot.init(5);
+      for (int i = 0; i < 60 * 40 && g->judg.phase != 2; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+      REQUIRE(g->judg.phase == 2);
+      for (int i = 0; i < 60 * 60 && g->judg.boss_n < kQuickLegends; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+      for (Enemy& e : g->enemies) if (e.boss && !e.arceus) { e.hp = 1; enemy_hurt(*g, e, 99999, 0xffffff); }
+      for (int i = 0; i < 600 && !g->judg.open; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
+      REQUIRE(g->judg.open);
+      // Cuando la partida está en marcha y no le protege nadie: disparos (el que remata,
+      // encima de su blanco, y otros lejos) y un paso.
+      bool shot = false;
+      for (int tries = 0; tries < 60 * 20 && !shot; ++tries) {
+        Input in{};
+        for (Enemy& e : g->enemies) if (e.boss && !e.arceus) { e.hp = 1; enemy_hurt(*g, e, 99999, 0xffffff); }
+        Enemy* a = nullptr;
+        for (Enemy& e : g->enemies) if (e.arceus) a = &e;
+        REQUIRE(a);
+        if (g->state != ST_PLAYING || judgment_shielded(*g)) { if (bot.decide(*g, in)) g->step(&in); continue; }
+        g->judg.ahp = 5;
+        g->projectiles.clear();
+        for (int k = 0; k <= extra; ++k) {
+          Projectile* p = proj_spawn(*g);
+          REQUIRE(p);
+          p->friendly = true; p->owner = 0; p->dmg = 9999; p->r = 10; p->life = 5; p->vx = p->vy = 0;
+          p->x = k == 0 ? g->judg.ax : g->judg.ax + 3000; p->y = k == 0 ? g->judg.ay : g->judg.ay + 3000;
+        }
+        g->step(&in);
+        shot = true;
+      }
+      REQUIRE(shot);
+      CHECK(g->judg.won);
+      CHECK(g->projectiles.n >= 0);
+      CHECK(g->projectiles.n == 0);   // (al final del paso, sin disparos ni enemigos salvo él)
+      CHECK(g->hazards.n >= 0);
+      for (const Enemy& e : g->enemies) CHECK(e.arceus);
+      for (int i = 0; i < 60 * 10 && g->state != ST_OVER; ++i) { Input q{}; if (bot.decide(*g, q)) g->step(&q); CHECK(g->projectiles.n >= 0); }
+      CHECK(g->state == ST_OVER);
+      CHECK(g->summary.victory);
+    }
+}
+
+TEST_CASE("listas: quitar un índice que ya no está no hace nada (nunca n < 0)") {
+  FixedList<int, 4> l;
+  *l.push() = 1;
+  l.clear();
+  l.remove_ordered(0);
+  CHECK(l.n == 0);
+  l.remove_swap(3);
+  CHECK(l.n == 0);
+  *l.push() = 7; *l.push() = 8;
+  l.remove_ordered(5);
+  CHECK(l.n == 2);
+  l.remove_ordered(0);
+  CHECK(l.n == 1);
+  CHECK(l[0] == 8);
+}

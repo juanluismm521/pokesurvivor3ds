@@ -565,6 +565,7 @@ struct Game {
     int32_t tx = 0, ty = 0;
     int16_t q[40]; int nq = 0;
     bool ported = false, landed = false, can_skip = false;
+    bool wipe = false;   // (victoria: quitar disparos, peligros y enemigos al final del paso)
     float cx = 0, cy = 0;       // centro de la arena
     // Arceus
     bool a_on = false;

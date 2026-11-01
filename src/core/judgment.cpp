@@ -175,7 +175,7 @@ void fight(Game& g) {
   j.base = std::fmax(floor_, single_dps(g) * 3);
   j.dealt = 0;
   j.can_win = g.cfg.mode == MODE_QUICK;
-  j.open = j.won = false; j.won_t = 0;
+  j.open = j.won = j.wipe = false; j.won_t = 0;
   char b[160];
   if (j.gengar && j.can_win)
     std::snprintf(b, sizeof(b), "¡El gran Gengar te ha arrastrado a su Noche Espectral! Tumba a sus %d legendarios y bajará la guardia: ¡aquí se le puede derrotar!", kQuickLegends);
@@ -404,9 +404,11 @@ void judgment_hit_arceus(Game& g, float d) {
   g.pending_levels = 0;   // (que ninguna carta de nivel tape la victoria)
   j.acast = -1;
   j.aanim.play(A_FAINT, 0.6f);
-  g.hazards.clear();
-  g.projectiles.clear();
-  for (int i = g.enemies.n - 1; i >= 0; --i) if (!g.enemies[i].arceus) g.enemies.remove_ordered(i);
+  // Los disparos, peligros y enemigos se quitan en judgment_update, NO aquí: esto se
+  // llama desde dentro de los bucles que recorren esas listas (el golpe final de un
+  // disparo, en combat_resolve). Vaciarlas aquí dejaba la de disparos con -1 y la
+  // consola se rompía al dibujarlos (01-11-2026: invitado en grupo y Reddit, al ganar).
+  j.wipe = true;
   g.flash(0xffffff, 1.0f);
   g.camera.kick(1.2f);
   for (int i = 0; i < 5; ++i) g.fx.ring(j.ax, j.ay, 10 + i * 24.0f, 300 + i * 160.0f, i % 2 ? 0xfff3c8 : GOLD, 0.6f + i * 0.3f, 8.0f - i);
@@ -485,6 +487,12 @@ void judgment_update(Game& g, float dt) {
   }
   if (j.phase != 2) return;
   if (j.won) {   // (victoria: Arceus cae; a los 4 s, el resumen)
+    if (j.wipe) {   // (lo de judgment_hit_arceus, ya fuera de los bucles)
+      j.wipe = false;
+      g.hazards.clear();
+      g.projectiles.clear();
+      for (int i = g.enemies.n - 1; i >= 0; --i) if (!g.enemies[i].arceus) g.enemies.remove_ordered(i);
+    }
     j.won_t += dt;
     j.aanim.update(dt);
     if (j.won_t >= 4) { extern void game_end_run(Game & g, bool dead); g.judg.won = true; game_end_run(g, false); }

@@ -6,6 +6,12 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
 ## 0.35.1 — 2026-11-01
+- **Al ganar a Gengar/Arceus en el modo rápido, el juego ya no se cierra** (en grupo a un
+  invitado, y en Reddit también al ganar solo). Si el golpe final era un disparo, el juego
+  vaciaba la lista de disparos mientras la estaba recorriendo y la dejaba con -1
+  elementos; al dibujarlos, la consola leía memoria que no era suya y se rompía («data
+  abort» en Renderer::draw_top, fallo.log de la build 126). Ahora esa limpieza se hace al
+  final del paso y las listas no pueden quedar nunca por debajo de 0.
 - **En grupo, el cofre grande se abre aunque haya otro jugador cerca.** Se miraba jugador
   por jugador: el que estaba a su lado lo iba abriendo y el que estaba un poco más lejos lo
   iba cerrando (más deprisa), así que no se abría nunca. Ahora se abre si hay alguien al
