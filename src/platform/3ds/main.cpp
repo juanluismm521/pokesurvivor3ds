@@ -710,7 +710,7 @@ int main(int argc, char** argv) {
   audio::exit();
   romfsExit();   // (el .3dsx se puede cambiar cuando ya no se lee de él)
   // Versión nueva (o volver a la anterior) pendiente: se instala ahora.
-  if (prog3ds::pending()) {
+  if (prog3ds::pending_at_exit()) {
     g_show_r = &r; g_show_top = top; g_show_bottom = bottom;
     const std::string res = prog3ds::apply(show_install);
     show_install(res.c_str(), 100);

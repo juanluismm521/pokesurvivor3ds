@@ -9,7 +9,9 @@
 #include <cstring>
 #include <string>
 
+#include "core/delta.h"
 #include "core/json.h"
+#include "core/update.h"
 #include "gen/build.h"
 #include "platform/3ds/cloud3ds.h"
 #include "platform/3ds/datos3ds.h"
@@ -105,16 +107,82 @@ bool fetch_manifest(std::string& why) {
   return true;
 }
 
+// ---- por diferencias (core/delta.h) ----
+// Lo que ya tiene la consola de su build: el .3dsx que se está usando, o la copia
+// del .cia que se instaló (instalada.cia; no la hay si se instaló con FBI).
+std::string base_file() { return g_cia ? path("instalada.cia") : g_self; }
+
+struct PatchFiles { FILE* patch; FILE* base; FILE* out; UpdateHasher h; uint64_t total; };
+size_t pf_read(void* ud, uint8_t* b, size_t n) { return std::fread(b, 1, n, static_cast<PatchFiles*>(ud)->patch); }
+bool pf_base(void* ud, uint64_t off, uint8_t* b, size_t n) {
+  FILE* f = static_cast<PatchFiles*>(ud)->base;
+  return std::fseek(f, long(off), SEEK_SET) == 0 && std::fread(b, 1, n, f) == n;
+}
+bool pf_write(void* ud, const uint8_t* b, size_t n) {
+  PatchFiles& p = *static_cast<PatchFiles*>(ud);
+  if (g_cancel || std::fwrite(b, 1, n, p.out) != n) return false;
+  p.h.add(b, n);
+  return true;
+}
+void pf_progress(void*, uint64_t done, uint64_t total) { g_pct = int(done * 100 / (total ? total : 1)); }
+
+// Baja el parche de su build a esta y rehace el archivo en `name`. false si no hay
+// parche o algo no cuadra (entonces se baja entero, como siempre).
+bool download_patch(const UpdateEntry& e, const char* name) {
+  const UpdateFile& uf = file_of(e);
+  const UpdatePatch* p = update_patch_for(uf, PS_BUILD);
+  const std::string base = base_file();
+  if (!p || base.empty() || !exists(base)) return false;
+  char msg[120];
+  std::snprintf(msg, sizeof(msg), "Descargando sólo lo que cambia (%d KB)…", int(p->size / 1024));
+  set_status(msg);
+  const std::string pp = path("parche.psd");
+  std::string err;
+  if (!cloud3ds::http_download(datos3ds::base() + "programa/" + p->url, pp, p->size, p->hash, &g_pct, &g_cancel, err)) return false;
+  if (g_cancel) { std::remove(pp.c_str()); return false; }
+  set_status("Preparando la versión nueva…");
+  g_pct = 0;
+  const std::string out = path(name), tmp = out + ".tmp";
+  PatchFiles f{std::fopen(pp.c_str(), "rb"), std::fopen(base.c_str(), "rb"), std::fopen(tmp.c_str(), "wb"), UpdateHasher(), uf.size};
+  bool ok = f.patch && f.base && f.out;
+  uint64_t base_size = 0;
+  if (ok) {
+    std::setvbuf(f.out, nullptr, _IOFBF, 64 * 1024);
+    std::fseek(f.base, 0, SEEK_END);
+    base_size = uint64_t(std::ftell(f.base));
+    DeltaIo io;
+    io.ud = &f; io.read_patch = pf_read; io.read_base = pf_base; io.write_out = pf_write; io.progress = pf_progress;
+    ok = delta_apply(io, base_size) == DELTA_OK;
+  }
+  if (f.patch) std::fclose(f.patch);
+  if (f.base) std::fclose(f.base);
+  if (f.out && std::fclose(f.out) != 0) ok = false;
+  std::remove(pp.c_str());
+  uint8_t got[32];
+  f.h.done(got);
+  // Lo que sale tiene que ser EXACTAMENTE el archivo firmado.
+  FILE* chk = ok ? std::fopen(tmp.c_str(), "rb") : nullptr;
+  uint64_t sz = 0;
+  if (chk) { std::fseek(chk, 0, SEEK_END); sz = uint64_t(std::ftell(chk)); std::fclose(chk); }
+  if (!ok || sz != uf.size || std::memcmp(got, uf.hash, 32) != 0) { std::remove(tmp.c_str()); return false; }
+  std::remove(out.c_str());
+  if (std::rename(tmp.c_str(), out.c_str()) != 0) { std::remove(tmp.c_str()); return false; }
+  return true;
+}
+
 // Descarga la entrada a `name` (en la carpeta del juego) y la deja pendiente.
 bool download(const UpdateEntry& e, const char* name, bool back) {
   const UpdateFile& uf = file_of(e);
   g_state = ST_DOWNLOADING;
   g_pct = 0;
   char msg[96];
-  std::snprintf(msg, sizeof(msg), "Descargando la versión %s (build %d)…", e.version.c_str(), e.build);
-  set_status(msg);
   std::string err;
-  if (!cloud3ds::http_download(datos3ds::base() + "programa/" + uf.url, path(name), uf.size, uf.hash, &g_pct, &g_cancel, err)) {
+  // Primero, sólo lo que cambia (si hay parche para esta build); si no, entera.
+  const bool patched = !back && download_patch(e, name);
+  std::snprintf(msg, sizeof(msg), "Descargando la versión %s (build %d)…", e.version.c_str(), e.build);
+  if (!patched) { set_status(msg); g_pct = 0; }
+  if (!patched && (g_cancel ? (err = "Cancelado.", true)
+                            : !cloud3ds::http_download(datos3ds::base() + "programa/" + uf.url, path(name), uf.size, uf.hash, &g_pct, &g_cancel, err))) {
     set_status("No se ha podido descargar: " + err);
     g_state = ST_FAILED;
     return false;
@@ -301,6 +369,7 @@ bool start_rollback() {
 }
 
 bool pending() { return g_pend.on && !g_busy; }
+bool pending_at_exit() { return g_pend.on; }
 bool pending_back() { return g_pend.on && g_pend.back; }
 std::string pending_text() { return g_pend.back ? "volver a la versión anterior" : "instalar la versión nueva"; }
 

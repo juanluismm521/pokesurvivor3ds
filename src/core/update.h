@@ -19,11 +19,26 @@ namespace ps {
 
 extern const uint8_t kUpdateKey[32];   // clave pública de las publicaciones
 
+// Parche contra una build anterior (core/delta.h): se baja él en vez del archivo
+// entero y la consola rehace el archivo con el que ya tiene. NO va firmado (no
+// hace falta): lo que sale se comprueba con la huella firmada del archivo entero.
+struct UpdatePatch {
+  int from = 0;             // build de la base
+  std::string url;          // relativa a .../datos/programa/
+  uint64_t size = 0;
+  uint8_t hash[32] = {};    // BLAKE2b-256 del parche (para saber que ha llegado bien)
+};
+constexpr int kMaxPatches = 4;
+
 struct UpdateFile {
   std::string url;          // relativa a .../datos/programa/
   uint64_t size = 0;
   uint8_t hash[32] = {};    // BLAKE2b-256 del archivo
+  UpdatePatch patches[kMaxPatches];
+  int npatches = 0;
 };
+// El parche para pasar de `my_build` a este archivo (null si no hay).
+const UpdatePatch* update_patch_for(const UpdateFile& f, int my_build);
 
 struct UpdateEntry {
   bool ok = false;

@@ -5,6 +5,17 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.27.0 — 2026-11-01
+- **Actualizaciones exprés: sólo se baja lo que cambia.** Antes cada versión nueva se
+  bajaba entera (≈40 MB, casi todo sprites y música que no cambian). Ahora el servidor
+  publica también un parche contra las últimas versiones y la consola rehace la nueva
+  con la que ya tiene en la SD (el .3dsx que usas, o la copia del .cia instalado): de
+  la 0.26.1 a la 0.26.2 habrían sido 1,3 MB del .cia y 0,2 MB del .3dsx. Lo que sale se
+  comprueba con la huella firmada; si algo no cuadra, se baja entera como siempre. Se
+  nota desde la siguiente actualización a esta.
+- Si salías del juego mientras buscaba versiones nuevas, la que ya estaba descargada no
+  se instalaba hasta la vez siguiente: ahora se instala.
+
 ## 0.26.3 — 2026-11-01
 - **No se pierde lo de una partida al sincronizar con pokesurvivor.com** (Reddit: «encontró
   un shiny, lo derrotó y no se lo dio»). La sincronización que empieza al acabar una

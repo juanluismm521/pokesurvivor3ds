@@ -37,13 +37,29 @@ bool unhex(const std::string& s, uint8_t* out, size_t n) {
   }
   return true;
 }
+// (sólo un nombre de archivo relativo, sin subir de carpeta)
+bool url_ok(const std::string& u) { return !u.empty() && u.find("..") == std::string::npos && u[0] != '/' && u.find(':') == std::string::npos; }
 bool read_file_entry(const Json& j, UpdateFile& f) {
   if (!j.is_obj() || !j["url"].is_str() || !j["tam"].is_num()) return false;
   f.url = j["url"].as_str();
-  // (sólo un nombre de archivo relativo, sin subir de carpeta)
-  if (f.url.empty() || f.url.find("..") != std::string::npos || f.url[0] == '/' || f.url.find(':') != std::string::npos) return false;
+  if (!url_ok(f.url)) return false;
   f.size = uint64_t(j["tam"].as_num());
-  return f.size > 0 && f.size < (200u << 20) && unhex(j["huella"].as_str(), f.hash, 32);
+  if (!(f.size > 0 && f.size < (200u << 20) && unhex(j["huella"].as_str(), f.hash, 32))) return false;
+  // Parches (opcionales; uno mal escrito se ignora, sin estropear lo demás).
+  f.npatches = 0;
+  const Json& ps = j["parches"];
+  if (ps.is_arr())
+    for (size_t i = 0; i < ps.size() && f.npatches < kMaxPatches; ++i) {
+      const Json& q = ps[i];
+      UpdatePatch& p = f.patches[f.npatches];
+      if (!q.is_obj() || !q["url"].is_str() || !q["tam"].is_num() || !q["desde"].is_num()) continue;
+      p.from = int(q["desde"].as_num(0));
+      p.url = q["url"].as_str();
+      p.size = uint64_t(q["tam"].as_num());
+      if (p.from <= 0 || !url_ok(p.url) || p.size == 0 || p.size >= f.size || !unhex(q["huella"].as_str(), p.hash, 32)) continue;
+      f.npatches++;
+    }
+  return true;
 }
 bool read_entry(const Json& j, const uint8_t key[32], UpdateEntry& e, std::string& why) {
   e = UpdateEntry();
@@ -83,6 +99,11 @@ bool update_parse(const std::string& json, const uint8_t key[32], UpdateEntry& a
   if (j["anterior"].is_obj()) read_entry(j["anterior"], key, anterior, w2);
   else anterior = UpdateEntry();
   return true;
+}
+
+const UpdatePatch* update_patch_for(const UpdateFile& f, int my_build) {
+  for (int i = 0; i < f.npatches; ++i) if (f.patches[i].from == my_build) return &f.patches[i];
+  return nullptr;
 }
 
 bool update_wanted(const UpdateEntry& e, int my_build, int decided_serie) {

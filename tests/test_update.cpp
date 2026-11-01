@@ -86,3 +86,35 @@ TEST_CASE("actualizar: la huella es BLAKE2b-256 (igual que la del VPS)") {
   h.done(out);
   CHECK(hx(out, 32) == "d5b923205f7928c021658116b0c3755b16969cbce12876669fb5f529b48207cc");
 }
+
+TEST_CASE("actualizar: parches contra builds anteriores (opcionales y sin firmar)") {
+  uint8_t seed[32], sk[64], pk[32];
+  for (int i = 0; i < 32; ++i) seed[i] = uint8_t(i * 7 + 1);
+  crypto_eddsa_key_pair(sk, pk, seed);
+  const std::string h64(64, 'a');
+  std::string e = entry_json(sk, 5, 130);
+  // Se añaden a la .cia sin volver a firmar (el resultado se comprueba con la huella firmada).
+  const std::string parches = ",\"parches\":[{\"desde\":121,\"url\":\"b130/desde-b121.cia.psd\",\"tam\":300,\"huella\":\"" + h64 + "\"},"
+                              "{\"desde\":119,\"url\":\"../fuera.psd\",\"tam\":300,\"huella\":\"" + h64 + "\"},"   // (ruta mala: fuera)
+                              "{\"desde\":118,\"url\":\"b130/desde-b118.cia.psd\",\"tam\":5000,\"huella\":\"" + h64 + "\"},"   // (más que el archivo: fuera)
+                              "{\"desde\":117,\"url\":\"b130/desde-b117.cia.psd\",\"tam\":400,\"huella\":\"corta\"},"   // (huella mala: fuera)
+                              "\"basura\","
+                              "{\"desde\":112,\"url\":\"b130/desde-b112.cia.psd\",\"tam\":900,\"huella\":\"" + h64 + "\"}]";
+  const size_t at = e.find("\"cia\":{");
+  e.insert(e.find('}', at), parches);
+  UpdateEntry a, b;
+  std::string why;
+  REQUIRE_MESSAGE(update_parse("{\"actual\":" + e + "}", pk, a, b, why), why);
+  CHECK(a.ok);
+  CHECK(a.cia.npatches == 2);
+  CHECK(a.f3dsx.npatches == 0);
+  const UpdatePatch* p = update_patch_for(a.cia, 121);
+  REQUIRE(p);
+  CHECK(p->url == "b130/desde-b121.cia.psd");
+  CHECK(p->size == 300);
+  CHECK(p->hash[0] == 0xaa);
+  CHECK(update_patch_for(a.cia, 112));
+  CHECK_FALSE(update_patch_for(a.cia, 119));
+  CHECK_FALSE(update_patch_for(a.cia, 130));
+  CHECK_FALSE(update_patch_for(a.f3dsx, 121));
+}

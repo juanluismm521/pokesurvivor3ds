@@ -34,6 +34,9 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.27 · Actualizaciones exprés", 0, nullptr, nullptr},
+    {nullptr, NI_UP, "Sólo lo que cambia",
+     "Las versiones nuevas ya no se bajan enteras: sólo lo que cambia. Una actualización pequeña pasa de 40 MB a 1 o 2 MB y llega en segundos. Se nota desde la próxima."},
     {"Versión 0.26.2 · Todos iguales", 0, nullptr, nullptr},
     {nullptr, NI_FRIENDS, "Los mismos datos para todos",
      "Los datos del juego vienen siempre con cada versión: ya no se bajan aparte. Así, en grupo, todos los que tenéis la misma versión os veis."},
@@ -149,7 +152,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.26.2";
+constexpr const char* kNewsVersion = "0.27.0";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

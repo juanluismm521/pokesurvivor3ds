@@ -48,6 +48,11 @@ endif()
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS src/core/*.cpp src/core/*.c)
 add_library(ps_core STATIC ${CORE_SOURCES} ${GEN_DATA})
 target_include_directories(ps_core PUBLIC src)
+find_package(ZLIB REQUIRED)   # (core/delta: parches de las actualizaciones)
+target_link_libraries(ps_core PUBLIC ZLIB::ZLIB)
+# Herramienta: parches de las actualizaciones (tools/publicar_programa.py)
+add_executable(ps_delta tests/delta_main.cpp)
+target_link_libraries(ps_delta PRIVATE ps_core)
 
 find_path(DOCTEST_INCLUDE doctest/doctest.h REQUIRED)
 

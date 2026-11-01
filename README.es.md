@@ -94,7 +94,8 @@ o con «Sincronizar ahora». En la web, recarga la página para ver lo de la 3DS
    - **Desde el Homebrew Launcher:** copia `pokesurvivor-3ds.3dsx` a `sd:/3ds/`.
    - **Actualizaciones:** el juego busca solo las versiones nuevas al
      encender, las descarga (firmadas por el proyecto) y se instalan **al
-     salir del juego**. En **Ajustes → Actualizaciones**: «Instalar ahora» y
+     salir del juego**. Sólo baja **lo que cambia** (un parche contra la
+     versión que tienes en la SD: normalmente 1 o 2 MB en vez de 40). En **Ajustes → Actualizaciones**: «Instalar ahora» y
      «Volver a la versión anterior».
 3. Para el sonido hace falta `sd:/3ds/dspfirm.cdc` (se saca una vez con DSP1).
 4. Para jugar por internet y sincronizar con la web, la consola necesita wifi.

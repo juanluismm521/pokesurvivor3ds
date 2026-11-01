@@ -162,12 +162,49 @@ def publicar(repo=ROOT, notas=''):
         shutil.copyfile(src, os.path.join(dest, f'pokesurvivor-3ds.{ext}'))
         e[ext] = {'url': f'b{build}/pokesurvivor-3ds.{ext}', 'tam': os.path.getsize(src),
                   'huella': out(f'{firmar_bin(repo)} huella {src}')}
+        e[ext]['parches'] = parches(repo, build, ext, os.path.join(dest, f'pokesurvivor-3ds.{ext}'))
     # El .elf de cada build (no se publica): con él, las direcciones de un
     # fallo.log de la consola se traducen a líneas del código (tools/fallo.sh).
     elfs = '/root/docker/pokesurvivor/elfs'
     os.makedirs(elfs, exist_ok=True)
     shutil.copyfile(os.path.join(repo, 'pokesurvivor-3ds.elf'), os.path.join(elfs, f'b{build}.elf'))
     publicar_entrada(e, repo)
+
+
+# Actualizaciones por diferencias (core/delta.h, 01-11-2026): parches desde las
+# últimas builds publicadas (las que siguen en el servidor). Cada uno se comprueba
+# (ps_delta lo aplica y tiene que salir el archivo exacto) y sólo se apunta si
+# ahorra de verdad. No van firmados: la consola comprueba lo que sale con la
+# huella firmada del archivo entero.
+PARCHES = int(os.environ.get('PS_PARCHES', '3'))
+
+
+def parches(repo, build, ext, nuevo):
+    tool = os.path.join(repo, 'build-pc', 'ps_delta')
+    if not os.path.exists(tool):
+        print('(sin ps_delta: sin parches)')
+        return []
+    hechos, vistos = [], set()
+    for h in reversed(leer('historial.json', [])):
+        b = h.get('build')
+        if not b or b == build or b in vistos or len(hechos) >= PARCHES:
+            continue
+        vistos.add(b)
+        base = os.path.join(DIR, f'b{b}', f'pokesurvivor-3ds.{ext}')
+        if not os.path.exists(base):
+            continue
+        rel = f'b{build}/desde-b{b}.{ext}.psd'
+        dst = os.path.join(DIR, rel)
+        if subprocess.run([tool, 'crear', base, nuevo, dst]).returncode != 0 or not os.path.exists(dst):
+            print(f'(parche desde b{b} no sale: sin él)')
+            continue
+        tam = os.path.getsize(dst)
+        if tam > os.path.getsize(nuevo) * 0.7:   # (casi entero: no merece la pena)
+            os.remove(dst)
+            continue
+        hechos.append({'desde': b, 'url': rel, 'tam': tam, 'huella': out(f'{firmar_bin(repo)} huella {dst}')})
+        print(f'parche {ext} desde b{b}: {tam // 1024} KB')
+    return hechos
 
 
 def auto():

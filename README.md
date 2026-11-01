@@ -41,7 +41,9 @@ Downloads are on [pokesurvivor3ds.com](https://www.pokesurvivor3ds.com).
 
 ### Notes
 - **Updates:** the game looks for new versions by itself on boot, downloads
-  them (signed by the project) and installs them **when you quit**.
+  them (signed by the project) and installs them **when you quit**. It only
+  downloads **what changes** (a patch against the version on your SD card,
+  usually 1-2 MB instead of 40 MB).
   **Settings → Updates** has «Install now» and «Go back to the previous version».
 - **Sound** needs `sd:/3ds/dspfirm.cdc` (dump it once with DSP1).
 - **Online play** and **web sync** need Wi-Fi.

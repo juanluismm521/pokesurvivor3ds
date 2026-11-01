@@ -49,6 +49,13 @@ function wav(file, ch, sr, int16) {
   const page = await browser.newPage();
   await page.goto('about:blank');
   let audio = read('core/audio.js');
+  // El eco se rellena con ruido en dos setTimeout: si la máquina va cargada se cruzan con
+  // lo demás y el azar sale en otro orden. Al grabar, de golpe (mismo sonido, siempre igual).
+  for (const [from, to] of [['if (++ch < 2) setTimeout(fill, 30); else reverb.buffer = ir;', 'if (++ch < 2) fill(); else reverb.buffer = ir;'],
+                            ['    setTimeout(fill, 300);\n', '    fill();\n']]) {
+    if (!audio.includes(from)) throw new Error('no encuentro ' + from);
+    audio = audio.replace(from, to);
+  }
   // Exporta las piezas internas y deja reiniciar el contexto para cada grabación.
   audio = inject(audio, '  return {\n    music, sfx,',
     '  G.__AU = { INST, compile, spooky, SFX, init, reset() { ctx = null; }, get ctx() { return ctx; }, get musicBus() { return musicBus; }, get sfxBus() { return sfxBus; } };');
@@ -57,6 +64,18 @@ function wav(file, ch, sr, int16) {
     // (los navegadores sin pantalla no tienen permiso de audio en vivo: no hace falta)
     window.__off = null;
     window.AudioContext = function () { return window.__off; };
+    // El sintetizador usa Math.random (ruido, eco): con una semilla fija por grabación
+    // sale siempre lo mismo y los parches de las actualizaciones no crecen sin motivo.
+    window.__seed = name => {
+      let a = 0;
+      for (let i = 0; i < name.length; i++) a = Math.imul(a ^ name.charCodeAt(i), 0x01000193);
+      Math.random = function () {   // (mulberry32)
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    };
     // eslint-disable-next-line no-eval
     (0, eval)(src);
   }, read('core/util.js') + '\n' + read('data/music.js') + '\n' + audio);
@@ -69,6 +88,7 @@ function wav(file, ch, sr, int16) {
   // con la campana grave en la raíz de cada compás, como la web esos días).
   for (const [name, hw] of songs.flatMap(n => [[n, false], [n, true]])) {
     const res = await page.evaluate(async ({ name, hw, SR }) => {
+      window.__seed('music_' + name + (hw ? '_hw' : ''));
       const src = G.MUSIC[name];
       const song = hw ? G.__AU.compile(Object.assign({}, src, { parts: [...(src.parts || []), { inst: 'toll', octave: 2, vel: 0.55, pattern: 'R...............' }] }), G.__AU.spooky(src))
                       : G.__AU.compile(src);
@@ -107,7 +127,9 @@ function wav(file, ch, sr, int16) {
     const file = name + (hw ? '_hw' : '');
     const w = path.join(TMP, file + '.wav');
     wav(w, 2, MUSIC_SR, int16);
-    execFileSync('oggenc', ['-Q', '-q', '3', '-o', path.join(OUT, 'music_' + file + '.ogg'), w]);
+    // (--serial fijo: si no, oggenc pone uno al azar y la música sale distinta cada vez
+    // aunque suene igual, y los parches de las actualizaciones crecerían sin motivo)
+    execFileSync('oggenc', ['-Q', '-q', '3', '--serial', '1', '-o', path.join(OUT, 'music_' + file + '.ogg'), w]);
     report.music[file] = { s: +res.loop.toFixed(2), rms: +res.rms.toFixed(4), KB: Math.round(fs.statSync(path.join(OUT, 'music_' + file + '.ogg')).size / 1024) };
     process.stdout.write('.');
   }
@@ -123,6 +145,7 @@ function wav(file, ch, sr, int16) {
   const clips = [];
   for (const j of jobs) {
     const b64 = await page.evaluate(async ({ j, SR }) => {
+      window.__seed('sfx_' + j.id);
       window.__off = new OfflineAudioContext(1, SR * 3, SR);
       G.__AU.reset(); G.__AU.init();
       await new Promise(r => setTimeout(r, 380));
