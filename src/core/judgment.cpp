@@ -505,6 +505,12 @@ void judgment_update(Game& g, float dt) {
     g.say(j.gengar ? "¡El gran Gengar baja la guardia! Ahora sí le haces daño… y está furioso"
                    : "¡Arceus baja la guardia! Ahora sí le haces daño… y está furioso", 4);
   }
+  // (pruebas: debug_win, para llegar a la victoria en un momento; dentro del paso, así
+  // en grupo todas las consolas hacen lo mismo)
+  if (g.debug_win) {
+    for (Enemy& e : g.enemies) if (e.boss && !e.arceus && e.hp > 50) e.hp = 50;
+    if (j.open && j.ahp > j.ahp_max * 0.12f) j.ahp = j.ahp_max * 0.12f;
+  }
   arceus_tick(g, dt);
   keep_inside(g);
   j.boss_t -= dt;

@@ -4,6 +4,8 @@
 
 #include "core/bot.h"
 #include "core/game.h"
+#include "core/halloween.h"
+#include "core/save.h"
 #include <doctest/doctest.h>
 #include "sim.h"
 #include <cstdio>
@@ -173,4 +175,53 @@ TEST_CASE("cooperativo: 31 min con 3 bots, hasta la Sentencia, sin errores ni to
   // Todos al mismo nivel (es del equipo).
   CHECK(g->players[1].level == g->players[0].level);
   CHECK(g->players[2].level == g->players[0].level);
+}
+
+// Modo rápido en grupo (01-11-2026, el dueño y Reddit: «a los invitados se les sale»):
+// dos consolas, cada una con su jugador y SU partida guardada, en Halloween, hasta ganar
+// al gran Gengar: no se separan nunca y las dos acaban en victoria.
+TEST_CASE("cooperativo: modo rápido hasta la victoria, las consolas no se separan") {
+  for (int hw = 0; hw < 2; ++hw) {
+    CAPTURE(hw);
+    std::unique_ptr<Game> a(new Game()), b(new Game());
+    std::unique_ptr<Save> sa(new Save()), sb(new Save());
+    RunConfig cfg = coop_cfg(9 + hw, 2);
+    cfg.mode = MODE_QUICK; cfg.hw = uint8_t(hw); cfg.demo_time = kJudgmentAtQuick - 60;
+    a->local = 0; b->local = 1;
+    a->fx.quality = 2; b->fx.quality = 0;
+    a->debug_immortal = b->debug_immortal = true;
+    a->start_run(cfg, sa.get());
+    b->start_run(cfg, sb.get());
+    a->now_ms = 1000; b->now_ms = 2000;
+    Bot bots[2];
+    for (int i = 0; i < 2; ++i) bots[i].init(70 + i);
+    int split = -1, step = 0;
+    auto play = [&](int steps, auto until) {
+      for (int k = 0; k < steps && !until(); ++k, ++step) {
+        Input in[2];
+        for (int i = 0; i < 2; ++i) bots[i].decide(*a, in[i], i);
+        a->step(in); b->step(in);
+        touch_view(*a, 0, nullptr); touch_view(*b, 1, nullptr);
+        if (split < 0 && a->state_hash() != b->state_hash()) split = step;
+      }
+    };
+    play(60 * 120, [&] { return a->judg.phase == 2; });
+    REQUIRE(a->judg.phase == 2);
+    play(60 * 60, [&] { return a->judg.boss_n >= kQuickLegends; });
+    // Los legendarios caen (igual en las dos) y Gengar/Arceus baja la guardia.
+    for (Game* g : {a.get(), b.get()})
+      for (Enemy& e : g->enemies) if (e.boss && !e.arceus) { e.hp = 1; enemy_hurt(*g, e, 99999, 0xffffff); }
+    play(60 * 20, [&] { return a->judg.open; });
+    REQUIRE(a->judg.open);
+    for (Game* g : {a.get(), b.get()}) { g->judg.ahp = 10; for (Enemy& e : g->enemies) if (e.arceus) enemy_hurt(*g, e, 50, 0xffffff); }
+    play(60 * 30, [&] { return a->state == ST_OVER && b->state == ST_OVER; });
+    CHECK(split == -1);
+    REQUIRE(a->state == ST_OVER);
+    REQUIRE(b->state == ST_OVER);
+    CHECK(a->summary.victory); CHECK(b->summary.victory);
+    // Los caramelos son del equipo: el invitado ve los mismos (antes, 0 en su pantalla).
+    if (hw) { CHECK(a->players[0].candy >= kCandyJudge); CHECK(b->players[1].candy == a->players[0].candy); CHECK(a->summary.candy == b->summary.candy); }
+    CHECK(sa->arceus_win[a->players[0].dex] > 0);
+    CHECK(sb->arceus_win[b->players[1].dex] > 0);
+  }
 }

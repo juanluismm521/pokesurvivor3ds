@@ -71,6 +71,8 @@ struct Autotest {
   int prog_state = -1;
   bool quick = false;         // "… rapido": modo rápido (la Sentencia a los 20 min)
   bool orbs = false;          // "… esferas": te da esferas al empezar (el bot las usa)
+  bool real = false;          // "… real": con la partida guardada de la SD (el premio se guarda de verdad)
+  bool to_menu = false;       // "… menu": tras el resumen, B (al menú) y 6 s en el menú
   bool end_screen = false;    // "… fin": al acabar el tiempo, termina la partida y enseña el resumen 8 s (captura)
   u64 end_at = 0;
   bool tab_moved = false;
@@ -138,7 +140,10 @@ void read_autotest(Autotest& a) {
       if (!std::strncmp(extra, "desde=", 6)) a.warp = float(std::atof(extra + 6));
       if (!std::strncmp(extra, "nivel=", 6)) a.level = std::atoi(extra + 6);
       if (!std::strcmp(extra, "fin")) a.end_screen = true;
+      if (!std::strcmp(extra, "real")) a.real = true;
+      if (!std::strcmp(extra, "menu")) { a.to_menu = true; a.end_screen = true; }
       if (!std::strcmp(extra, "rapido")) a.quick = true;
+      if (!std::strcmp(extra, "ganar")) a.win = true;
       if (!std::strcmp(extra, "halloween")) a.hw = 1;
       if (!std::strcmp(extra, "nohalloween")) a.hw = 0;
       if (!std::strcmp(extra, "disfraz")) a.skin = true;
@@ -161,6 +166,8 @@ void read_autotest(Autotest& a) {
       else if (!std::strncmp(w, "rocas=", 6)) a.rocks = std::atoi(w + 6);
       else if (!std::strcmp(w, "vinculo")) a.bond = true;
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
+      else if (!std::strcmp(w, "real")) a.real = true;
+      else if (!std::strcmp(w, "menu")) { a.to_menu = true; a.end_screen = true; }
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else if (!std::strcmp(w, "tesoro")) a.treasure = true;
       else if (!std::strcmp(w, "rapido")) a.quick = true;
@@ -477,6 +484,8 @@ int main(int argc, char** argv) {
     std::snprintf(app.auto_room_, sizeof(app.auto_room_), "%s", at.room_host);
     app.autolog = at.log;
     app.auto_quick_ = at.quick;
+    app.auto_win = at.win;
+    app.auto_real = at.real;
     app.auto_skin = at.skin;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
@@ -497,6 +506,7 @@ int main(int argc, char** argv) {
     app.auto_still = at.still;
     app.auto_bond = at.bond;
     app.auto_hold_over = at.end_screen;
+    app.auto_real = at.real;
     app.auto_orbs = at.orbs;
     app.auto_treasure = at.treasure;
     app.auto_mode = at.quick ? 1 : 0;
@@ -677,7 +687,12 @@ int main(int argc, char** argv) {
         if (at.end_at == 0) at.end_at = osGetTime();
         // En grupo, a mitad de la espera, el resumen del compañero (como pulsar R).
         if (at.coop && osGetTime() - at.end_at > 4000 && !at.tab_moved) { app.over_tab_next(); at.tab_moved = true; }
-        if (osGetTime() - at.end_at > 8000) break;
+        if (osGetTime() - at.end_at > 8000) {
+          if (!at.to_menu) break;
+          // «menu»: como pulsar B en el resumen; luego 6 s en el menú (la medalla, guardar...).
+          if (app.scene == SC_RUN) { app.leave_to_menu(); at.end_at = osGetTime(); if (at.log) { std::fprintf(at.log, "resumen → menú\n"); std::fflush(at.log); } }
+          else break;   // (6-8 s en el menú sin romperse: listo)
+        }
       }
       continue;
     }

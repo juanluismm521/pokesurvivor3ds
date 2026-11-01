@@ -610,8 +610,9 @@ void App::coop_begin(const RunConfig& cfg, int idx, int delay, bool relay) {
   coop_ = true;
   g_->local = idx;
   g_->now_ms = now_ms();
-  g_->start_run(cfg, autotest ? nullptr : s_);
+  g_->start_run(cfg, autotest && !auto_real ? nullptr : s_);
   apply_settings();   // (la inmortalidad de las pruebas va por jugador, en cfg)
+  g_->debug_win = autotest && auto_win;   // (pruebas: TODAS las consolas con «ganar», si no se separan)
   r_->sprites.async = false;
   r_->preload_run(*g_);
   r_->sprites.async = true;

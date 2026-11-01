@@ -469,6 +469,7 @@ struct Game {
   Save* save = nullptr;
   int64_t now_ms = 0;           // reloj de la consola (lo pone la plataforma)
   bool dirty = false;           // hay que guardar
+  bool debug_win = false;      // pruebas: en la Sentencia del modo rápido, todo cae deprisa (igual en todas las consolas)
   bool debug_immortal = false;  // pruebas: la vida nunca baja de 1 (para llegar a la Sentencia)
   RunConfig cfg;
   Rng rng, vrng;
@@ -695,6 +696,7 @@ int levelup_min_passive(const Player& p);
 void levelup_apply(Game& g, Player& p, const Card& c);
 // interact.cpp
 void interact_update(Game& g, Player& p, float dt);
+void interact_bigchests(Game& g, float dt);   // (una vez por paso, con todos los jugadores)
 void interact_trap(Game& g, const Prop& p);
 // events.cpp
 void events_reset(Game& g);

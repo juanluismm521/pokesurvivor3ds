@@ -509,7 +509,7 @@ static void sync_team(Game& g) {
   for (int i = 1; i < g.nplayers; ++i) {
     Player& p = g.players[i];
     p.level = t.level; p.xp = t.xp; p.xp_next = t.xp_next;
-    p.kills = t.kills; p.bosses = t.bosses; p.coins = t.coins; p.t1 = t.t1; p.t10 = t.t10;
+    p.kills = t.kills; p.bosses = t.bosses; p.coins = t.coins; p.t1 = t.t1; p.t10 = t.t10; p.candy = t.candy;
   }
 }
 
@@ -747,6 +747,7 @@ void Game::step(const Input* inputs) {
   pickups_update(*this, dt);
   hazards_update(*this, dt);
   for (int i = 0; i < nplayers; ++i) if (players[i].active) interact_update(*this, players[i], dt);
+  interact_bigchests(*this, dt);
   rift_update(*this, dt);
   treasure_update(*this, dt);
   judgment_update(*this, dt);

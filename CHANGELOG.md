@@ -5,6 +5,16 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.35.1 — 2026-11-01
+- **En grupo, el cofre grande se abre aunque haya otro jugador cerca.** Se miraba jugador
+  por jugador: el que estaba a su lado lo iba abriendo y el que estaba un poco más lejos lo
+  iba cerrando (más deprisa), así que no se abría nunca. Ahora se abre si hay alguien al
+  lado (al mismo ritmo, haya uno o cuatro) y sólo se cierra si no hay nadie.
+- En grupo, los invitados veían 0 caramelos en su pantalla (en su partida guardada sí se
+  sumaban): ahora ven los del equipo.
+- Pruebas: dos consolas en modo rápido hasta ganar no se separan; autotest «real» (con la
+  partida guardada) y «menu» (tras el resumen, al menú); «ganar» también en grupo.
+
 ## 0.35.0 — 2026-11-01
 - **Actualizaciones exprés: sólo se baja lo que cambia.** Antes cada versión nueva se
   bajaba entera (≈40 MB, casi todo sprites y música que no cambian). Ahora el servidor

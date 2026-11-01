@@ -77,15 +77,6 @@ void interact_update(Game& g, Player& pl, float dt) {
         if (!p.used && !pl.dead && d2 < rr * rr) use_power(g, pl, p);
         break;
       }
-      case PR_BIGCHEST: {
-        const float rr = std::fmax(BIG_R_MIN, p.r + pl.r + BIG_R_PAD);
-        if (!pl.dead && d2 < rr * rr) {
-          if (p.open == 0) g.sfx(SFX_SELECT);
-          p.open += dt;
-          if (p.open >= CHEST_TIME) { p.open = 0; g.world.break_prop(&p); }
-        } else if (p.open > 0) p.open = std::fmax(0.0f, p.open - dt * 1.5f);
-        break;
-      }
       case PR_TRAP: {
         if (!pl.dead && d2 < 13 * 13) { g.world.break_prop(&p); break; }
         Enemy* es[kMaxEnemies];
@@ -96,6 +87,44 @@ void interact_update(Game& g, Player& pl, float dt) {
         break;
       }
       default: break;
+    }
+  }
+}
+
+// Cofres grandes: UNA vez por paso, con todos los jugadores (01-11-2026). Antes se
+// miraba jugador por jugador: el que estaba al lado sumaba y el que estaba más lejos
+// restaba (×1,5), así que en grupo un cofre con uno al lado y otro cerca no se abría.
+// Ahora: si hay alguien al lado, se va abriendo (al mismo ritmo, haya uno o cuatro);
+// si no hay nadie, se va cerrando.
+void interact_bigchests(Game& g, float dt) {
+  Prop* seen[64];
+  int ns = 0;
+  for (int k = 0; k < g.nplayers; ++k) {
+    const Player& pl = g.players[k];
+    if (!pl.active) continue;
+    Prop* list[64];
+    const int n = g.world.specials_near(pl.x, pl.y, 720, list, 64);
+    for (int i = 0; i < n; ++i) {
+      if (list[i]->type != PR_BIGCHEST || list[i]->gone) continue;
+      bool dup = false;
+      for (int s = 0; s < ns; ++s) if (seen[s] == list[i]) dup = true;
+      if (!dup && ns < 64) seen[ns++] = list[i];
+    }
+  }
+  for (int s = 0; s < ns; ++s) {
+    Prop& p = *seen[s];
+    bool near = false;
+    for (int k = 0; k < g.nplayers && !near; ++k) {
+      const Player& pl = g.players[k];
+      const float rr = std::fmax(BIG_R_MIN, p.r + pl.r + BIG_R_PAD);
+      if (pl.active && !pl.dead && dist2(pl.x, pl.y, p.x, p.y) < rr * rr) near = true;
+    }
+    if (near) {
+      if (p.open == 0) g.sfx(SFX_SELECT);
+      p.open += dt;
+      if (p.open >= CHEST_TIME) { p.open = 0; g.world.break_prop(&p); }
+    } else if (p.open > 0) {
+      p.open = std::fmax(0.0f, p.open - dt * 1.5f);
     }
   }
 }

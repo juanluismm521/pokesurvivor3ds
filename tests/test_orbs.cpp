@@ -359,3 +359,50 @@ TEST_CASE("esferas: el tesoro, equilibrado: en partidas de verdad se llega, pero
   const TreasureTry slow = treasure_try(1213u, 213, 4);
   if (slow.placed) CHECK(slow.reached);
 }
+
+// En grupo (01-11-2026, el dueño): «si hay dos jugadores cerca, el cofre grande no se
+// abre». Antes cada jugador lo miraba por su cuenta: el del lado sumaba y el de un poco
+// más lejos restaba ×1,5, así que nunca llegaba. Ahora se abre si hay alguien al lado.
+TEST_CASE("cofres: en grupo, el grande se abre con uno al lado aunque otro esté cerca (y no más deprisa con dos)") {
+  auto two = [](uint32_t seed) {
+    std::unique_ptr<Game> g(new Game());
+    RunConfig c; c.seed = seed; c.judged = 1; c.nplayers = 2;
+    c.members[0].dex = 25; c.members[1].dex = 4;
+    std::snprintf(c.members[0].name, sizeof(c.members[0].name), "A");
+    std::snprintf(c.members[1].name, sizeof(c.members[1].name), "B");
+    g->start_run(c);
+    g->enemies.clear();
+    g->debug_immortal = true;
+    return g;
+  };
+  // Cuántos pasos tarda en abrirse con A al lado y B a `bdist` del cofre (-1: no se abre en 8 s).
+  auto steps_to_open = [&](float bdist, bool b_too) {
+    auto g = two(4);
+    float cx, cy, cr;
+    REQUIRE(find_prop(*g, PR_BIGCHEST, cx, cy, cr));
+    for (int i = 0; i < 8 * 60; ++i) {
+      if (!prop_alive(*g, PR_BIGCHEST, cx, cy)) return i;
+      g->players[0].x = cx - 40; g->players[0].y = cy;
+      g->players[1].x = b_too ? cx + 40 : cx - bdist; g->players[1].y = cy;
+      g->enemies.clear();
+      Input in[2]{};
+      g->step(in);
+    }
+    return -1;
+  };
+  const int solo_like = steps_to_open(600, false);   // (B lejos, a 600: dentro de los 720 en los que se mira)
+  const int b_near = steps_to_open(150, false);       // (B cerca, pero no al lado: el caso del dueño)
+  const int both = steps_to_open(0, true);            // (los dos al lado)
+  CHECK(solo_like > 0);
+  CHECK(b_near > 0);
+  CHECK(both > 0);
+  CHECK(std::abs(solo_like - 210) <= 3);              // 3,5 s
+  CHECK(std::abs(b_near - 210) <= 3);
+  CHECK(std::abs(both - 210) <= 3);                   // (dos al lado: igual, no a doble velocidad)
+  // Nadie al lado: no se abre, y lo empezado se va cerrando.
+  auto g = two(4);
+  float cx, cy, cr;
+  REQUIRE(find_prop(*g, PR_BIGCHEST, cx, cy, cr));
+  for (int i = 0; i < 8 * 60; ++i) { g->players[0].x = cx - 150; g->players[0].y = cy; g->players[1].x = cx + 150; g->players[1].y = cy; g->enemies.clear(); Input in[2]{}; g->step(in); }
+  CHECK(prop_alive(*g, PR_BIGCHEST, cx, cy));
+}

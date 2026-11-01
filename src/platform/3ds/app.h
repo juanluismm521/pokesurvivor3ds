@@ -294,11 +294,12 @@ class App {
   bool auto_hold_over = false;
   int auto_mode = 0;            // autotest "… rapido": modo rápido
   bool auto_win = false;
+  void leave_to_menu();          // (autotest «menu»: como B en el resumen)
+  bool auto_real = false;   // (autotest «real»: con la partida guardada de la SD, como un jugador)
   bool auto_skin = false;
   bool menu_hw_ = false;          // el fondo del menú está en modo Halloween (backdrop_init)
   float hw_check_t_ = 0;        // (autotest «disfraz»: el compañero con su disfraz de Halloween, si tiene)
   static int skin_for_dex(int dex) { for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].dex == dex) return k; return -1; }        // autotest "ganar": Sentencia rápida acelerada (capturas de la victoria)
-  bool auto_win_cut_ = false;
   bool auto_orbs = false;       // autotest "esferas": una de cada al empezar
   bool auto_orbs_given_ = false;
   bool auto_treasure = false;   // autotest "tesoro": el de la Luminosfera a los 3 s

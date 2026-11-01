@@ -174,6 +174,11 @@ void App::save_now() {
   g_->dirty = false;
 }
 
+void App::leave_to_menu() {
+  if (coop_) coop_leave();
+  go(SC_MENU);
+}
+
 void App::go(Scene sc) {
   scene = sc;
   cur_ = cur2_ = scroll_ = 0;
@@ -237,8 +242,9 @@ void App::start_run() {
   const u64 t0 = svcGetSystemTick();
   g_->now_ms = now_ms();
   r_->sprites.async = false;   // precarga: todo en el momento
-  g_->start_run(cfg, autotest ? nullptr : s_);
+  g_->start_run(cfg, autotest && !auto_real ? nullptr : s_);
   g_->debug_immortal = autotest && auto_immortal_;
+  g_->debug_win = autotest && auto_win;   // (capturas y pruebas de la victoria: Game::debug_win)
   apply_settings();
   r_->preload_run(*g_);
   r_->sprites.async = true;
@@ -636,10 +642,6 @@ void App::in_run(const UiIn& in) {
       if (me2.mega >= 0 && auto_mega_t0_ < 0) auto_mega_t0_ = float(g.time);
       if (auto_mega_t0_ < 0 || float(g.time) - auto_mega_t0_ < 3) { gi.ax = gi.ay = 0; still_now_ = true; }
       else still_now_ = false;
-    }
-    if (auto_win && !coop_ && g.judg.phase == 2 && !g.judg.won) {   // (capturas de la victoria: todo más rápido)
-      for (Enemy& e : g.enemies) if (e.boss && !e.arceus && e.hp > 50) e.hp = 50;
-      if (g.judg.open && !auto_win_cut_) { auto_win_cut_ = true; g.judg.ahp = g.judg.ahp_max * 0.12f; }
     }
     if (auto_orbs && !auto_orbs_given_ && g.time > 2 && g.state == ST_PLAYING) {
       auto_orbs_given_ = true;
