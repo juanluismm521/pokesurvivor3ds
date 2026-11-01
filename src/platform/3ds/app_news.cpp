@@ -34,17 +34,11 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
-    {"Versión 0.27 · Actualizaciones exprés", 0, nullptr, nullptr},
-    {nullptr, NI_UP, "Sólo lo que cambia",
-     "Las versiones nuevas ya no se bajan enteras: sólo lo que cambia. Una actualización pequeña pasa de 40 MB a 1 o 2 MB y llega en segundos. Se nota desde la próxima."},
-    {"Versión 0.26.2 · Todos iguales", 0, nullptr, nullptr},
-    {nullptr, NI_FRIENDS, "Los mismos datos para todos",
-     "Los datos del juego vienen siempre con cada versión: ya no se bajan aparte. Así, en grupo, todos los que tenéis la misma versión os veis."},
-    {"Versión 0.26.1 · Grupo más fluido", 0, nullptr, nullptr},
-    {nullptr, NI_FRIENDS, "Sin retraso de invitado",
-     "Por internet, ahora el servidor junta los botones de todos: van y vuelven por el camino corto, igual para cada jugador. Los que se unen notan mucho menos retraso."},
-    {nullptr, NI_HEART, "Si el anfitrión se va, seguís",
-     "Por internet, la partida sigue para los demás aunque el anfitrión salga. Y en la sala, el modo rápido se ve bien claro."},
+    {"Versión 0.35 · Actualizaciones exprés", 0, nullptr, nullptr},
+    {nullptr, NI_UP, "Actualizaciones mucho más rápidas",
+     "Ahora las actualizaciones se realizan de forma incremental, lo que hace que sean más rápidas, sobre todo en parches pequeños."},
+    {nullptr, NI_HEART, "Bugs de Reddit corregidos",
+     "Se corrigen muchos bugs descritos por los usuarios en Reddit. ¡Gracias por el feedback!"},
     {"Versión 0.26 · ¡Halloween!", 0, nullptr, nullptr},
     {nullptr, NI_PUMPKIN, "Noche de Halloween",
      "Del 30 de octubre al 2 de noviembre: mapa de noche con calabazas que se rompen, más Pokémon Fantasma y música tenebrosa."},
@@ -56,10 +50,6 @@ const NewsItem kNews[] = {
      "Gengar, Pikachu y Umbreon con sombrero y capa, para siempre. Se ponen en la tienda o en la Colección (START) y se ven en la partida y en grupo."},
     {nullptr, NI_GENGAR, "El gran Gengar bruja",
      "En la Sentencia llega el gran Gengar en vez de Arceus. Y en el gacha, la Noche Espectral: los Fantasma de todas las regiones, shiny al 2 %."},
-    {nullptr, NI_CARDS, "Más pasivas a niveles altos",
-     "Mejora nueva (2500): desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas; desde el 40, al menos 3."},
-    {nullptr, NI_LUMORB, "Tesoro a contrarreloj",
-     "El de la Luminosfera brilla más lejos y sólo 40 s: hay que correr. Trae lo de un cofre grande y monedas extra (y en Halloween, caramelo)."},
     {"Versión 0.25 · ¡Región Todas!", 0, nullptr, nullptr},
     {nullptr, NI_HEALORB, "Curaesfera", "Nuevo objeto utilizable, cura 30% al equipo."},
     {nullptr, NI_TICKET, "Región Todas", "Se añade la región Todas al gacha: todas las regiones juntas."},
@@ -152,7 +142,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.27.0";
+constexpr const char* kNewsVersion = "0.35.0";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 
