@@ -50,3 +50,4 @@ web del
 {x} FPS{x}
 Thanks for playing the PokéSurvivor port on your 3DS! This is for you.
 Rewards from your lost victory
+Thanks for playing PokéSurvivor on your 3DS and for supporting this port! As a thank-you for all your bug reports and support, here's a gift for you. The Kecleon Shop and more languages are coming very soon!

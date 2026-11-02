@@ -15,6 +15,7 @@ struct Save;
 
 struct Gift {
   std::string id, para, nota, nota_en;   // para: nombre del jugador o de su cuenta («*»: para todos)
+  std::string msg, msg_en;           // lo que sale al abrirlo (vacío: uno corto de gracias)
   int coins = 0, t1 = 0, t10 = 0, candy = 0;
   int medal = 0;                     // Medalla de Arceus para ese Pokémon (0 ninguna)
   int shiny[8] = {};                 // shinies que se dan (con el normal si no lo tiene)

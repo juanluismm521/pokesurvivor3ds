@@ -5,6 +5,7 @@ perdió por un fallo del juego. Las consolas los bajan al buscar versiones nueva
 
   regalo.py dar ID PARA [monedas=N] [tickets=N] [tickets10=N] [caramelos=N]
                         [medalla=DEX] [shinies=DEX,DEX] [nota="texto"] [nota_en="text"]
+                        [mensaje="al abrirlo"] [mensaje_en="when opened"]
   regalo.py lista
   regalo.py quitar ID
 
@@ -44,7 +45,7 @@ def escribir(d):
 def dar(rid, para, opts):
     if not rid or len(rid) >= 32 or not para or "'" in rid + para:
         raise SystemExit('id (menos de 32 letras) y para, sin comillas')
-    r = {'id': rid, 'para': para, 'nota': opts.get('nota', ''), 'nota_en': opts.get('nota_en', ''), 'monedas': int(opts.get('monedas', 0)),
+    r = {'id': rid, 'para': para, 'nota': opts.get('nota', ''), 'nota_en': opts.get('nota_en', ''), 'mensaje': opts.get('mensaje', ''), 'mensaje_en': opts.get('mensaje_en', ''), 'monedas': int(opts.get('monedas', 0)),
          'tickets': int(opts.get('tickets', 0)), 'tickets10': int(opts.get('tickets10', 0)),
          'caramelos': int(opts.get('caramelos', 0)), 'medalla': int(opts.get('medalla', 0)),
          'shinies': [int(x) for x in opts.get('shinies', '').split(',') if x.strip()][:8]}

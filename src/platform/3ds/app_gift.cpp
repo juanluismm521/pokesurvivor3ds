@@ -97,24 +97,28 @@ void App::top_gift() {
   // Abierto: la tapa sale volando, confeti y el mensaje.
   const float k = std::fmin(1.0f, t * 1.6f);
   r_->text("¡Regalo abierto!", 200, 10, 0.72f, kGreen, 1);
-  r_->text_wrap("¡Ya es tuyo! Está todo en tu partida. ¡Gracias por jugar a PokéSurvivor en tu 3DS y nos vemos en la próxima!",
-                200, 38, 0.4f, C_TEXT, 370, 1);
-  C2D_DrawEllipseSolid(cx - 62, base + 2, 0, 124, 16, C2D_Color32(0, 0, 0, 70));
-  C2D_DrawRectSolid(cx - 52, base - 70, 0, 104, 70, kRed);
-  C2D_DrawRectSolid(cx - 52, base - 70, 0, 104, 6, kRedDark);
-  C2D_DrawRectSolid(cx - 8, base - 70, 0, 16, 70, kRibbon);
-  const float ly = base - 88 - k * 60, lx = cx + k * 70;
-  C2D_DrawRectSolid(lx - 58, ly, 0, 116, 20, C2D_Color32(232, 57, 74, u8(255 * (1 - k * 0.7f))));
+  const bool en = i18n_lang() == LANG_EN;
+  const std::string& m = en && !gf.msg_en.empty() ? gf.msg_en : gf.msg;
+  if (!m.empty()) r_->text_wrap(m.c_str(), 200, 30, 0.4f, C_TEXT, 388, 1);   // (del servidor: ya en su idioma)
+  else r_->text_wrap("¡Gracias por jugar a PokéSurvivor en tu 3DS y por apoyar este port!", 200, 38, 0.4f, C_TEXT, 370, 1);
+  // (la caja, más abajo y más pequeña: arriba va el mensaje, de hasta 6 líneas)
+  const float ob = 232;
+  C2D_DrawEllipseSolid(cx - 46, ob + 1, 0, 92, 10, C2D_Color32(0, 0, 0, 70));
+  C2D_DrawRectSolid(cx - 38, ob - 46, 0, 76, 46, kRed);
+  C2D_DrawRectSolid(cx - 38, ob - 46, 0, 76, 4, kRedDark);
+  C2D_DrawRectSolid(cx - 6, ob - 46, 0, 12, 46, kRibbon);
+  const float ly = ob - 60 - k * 40, lx = cx + k * 80;
+  C2D_DrawRectSolid(lx - 42, ly, 0, 84, 14, C2D_Color32(232, 57, 74, u8(255 * (1 - k * 0.7f))));
   // Luz que sale de la caja.
-  C2D_DrawTriangle(cx - 46, base - 70, C2D_Color32(255, 243, 200, 150), cx + 46, base - 70, C2D_Color32(255, 243, 200, 150),
-                   cx, base - 70 - 90 * k, C2D_Color32(255, 243, 200, 0), 0);
+  C2D_DrawTriangle(cx - 34, ob - 46, C2D_Color32(255, 243, 200, 120), cx + 34, ob - 46, C2D_Color32(255, 243, 200, 120),
+                   cx, ob - 46 - 50 * k, C2D_Color32(255, 243, 200, 0), 0);
   // Confeti: sale de la caja y cae.
   for (int i = 0; i < 40; ++i) {
     const float a = -1.57f + (float((i * 37) % 40) / 40 - 0.5f) * 2.6f;
     const float v = 90 + (i * 53) % 80;
     const float tt = std::fmin(t, 2.5f);
     const float px = cx + std::cos(a) * v * tt;
-    const float py = base - 76 + std::sin(a) * v * tt + 60 * tt * tt;
+    const float py = ob - 50 + std::sin(a) * v * tt + 60 * tt * tt;
     if (py > 236) continue;
     C2D_DrawRectSolid(px, py, 0, 3 + i % 2, 3, kConfetti[i % 6]);
   }
@@ -152,7 +156,10 @@ void App::bottom_gift() {
   }
 }
 
-// Autotest «regalo» (capturas): los dos de ejemplo, sin red ni guardar.
+// Autotest «regalo» (capturas): los dos de ejemplo, sin red ni guardar (con el mensaje
+// que llevan los de verdad, tools/regalo.py mensaje=… mensaje_en=…).
+static const char kGiftMsg[] = "¡Gracias por jugar a PokéSurvivor en tu 3DS y por apoyar este port! Como agradecimiento por todos vuestros reportes de bugs y vuestro apoyo, os envío este regalo. ¡Muy pronto llegarán la Tienda Kecleon y más idiomas!";
+static const char kGiftMsgEn[] = "Thanks for playing PokéSurvivor on your 3DS and for supporting this port! As a thank-you for all your bug reports and support, here's a gift for you. The Kecleon Shop and more languages are coming very soon!";
 void App::start_gift_demo() {
   gift_demo_ = true;
   news_t_ = 0;
@@ -162,10 +169,12 @@ void App::start_gift_demo() {
   a.id = "demo-gracias"; a.para = "*"; a.coins = 7000; a.t10 = 10; a.candy = 100;
   a.nota = "¡Gracias por jugar al port de PokéSurvivor en tu 3DS! Esto es para ti.";
   a.nota_en = "Thanks for playing the PokéSurvivor port on your 3DS! This is for you.";
+  a.msg = kGiftMsg; a.msg_en = kGiftMsgEn;
   Gift& v = gift_q_[gift_n_++];
   v.id = "demo-victoria"; v.para = s_->name; v.coins = 12898; v.t1 = 61; v.t10 = 10; v.candy = 88; v.medal = 94;
   v.shiny[0] = 192; v.nshiny = 1;
   v.nota = "Premios de la victoria perdida"; v.nota_en = "Rewards from your lost victory";
+  v.msg = kGiftMsg; v.msg_en = kGiftMsgEn;
   gift_i_ = 0; gift_open_ = false; gift_t_ = 0;
   go(SC_GIFT);
 }
