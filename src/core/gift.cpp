@@ -56,6 +56,7 @@ int gift_parse(const std::string& json, const uint8_t key[32], Gift* out, int ma
     g.id = e["id"].as_str();
     g.para = e["para"].as_str();
     g.nota = e["nota"].as_str();
+    g.nota_en = e["nota_en"].as_str();   // (los textos no van firmados: sólo lo que se da)
     if (g.id.empty() || g.id.size() >= 32 || g.para.empty()) continue;
     g.coins = clampi(e["monedas"].as_num(0), 1000000);
     g.t1 = clampi(e["tickets"].as_num(0), 100000);
@@ -77,7 +78,7 @@ int gift_parse(const std::string& json, const uint8_t key[32], Gift* out, int ma
 }
 
 bool gift_for(const Gift& g, const char* save_name, const char* account_name) {
-  return same_name(g.para, save_name) || same_name(g.para, account_name);
+  return g.para == "*" || same_name(g.para, save_name) || same_name(g.para, account_name);
 }
 
 bool gift_received(const Save& s, const std::string& id) {

@@ -176,23 +176,6 @@ void App::save_now() {
   g_->dirty = false;
 }
 
-void App::apply_gifts(const std::string& json) {
-  static Gift gifts[kMaxGiftsFile];
-  const int n = gift_parse(json, kUpdateKey, gifts, kMaxGiftsFile);
-  const cloud3ds::Account& acc = cloud3ds::account();
-  bool any = false;
-  for (int i = 0; i < n; ++i) {
-    const Gift& gf = gifts[i];
-    if (!gift_for(gf, s_->name, acc.on ? acc.name.c_str() : "") || !gift_apply(*s_, gf, now_ms())) continue;
-    any = true;
-    char b[128];
-    if (gf.candy > 0) std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10 · %d caramelos", gf.coins, gf.t1, gf.t10, gf.candy);
-    else std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", gf.coins, gf.t1, gf.t10);
-    g_notices.push("¡Un regalo para ti!", b, -1);
-  }
-  if (any) { save_now(); cloud_autostart(); }   // (y a la nube: así llega a pokesurvivor.com)
-}
-
 void App::leave_to_menu() {
   if (coop_) coop_leave();
   go(SC_MENU);
@@ -451,6 +434,7 @@ void App::update(const UiIn& in0, float dt) {
   }
   if (menu_demo_) { news_t_ += dt; if (news_t_ > 60) quit = true; }
   if (shop_demo_) shop_demo_step(dt);
+  if (gift_demo_) gift_demo_step(dt);
   if (up_demo_) {   // autotest "mejoras": «Más pasivas a niveles altos», el segundo movimiento y el inicial
     const float t0 = news_t_;
     news_t_ += dt;
@@ -593,6 +577,7 @@ void App::update(const UiIn& in0, float dt) {
     case SC_MENU: in_menu(in); break;
     case SC_MODE: in_mode(in); break;
     case SC_SHOP: in_shop(in); break;
+    case SC_GIFT: in_gift(in); break;
     case SC_ROOMSET: in_roomset(in); break;
     case SC_DEX: in_dex(in); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: in_upgrades(in); break;
@@ -2226,6 +2211,7 @@ void App::draw_top(float eye) {
         break;
       }
       case SC_SHOP: top_shop(); break;
+      case SC_GIFT: top_gift(); break;
       case SC_MODE: {   // (tu compañero y el reloj de la Sentencia del modo elegido)
         const int dex = s_->partner;
         const bool sh = s_->partner_shiny && s_->owns_shiny(dex);
@@ -2389,6 +2375,7 @@ void App::draw_bottom() {
     case SC_MENU: bottom_menu(); break;
     case SC_MODE: bottom_mode(); break;
     case SC_SHOP: bottom_shop(); break;
+    case SC_GIFT: bottom_gift(); break;
     case SC_ROOMSET: bottom_roomset(); break;
     case SC_DEX: bottom_dex(); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: bottom_upgrades(); break;

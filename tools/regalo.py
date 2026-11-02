@@ -4,11 +4,11 @@ perdió por un fallo del juego. Las consolas los bajan al buscar versiones nueva
 (.../datos/regalos.json) y dan los que son para ellas una sola vez.
 
   regalo.py dar ID PARA [monedas=N] [tickets=N] [tickets10=N] [caramelos=N]
-                        [medalla=DEX] [shinies=DEX,DEX] [nota="texto"]
+                        [medalla=DEX] [shinies=DEX,DEX] [nota="texto"] [nota_en="text"]
   regalo.py lista
   regalo.py quitar ID
 
-PARA es el nombre del jugador en la 3DS o el de su cuenta de pokesurvivor.com.
+PARA es el nombre del jugador en la 3DS o el de su cuenta de pokesurvivor.com («*»: para todos).
 Firmado con la clave de las publicaciones (/root/.config/pokesurvivor/firma.key, NUNCA
 en el repo): nadie más puede crear regalos.
 """
@@ -44,7 +44,7 @@ def escribir(d):
 def dar(rid, para, opts):
     if not rid or len(rid) >= 32 or not para or "'" in rid + para:
         raise SystemExit('id (menos de 32 letras) y para, sin comillas')
-    r = {'id': rid, 'para': para, 'nota': opts.get('nota', ''), 'monedas': int(opts.get('monedas', 0)),
+    r = {'id': rid, 'para': para, 'nota': opts.get('nota', ''), 'nota_en': opts.get('nota_en', ''), 'monedas': int(opts.get('monedas', 0)),
          'tickets': int(opts.get('tickets', 0)), 'tickets10': int(opts.get('tickets10', 0)),
          'caramelos': int(opts.get('caramelos', 0)), 'medalla': int(opts.get('medalla', 0)),
          'shinies': [int(x) for x in opts.get('shinies', '').split(',') if x.strip()][:8]}

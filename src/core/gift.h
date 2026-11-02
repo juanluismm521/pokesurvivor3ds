@@ -14,7 +14,7 @@ namespace ps {
 struct Save;
 
 struct Gift {
-  std::string id, para, nota;        // para: nombre del jugador o de su cuenta
+  std::string id, para, nota, nota_en;   // para: nombre del jugador o de su cuenta («*»: para todos)
   int coins = 0, t1 = 0, t10 = 0, candy = 0;
   int medal = 0;                     // Medalla de Arceus para ese Pokémon (0 ninguna)
   int shiny[8] = {};                 // shinies que se dan (con el normal si no lo tiene)
@@ -26,7 +26,7 @@ constexpr int kMaxGiftsFile = 32;
 std::string gift_message(const Gift& g);
 // Lee regalos.json: los regalos con firma buena (los malos se saltan). Devuelve cuántos.
 int gift_parse(const std::string& json, const uint8_t key[32], Gift* out, int max);
-// ¿Es para esta partida? (nombre del jugador o de la cuenta; sin mayúsculas)
+// ¿Es para esta partida? (nombre del jugador o de la cuenta, sin mayúsculas; «*»: para todos)
 bool gift_for(const Gift& g, const char* save_name, const char* account_name);
 bool gift_received(const Save& s, const std::string& id);
 // Lo da (si no se dio ya). true si lo ha dado.

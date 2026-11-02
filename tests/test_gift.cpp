@@ -64,6 +64,8 @@ TEST_CASE("regalos: firma, a quién van y una sola vez") {
   CHECK(gift_for(got[0], "Jugador", "juanluismm520"));
   CHECK_FALSE(gift_for(got[0], "juanluismm52", "otra"));
   CHECK_FALSE(gift_for(got[0], "", nullptr));
+  Gift all = got[0]; all.para = "*";
+  CHECK(gift_for(all, "cualquiera", ""));   // (para todos)
   // Se da una vez, con todo.
   std::unique_ptr<Save> s(new Save());
   new_save(*s, "juanluismm520", 1000);

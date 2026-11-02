@@ -6,6 +6,7 @@
 #pragma once
 #include <3ds.h>
 
+#include "core/gift.h"
 #include "core/bot.h"
 #include "core/gacha.h"
 #include "core/game.h"
@@ -22,7 +23,8 @@ enum Scene : int8_t {
   SC_GOALS, SC_SETTINGS, SC_CREDITS, SC_RUN, SC_COOP, SC_LOBBY, SC_ACCOUNT, SC_CLOUDASK, SC_UPDATE, SC_NEWS, SC_MOVE2,
   SC_MODE,   // Jugar: normal o rápido
   SC_ROOMSET,  // Crear sala: modo y contraseña
-  SC_SHOP      // Tienda Kecleon (Halloween: disfraces por caramelos)
+  SC_SHOP,     // Tienda Kecleon (Halloween: disfraces por caramelos)
+  SC_GIFT      // Regalos (core/gift.h)
 };
 
 struct UiIn {
@@ -295,7 +297,17 @@ class App {
   int auto_mode = 0;            // autotest "… rapido": modo rápido
   bool auto_win = false;
   void leave_to_menu();
-  void apply_gifts(const std::string& json);   // (core/gift.h)          // (autotest «menu»: como B en el resumen)
+  void apply_gifts(const std::string& json);   // (core/gift.h: los tuyos, a la pantalla de regalos)
+  void in_gift(const UiIn& in);
+  void top_gift();
+  void bottom_gift();
+  void start_gift_demo();        // (autotest «regalo»: capturas)
+  void gift_demo_step(float dt);
+  static constexpr int kGiftQueue = 4;
+  Gift gift_q_[kGiftQueue];
+  int gift_n_ = 0, gift_i_ = 0;
+  bool gift_open_ = false, gift_demo_ = false;
+  float gift_t_ = 0;          // (autotest «menu»: como B en el resumen)
   bool auto_real = false;   // (autotest «real»: con la partida guardada de la SD, como un jugador)
   bool auto_skin = false;
   bool menu_hw_ = false;          // el fondo del menú está en modo Halloween (backdrop_init)
