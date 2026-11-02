@@ -107,6 +107,19 @@ bool fetch_manifest(std::string& why) {
   return true;
 }
 
+// ---- regalos firmados (core/gift.h) ----
+std::string g_gifts;            // regalos.json tal cual (lo lee y comprueba la App)
+bool g_gifts_ready = false;
+void fetch_gifts() {
+  std::string body, err;
+  int st = 0;
+  if (!cloud3ds::http_get(datos3ds::base() + "regalos.json", body, st, err) || st != 200 || body.empty()) return;
+  LightLock_Lock(&g_lock);
+  g_gifts = body;
+  g_gifts_ready = true;
+  LightLock_Unlock(&g_lock);
+}
+
 // ---- por diferencias (core/delta.h) ----
 // Lo que ya tiene la consola de su build: el .3dsx que se está usando, o la copia
 // del .cia que se instaló (instalada.cia; no la hay si se instaló con FBI).
@@ -204,6 +217,7 @@ void worker(void*) {
   g_state = ST_CHECKING;
   set_status("Buscando versiones nuevas…");
   const bool got = fetch_manifest(why);
+  if (got && job != 3) fetch_gifts();   // (de paso, los regalos: core/gift.h)
   if (job == 3) {   // volver atrás con la anterior del servidor
     if (!got) { set_status("No se puede volver atrás: " + why); g_state = ST_FAILED; g_busy = false; return; }
     const UpdateEntry prev = g_latest.build == PS_BUILD || !g_latest.ok ? g_prev : g_latest;   // (si llevas otra, la publicada)
@@ -370,6 +384,14 @@ bool start_rollback() {
 
 bool pending() { return g_pend.on && !g_busy; }
 bool pending_at_exit() { return g_pend.on; }
+
+bool take_gifts(std::string& json) {
+  LightLock_Lock(&g_lock);
+  const bool ok = g_gifts_ready;
+  if (ok) { json.swap(g_gifts); g_gifts.clear(); g_gifts_ready = false; }
+  LightLock_Unlock(&g_lock);
+  return ok;
+}
 bool pending_back() { return g_pend.on && g_pend.back; }
 std::string pending_text() { return g_pend.back ? "volver a la versión anterior" : "instalar la versión nueva"; }
 

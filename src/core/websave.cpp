@@ -382,6 +382,12 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
       for (const auto& kv : older["arceusWin"].items())
         if (!ra.has(kv.first.c_str()) || !ra[kv.first.c_str()].is_num()) ra.set(kv.first, kv.second);
     }
+    // Del port: regalos recibidos (core/gift.h): se juntan, para que nunca se repitan.
+    if (older["regalos"].is_obj()) {
+      Json& rg = r.ref("regalos");
+      if (!rg.is_obj()) rg = Json::object();
+      for (const auto& kv : older["regalos"].items()) if (!rg.has(kv.first.c_str())) rg.set(kv.first, kv.second);
+    }
     // Del port: segundo movimiento de «Repertorio», igual que el inicial.
     if (older["pmove2"].is_obj()) {
       Json& r2 = r.ref("pmove2");
@@ -490,7 +496,7 @@ namespace {
 bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
-                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin",
+                                  "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin", "regalos",
                                   "skins", "pskin"};
   for (const char* q : K) if (k == q) return true;
   return false;

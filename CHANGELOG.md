@@ -5,6 +5,16 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.35.2 — 2026-11-02
+- **Regalos firmados** (core/gift.h, tools/regalo.py): para devolver a un jugador lo que
+  perdió por un fallo del juego. El servidor publica regalos firmados con la clave de las
+  versiones (nadie más puede crearlos); la consola los baja al buscar versiones nuevas y,
+  en el menú, da los que son para ella (por su nombre o el de su cuenta) UNA vez: queda
+  apuntado en la partida («regalos») y viaja por la nube, así que tampoco se repite en
+  otra consola. Monedas, tickets y caramelos llegan a pokesurvivor.com por la libreta,
+  como si se hubieran ganado jugando. El primero: lo de la victoria del modo rápido que
+  se perdió con el cierre de la 0.35.0.
+
 ## 0.35.1 — 2026-11-01
 - **Al ganar a Gengar/Arceus en el modo rápido, el juego ya no se cierra** (en grupo a un
   invitado, y en Reddit también al ganar solo). Si el golpe final era un disparo, el juego

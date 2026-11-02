@@ -608,6 +608,7 @@ const Tr kLangEnPort[] = {
     {"¡NOVEDADES!", "WHAT'S NEW!"},
     {"NUEVA · Leyendas Z-A", "NEW · Legends Z-A"},
     {"Versión 0.26 · ¡Halloween!", "Version 0.26 · Halloween!"},
+    {"¡Un regalo para ti!", "A gift for you!"},
     {"Versión 0.35 · Actualizaciones exprés", "Version 0.35 · Express updates"},
     {"Actualizaciones mucho más rápidas", "Much faster updates"},
     {"Ahora las actualizaciones se realizan de forma incremental, lo que hace que sean más rápidas, sobre todo en parches pequeños.",

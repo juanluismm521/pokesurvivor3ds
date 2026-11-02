@@ -2,6 +2,8 @@
 #include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/hw3ds.h"
+#include "core/gift.h"
+#include "core/update.h"
 #include "core/halloween.h"
 
 #include <algorithm>
@@ -172,6 +174,23 @@ void App::save_now() {
   s_->updated = now_ms() + cloud3ds::account().delta;
   saver3ds::save(*s_);   // (en segundo plano: el juego no se para)
   g_->dirty = false;
+}
+
+void App::apply_gifts(const std::string& json) {
+  static Gift gifts[kMaxGiftsFile];
+  const int n = gift_parse(json, kUpdateKey, gifts, kMaxGiftsFile);
+  const cloud3ds::Account& acc = cloud3ds::account();
+  bool any = false;
+  for (int i = 0; i < n; ++i) {
+    const Gift& gf = gifts[i];
+    if (!gift_for(gf, s_->name, acc.on ? acc.name.c_str() : "") || !gift_apply(*s_, gf, now_ms())) continue;
+    any = true;
+    char b[128];
+    if (gf.candy > 0) std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10 · %d caramelos", gf.coins, gf.t1, gf.t10, gf.candy);
+    else std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", gf.coins, gf.t1, gf.t10);
+    g_notices.push("¡Un regalo para ti!", b, -1);
+  }
+  if (any) { save_now(); cloud_autostart(); }   // (y a la nube: así llega a pokesurvivor.com)
 }
 
 void App::leave_to_menu() {
@@ -542,6 +561,10 @@ void App::update(const UiIn& in0, float dt) {
   {   // versión nueva del juego descargada: se avisa una vez
     static bool told = false;
     if (!told && calm && prog3ds::state() == prog3ds::ST_READY) { told = true; g_notices.push("Versión nueva del juego lista", "Se instala al salir (Ajustes → Actualizaciones)", -1); }
+  }
+  {   // Regalos firmados (core/gift.h): en el menú, los que son para ti, una sola vez.
+    std::string gj;
+    if (calm && scene == SC_MENU && !autotest && prog3ds::take_gifts(gj)) apply_gifts(gj);
   }
   // Novedades sin ver: se abren solas una vez (antes de preguntar por la cuenta).
   if (scene == SC_MENU && !news_checked_ && !autotest && !tour) {

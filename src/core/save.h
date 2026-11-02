@@ -51,6 +51,12 @@ struct Save {
   uint8_t pfour[kMaxDex + 1] = {};       // mejora «Más pasivas a niveles altos» por Pokémon (del port: "pfour"; 0 o 1)
   int64_t arceus_win[kMaxDex + 1] = {};  // medalla: cuándo derrotó a Arceus (modo rápido) cada Pokémon (del port: "arceusWin"; 0 nunca)
   int arceus_medals() const { int n = 0; for (int64_t t : arceus_win) n += t > 0; return n; }
+  // Regalos firmados ya recibidos (core/gift.h; del port: "regalos" {id: fecha}): cada
+  // uno se da una sola vez, también entre consolas (viaja con la partida).
+  static constexpr int kMaxGifts = 16;
+  char gift_id[kMaxGifts][32] = {};
+  int64_t gift_at[kMaxGifts] = {};
+  int ngifts = 0;
   int32_t pused[kMaxDex + 1] = {};       // partidas jugadas con cada Pokémon
   int32_t t1 = 0, t10 = 0;               // tickets
   int32_t pity[11] = {};                 // por banner: 0 «Todas» (del port), 1-9 regiones, 10 Noche Espectral (Halloween)

@@ -294,7 +294,8 @@ class App {
   bool auto_hold_over = false;
   int auto_mode = 0;            // autotest "… rapido": modo rápido
   bool auto_win = false;
-  void leave_to_menu();          // (autotest «menu»: como B en el resumen)
+  void leave_to_menu();
+  void apply_gifts(const std::string& json);   // (core/gift.h)          // (autotest «menu»: como B en el resumen)
   bool auto_real = false;   // (autotest «real»: con la partida guardada de la SD, como un jugador)
   bool auto_skin = false;
   bool menu_hw_ = false;          // el fondo del menú está en modo Halloween (backdrop_init)

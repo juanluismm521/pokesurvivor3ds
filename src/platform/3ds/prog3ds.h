@@ -35,6 +35,8 @@ bool pending();              // hay algo que instalar al salir
 // Al salir: hay algo ya descargado que instalar, aunque el hilo siga buscando
 // (apply() lo para antes; con pending() se perdía si salías mientras buscaba).
 bool pending_at_exit();
+// Los regalos bajados (regalos.json, sin comprobar: lo hace core/gift), una vez.
+bool take_gifts(std::string& json);
 bool pending_back();         // y es volver a la anterior
 std::string pending_text();
 // Al salir: instala lo pendiente. show(texto, %) pinta la pantalla mientras.

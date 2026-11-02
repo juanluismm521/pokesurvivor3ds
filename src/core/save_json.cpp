@@ -227,6 +227,9 @@ std::string save_to_json(const Save& s) {
   Json aw = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) if (s.arceus_win[d] > 0) aw.set(num_key(d), Json::num(double(s.arceus_win[d])));
   if (aw.size()) o.set("arceusWin", std::move(aw));
+  Json gf = Json::object();
+  for (int i = 0; i < s.ngifts && i < Save::kMaxGifts; ++i) if (s.gift_id[i][0]) gf.set(s.gift_id[i], Json::num(double(s.gift_at[i] > 0 ? s.gift_at[i] : 1)));
+  if (gf.size()) o.set("regalos", std::move(gf));
   return o.dump();
 }
 
@@ -337,6 +340,13 @@ bool save_from_json(Save& s, const std::string& text) {
   for (const auto& kv : o["arceusWin"].items()) {
     const int d = std::atoi(kv.first.c_str());
     if (d >= 0 && d <= kMaxDex && kv.second.is_num() && kv.second.as_num() > 0) s.arceus_win[d] = int64_t(kv.second.as_num());
+  }
+  s.ngifts = 0;
+  for (const auto& kv : o["regalos"].items()) {
+    if (s.ngifts >= Save::kMaxGifts || kv.first.empty() || kv.first.size() >= sizeof(s.gift_id[0])) continue;
+    std::snprintf(s.gift_id[s.ngifts], sizeof(s.gift_id[0]), "%s", kv.first.c_str());
+    s.gift_at[s.ngifts] = int64_t(kv.second.as_num(1));
+    s.ngifts++;
   }
   for (const auto& kv : o["pmove2"].items()) {
     const int d = std::atoi(kv.first.c_str());
