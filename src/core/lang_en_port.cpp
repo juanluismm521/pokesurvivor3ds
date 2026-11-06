@@ -315,6 +315,9 @@ const Tr kLangEnPort[] = {
     {"Por seguridad no se ha sincronizado (se perdería {x}). Avisa al creador del juego.", "For safety it was not synced ({x} would be lost). Let the game's creator know."},
     {"La nube ha rechazado la partida (permiso denegado).", "The cloud rejected the save (permission denied)."},
     {"La nube está ocupada; prueba otra vez.", "The cloud is busy; try again."},
+    {"pokesurvivor.com pide comprobar que no eres un robot: entra con tu cuenta en pokesurvivor.com (móvil u ordenador), pulsa Guardar y vuelve a sincronizar.",
+     "pokesurvivor.com wants to check that you're not a robot: log in to pokesurvivor.com with your account (phone or computer), press Save and sync again."},
+    {"La nube de pokesurvivor.com está en mantenimiento: prueba más tarde.", "The pokesurvivor.com cloud is under maintenance: try again later."},
 
     // ---------------- en grupo ----------------
     {"Jugador", "Player"},
@@ -627,6 +630,10 @@ const Tr kLangEnPort[] = {
     {"A: seguir", "A: continue"},
     {"¡Gracias por jugar al port de PokéSurvivor en tu 3DS! Esto es para ti.", "Thanks for playing the PokéSurvivor port on your 3DS! This is for you."},
     {"Premios de la victoria perdida", "Rewards from your lost victory"},
+    {"Versión 0.35.3 · ¡La nube vuelve!", "Version 0.35.3 · The cloud is back!"},
+    {"Nube arreglada", "Cloud sync fixed"},
+    {"pokesurvivor.com cambió su forma de guardar y la 3DS no podía sincronizar. Ya usa la nueva, con permiso de su creador.",
+     "pokesurvivor.com changed how it saves and the 3DS couldn't sync. It now uses the new way, with its creator's permission."},
     {"Versión 0.35 · Actualizaciones exprés", "Version 0.35 · Express updates"},
     {"Actualizaciones mucho más rápidas", "Much faster updates"},
     {"Ahora las actualizaciones se realizan de forma incremental, lo que hace que sean más rápidas, sobre todo en parches pequeños.",

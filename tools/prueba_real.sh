@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # prueba_real.sh — la sincronización contra los servidores DE VERDAD
-# (pokesurvivor.com: Firebase Auth y Firestore de pokesurvivor-free, y el
+# (pokesurvivor.com: Firebase Auth de pokesurvivor-free y la API de la partida
+# ice.pokesurvivor.com/v1/d (desde noviembre de 2026; antes Firestore), y el
 # servidor del proyecto pokesurvivor3ds.duckdns.org), con la cuenta de prueba
 # del dueño. Lo pidió el dueño (2026-10-20): las pruebas, siempre también con
 # el servidor real; el emulador no se porta igual en todo.
@@ -22,7 +23,8 @@ CFG=/root/.config/pokesurvivor/prueba_real.env
 [ -f "$CFG" ] || { echo "falta $CFG (cuenta de prueba del dueño)"; exit 2; }
 . "$CFG"
 KEY=$(grep -o 'kWebApiKey = "[^"]*"' "$ROOT/src/gen/gamedata.cpp" | cut -d'"' -f2)
-export PS_AUTH="https:/" PS_FS=https://firestore.googleapis.com PS_PROJECT=pokesurvivor-free PS_KEY="$KEY"
+API=https://ice.pokesurvivor.com/v1/d
+export PS_AUTH="https:/" PS_API="$API" PS_PROJECT=pokesurvivor-free PS_KEY="$KEY"
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 echo "{\"v\":3,\"name\":\"$PS_REAL_USUARIO\",\"coins\":0,\"owned\":{},\"updated\":1}" > "$T/vacia.json"
@@ -33,19 +35,18 @@ if out=$(timeout 60 "$ROOT/build-pc/ps_cloud" "$PS_REAL_USUARIO" "$PS_REAL_PASS"
   echo "  ✔ usuario y contraseña: $(echo "$out" | tail -1)"
 else echo "  ✘ usuario y contraseña: $out"; fallos=$((fallos+1)); fi
 
-# 1b. un guardado de la web nueva (21-10-2026: saves/{uid}.rev + 1). Después de eso
-# la 3DS tiene que seguir pudiendo subir (antes: «La nube ha rechazado la partida»).
-sleep 21   # (las reglas no dejan guardar dos veces en menos de 20 s)
+# 1b. un guardado de la web (la misma partida, rev + 1, como PUT /save de db.js).
+# Después de eso la 3DS tiene que seguir pudiendo subir (409: se junta y se repite).
+sleep 21   # (la API no deja guardar dos veces en menos de 20 s)
 EMAIL0=$(python3 -c "import sys;print(sys.argv[1].lower().encode().hex()+'@jugadores.pokesurvivor.net')" "$PS_REAL_USUARIO")
-J0=$(curl -s -m 15 -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$KEY" -H "Referer: https://pokesurvivor.com/" \
-  -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL0\",\"password\":\"$PS_REAL_PASS\",\"returnSecureToken\":true}")
-TOK0=$(echo "$J0" | python3 -c "import json,sys;print(json.load(sys.stdin).get('idToken',''))")
-UID0=$(echo "$J0" | python3 -c "import json,sys;print(json.load(sys.stdin).get('localId',''))")
-FSB="https://firestore.googleapis.com/v1/projects/pokesurvivor-free/databases/(default)/documents"
-REV0=$(curl -s -m 15 "$FSB/saves/$UID0?mask.fieldPaths=rev" -H "Authorization: Bearer $TOK0" | python3 -c "import json,sys;print(json.load(sys.stdin).get('fields',{}).get('rev',{}).get('integerValue','0'))")
-W0="{\"writes\":[{\"update\":{\"name\":\"projects/pokesurvivor-free/databases/(default)/documents/saves/$UID0\",\"fields\":{\"rev\":{\"integerValue\":\"$((REV0 + 1))\"}}},\"updateMask\":{\"fieldPaths\":[\"rev\"]},\"updateTransforms\":[{\"fieldPath\":\"updatedAt\",\"setToServerValue\":\"REQUEST_TIME\"}]}]}"
-if curl -s -m 15 -X POST "$FSB:commit" -H "Authorization: Bearer $TOK0" -H 'Content-Type: application/json' -d "$W0" | grep -q commitTime; then
-  echo "  ✔ guardado de la web nueva simulado (rev $REV0 → $((REV0 + 1)))"
+TOK0=$(curl -s -m 15 -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$KEY" -H "Referer: https://pokesurvivor.com/" \
+  -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL0\",\"password\":\"$PS_REAL_PASS\",\"returnSecureToken\":true}" |
+  python3 -c "import json,sys;print(json.load(sys.stdin).get('idToken',''))")
+curl -s -m 15 "$API/save" -H "Authorization: Bearer $TOK0" > "$T/web.json"
+REV0=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('rev',0))" "$T/web.json" 2>/dev/null)
+python3 -c "import json,sys;d=json.load(open(sys.argv[1]));json.dump({'save':d['save'],'rev':int(d['rev'])+1},open(sys.argv[2],'w'))" "$T/web.json" "$T/put.json" 2>/dev/null
+if curl -s -m 15 -X PUT "$API/save" -H "Authorization: Bearer $TOK0" -H 'Content-Type: application/json' --data @"$T/put.json" | grep -q '"rev"'; then
+  echo "  ✔ guardado de la web simulado (rev $REV0 → $((REV0 + 1)))"
 else echo "  ✘ no se ha podido simular el guardado de la web (rev $REV0)"; fallos=$((fallos+1)); fi
 sleep 21
 # 2. por QR con el servidor vincular real (y con la partida ya guardada desde la web nueva)

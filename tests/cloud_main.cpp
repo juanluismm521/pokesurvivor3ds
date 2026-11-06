@@ -7,9 +7,9 @@
 //            PS_GOOGLE_DEVICE, PS_GOOGLE_TOKEN = direcciones de Google; PS_GOOGLE_ID)
 //   ps_cloud --qr - <partida.json> <aparato> [salida.json]       (entrar con Google por QR:
 //            PS_VINCULAR = servidor «vincular», p. ej. http://127.0.0.1:8000)
-//   variables: PS_AUTH (http://127.0.0.1:9099), PS_FS (http://127.0.0.1:8089),
+//   variables: PS_AUTH (http://127.0.0.1:9099), PS_API (https://ice.pokesurvivor.com/v1/d),
 //              PS_PROJECT (demo-pokesurvivor), PS_KEY (clave), PS_NOW (hora en ms)
-//              PS_SECO=archivo: «en seco», la escritura (:commit) NO se manda: se deja
+//              PS_SECO=archivo: «en seco», la escritura (PUT /save) NO se manda: se deja
 //              en ese archivo y se contesta 200 (para probar cuentas reales sin tocarlas)
 #include <curl/curl.h>
 
@@ -34,10 +34,10 @@ size_t on_header(char* p, size_t sz, size_t n, void* ud) {
   return sz * n;
 }
 bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
-  if (const char* seco = std::getenv("PS_SECO"); seco && *seco && rq.url.size() > 7 && rq.url.compare(rq.url.size() - 7, 7, ":commit") == 0) {
+  if (const char* seco = std::getenv("PS_SECO"); seco && *seco && rq.method == "PUT" && rq.url.size() > 5 && rq.url.compare(rq.url.size() - 5, 5, "/save") == 0) {
     if (FILE* f = std::fopen(seco, "wb")) { std::fwrite(rq.body.data(), 1, rq.body.size(), f); std::fclose(f); }
     std::fprintf(stderr, "(en seco: no se escribe; la escritura, en %s)\n", seco);
-    rs.status = 200; rs.body = "{}";
+    rs.status = 200; rs.body = "{\"rev\":0}";
     return true;
   }
   CURL* c = curl_easy_init();
@@ -46,7 +46,7 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   for (const auto& h : rq.headers) hs = curl_slist_append(hs, h.c_str());
   curl_easy_setopt(c, CURLOPT_URL, rq.url.c_str());
   curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, rq.method.c_str());
-  if (rq.method == "POST") curl_easy_setopt(c, CURLOPT_POSTFIELDS, rq.body.c_str());
+  if (rq.method == "POST" || rq.method == "PUT") curl_easy_setopt(c, CURLOPT_POSTFIELDS, rq.body.c_str());
   curl_easy_setopt(c, CURLOPT_HTTPHEADER, hs);
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, on_body);
   curl_easy_setopt(c, CURLOPT_WRITEDATA, &rs.body);
@@ -57,6 +57,7 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   long st = 0;
   curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &st);
   rs.status = r == CURLE_OK ? int(st) : 0;
+  if (const char* d = std::getenv("PS_DUMP")) if (FILE* f = std::fopen(d, "ab")) { std::fprintf(f, "%s %s\n%s\n<< %d %s\n", rq.method.c_str(), rq.url.c_str(), rq.url.find("/v1/d/") != std::string::npos ? rq.body.c_str() : "(…)", rs.status, rs.body.c_str()); std::fclose(f); }
   if (std::getenv("PS_VERBOSE")) std::fprintf(stderr, "%s %s → %d %s %s\n", rq.method.c_str(), rq.url.c_str(), rs.status, r == CURLE_OK ? "" : curl_easy_strerror(r), rs.body.substr(0, 200).c_str());
   curl_slist_free_all(hs);
   curl_easy_cleanup(c);
@@ -72,7 +73,7 @@ int main(int argc, char** argv) {
   const std::string auth = env("PS_AUTH", "http://127.0.0.1:9099");
   c.cfg.auth_base = auth + "/identitytoolkit.googleapis.com";
   c.cfg.token_base = auth + "/securetoken.googleapis.com";
-  c.cfg.fs_base = env("PS_FS", "http://127.0.0.1:8089");
+  c.cfg.api_base = env("PS_API", "https://ice.pokesurvivor.com/v1/d");
   c.cfg.project = env("PS_PROJECT", "demo-pokesurvivor");
   c.cfg.api_key = env("PS_KEY", "fake-api-key");
   c.http = http;

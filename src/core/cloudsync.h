@@ -33,7 +33,9 @@ struct Config {
   std::string project = "pokesurvivor-free";
   std::string auth_base = "https://identitytoolkit.googleapis.com";
   std::string token_base = "https://securetoken.googleapis.com";
-  std::string fs_base = "https://firestore.googleapis.com";
+  // La partida: la API de pokesurvivor.com (desde noviembre de 2026 la web ya no la
+  // guarda en Firestore; permiso del dueño de la web para la 3DS, 06-11-2026).
+  std::string api_base = "https://ice.pokesurvivor.com/v1/d";
   // La clave de la web sólo acepta peticiones que vengan de la web (Referer);
   // con permiso del proyecto, la 3DS se presenta como la web.
   std::string referer = "https://pokesurvivor.com/";
@@ -71,13 +73,6 @@ struct Client {
 int partner_code(const Json& save);
 void set_partner_code(Json& save, int code);
 
-// pokesurvivor.com no deja guardar la partida dos veces en menos de ~20 s
-// (medido: a los 18 s se rechaza, a los 22 s se acepta; la web espera 65 s,
-// db.js MIN_GAP). Si se guardó hace menos de esto (desde la web u otra
-// consola), se espera lo que falte antes de subir.
-constexpr int64_t kMinWriteGapMs = 25000;
-// "2026-10-20T14:36:51.250Z" → ms desde 1970 (0 si no se entiende).
-int64_t parse_timestamp(const std::string& t);
 
 // db.js nameToEmail: el nombre en minúsculas, en hexadecimal (UTF-8), @dominio.
 std::string name_to_email(const std::string& name);
@@ -105,9 +100,8 @@ bool refresh(Client& c, Session& s);
 // este aparato en la libreta; `local_now_ms`, la hora de la consola. Deja en
 // `merged` la partida fusionada (la que queda en la nube).
 bool sync(Client& c, Session& s, const Json& local, const std::string& dev, int64_t local_now_ms, Json& merged);
-// El apodo de jugador de la cuenta (profiles/{uid}.name: el que se ve en
-// pokesurvivor.com). Vacío si no tiene (o no se puede leer). Tras sync (usa
-// su id_token).
+// El apodo de jugador de la cuenta (GET /me: el que se ve en pokesurvivor.com).
+// Vacío si no tiene (o no se puede leer). Tras sync (usa su id_token).
 std::string profile_name(Client& c, const Session& s);
 
 }  // namespace cloud

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -42,16 +43,25 @@ std::string auth_error(const Json& j, int status) {
   return "Error del servidor (" + std::to_string(status) + (m.empty() ? "" : ": " + m) + ").";
 }
 
+// Errores de la API de la partida (ice.pokesurvivor.com) → español.
+std::string api_error(const Json& j, int status) {
+  const std::string e = j["error"].is_str() ? j["error"].as_str() : "";
+  // La web pide aquí que la persona resuelva un «no soy un robot» (Turnstile),
+  // que la consola no puede enseñar: se resuelve en la web con la misma cuenta.
+  if (status == 403 && e == "human")
+    return "pokesurvivor.com pide comprobar que no eres un robot: entra con tu cuenta en pokesurvivor.com (móvil u ordenador), pulsa Guardar y vuelve a sincronizar.";
+  if (status == 403) return "La nube ha rechazado el acceso (permiso denegado).";
+  if (status == 401) return "La sesión ha caducado: vuelve a entrar.";
+  if (status == 503 || status == 502) return "La nube de pokesurvivor.com está en mantenimiento: prueba más tarde.";
+  if (status == 0) return "Sin conexión a internet.";
+  return "Error del servidor (" + std::to_string(status) + (e.empty() ? "" : ": " + e) + ").";
+}
+
 bool call(Client& c, HttpReq& rq, HttpResp& rs) {
   rs = HttpResp();
   if (!c.cfg.referer.empty()) rq.headers.push_back("Referer: " + c.cfg.referer);
   if (!c.http || !c.http(rq, rs, c.ctx) || rs.status == 0) { c.error = "Sin conexión a internet."; return false; }
   return true;
-}
-
-// Deshace una transacción a medias (si no, el documento queda bloqueado un rato).
-std::string doc_path(const Client& c, const Session& s) {
-  return "projects/" + c.cfg.project + "/databases/(default)/documents/saves/" + s.uid;
 }
 
 // Pasa una letra de UTF-8 a minúscula (ASCII y las que admite VALID de db.js).
@@ -251,113 +261,95 @@ void set_partner_code(Json& s, int code) {
   s.set("partnerShiny", Json::boolean((code & 1) && (s["shiny"][k].is_obj() || s["shiny"][k].as_bool())));
 }
 
-int64_t parse_timestamp(const std::string& t) {
-  int y, mo, d, h, mi, se;
-  if (t.size() < 20 || std::sscanf(t.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d", &y, &mo, &d, &h, &mi, &se) != 6) return 0;
-  int ms = 0;
-  if (t[19] == '.') {   // (fracciones: sólo las milésimas)
-    int k = 0;
-    for (size_t i = 20; i < t.size() && t[i] >= '0' && t[i] <= '9'; ++i) if (k < 3) { ms = ms * 10 + (t[i] - '0'); ++k; }
-    while (k < 3) { ms *= 10; ++k; }
+// Llamada a la API de pokesurvivor.com (ice.pokesurvivor.com/v1/d, como
+// api.js de la web): con el token de la cuenta. Si el token ha caducado (401),
+// se renueva una vez y se repite.
+bool api(Client& c, Session& s, const std::string& method, const std::string& path, const std::string* body, HttpResp& rs, Json& j) {
+  for (int k = 0; k < 2; ++k) {
+    HttpReq rq;
+    rq.method = method;
+    rq.url = c.cfg.api_base + path;
+    rq.headers = {"Authorization: Bearer " + s.id_token};
+    if (body) { rq.headers.push_back("Content-Type: application/json"); rq.body = *body; }
+    if (!call(c, rq, rs)) return false;
+    j = Json();
+    j.parse(rs.body);
+    if (rs.status != 401 || k > 0 || !refresh(c, s)) return true;
   }
-  // días desde 1970-01-01 (días civiles, como progress.cpp)
-  y -= mo <= 2;
-  const int64_t era = (y >= 0 ? y : y - 399) / 400;
-  const int64_t yoe = y - era * 400;
-  const int64_t doy = (153 * (mo + (mo > 2 ? -3 : 9)) + 2) / 5 + d - 1;
-  const int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-  const int64_t days = era * 146097 + doe - 719468;
-  return ((days * 24 + h) * 60 + mi) * 60000 + int64_t(se) * 1000 + ms;
+  return true;
 }
 
 std::string profile_name(Client& c, const Session& s) {
   if (s.uid.empty() || s.id_token.empty()) return "";
-  HttpReq rq;
-  rq.method = "GET";
-  rq.url = c.cfg.fs_base + "/v1/projects/" + c.cfg.project + "/databases/(default)/documents/profiles/" + s.uid;
-  rq.headers = {"Authorization: Bearer " + s.id_token};
+  Session t = s;
   HttpResp rs;
-  const std::string keep = c.error;
-  if (!call(c, rq, rs) || rs.status != 200) { c.error = keep; return ""; }
   Json j;
-  if (!j.parse(rs.body)) return "";
-  const std::string n = j["fields"]["name"]["stringValue"].as_str();
+  const std::string keep = c.error;
+  if (!api(c, t, "GET", "/me", nullptr, rs, j) || rs.status != 200) { c.error = keep; return ""; }
+  const std::string n = j["nick"].as_str();
   return n.size() <= 40 ? n : "";
 }
 
+namespace {
+// Lo que el servidor deja en la partida al guardar (eco de PUT /save, como
+// db.js de la web): manda él en monedas, tickets, libreta y lo que quite.
+void apply_eco(Json& save, const Json& eco) {
+  if (!eco.is_obj()) return;
+  if (eco["coins"].is_num()) save.set("coins", Json::num(std::max(0.0, std::floor(eco["coins"].as_num()))));
+  if (eco["tickets"].is_obj()) {
+    Json t = Json::object();
+    t.set("t1", Json::num(std::max(0.0, std::floor(eco["tickets"]["t1"].as_num(0)))));
+    t.set("t10", Json::num(std::max(0.0, std::floor(eco["tickets"]["t10"].as_num(0)))));
+    save.set("tickets", t);
+  }
+  if (eco["led"].is_obj()) save.set("led", eco["led"]);
+  for (const char* k : {"dropOwned", "dropShiny"}) {
+    const char* coll = k[4] == 'O' ? "owned" : "shiny";
+    if (!eco[k].is_arr() || !save[coll].is_obj()) continue;
+    Json keep = Json::object();
+    for (const auto& kv : save[coll].items()) {
+      bool drop = false;
+      for (const Json& d : eco[k].elems()) if ((d.is_str() ? d.as_str() : std::to_string(int64_t(d.as_num()))) == kv.first) drop = true;
+      if (!drop) keep.set(kv.first, kv.second);
+    }
+    save.set(coll, keep);
+  }
+  for (const char* k : {"pupg", "bag", "tms"}) if (eco[k].is_obj()) save.set(k, eco[k]);
+  // (el compañero, si ya no se tiene: el inicial o el primero, como la web)
+  const Json& own = save["owned"];
+  const auto have = [&](const char* coll, int d) { return save[coll].is_obj() && save[coll].has(std::to_string(d).c_str()); };
+  const int pc = partner_code(save);
+  if (pc >= 0 && own.is_obj() && !have("owned", pc / 2)) {
+    int d = save["starter"].is_num() && have("owned", int(save["starter"].as_num())) ? int(save["starter"].as_num()) : -1;
+    if (d < 0 && !own.items().empty()) d = std::atoi(own.items()[0].first.c_str());
+    if (d > 0) set_partner_code(save, d * 2);
+  }
+  if (save["partnerShiny"].as_bool() && !have("shiny", partner_code(save) / 2)) save.set("partnerShiny", Json::boolean(false));
+}
+}  // namespace
+
 bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, int64_t local_now_ms, Json& merged) {
   if (!refresh(c, s)) return false;
-  const std::string auth = "Authorization: Bearer " + s.id_token;
-  const std::string base = c.cfg.fs_base + "/v1/projects/" + c.cfg.project + "/databases/(default)/documents";
+  // Como db.js de la web (11-2026): se lee la partida y su versión (rev) de
+  // la API y se sube con rev + 1. Si otro la ha guardado entre medias, la API
+  // contesta 409 con la suya: se junta y se repite.
+  HttpResp rs;
+  Json j;
+  if (!api(c, s, "GET", "/save", nullptr, rs, j)) return false;
+  if (rs.status != 200 && rs.status != 404) { c.error = api_error(j, rs.status); return false; }
+  if (rs.date_ms) c.clock_delta = rs.date_ms - local_now_ms;
+  Json remote = rs.status == 200 ? j["save"] : Json();
+  int64_t rev = rs.status == 200 ? int64_t(j["rev"].as_num(0)) : 0;
+  c.last_remote = remote;
   int waits = 0;
-  for (int attempt = 0; attempt < 3; ++attempt) {
-    // Como las transacciones del SDK web: se lee (batchGet) y se escribe con la
-    // condición de que el documento siga igual (updateTime, o que no exista);
-    // si otro lo ha cambiado entre medias, se repite. (Sin beginTransaction:
-    // pokesurvivor.com lo rechaza con «Missing or insufficient permissions».)
-    // 1. lo que hay en la nube
-    HttpReq rq;
-    rq.method = "POST";
-    rq.url = base + ":batchGet";
-    rq.headers = {"Content-Type: application/json", auth};
-    rq.body = "{\"documents\":[" + jstr(doc_path(c, s)) + "]}";
-    HttpResp rs;
-    if (!call(c, rq, rs)) return false;
-    if (rs.date_ms) c.clock_delta = rs.date_ms - local_now_ms;
-    Json j;
-    Json remote, other = Json::object();   // (otros campos del documento: se conservan)
-    std::string upd_time;                  // updateTime del documento leído ("" = no existe)
-    int64_t saved_at = 0;                  // updatedAt de la nube (hora del servidor, ms)
-    bool ban = false;
-    int doc_v = 0;
-    int64_t rev = 0;                       // versión de la partida en la nube (web, 21-10-2026)
-    {
-      Json arr;
-      arr.parse(rs.body);
-      if (rs.status != 200 || !arr.is_arr()) {
-        c.error = rs.status == 403 ? "La nube ha rechazado el acceso (permiso denegado)." : auth_error(arr.is_arr() ? Json() : arr, rs.status);
-        return false;
-      }
-      for (const Json& e : arr.elems()) {
-        if (!e["found"].is_obj()) continue;
-        upd_time = e["found"]["updateTime"].as_str();
-        const Json& f = e["found"]["fields"];
-        remote = web::from_firestore(f["save"]);
-        ban = f["ban"]["booleanValue"].as_bool();
-        doc_v = int(web::from_firestore(f["v"]).as_num(0));
-        saved_at = parse_timestamp(f["updatedAt"]["timestampValue"].as_str());
-        rev = int64_t(web::from_firestore(f["rev"]).as_num(0));
-        if (rev < 0) rev = 0;
-        for (const auto& kv : f.items())
-          if (kv.first != "save" && kv.first != "v" && kv.first != "updatedAt" && kv.first != "ban" && kv.first != "rev") other.set(kv.first, kv.second);
-      }
-    }
-    c.last_remote = remote;
-    // Se acaba de guardar (desde la web u otro aparato): pokesurvivor.com no
-    // deja volver a guardar todavía. Se espera lo que falte y se vuelve a leer.
-    if (saved_at > 0) {
-      const int64_t server_now = rs.date_ms ? rs.date_ms : local_now_ms + c.clock_delta;
-      const int64_t gap = server_now - saved_at;
-      if (gap >= -2000 && gap < kMinWriteGapMs) {
-        if (!c.sleep_ms || waits >= 2) {
-          c.error = "Se acaba de guardar la partida desde otro sitio: prueba otra vez en unos segundos.";
-          return false;
-        }
-        // (+1,5 s: la hora del servidor llega en segundos enteros y, sin margen, se
-        // volvía a intentar justo antes de los 20 s y la nube lo rechazaba otra vez)
-        c.sleep_ms(int(kMinWriteGapMs - std::max<int64_t>(gap, 0) + 1500), c.ctx);
-        local_now_ms += kMinWriteGapMs - std::max<int64_t>(gap, 0) + 1500;
-        ++waits;
-        --attempt;   // (esperar no cuenta como intento)
-        continue;
-      }
-    }
+  for (int attempt = 0; attempt < 4; ++attempt) {
+    if (rev < 0) rev = 0;
     // Una web más nueva (otro formato de partida): no se toca nada.
-    if (doc_v > web::kVersion || web::version_of(remote) > web::kVersion) {
+    if (web::version_of(remote) > web::kVersion) {
       c.error = "La partida de la web es de una versión más nueva del juego: actualiza el juego de la 3DS para sincronizar (no se ha tocado nada).";
       return false;
     }
-    // 3. fusión (la hora de la 3DS, pasada a la del servidor: su reloj va en hora local)
+    // Fusión (la hora de la 3DS, pasada a la del servidor: su reloj va en hora local)
     Json local = local_in;
     if (local["updated"].is_num()) local.set("updated", Json::num(local["updated"].as_num() + double(c.clock_delta)));
     const int64_t now = local_now_ms + c.clock_delta;
@@ -383,51 +375,33 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
       c.error = "Por seguridad no se ha sincronizado (se perdería " + lost + "). Avisa al creador del juego.";
       return false;
     }
-    // 4. subir
-    Json fields = other;
-    fields.set("save", web::to_firestore(merged));
-    fields.set("v", web::to_firestore(Json::num(web::kVersion)));
-    // Cada subida lleva rev + 1 de la que se ha leído: las reglas de pokesurvivor.com
-    // (21-10-2026) rechazan lo demás con «permiso denegado». Antes no se mandaba y,
-    // en cuanto la partida se guardaba desde la web nueva, la 3DS ya no podía subirla.
-    {
-      Json iv = Json::object();
-      iv.set("integerValue", Json::str(std::to_string(rev + 1)));
-      fields.set("rev", iv);
-    }
-    if (ban) fields.set("ban", web::to_firestore(Json::boolean(true)));
-    Json doc = Json::object();
-    doc.set("name", Json::str(doc_path(c, s)));
-    doc.set("fields", fields);
-    Json tr = Json::object();
-    tr.set("fieldPath", Json::str("updatedAt"));
-    tr.set("setToServerValue", Json::str("REQUEST_TIME"));
-    Json trs = Json::array();
-    trs.push(tr);
-    Json w = Json::object();
-    w.set("update", doc);
-    w.set("updateTransforms", trs);
-    Json pre = Json::object();
-    if (upd_time.empty()) pre.set("exists", Json::boolean(false));
-    else pre.set("updateTime", Json::str(upd_time));
-    w.set("currentDocument", pre);
-    Json writes = Json::array();
-    writes.push(w);
+    // Subir
     Json body = Json::object();
-    body.set("writes", writes);
-    rq = HttpReq();
-    rq.method = "POST";
-    rq.url = base + ":commit";
-    rq.headers = {"Content-Type: application/json", auth};
-    rq.body = body.dump();
-    if (!call(c, rq, rs)) return false;
-    if (rs.status == 200) return true;
-    j = Json();
-    j.parse(rs.body);
-    // Otro aparato ha escrito entre medias (no se cumple la condición): se repite.
-    const std::string why = j["error"]["status"].as_str();
-    if (rs.status == 409 || why == "FAILED_PRECONDITION" || why == "ALREADY_EXISTS" || why == "NOT_FOUND" || why == "ABORTED") continue;
-    c.error = rs.status == 403 ? "La nube ha rechazado la partida (permiso denegado)." : auth_error(j, rs.status);
+    body.set("save", merged);
+    body.set("rev", Json::num(double(rev + 1)));
+    const std::string b = body.dump();
+    if (!api(c, s, "PUT", "/save", &b, rs, j)) return false;
+    if (rs.status == 200) { apply_eco(merged, j["eco"]); return true; }
+    // Otro aparato ha guardado entre medias: se junta con la suya y se repite.
+    if (rs.status == 409 && j["error"].as_str() == "rev") {
+      if (j["save"].is_obj()) { remote = j["save"]; c.last_remote = remote; }
+      rev = int64_t(j["rev"].as_num(double(rev)));
+      continue;
+    }
+    // Se acaba de guardar (desde la web u otro aparato): la API dice cuánto esperar.
+    if (rs.status == 429 && j["error"].as_str() == "gap") {
+      const int wait = int(std::min(60.0, std::max(1.0, j["wait"].as_num(20)))) * 1000 + 1500;
+      if (!c.sleep_ms || waits >= 2) {
+        c.error = "Se acaba de guardar la partida desde otro sitio: prueba otra vez en unos segundos.";
+        return false;
+      }
+      c.sleep_ms(wait, c.ctx);
+      local_now_ms += wait;
+      ++waits;
+      --attempt;   // (esperar no cuenta como intento)
+      continue;
+    }
+    c.error = rs.status == 403 && j["error"].as_str() != "human" ? "La nube ha rechazado la partida (permiso denegado)." : api_error(j, rs.status);
     return false;
   }
   c.error = "La nube está ocupada; prueba otra vez.";

@@ -34,6 +34,9 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.35.3 · ¡La nube vuelve!", 0, nullptr, nullptr},
+    {nullptr, NI_CLOUD, "Nube arreglada",
+     "pokesurvivor.com cambió su forma de guardar y la 3DS no podía sincronizar. Ya usa la nueva, con permiso de su creador."},
     {"Versión 0.35 · Actualizaciones exprés", 0, nullptr, nullptr},
     {nullptr, NI_UP, "Actualizaciones mucho más rápidas",
      "Ahora las actualizaciones se realizan de forma incremental, lo que hace que sean más rápidas, sobre todo en parches pequeños."},
@@ -142,7 +145,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.35.0";
+constexpr const char* kNewsVersion = "0.35.3";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

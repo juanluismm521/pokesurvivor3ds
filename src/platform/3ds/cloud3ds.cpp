@@ -124,7 +124,7 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   for (const auto& h : rq.headers) hs = curl_slist_append(hs, h.c_str());
   curl_easy_setopt(c, CURLOPT_URL, rq.url.c_str());
   curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, rq.method.c_str());
-  if (rq.method == "POST") {
+  if (rq.method == "POST" || rq.method == "PUT") {   // (PUT: guardar la partida en la API de la web)
     curl_easy_setopt(c, CURLOPT_POSTFIELDS, rq.body.c_str());
     curl_easy_setopt(c, CURLOPT_POSTFIELDSIZE, long(rq.body.size()));
   }
@@ -315,7 +315,7 @@ void init(const char* dir) {
   Json o;
   if (read_file(path("nube.json"), t) && o.parse(t) && o.is_obj()) {
     if (o["auth"].is_str()) { g_cfg.auth_base = o["auth"].as_str() + "/identitytoolkit.googleapis.com"; g_cfg.token_base = o["auth"].as_str() + "/securetoken.googleapis.com"; }
-    if (o["fs"].is_str()) g_cfg.fs_base = o["fs"].as_str();
+    if (o["api"].is_str()) g_cfg.api_base = o["api"].as_str();
     if (o["project"].is_str()) g_cfg.project = o["project"].as_str();
     if (o["key"].is_str()) g_cfg.api_key = o["key"].as_str();
     if (o["vincular"].is_str()) g_vinc = o["vincular"].as_str();

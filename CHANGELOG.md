@@ -5,6 +5,19 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.35.3 — 2026-11-06
+- **Sincronizar con pokesurvivor.com vuelve a funcionar.** La web ha dejado de guardar las
+  partidas directamente en su base de datos y ahora lo hace a través de su propio servidor
+  (ice.pokesurvivor.com). La 3DS seguía usando el camino de antes y la nube la rechazaba
+  («La nube ha rechazado el acceso (permiso denegado)»). Ahora la consola guarda y recupera
+  la partida por el servidor nuevo, con permiso del creador de la web, igual que la web:
+  si otro aparato ha guardado entre medias, se juntan las dos partidas sin perder nada, y
+  si se acaba de guardar, espera lo que diga el servidor. Lo que el servidor corrige al
+  guardar (monedas, tickets…) queda también en la consola.
+- Si pokesurvivor.com pide comprobar que no eres un robot (la consola no puede enseñar esa
+  prueba), la 3DS lo explica: entra con tu cuenta en pokesurvivor.com, pulsa Guardar y
+  vuelve a sincronizar.
+
 ## 0.35.2 — 2026-11-02
 - Arreglos internos.
 
