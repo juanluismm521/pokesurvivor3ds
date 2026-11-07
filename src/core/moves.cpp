@@ -41,6 +41,11 @@ MoveInst move_instance(int def, int lvl) {
   s.lvl = int8_t(lvl);
   s.has = kMoves[def].has;
   for (int i = 0; i < MS_NUM; ++i) s.v[i] = kMoves[def].v[i];
+  // Los de un solo disparo sin separación (Bomba Germen, Energibola, Bola Voltio…: 12):
+  // la web les dio 0,12 (28-10-2026) para que, con «+1 proyectil», los disparos se
+  // abran en abanico en vez de salir uno encima del otro.
+  const int k = kMoves[def].kind;
+  if ((k == K_PROJECTILE || k == K_HOMING || k == K_BOUNCE) && !s.has_(MS_SPREAD)) { s.v[MS_SPREAD] = 0.12f; s.has |= 1u << MS_SPREAD; }
   for (int i = 0; i < lvl - 1; ++i) apply_mods(s, kLadder[kMoves[def].kind][i]);
   return s;
 }

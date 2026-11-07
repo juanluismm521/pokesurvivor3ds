@@ -5,7 +5,9 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
-## 0.36.0 — 2026-11-07
+## 0.5.0 — 2026-11-07 · Tienda Kecleon completa
+(El dueño la llama 0.5: la numeración sigue desde aquí. Las consolas se actualizan por el número
+de build, que sigue subiendo.)
 - **¡Abre la Tienda Kecleon!** (como en pokesurvivor.com; R en el menú). Arriba, el puesto de
   los dos Kecleon (el verde y su hermano morado), que dan las gracias y saltan al comprar.
   Abajo, dos pestañas (L/R):
@@ -32,6 +34,10 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   los disfraces de bruja sólo se ven en Halloween.
 - La Mochila, las MT, las naturalezas y las habilidades se sincronizan con pokesurvivor.com
   (en la libreta, como las monedas: nada se duplica ni se pierde).
+- **12 ataques de un solo disparo** (Bomba Germen, Energibola, Bola Voltio, Bola Neblina, Bomba
+  Ácida, Doble Rayo, Joya de Luz, Canto Helado, Sombra Vil, Beso Drenaje, Disparo Espejo y Golpe
+  Bajo): con «+1 proyectil», los disparos se abren en abanico (como en la web) en vez de salir uno
+  encima del otro.
 
 ## 0.35.3 — 2026-11-06
 - **Sincronizar con pokesurvivor.com vuelve a funcionar.** La web ha dejado de guardar las

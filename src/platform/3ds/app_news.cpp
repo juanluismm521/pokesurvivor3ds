@@ -34,7 +34,7 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
-    {"Versión 0.36 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
+    {"Versión 0.5 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
     {nullptr, NI_KECLEON, "Tienda Kecleon",
      "Mentas, Cápsulas Habilidad y 8 MT nuevas cada día, por Pokémonedas. Pulsa R en el menú; lo que compras va a tu Mochila."},
     {nullptr, NI_STAR, "Naturaleza y habilidad",
@@ -154,7 +154,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.36.0";
+constexpr const char* kNewsVersion = "0.5.0";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

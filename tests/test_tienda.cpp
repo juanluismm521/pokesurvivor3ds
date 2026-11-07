@@ -385,3 +385,14 @@ TEST_CASE("grupo: naturaleza, habilidad y MT viajan con cada jugador (y se limit
   CHECK(r.nature == -1);
   CHECK(r.abil == -1);
 }
+
+TEST_CASE("ataques: los de un solo disparo se abren en abanico con «+1 proyectil» (web, 28-10)") {
+  for (const char* id : {"seed-bomb", "energy-ball", "electro-ball", "mist-ball", "acid-spray", "signal-beam", "power-gem", "ice-shard",
+                         "shadow-sneak", "draining-kiss", "mirror-shot", "sucker-punch"}) {
+    const MoveInst m = move_instance(move_index(id));
+    CHECK_MESSAGE(m.get(MS_SPREAD) == doctest::Approx(0.12f), id);
+  }
+  // Los que ya tenían la suya, igual.
+  const int f = move_index("flamethrower");
+  if (kMoves[f].has >> MS_SPREAD & 1u) CHECK(move_instance(f).get(MS_SPREAD) == kMoves[f].v[MS_SPREAD]);
+}

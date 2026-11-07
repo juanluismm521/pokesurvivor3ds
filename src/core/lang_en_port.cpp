@@ -630,7 +630,7 @@ const Tr kLangEnPort[] = {
     {"A: seguir", "A: continue"},
     {"¡Gracias por jugar al port de PokéSurvivor en tu 3DS! Esto es para ti.", "Thanks for playing the PokéSurvivor port on your 3DS! This is for you."},
     {"Premios de la victoria perdida", "Rewards from your lost victory"},
-    {"Versión 0.36 · ¡Tienda Kecleon!", "Version 0.36 · Kecleon Shop!"},
+    {"Versión 0.5 · ¡Tienda Kecleon!", "Version 0.5 · The full Kecleon Shop!"},
     {"Mentas, Cápsulas Habilidad y 8 MT nuevas cada día, por Pokémonedas. Pulsa R en el menú; lo que compras va a tu Mochila.",
      "Mints, Ability Capsules and 8 new TMs every day, for PokéCoins. Press R in the menu; what you buy goes to your Bag."},
     {"Naturaleza y habilidad", "Nature and ability"},

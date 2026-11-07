@@ -233,6 +233,10 @@ TEST_CASE("dorado: movimientos (5 niveles y evolución)") {
     if (r[2].as_int()) REQUIRE(move_evolve(m));
     const Json& v = r[3];
     for (int s = 0; s < MS_NUM; ++s) {
+      // (la separación de los de un solo disparo es de la web del 28-10, que este dorado
+      // aún no tiene: base 0,12 en moves.cpp, comprobada en test_tienda)
+      if (s == MS_SPREAD && !(kMoves[def].has & (1u << MS_SPREAD)) &&
+          (kMoves[def].kind == K_PROJECTILE || kMoves[def].kind == K_HOMING || kMoves[def].kind == K_BOUNCE)) continue;
       if (v[s].is_null()) { CHECK_MESSAGE(!m.has_(s), r[0].as_str() << " " << kMoveStatId[s]); continue; }
       CHECK_MESSAGE(m.has_(s), r[0].as_str() << " " << kMoveStatId[s]);
       // (arreglo del port, moves.cpp count_base: «+1 proyectil» en un ataque sin
