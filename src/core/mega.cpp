@@ -1,5 +1,6 @@
 // mega.cpp — ver mega.h.
 #include "core/mega.h"
+#include "core/mons.h"
 
 #include <cmath>
 #include <cstring>
@@ -114,7 +115,8 @@ void mega_start(Game& g, Player& p) {
   // eres shiny y su mega aún no tiene shiny: el tuyo, algo más grande y con
   // su aura al dibujarlo (el shiny nunca se pierde).
   const bool own = d.own_sprite && (!p.shiny || has_shiny(d.sprite));
-  set_form(p, &d.mon, own ? d.sprite : p.dex, own ? p.scale : p.scale * 1.15f);
+  mon_with_nature(d.mon, p.nature, p.mega_buf);   // (también con su naturaleza: core/mons.h)
+  set_form(p, &p.mega_buf, own ? d.sprite : p.dex, own ? p.scale : p.scale * 1.15f);
   // El empujón de la mega (se deshace igual al acabar).
   p.atk_mul *= mb.atk;
   p.spd_mul *= mb.spd;
@@ -139,7 +141,7 @@ void mega_start(Game& g, Player& p) {
 
 void mega_end(Game& g, Player& p) {
   if (p.mega < 0) return;
-  const Mon* base = p.mega_prev ? p.mega_prev : mon_by_dex(p.dex);
+  const Mon* base = p.mega_prev ? p.mega_prev : &p.mon_buf;
   const MegaBoost mb = mega_boost(p.mega);
   p.max_hp -= p.mega_dhp;
   if (p.hp > p.max_hp) p.hp = p.max_hp;

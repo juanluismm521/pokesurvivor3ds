@@ -5,13 +5,13 @@
 // meteoros, torretas, charcos) vive en `fields`.
 #include <cmath>
 
+#include "core/abilities.h"
 #include "core/game.h"
 #include "core/stats.h"
 
 namespace ps {
 
 namespace {
-constexpr float CRIT_MUL = 1.5f;
 constexpr float QSTEP = 34;             // distancia entre ondas de un terremoto
 
 int pl_index(Game& g, const Player& p) { return int(&p - g.players); }
@@ -55,17 +55,21 @@ void on_dealt(Player& p, float dmg) {
 // Arceus (Sentencia) sólo recibe una parte (judgment_dmg_k).
 float arc_k(const Game& g, const Enemy& e) { return e.arceus ? judgment_dmg_k(g) : 1.0f; }
 
+// Habilidad de quien pega (abilities.h): × al daño, crítico, estados (Potencia
+// Bruta los quita, Dicha los dobla) y lo que hace al golpear.
 void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float dy, float knock, const MoveInst& m) {
-  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat()) * arc_k(g, e);
+  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat()) * arc_k(g, e) * abil_out(g, p, &m, &e);
   const bool crit = is_crit(g, p);
-  dmg *= k * (crit ? CRIT_MUL : 1);
-  enemy_hurt(g, e, dmg, col, dx, dy, knock, crit ? EFF_CRIT : type_label(type_mult(m.type(), e.types)));
+  const float sk = abil_status_k(p);
+  dmg *= k * (crit ? abil_crit_mul(p) : 1);
+  enemy_hurt(g, e, dmg, col, dx, dy, sk > 0 ? knock : 0, crit ? EFF_CRIT : type_label(type_mult(m.type(), e.types)));
   on_dealt(p, dmg);
   p.dmg_dealt += dmg;
   m.dealt += dmg;                               // por ataque, para el resumen de la pausa
-  if (m.get(MS_BURN) > 0) enemy_apply_burn(e, m.get(MS_BURN));
-  if (m.get(MS_POISON) > 0) enemy_apply_poison(e, m.get(MS_POISON));
-  if (m.get(MS_SLOW) > 0) enemy_apply_slow(e, m.get(MS_SLOW));
+  if (m.get(MS_BURN) > 0 && sk > 0) enemy_apply_burn(e, m.get(MS_BURN) * sk);
+  if (m.get(MS_POISON) > 0 && sk > 0) enemy_apply_poison(e, m.get(MS_POISON) * sk);
+  if (m.get(MS_SLOW) > 0 && sk > 0) enemy_apply_slow(e, std::fmin(0.8f, m.get(MS_SLOW) * sk));
+  if (p.abil >= 0) abil_after_hit(g, p, e, &m);
 }
 
 // (m es siempre uno de p.moves)
@@ -607,7 +611,8 @@ void tick_move(Game& g, Player& p, int mi, float dt) {
     m.t = 0.05f;
     return;
   }
-  m.t = std::fmax(0.05f, m.get(MS_CD) * p.cd_mul);
+  // (Bromista: los potenciadores se recargan antes.)
+  m.t = std::fmax(0.05f, m.get(MS_CD) * p.cd_mul * (m.kind() == K_BUFF ? abil_status_cd(p) : 1.0f));
   player_cast(g, p, &m, m.kind(), m.get(MS_CD));
   m.cast_at = float(g.time);
   run(g, p, m, mi);
@@ -983,7 +988,10 @@ void combat_resolve(Game& g, float dt) {
 
       Player& pl = g.players[p->owner];
       const bool crit = is_crit(g, pl);
-      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? CRIT_MUL : 1) * arc_k(g, *e);
+      const MoveInst* srcm = p->src >= 0 && p->src < pl.nmoves ? &pl.moves[p->src] : nullptr;
+      const float sk = abil_status_k(pl);
+      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? abil_crit_mul(pl) : 1) * arc_k(g, *e) *
+                       abil_out(g, pl, srcm, e);
       const float dvx = p->vx != 0 ? p->vx : (e->x - pl.x), dvy = p->vy != 0 ? p->vy : (e->y - pl.y);
       const int eff = crit ? EFF_CRIT : p->mtype >= 0 ? type_label(type_mult(p->mtype, e->types)) : EFF_NONE;
       const float dmg = p->dmg * kk;
@@ -992,7 +1000,7 @@ void combat_resolve(Game& g, float dt) {
       const float hx = p->x, hy = p->y;
       const int8_t pal = p->has_vis ? int(p->vis_pal) : int(T_NORMAL);
       const uint32_t pcol = p->color;
-      enemy_hurt(g, *e, dmg, pcol, dvx, dvy, p->knock, eff);
+      enemy_hurt(g, *e, dmg, pcol, dvx, dvy, sk > 0 ? p->knock : 0, eff);
       if (g.vrng.next() < 0.5f) {
         SpOpts o; o.life = 0.12f; o.scale = 1;
         g.fx.sp(SH_IMPACT, pal, e->x, e->y - e->body_h * 0.5f, o);
@@ -1000,10 +1008,11 @@ void combat_resolve(Game& g, float dt) {
       pl.dmg_dealt += dmg;
       if (src >= 0 && src < pl.nmoves) pl.moves[src].dealt += dmg;
       on_dealt(pl, dmg);
-      if (burn > 0) enemy_apply_burn(*e, burn);
-      if (poison > 0) enemy_apply_poison(*e, poison);
-      if (slow > 0) enemy_apply_slow(*e, slow);
+      if (burn > 0 && sk > 0) enemy_apply_burn(*e, burn * sk);
+      if (poison > 0 && sk > 0) enemy_apply_poison(*e, poison * sk);
+      if (slow > 0 && sk > 0) enemy_apply_slow(*e, std::fmin(0.8f, slow * sk));
       if (drain > 0) player_heal(g, pl, drain);         // Beso Drenaje
+      if (pl.abil >= 0 && !e->dead) abil_after_hit(g, pl, *e, srcm);
 
       p = &g.projectiles[i];
       if (!p->orb && rebound(g, *p, e->x, e->y)) break;
@@ -1039,6 +1048,7 @@ static void contact(Game& g, Player& pl) {
     enemy_strike(*e, pl);
     player_hurt(g, pl, e->dmg, e->atk_type, false, e->cat);
     if (pl.item == IT_ROCKYHELMET) enemy_hurt(g, *e, 15 + pl.level * 4.0f, 0x9aa6b5, e->x - pl.x, e->y - pl.y, 80);
+    if (pl.abil >= 0 && !pl.dead && !e->dead) abil_contact(g, pl, *e);     // Elec. Estática, Cuerpo Llama...
     float nx, ny;
     norm(e->x - pl.x, e->y - pl.y, nx, ny);
     e->kx += nx * 150; e->ky += ny * 150;

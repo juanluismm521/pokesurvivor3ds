@@ -5,6 +5,34 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.36.0 — 2026-11-07
+- **¡Abre la Tienda Kecleon!** (como en pokesurvivor.com; R en el menú). Arriba, el puesto de
+  los dos Kecleon (el verde y su hermano morado), que dan las gracias y saltan al comprar.
+  Abajo, dos pestañas (L/R):
+  - **Comprar**: Menta (1500), Cápsula Habilidad (1500), Cápsula Habilidad Oculta (5000) y
+    **8 MT nuevas cada día**, las mismas que en la web (cambian a medianoche, hora de España;
+    se ve cuánto falta). Si ninguna le sirve a tu compañero, una de las 8 sí. Cada MT dice
+    si tu compañero la puede aprender y cuántos de tus Pokémon la pueden aprender.
+  - **Mochila**: lo comprado; con A, a la ficha de tu compañero para usarlo.
+  - En el menú, un punto rojo en la tienda cuando hay MT nuevas sin ver.
+- **Cada Pokémon tiene su naturaleza y su habilidad**, las mismas que en la web (salen de tu
+  cuenta y del Pokémon: en la consola y en la web te tocan las mismas). La naturaleza sube un
+  10 % un stat y baja otro (5 son neutras). La habilidad hace cosas en la partida, como en la
+  web: más daño con los de un tipo cuando vas mal de vida, esquivar golpes, curarse con la
+  lluvia, traer el sol, quemar a quien te toca… (las demás, +8 % con los ataques de su tipo).
+  La oculta sale 1 de cada 20. En grupo, cada uno juega con las suyas.
+- **Ficha de cada Pokémon** (Colección → SELECT), con pestañas (L/R): Ataques, Naturaleza
+  (las 25, con lo que sube y baja; con una Menta se cambia), Habilidad (las suyas, qué hace
+  cada una; con una Cápsula se cambia, la oculta con la Oculta) y MT (las que aprende en los
+  juegos: las aprendidas y las que tienes para enseñarle). Las MT aprendidas son para siempre:
+  salen en sus cartas de nivel y se pueden elegir de ataque inicial y en Repertorio.
+- La Colección enseña la naturaleza y la habilidad de cada Pokémon (y sus stats con ella); al
+  conseguir uno nuevo en el gacha se ve cuáles le han tocado; en la pausa, tu habilidad.
+- **Disfraces con X** en la Colección (antes START; el filtro pasa a START). Los caramelos y
+  los disfraces de bruja sólo se ven en Halloween.
+- La Mochila, las MT, las naturalezas y las habilidades se sincronizan con pokesurvivor.com
+  (en la libreta, como las monedas: nada se duplica ni se pierde).
+
 ## 0.35.3 — 2026-11-06
 - **Sincronizar con pokesurvivor.com vuelve a funcionar.** La web ha dejado de guardar las
   partidas directamente en su base de datos y ahora lo hace a través de su propio servidor

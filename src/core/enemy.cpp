@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "core/halloween.h"
+#include "core/abilities.h"
 #include "core/game.h"
 #include "core/mega.h"
 #include "core/stats.h"
@@ -512,7 +513,8 @@ static void special(Game& g, Enemy& e, const Player& pl, float dx, float dy) {
 
 static void start_fuse(Game& g, Enemy& e) {
   e.phase = PH_FUSE; e.pt = 1.0f;
-  zone(g, e, e.x, e.y, 62, 1.0f, e.dmg * 1.4f, e.atk_type, 0xff7b3d);
+  Hazard* h = zone(g, e, e.x, e.y, 62, 1.0f, e.dmg * 1.4f, e.atk_type, 0xff7b3d);
+  if (h) h->boom = true;
 }
 
 static void start_jump(Game& g, Enemy& e, const Player& pl) {
@@ -856,6 +858,8 @@ void enemies_update(Game& g, float dt) {
     Enemy& e = g.enemies[i];
     if (e.dead) {
       pl.kills++;
+      // Autoestima y parecidas (abilities.h): cada caído cuenta para todo el equipo.
+      for (int k = 0; k < g.nplayers; ++k) if (g.players[k].active && g.players[k].abil >= 0) abil_kill(g.players[k]);
       if (e.boss && !e.judge) pl.bosses++;
       progress_kill(g, e);
       if (g.corpses.full()) g.corpses.remove_ordered(0);

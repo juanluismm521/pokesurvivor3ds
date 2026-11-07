@@ -84,7 +84,7 @@ float Game::level_xp() {
 
 static bool in_type_pool(const Player& p, int id) {
   int16_t all[kMaxMoves];
-  const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves);
+  const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves, p.taught);
   for (int i = 0; i < na; ++i) if (all[i] == id) return true;
   return false;
 }
@@ -95,7 +95,7 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
   p.skin = int8_t(c.skin >= 0 && c.skin < kSkinCount && kSkins[c.skin].dex == c.dex ? c.skin : -1);   // (su disfraz, si es suyo)
   // Atajos: movimientos con hueco fijo, antes de aprender nada.
   for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < kMaxMoves) p.bind[c.pbind[i]] = int8_t(i);
-  player_add_move(g, p, move_start_for(c.dex, c.pstart, c.upgrades[UP_START] > 0));
+  player_add_move(g, p, move_start_for(c.dex, c.pstart, c.upgrades[UP_START] > 0, p.taught));
   // Mejora "Veto": movimientos que no quieres que te salgan.
   const Perks perks = upgrade_perks(c.upgrades);
   for (int i = 0; i < 3 && i < perks.bans; ++i) if (c.pban[i] >= 0) p.banned.set(c.pban[i]);
@@ -107,7 +107,7 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
     player_set_active(g, p, 0);
   } else if (perks.start_moves >= 2) {
     int16_t all[kMaxMoves], pool[kMaxMoves];
-    const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves);
+    const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves, p.taught);
     int np = 0;
     for (int i = 0; i < na; ++i) {
       const int id = all[i];
@@ -174,6 +174,9 @@ void Game::start_run(const RunConfig& c, Save* s) {
       pc.pstart = m.pstart;
       pc.pmove2 = m.pmove2;
       pc.skin = m.skin;
+      pc.nature = m.nature;
+      pc.abil = m.abil;
+      pc.taught = m.taught;
     }
     init_player(*this, players[i], pc);
     if (nplayers > 1 && c.members[i].test_stone) player_equip(*this, players[i], IT_MEGA_A);   // (pruebas)

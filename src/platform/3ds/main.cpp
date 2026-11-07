@@ -87,7 +87,9 @@ struct Autotest {
   bool win = false;
   int hw = -1;                // "… halloween" / "… nohalloween": forzar el evento (o quitarlo) en las pruebas
   bool gift_demo = false;     // "regalo": la pantalla de los regalos, cerrado y abierto (capturas)
-  bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra un disfraz y lo enseña en el menú (capturas)
+  bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra una MT y una Menta y enseña la Mochila (capturas)
+  bool ficha_demo = false;    // "ficha": la ficha de tu compañero: naturaleza, habilidad y MT (capturas)
+  char abil[40] = "", nature[16] = "";   // "… habilidad=static naturaleza=bold": las de la partida
   bool skin = false;          // "… disfraz": el compañero con su disfraz de Halloween           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
@@ -127,6 +129,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "modo")) a.mode_demo = 1;
   else if (!std::strcmp(first, "medalla")) a.mode_demo = 2;
   else if (!std::strcmp(first, "tienda")) a.shop_demo = true;
+  else if (!std::strcmp(first, "ficha")) a.ficha_demo = true;
   else if (!std::strcmp(first, "regalo")) a.gift_demo = true;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
@@ -187,8 +190,10 @@ void read_autotest(Autotest& a) {
   }
   // (Halloween y disfraz: en cualquier autotest, también los de pantallas: «menu halloween»)
   std::rewind(f);
-  for (char w[24]; std::fscanf(f, "%23s", w) == 1;) {
-    if (!std::strcmp(w, "halloween")) a.hw = 1;
+  for (char w[48]; std::fscanf(f, "%47s", w) == 1;) {
+    if (!std::strncmp(w, "habilidad=", 10)) std::snprintf(a.abil, sizeof(a.abil), "%s", w + 10);
+    else if (!std::strncmp(w, "naturaleza=", 11)) std::snprintf(a.nature, sizeof(a.nature), "%.15s", w + 11);
+    else if (!std::strcmp(w, "halloween")) a.hw = 1;
     else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
     else if (!std::strcmp(w, "disfraz")) a.skin = true;
   }
@@ -325,7 +330,11 @@ int main(int argc, char** argv) {
   if (at.menu) { app.start_menu_demo(); at.on = false; }
   if (at.upgrades) { app.start_upgrades_demo(); at.on = false; }
   if (at.mode_demo) { app.start_mode_demo(at.mode_demo == 2); at.on = false; }
+  // (naturaleza y habilidad de la partida del autotest: «habilidad=static naturaleza=bold»)
+  for (int i = 0; i < kAbilCount; ++i) if (!std::strcmp(kAbils[i].id, at.abil)) app.auto_abil = i;
+  for (int i = 0; i < kNatureCount; ++i) if (!std::strcmp(kNatures[i].id, at.nature)) app.auto_nature = i;
   if (at.shop_demo) { app.start_shop_demo(); at.on = false; }
+  if (at.ficha_demo) { app.start_ficha_demo(); at.on = false; }
   if (at.gift_demo) { app.start_gift_demo(); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {

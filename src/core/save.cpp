@@ -25,6 +25,8 @@ void Save::reset() {
   for (auto& b : pban) for (auto& x : b) x = -1;
   for (auto& x : pstart) x = -1;
   for (auto& x : pskin) x = -1;
+  for (auto& x : pnat) x = -1;
+  for (auto& x : pabil) x = -1;
   for (auto& x : pmove2) x = -1;
 }
 

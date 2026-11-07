@@ -113,15 +113,17 @@ int move_extras_for(int dex, int16_t* out, int max) {
   return n;
 }
 
-int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max) {
+int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, uint64_t taught) {
   int n = move_pool_for(types, out, max);
+  auto add = [&](int16_t id) {
+    for (int j = 0; j < n; ++j) if (out[j] == id) return;
+    if (n < max) out[n++] = id;
+  };
   int16_t ex[16];
   const int ne = move_extras_for(dex, ex, 16);
-  for (int i = 0; i < ne; ++i) {
-    bool dup = false;
-    for (int j = 0; j < n; ++j) if (out[j] == ex[i]) dup = true;
-    if (!dup && n < max) out[n++] = ex[i];
-  }
+  for (int i = 0; i < ne; ++i) add(ex[i]);
+  // MT aprendidas (Tienda Kecleon), en el orden de kTms.
+  for (int i = 0; i < kTmCount && taught; ++i) if ((taught >> i) & 1u) add(kTms[i].move);
   return n;
 }
 
@@ -133,11 +135,18 @@ int move_base_start_for(int dex) {
   return kStartMove[T_NORMAL];
 }
 
-int move_start_choices(int dex, int16_t* out, int max) {
+int move_start_choices(int dex, int16_t* out, int max, uint64_t taught) {
   const Mon* m = mon_by_dex(dex);
   if (!m || max <= 0) return 0;
   int16_t all[kMaxMoves];
-  const int na = move_pool_for(m->types, all, kMaxMoves);
+  // (las MT aprendidas también, como poolFor de la web; los extra del port, no)
+  int na = move_pool_for(m->types, all, kMaxMoves);
+  for (int i = 0; i < kTmCount && taught; ++i) {
+    if (!((taught >> i) & 1u)) continue;
+    bool dup = false;
+    for (int j = 0; j < na; ++j) if (all[j] == kTms[i].move) dup = true;
+    if (!dup && na < kMaxMoves) all[na++] = kTms[i].move;
+  }
   int n = 0;
   for (int i = 0; i < na && n < max; ++i) if (kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];
   const int base = move_base_start_for(dex);
@@ -147,20 +156,20 @@ int move_start_choices(int dex, int16_t* out, int max) {
   return n;
 }
 
-int move_start_for(int dex, int pick, bool bought) {
+int move_start_for(int dex, int pick, bool bought, uint64_t taught) {
   if (pick >= 0 && bought) {
     int16_t ch[kMaxMoves];
-    const int n = move_start_choices(dex, ch, kMaxMoves);
+    const int n = move_start_choices(dex, ch, kMaxMoves, taught);
     for (int i = 0; i < n; ++i) if (ch[i] == pick) return pick;
   }
   return move_base_start_for(dex);
 }
 
-int move_second_choices(int dex, int start, int16_t* out, int max) {
+int move_second_choices(int dex, int start, int16_t* out, int max, uint64_t taught) {
   const Mon* m = mon_by_dex(dex);
   if (!m) return 0;
   int16_t all[kMaxMoves];
-  const int na = move_pool_for_dex(dex, m->types, all, kMaxMoves);
+  const int na = move_pool_for_dex(dex, m->types, all, kMaxMoves, taught);
   int n = 0;
   for (int i = 0; i < na && n < max; ++i)
     if (all[i] != start && kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];

@@ -16,7 +16,9 @@
 #include "core/gacha.h"
 #include "core/i18n.h"
 #include "core/progress.h"
+#include "core/abilities.h"
 #include "core/mega.h"
+#include "core/mons.h"
 #include "core/orbs.h"
 #include "core/save_io.h"
 #include "core/stats.h"
@@ -239,6 +241,12 @@ void App::start_run() {
   // Halloween (core/halloween.h): lo que sea al empezar vale toda la partida.
   cfg.hw = hw3ds::on() ? 1 : 0;
   cfg.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(cfg.dex) : -1) : skin_worn(*s_, cfg.dex));
+  // Naturaleza, habilidad y MT de tu compañero (core/mons.h). Las pruebas, sin ellas
+  // (o las que diga el autotest), salvo con la partida de la SD («real»).
+  const bool mine = !autotest || auto_real;
+  cfg.nature = int8_t(mine ? nature_of(*s_, cfg.dex) : auto_nature);
+  cfg.abil = int16_t(mine ? abil_of(*s_, cfg.dex).id : auto_abil);
+  cfg.taught = mine ? tm_taught_bits(*s_, cfg.dex) : 0;
   cfg.judged = autotest ? 1 : s_->stats.judged;
   for (int d = 0; d <= kMaxDex; ++d) if (s_->legends[d]) cfg.legends_beaten[d >> 3] |= uint8_t(1 << (d & 7));
   const u64 t0 = svcGetSystemTick();
@@ -386,7 +394,7 @@ void App::draw_mon(int dex, bool shiny, float x, float y, float scale, int mode,
     }
     return;
   }
-  r_->draw_sprite(a, x, y, 0, 1);
+  r_->draw_sprite(a, x, y, mode == 4 ? 3 : 0, 1);   // (4: teñido de morado, el hermano de la Tienda Kecleon)
 }
 
 void App::header(const char* title) {
@@ -415,7 +423,6 @@ void App::notices(float dt) {
 
 // ---------------- bucle ----------------
 
-namespace { int dex_list(const Save& s, int gen, int filter, int16_t* out); }   // (más abajo)
 
 void App::update(const UiIn& in0, float dt) {
   t_ += dt;
@@ -434,6 +441,7 @@ void App::update(const UiIn& in0, float dt) {
   }
   if (menu_demo_) { news_t_ += dt; if (news_t_ > 60) quit = true; }
   if (shop_demo_) shop_demo_step(dt);
+  if (ficha_demo_) ficha_demo_step(dt);
   if (gift_demo_) gift_demo_step(dt);
   if (up_demo_) {   // autotest "mejoras": «Más pasivas a niveles altos», el segundo movimiento y el inicial
     const float t0 = news_t_;
@@ -977,9 +985,10 @@ void App::bottom_menu() {
   if (t10i >= 0) C2D_DrawImageAt(r_->icons.image(t10i), 60, 28, 0);
   std::snprintf(b, sizeof(b), "%d", int(s_->t10));
   r_->text(b, 76, 27, 0.4f, C_TEXT);
-  // Halloween: los caramelos (también fuera del evento, si te quedan).
+  // Halloween: los caramelos (sólo durante el evento; fuera de él no se ven, aunque
+  // te queden: el dueño, 07-11-2026).
   const bool hw = hw3ds::on();
-  if (hw || s_->candy > 0) {
+  if (hw) {
     const int ci = r_->ui_icon[16];
     if (ci >= 0) C2D_DrawImageAt(r_->icons.image(ci), 112, 28, 0);
     std::snprintf(b, sizeof(b), "%d", int(s_->candy));
@@ -1043,7 +1052,6 @@ bool App::update_bar() const {
 
 // ---------------- colección ----------------
 
-namespace {
 // Pokémon de la generación que pasan el filtro (todos, tengo, me faltan, shiny, rareza 5..1).
 int dex_list(const Save& s, int gen, int filter, int16_t* out) {
   int n = 0;
@@ -1059,6 +1067,7 @@ int dex_list(const Save& s, int gen, int filter, int16_t* out) {
   }
   return n;
 }
+namespace {
 const char* const FILTERS[9] = {"Todos", "Tengo", "Me faltan", "Shiny", "Legendaria", "Épica", "Rara", "Poco común", "Común"};
 }  // namespace
 
@@ -1066,14 +1075,19 @@ void App::in_dex(const UiIn& in) {
   static int16_t list[256];
   const int n = dex_list(*s_, gen_, filter_, list);
   if (dex_moves_) {
-    if (n && s_->owns(list[std::min(cur_, n - 1)])) { in_dex_moves(in, list[std::min(cur_, n - 1)]); return; }
+    if (n && s_->owns(list[std::min(cur_, n - 1)])) { in_ficha(in, list[std::min(cur_, n - 1)]); return; }
     dex_moves_ = false;
   }
-  if (n && (in.down & KEY_SELECT) && s_->owns(list[std::min(cur_, n - 1)])) { dex_moves_ = true; mv_cur_ = 0; audio::play("confirm"); return; }
+  // SELECT: su ficha (ataques, naturaleza, habilidad y MT: app_ficha.cpp).
+  if (n && (in.down & KEY_SELECT) && s_->owns(list[std::min(cur_, n - 1)])) {
+    dex_moves_ = true; mv_cur_ = 0; ficha_tab_ = FT_MOVES; fi_cur_ = 0; fi_scroll_ = 0;
+    audio::play("confirm");
+    return;
+  }
   const int cols = 6;
   if (in.down & KEY_L) { gen_ = gen_ == 1 ? 9 : gen_ - 1; cur_ = 0; scroll_ = 0; }
   if (in.down & KEY_R) { gen_ = gen_ == 9 ? 1 : gen_ + 1; cur_ = 0; scroll_ = 0; }
-  if (in.down & KEY_X) { filter_ = (filter_ + 1) % 9; cur_ = 0; scroll_ = 0; }
+  if (in.down & KEY_START) { filter_ = (filter_ + 1) % 9; cur_ = 0; scroll_ = 0; }
   if (in.rep & KEY_DLEFT) cur_ = std::max(0, cur_ - 1);
   if (in.rep & KEY_DRIGHT) cur_ = std::min(n - 1, cur_ + 1);
   if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - cols);
@@ -1087,13 +1101,26 @@ void App::in_dex(const UiIn& in) {
     if (k >= n) break;
     if (in_rect(&in, 4 + (i % cols) * 52, 42 + (i / cols) * 44, 50, 42)) cur_ = k;
   }
-  // START: ponerse o quitarse su disfraz de Halloween (si lo has comprado).
-  if (n && (in.down & KEY_START) && s_->owns(list[std::min(cur_, n - 1)])) {
-    const int d = list[std::min(cur_, n - 1)], k = skin_for_dex(d);
-    if (k >= 0 && s_->skin_at[k] > 0) {
-      skin_wear(*s_, d, skin_worn(*s_, d) == k ? -1 : k, now_ms());
+  // X: cambia de disfraz (los que hayas comprado para ese Pokémon, y sin ninguno). De
+  // momento sólo hay los de bruja de Halloween; con más, se van pasando uno tras otro.
+  if (n && (in.down & KEY_X) && s_->owns(list[std::min(cur_, n - 1)])) {
+    const int d = list[std::min(cur_, n - 1)];
+    int mine[8], nm = 0;
+    for (int k = 0; k < kSkinCount && nm < 8; ++k) if (kSkins[k].sell && kSkins[k].dex == d && s_->skin_at[k] > 0) mine[nm++] = k;
+    if (nm) {
+      const int cur = skin_worn(*s_, d);
+      int next = -1;
+      if (cur < 0) next = mine[0];
+      else for (int i = 0; i < nm; ++i) if (mine[i] == cur) next = i + 1 < nm ? mine[i + 1] : -1;
+      skin_wear(*s_, d, next, now_ms());
       audio::play("select");
+      char b[96];
+      std::snprintf(b, sizeof(b), "%s", next >= 0 ? kSkins[next].name : mon_by_dex(d)->name);
+      g_notices.push(b, next >= 0 ? "Disfraz puesto" : "Sin disfraz", -1);
       save_now();
+    } else {
+      audio::play("error");
+      g_notices.push("No tiene disfraces.", "", -1);
     }
   }
   if (n && (in.down & KEY_Y)) {   // (toda la lista en shiny: los que tengas en shiny)
@@ -1115,15 +1142,15 @@ void App::in_dex(const UiIn& in) {
 void App::bottom_dex() {
   static int16_t list[256];
   const int n = dex_list(*s_, gen_, filter_, list);
-  if (dex_moves_ && n) { bottom_dex_moves(list[std::min(cur_, n - 1)]); return; }
+  if (dex_moves_ && n) { bottom_ficha(list[std::min(cur_, n - 1)]); return; }
   int have = 0, total = 0;
   for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { total++; if (s_->owns(kDex[i].dex)) have++; }
   char b[96];
   // Con la región completa, su Amuleto Iris (shiny al 2 % en su banner).
   std::snprintf(b, sizeof(b), "%s %d/%d%s", GEN_NAMES[gen_ - 1], have, total, have >= total ? " · Amuleto Iris" : "");
   header(b);
-  if (have >= total) std::snprintf(b, sizeof(b), "L/R generación · X: %s · shiny al 2 %% en su banner", tr(FILTERS[filter_]));
-  else std::snprintf(b, sizeof(b), "L/R generación · X: %s · Amuleto Iris: faltan %d", tr(FILTERS[filter_]), total - have);
+  if (have >= total) std::snprintf(b, sizeof(b), "L/R generación · START: %s · shiny al 2 %% en su banner", tr(FILTERS[filter_]));
+  else std::snprintf(b, sizeof(b), "L/R generación · START: %s · Amuleto Iris: faltan %d", tr(FILTERS[filter_]), total - have);
   r_->text_fit(b, 160, 25, 308, 0.34f, C_MUTED, false, 1);
   for (int i = 0; i < 24; ++i) {
     const int k = scroll_ * 6 + i;
@@ -1143,7 +1170,7 @@ void App::bottom_dex() {
     if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) r_->draw_medal(x + 7, y + 34, 4.5f);   // (derrotó a Arceus)
   }
   if (!n) r_->text("Ninguno con este filtro.", 160, 110, 0.4f, C_MUTED, 1);
-  r_->text(view_shiny_ ? "A: compañero · Y: normales · SELECT: ataques · B: volver" : "A: compañero · Y: shinys · SELECT: ataques · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  r_->text(view_shiny_ ? "A: compañero · Y: normales · SELECT: ficha · B: volver" : "A: compañero · Y: shinys · SELECT: ficha · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
 void App::fit_text(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow) {
@@ -1190,21 +1217,22 @@ void App::top_detail(int dex, bool shiny, bool own) {
   C2D_DrawRectSolid(0, 0, 0, TW, TH, C2D_Color32(8, 12, 20, 170));
   const uint32_t tc = kTypeColor[p->types[0]];
   C2D_DrawEllipseSolid(40, 150, 0, 140, 34, rgbf(own ? (shiny ? 0x9ae6ff : tc) : 0x5b83d6, 0.35f));
-  // (con su disfraz de Halloween puesto, si lo lleva)
+  // (con su disfraz puesto, si lo lleva)
   const int sk = own ? skin_worn(*s_, dex) : -1;
   draw_mon(sk >= 0 ? kSkins[sk].sprite : dex, own && shiny && s_->owns_shiny(dex), 110, 170, 3, own ? 0 : 3);
   if (own && s_->owns_shiny(dex)) y_hint(12, 214, shiny);
   {
-    const int k = skin_for_dex(dex);
-    if (own && k >= 0 && s_->skin_at[k] > 0)
-      r_->text(sk >= 0 ? "START: quitar el disfraz" : "START: ponerle el disfraz", 300, 224, 0.32f, C2D_Color32(255, 160, 80, 255), 1);
+    // X: cambiar de disfraz (si tiene alguno comprado).
+    bool any = false;
+    for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].sell && kSkins[k].dex == dex && s_->skin_at[k] > 0) any = true;
+    if (own && any) r_->text(sk >= 0 ? "X: quitar el disfraz" : "X: ponerle el disfraz", 110, 4, 0.34f, C2D_Color32(255, 160, 80, 255), 1);
   }
   char b[128];
   std::snprintf(b, sizeof(b), "Nº %03d · %s", p->dex, GEN_NAMES[p->gen - 1]);
-  r_->text(b, 300, 14, 0.38f, C_MUTED, 1);
-  r_->text(own ? p->name : "???", 300, 30, 0.7f, C_TEXT, 1);
+  r_->text(b, 300, 10, 0.38f, C_MUTED, 1);
+  r_->text(own ? p->name : "???", 300, 24, 0.66f, C_TEXT, 1);
   std::snprintf(b, sizeof(b), "%s %s", std::string(size_t(p->rarity), '*').c_str(), kRarityName[p->rarity]);
-  r_->text(b, 300, 58, 0.4f, rgb(kRarityColor[p->rarity]), 1);
+  r_->text(b, 300, 50, 0.38f, rgb(kRarityColor[p->rarity]), 1);
   if (!own) {
     std::snprintf(b, sizeof(b), "Aún no lo tienes. Consíguelo en el banner de %s o derrotándolo cuando salga shiny.", GEN_NAMES[p->gen - 1]);
     r_->text_wrap(b, 300, 90, 0.38f, C_MUTED, 180, 1);
@@ -1213,32 +1241,55 @@ void App::top_detail(int dex, bool shiny, bool own) {
   for (int k = 0; k < 2; ++k) {
     if (p->types[k] < 0) continue;
     const float x = p->types[1] >= 0 ? 252 + k * 52 : 278;
-    C2D_DrawRectSolid(x, 76, 0, 46, 14, rgb(kTypeColor[p->types[k]]));
-    r_->text(kTypeName[p->types[k]], x + 23, 76, 0.32f, C_TEXT, 1);
+    C2D_DrawRectSolid(x, 66, 0, 46, 14, rgb(kTypeColor[p->types[k]]));
+    r_->text(kTypeName[p->types[k]], x + 23, 66, 0.32f, C_TEXT, 1);
   }
-  auto stat = [&](const char* label, float v, float m, const char* txt, float y) {
-    r_->text(label, 210, y, 0.34f, C_MUTED);
+  // Con su naturaleza (core/mons.h): el stat que sube, en verde; el que baja, en rojo.
+  const int nat = nature_of(*s_, dex);
+  Mon q;
+  mon_with_nature(*p, nat, q);
+  const NatureDef& nd = kNatures[nat];
+  auto stat = [&](const char* label, float v, float m, const char* txt, float y, int ns) {
+    const u32 col = ns >= 0 && nd.up == ns ? C2D_Color32(0x5f, 0xe0, 0x8a, 255) : ns >= 0 && nd.down == ns ? C2D_Color32(0xff, 0x7a, 0x7a, 255) : C_MUTED;
+    r_->text(label, 210, y, 0.32f, col);
     C2D_DrawRectSolid(272, y + 3, 0, 80, 7, C2D_Color32(0, 0, 0, 140));
     C2D_DrawRectSolid(272, y + 3, 0, 80 * std::min(1.0f, v / m), 7, C_GOLD);
-    r_->text(txt, 392, y, 0.34f, C_TEXT, 2);
+    r_->text(txt, 392, y, 0.32f, col == C_MUTED ? C_TEXT : col, 2);
   };
   char t1[16], t2[16], t3[16];
-  std::snprintf(t1, sizeof(t1), "%d", p->hp); std::snprintf(t2, sizeof(t2), "×%.2f", double(p->atk)); std::snprintf(t3, sizeof(t3), "%d", p->spd);
-  stat("Vida", float(p->hp), 183, t1, 98);
-  stat("Ataque", p->atk, 1.55f, t2, 112);
-  stat("Velocidad", float(p->spd), 137, t3, 126);
-  std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0)].name);
-  r_->text_fit(b, 300, 144, 196, 0.36f, C_GOLD, true, 1);
+  const int ns_atk = q.sa > q.pa ? NS_SA : NS_PA;
+  std::snprintf(t1, sizeof(t1), "%d", p->hp); std::snprintf(t2, sizeof(t2), "×%.2f", double(q.atk)); std::snprintf(t3, sizeof(t3), "%d", int(q.spd));
+  stat("Vida", float(p->hp), 183, t1, 84, -1);
+  stat("Ataque", q.atk, 1.55f, t2, 96, ns_atk);
+  stat("Velocidad", float(q.spd), 137, t3, 108, NS_SPD);
+  // Naturaleza y habilidad (se cambian en su ficha: SELECT).
+  {
+    char l[32];
+    if (nd.up < 0) std::snprintf(l, sizeof(l), "%s", tr("neutra"));
+    else std::snprintf(l, sizeof(l), "+%s −%s", tr(nd.up == NS_PA ? "Atq" : nd.up == NS_SA ? "AtE" : nd.up == NS_DF ? "Def" : nd.up == NS_SD ? "DfE" : "Vel"),
+                       tr(nd.down == NS_PA ? "Atq" : nd.down == NS_SA ? "AtE" : nd.down == NS_DF ? "Def" : nd.down == NS_SD ? "DfE" : "Vel"));
+    r_->text(tr("Naturaleza"), 210, 124, 0.32f, C_MUTED);
+    std::snprintf(b, sizeof(b), "%s · %s", nature_name(nat), l);
+    r_->text_fit(b, 276, 124, 118, 0.34f, C_TEXT);
+    const AbilPick ab = abil_of(*s_, dex);
+    r_->text(tr("Habilidad"), 210, 138, 0.32f, C_MUTED);
+    r_->text_fit(ab.id >= 0 ? abil_name(ab.id) : "—", 276, 138, 118, 0.34f, ab.slot == 2 ? C_GOLD : C_TEXT);
+  }
+  const uint64_t taught = tm_taught_bits(*s_, dex);
+  std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0, taught)].name);
+  r_->text_fit(b, 300, 154, 196, 0.36f, C_GOLD, true, 1);
   int16_t pool[kMaxMoves];
-  const int np = move_pool_for_dex(dex, p->types, pool, kMaxMoves);
+  const int np = move_pool_for_dex(dex, p->types, pool, kMaxMoves, taught);
   for (int i = 0; i < np && i < 20; ++i) {
     const int ic = r_->move_icon[pool[i]];
-    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 214 + (i % 10) * 18, 162 + (i / 10) * 18, 0);
+    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 214 + (i % 10) * 18, 170 + (i / 10) * 18, 0);
   }
-  if (dex == s_->partner) r_->text("Es tu compañero", 300, 206, 0.4f, C2D_Color32(0x5f, 0xe0, 0x8a, 255), 1);
+  if (np > 20) { std::snprintf(b, sizeof(b), "+%d", np - 20); r_->text(b, 396, 188, 0.32f, C_MUTED, 2); }
+  if (dex == s_->partner) r_->text("Es tu compañero", 300, 210, 0.38f, C2D_Color32(0x5f, 0xe0, 0x8a, 255), 1);
+  else r_->text("SELECT: su ficha", 300, 210, 0.34f, C_MUTED, 1);
   if (dex >= 0 && dex <= kMaxDex && s_->arceus_win[dex] > 0) {   // medalla: derrotó a Arceus (modo rápido)
-    r_->draw_medal(214, 226, 7);
-    r_->text("¡Derrotó a Arceus!", 228, 220, 0.38f, C_GOLD, 0);
+    r_->draw_medal(214, 228, 7);
+    r_->text("¡Derrotó a Arceus!", 228, 222, 0.36f, C_GOLD, 0);
   }
 }
 
@@ -1246,46 +1297,52 @@ void App::top_detail(int dex, bool shiny, bool own) {
 // (la web, 2026-10-25: iconos al doble y, al tocarlos, tipo, categoría y qué hace)
 
 namespace {
-constexpr int kMvCols = 8;
-constexpr float kMvX0 = 16, kMvY0 = 48, kMvStep = 37, kMvIcon = 2.0f;   // iconos de 16 px al doble
+// Iconos de 16 px al doble, 8 por fila; con muchos (sus MT), más pequeños y 10 por fila.
+struct MvGrid { int cols; float x0, y0, step, icon; };
+MvGrid mv_grid(int n) { return n > 32 ? MvGrid{10, 14, 48, 30, 1.5f} : MvGrid{8, 16, 48, 37, 2.0f}; }
 }
 
 int App::dex_moves(int dex, int16_t* out) {
   const Mon* m = mon_by_dex(dex);
-  return m ? move_pool_for_dex(dex, m->types, out, kMaxMoves) : 0;
+  return m ? move_pool_for_dex(dex, m->types, out, kMaxMoves, tm_taught_bits(*s_, dex)) : 0;   // (con sus MT)
 }
 
 void App::in_dex_moves(const UiIn& in, int dex) {
   int16_t pool[kMaxMoves];
   const int n = dex_moves(dex, pool);
   if (!n) { dex_moves_ = false; return; }
+  const MvGrid G = mv_grid(n);
   if (in.rep & KEY_DLEFT) mv_cur_--;
   if (in.rep & KEY_DRIGHT) mv_cur_++;
-  if (in.rep & KEY_DUP) mv_cur_ -= kMvCols;
-  if (in.rep & KEY_DDOWN) mv_cur_ += kMvCols;
+  if (in.rep & KEY_DUP) mv_cur_ -= G.cols;
+  if (in.rep & KEY_DDOWN) mv_cur_ += G.cols;
   mv_cur_ = clamp(mv_cur_, 0, n - 1);
   for (int i = 0; i < n; ++i)
-    if (in_rect(&in, kMvX0 + (i % kMvCols) * kMvStep - 2, kMvY0 + (i / kMvCols) * kMvStep - 2, 36, 36)) { mv_cur_ = i; audio::play("hover"); }
-  if (in.down & (KEY_B | KEY_SELECT)) { dex_moves_ = false; audio::play("back"); }
+    if (in_rect(&in, G.x0 + (i % G.cols) * G.step - 2, G.y0 + (i / G.cols) * G.step - 2, G.step - 1, G.step - 1)) { mv_cur_ = i; audio::play("hover"); }
 }
 
 void App::bottom_dex_moves(int dex) {
   int16_t pool[kMaxMoves];
   const int n = dex_moves(dex, pool);
   char b[64];
-  std::snprintf(b, sizeof(b), "Ataques de %s", mon_by_dex(dex)->name);
+  std::snprintf(b, sizeof(b), "%s · %s", mon_by_dex(dex)->name, tr("Ataques"));
   header(b);
-  r_->text("Toca uno (o muévete con la cruceta) para ver qué hace", 160, 30, 0.32f, C_MUTED, 1);
+  const MvGrid G = mv_grid(n);
+  const float box = G.icon * 16;
+  const uint64_t taught = tm_taught_bits(*s_, dex);
   for (int i = 0; i < n; ++i) {
-    const float x = kMvX0 + (i % kMvCols) * kMvStep, y = kMvY0 + (i / kMvCols) * kMvStep;
+    const float x = G.x0 + (i % G.cols) * G.step, y = G.y0 + (i / G.cols) * G.step;
     const bool sel = i == mv_cur_;
     const MoveDef& d = kMoves[pool[i]];
-    C2D_DrawRectSolid(x - 2, y - 2, 0, 36, 36, sel ? C_GOLD : rgb(kTypeColor[d.type], 90));
-    C2D_DrawRectSolid(x, y, 0, 32, 32, sel ? C_SEL : C_PANEL);
+    C2D_DrawRectSolid(x - 2, y - 2, 0, box + 4, box + 4, sel ? C_GOLD : rgb(kTypeColor[d.type], 90));
+    C2D_DrawRectSolid(x, y, 0, box, box, sel ? C_SEL : C_PANEL);
     const int ic = r_->move_icon[pool[i]];
-    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), x, y, 0, nullptr, kMvIcon, kMvIcon);
+    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), x, y, 0, nullptr, G.icon, G.icon);
+    // (los aprendidos con MT, con su marca: «MT» pequeñito en la esquina)
+    const int tm = tm_index_of_move(pool[i]);
+    if (tm >= 0 && ((taught >> tm) & 1u)) { C2D_DrawRectSolid(x + box - 13, y, 0, 13, 8, C2D_Color32(127, 147, 255, 230)); r_->text("MT", x + box - 6.5f, y - 1, 0.24f, C_TEXT, 1, false); }
   }
-  r_->text("B o SELECT: volver", 160, 226, 0.32f, C_MUTED, 1);
+  r_->text("Toca uno para ver qué hace · L/R: pestaña · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
 
 void App::top_dex_move(int dex) {
@@ -1311,9 +1368,11 @@ void App::top_dex_move(int dex) {
   // De dónde le viene y si evoluciona.
   const Mon* m = mon_by_dex(dex);
   const bool natural = d.type == T_NORMAL || d.type == m->types[0] || d.type == m->types[1];
+  const int tmi = tm_index_of_move(id);
   float y = 172;
-  if (!natural) { r_->text_fit("Lo aprende por MT o tutor (como en los juegos)", 150, y, 240, 0.34f, C2D_Color32(0x9a, 0xe6, 0xff, 255)); y += 16; }
-  if (id == move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0)) { r_->text("Empieza con él", 150, y, 0.34f, C_GOLD); y += 16; }
+  if (tmi >= 0 && tm_taught(*s_, dex, tmi)) { r_->text_fit("Lo aprendió con una MT (Tienda Kecleon)", 150, y, 240, 0.34f, C2D_Color32(0x9a, 0xe6, 0xff, 255)); y += 16; }
+  else if (!natural) { r_->text_fit("Lo aprende por MT o tutor (como en los juegos)", 150, y, 240, 0.34f, C2D_Color32(0x9a, 0xe6, 0xff, 255)); y += 16; }
+  if (id == move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0, tm_taught_bits(*s_, dex))) { r_->text("Empieza con él", 150, y, 0.34f, C_GOLD); y += 16; }
   if (d.evo_need >= 0 && d.evo_name) {
     char b[96];
     std::snprintf(b, sizeof(b), "Evoluciona a %s: al nivel máximo, con una carta de %s", d.evo_name, kNeedName[d.evo_need]);
@@ -1384,8 +1443,8 @@ int es_cmp(const char* a, const char* b) {
 }
 
 // Movimientos para empezar (G.startChoices), por nombre.
-int start_choices_sorted(int dex, int16_t* out) {
-  const int n = move_start_choices(dex, out, kMaxMoves);
+int start_choices_sorted(const Save& s, int dex, int16_t* out) {
+  const int n = move_start_choices(dex, out, kMaxMoves, tm_taught_bits(s, dex));
   for (int a = 1; a < n; ++a) {
     const int16_t v = out[a];
     int b = a - 1;
@@ -1396,8 +1455,8 @@ int start_choices_sorted(int dex, int16_t* out) {
 }
 // «Repertorio»: candidatos al segundo movimiento, por nombre (el inicial no).
 int move2_choices_sorted(const Save& s, int dex, int16_t* out) {
-  const int st = move_start_for(dex, s.pstart[dex], s.pupg[dex][UP_START] > 0);
-  const int n = move_second_choices(dex, st, out, kMaxMoves);
+  const int st = move_start_for(dex, s.pstart[dex], s.pupg[dex][UP_START] > 0, tm_taught_bits(s, dex));
+  const int n = move_second_choices(dex, st, out, kMaxMoves, tm_taught_bits(s, dex));
   for (int a = 1; a < n; ++a) {
     const int16_t v = out[a];
     int b = a - 1;
@@ -1420,8 +1479,8 @@ void App::in_upgrades(const UiIn& in) {
   if (scene == SC_BIND) {
     // Atajos: 4 huecos, izquierda/derecha cambia el movimiento.
     int16_t pool[kMaxMoves];
-    int np = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves);
-    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
+    int np = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves, tm_taught_bits(*s_, up_dex_));
+    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0, tm_taught_bits(*s_, up_dex_));
     bool has = false;
     for (int i = 0; i < np; ++i) if (pool[i] == st) has = true;
     if (!has) pool[np++] = int16_t(st);
@@ -1445,7 +1504,7 @@ void App::in_upgrades(const UiIn& in) {
   if (scene == SC_START) {
     // Movimiento inicial (comprado una vez; se elige gratis cuando quieras).
     int16_t ids[kMaxMoves];
-    const int n = start_choices_sorted(up_dex_, ids);
+    const int n = start_choices_sorted(*s_, up_dex_, ids);
     if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - 1);
     if (in.rep & KEY_DDOWN) cur_ = std::min(n - 1, cur_ + 1);
     if (cur_ < scroll_) scroll_ = cur_;
@@ -1496,8 +1555,8 @@ void App::in_upgrades(const UiIn& in) {
   }
   if (scene == SC_BAN) {
     int16_t pool[kMaxMoves];
-    int np0 = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
-    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
+    int np0 = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves, tm_taught_bits(*s_, up_dex_)), np = 0;
+    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0, tm_taught_bits(*s_, up_dex_));
     for (int i = 0; i < np0; ++i) if (pool[i] != st) pool[np++] = pool[i];   // el de inicio no se veta
     if (in.rep & KEY_DUP) cur_ = std::max(0, cur_ - 1);
     if (in.rep & KEY_DDOWN) cur_ = std::min(np - 1, cur_ + 1);
@@ -1598,8 +1657,8 @@ void App::bottom_upgrades() {
   }
   if (scene == SC_START) {
     int16_t ids[kMaxMoves];
-    const int n = start_choices_sorted(up_dex_, ids);
-    const int cur = move_start_for(up_dex_, s_->pstart[up_dex_], true), base = move_base_start_for(up_dex_);
+    const int n = start_choices_sorted(*s_, up_dex_, ids);
+    const int cur = move_start_for(up_dex_, s_->pstart[up_dex_], true, tm_taught_bits(*s_, up_dex_)), base = move_base_start_for(up_dex_);
     r_->text("Elige con qué ataque empieza (gratis, cuando quieras)", 160, 25, 0.34f, C_MUTED, 1);
     for (int i = 0; i < 9 && scroll_ + i < n; ++i) {
       const int id = ids[scroll_ + i];
@@ -1639,8 +1698,8 @@ void App::bottom_upgrades() {
   }
   if (scene == SC_BAN) {
     int16_t pool[kMaxMoves];
-    int np0 = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves), np = 0;
-    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0);
+    int np0 = move_pool_for_dex(up_dex_, mon_by_dex(up_dex_)->types, pool, kMaxMoves, tm_taught_bits(*s_, up_dex_)), np = 0;
+    const int st = move_start_for(up_dex_, s_->pstart[up_dex_], s_->pupg[up_dex_][UP_START] > 0, tm_taught_bits(*s_, up_dex_));
     for (int i = 0; i < np0; ++i) if (pool[i] != st) pool[np++] = pool[i];
     int cnt = 0;
     for (int k = 0; k < 3; ++k) if (s_->pban[up_dex_][k] >= 0) cnt++;
@@ -1918,6 +1977,17 @@ void App::top_pull() {
     std::snprintf(b, sizeof(b), "%s%s", r.shiny ? "★ " : "", mon_by_dex(r.dex)->name);
     r_->text(b, 200, 196, 0.5f, C_TEXT, 1);
     if (r.is_new) r_->text(r.shiny ? "¡SHINY NUEVO!" : "¡NUEVO!", 200, 216, 0.42f, C_GOLD, 1);
+    // Nuevo: con qué naturaleza y habilidad le ha tocado (la oculta, en dorado), como la web.
+    if (r.is_new) {
+      const AbilPick ab = abil_of(*s_, r.dex);
+      C2D_DrawRectSolid(292, 92, 0, 104, 80, C2D_Color32(20, 12, 34, 220));
+      C2D_DrawRectSolid(292, 92, 0, 104, 2, rgb(kRarityColor[r.rarity]));
+      r_->text(tr("Naturaleza"), 344, 98, 0.3f, C_MUTED, 1);
+      r_->text_fit(nature_name(nature_of(*s_, r.dex)), 344, 110, 98, 0.38f, C_TEXT, false, 1);
+      r_->text(tr("Habilidad"), 344, 132, 0.3f, C_MUTED, 1);
+      r_->text_fit(ab.id >= 0 ? abil_name(ab.id) : "—", 344, 144, 98, 0.38f, ab.slot == 2 ? C_GOLD : C_TEXT, false, 1);
+      if (ab.slot == 2) r_->text(tr("oculta"), 344, 158, 0.28f, C_GOLD, 1);
+    }
     else { std::snprintf(b, sizeof(b), "Repetido · +%d", r.refund); r_->text(b, 200, 216, 0.38f, C_MUTED, 1); }
   }
 }
@@ -2275,7 +2345,7 @@ void App::draw_top(float eye) {
       case SC_DEX: {
         static int16_t list[256];
         const int n = dex_list(*s_, gen_, filter_, list);
-        if (n && dex_moves_) top_dex_move(list[std::min(cur_, n - 1)]);
+        if (n && dex_moves_) top_ficha(list[std::min(cur_, n - 1)]);
         else if (n) top_detail(list[std::min(cur_, n - 1)], view_shiny_, s_->owns(list[std::min(cur_, n - 1)]));
         break;
       }
@@ -2286,7 +2356,7 @@ void App::draw_top(float eye) {
         r_->text(mon_by_dex(up_dex_)->name, pick ? 96 : 200, 14, 0.6f, C_TEXT, 1);
         if (scene == SC_START || scene == SC_MOVE2) {
           int16_t ids[kMaxMoves];
-          const int n = scene == SC_START ? start_choices_sorted(up_dex_, ids) : move2_choices_sorted(*s_, up_dex_, ids);
+          const int n = scene == SC_START ? start_choices_sorted(*s_, up_dex_, ids) : move2_choices_sorted(*s_, up_dex_, ids);
           const int row = scene == SC_START ? cur_ : cur_ - 1;   // (en «Repertorio», la fila 0 es «al azar»)
           if (row >= 0 && row < n) top_pick_move(ids[row]);
         }

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "core/abilities.h"
 #include "core/game.h"
 
 namespace ps {
@@ -159,7 +160,10 @@ void interact_trap(Game& g, const Prop& p) {
     else if (k == 1) { enemy_apply_slow(*e, 0.65f, 4.5f); enemy_hurt(g, *e, 4, 0x8bd94a); }
     else enemy_hurt(g, *e, 90 + lvl * 18.0f, 0xff7b3d, e->x - x, e->y - y, 220);
   }
-  if (pl.active && !pl.dead && dist2(x, y, pl.x, pl.y) < (TRAP_R * 0.7f) * (TRAP_R * 0.7f)) {
+  // (Levitación y Muro Mágico: las trampas no les hacen nada; Flexibilidad y
+  // parecidas, la pegajosa no les frena. Ver abilities.h.)
+  if (pl.active && !pl.dead && dist2(x, y, pl.x, pl.y) < (TRAP_R * 0.7f) * (TRAP_R * 0.7f) && !abil_levitate(pl) && !abil_trap_proof(pl) &&
+      !(k == 1 && abil_steady(pl))) {
     pl.invuln = 0;
     if (k == 0) player_hurt(g, pl, pl.max_hp * 0.1f);
     else if (k == 1) { pl.slow_t = 3.5f; g.fx.dmg_text(pl.x, pl.y - pl.body_h - 6, "¡Pegajoso!", 0x8bd94a); }

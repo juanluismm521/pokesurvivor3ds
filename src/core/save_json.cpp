@@ -15,6 +15,7 @@
 
 #include "core/halloween.h"
 #include "core/json.h"
+#include "core/mons.h"
 #include "core/moves.h"
 #include "core/progress.h"
 #include "core/types.h"
@@ -131,13 +132,46 @@ std::string save_to_json(const Save& s) {
   Json pity = Json::object();
   for (int g = 0; g <= 10; ++g) if (s.pity[g]) pity.set(num_key(g), Json::num(s.pity[g]));
   o.set("pity", std::move(pity));
-  // Halloween (web, 25-10-2026): caramelos en la Mochila (siempre: si se gastan, que
-  // el 0 pise lo que hubiera), disfraces comprados y el puesto de cada Pokémon.
-  if (s.candy > 0 || s.candy_known) {
+  // La Mochila (Tienda Kecleon, 20-10-2026; Halloween, 25-10-2026): lo que se tiene o
+  // se ha tenido (si se gasta, que el 0 pise lo que hubiera), y las MT sin usar igual.
+  {
     Json bag = Json::object();
-    bag.set("candy", Json::num(s.candy));
-    o.set("bag", std::move(bag));
+    for (int k = 0; k < BAG_COUNT; ++k)
+      if (s.bag[k] > 0 || ((s.bag_known >> k) & 1u)) bag.set(kShopItems[k].id, Json::num(s.bag[k]));
+    if (s.candy > 0 || s.candy_known) bag.set("candy", Json::num(s.candy));
+    if (bag.size()) o.set("bag", std::move(bag));
+    Json tms = Json::object();
+    for (int i = 0; i < kTmCount && i < kMaxTms; ++i)
+      if (s.tms[i] > 0 || ((s.tms_known >> i) & 1u)) tms.set(kMoves[kTms[i].move].id, Json::num(s.tms[i]));
+    if (tms.size()) o.set("tms", std::move(tms));
   }
+  // MT aprendidas ({dex: [movimientos]}), naturaleza y habilidad cambiadas ({dex: [valor, fecha]}).
+  {
+    Json ptm = Json::object(), pnat = Json::object(), pabil = Json::object();
+    for (int d = 0; d <= kMaxDex; ++d) {
+      if (s.ptm[d]) {
+        Json l = Json::array();
+        for (int i = 0; i < kTmCount; ++i) if ((s.ptm[d] >> i) & 1u) l.push(Json::str(kMoves[kTms[i].move].id));
+        ptm.set(num_key(d), std::move(l));
+      }
+      if (s.pnat[d] >= 0 && s.pnat[d] < kNatureCount) {
+        Json e = Json::array();
+        e.push(Json::str(kNatures[s.pnat[d]].id));
+        e.push(Json::num(double(s.pnat_at[d])));
+        pnat.set(num_key(d), std::move(e));
+      }
+      if (s.pabil[d] >= 0 && s.pabil[d] <= 2) {
+        Json e = Json::array();
+        e.push(Json::num(s.pabil[d]));
+        e.push(Json::num(double(s.pabil_at[d])));
+        pabil.set(num_key(d), std::move(e));
+      }
+    }
+    if (ptm.size()) o.set("ptm", std::move(ptm));
+    if (pnat.size()) o.set("pnat", std::move(pnat));
+    if (pabil.size()) o.set("pabil", std::move(pabil));
+  }
+  // Halloween (web, 25-10-2026): disfraces comprados y el puesto de cada Pokémon.
   Json skins = Json::object();
   for (int k = 0; k < kSkinCount && k < 8; ++k) if (s.skin_at[k] > 0) skins.set(kSkins[k].id, Json::num(double(s.skin_at[k])));
   if (skins.size()) o.set("skins", std::move(skins));
@@ -268,6 +302,33 @@ bool save_from_json(Save& s, const std::string& text) {
   else for (const auto& kv : o["pity"].items()) { const int g = std::atoi(kv.first.c_str()); if (g >= 0 && g <= 10 && !kv.first.empty()) s.pity[g] = n0(kv.second); }
   s.candy = n0(o["bag"]["candy"]);
   s.candy_known = o["bag"].has("candy");
+  // Tienda Kecleon (sanitize de db.js: cuántas de cada cosa que exista, tope 999).
+  for (int k = 0; k < BAG_COUNT; ++k)
+    if (o["bag"].has(kShopItems[k].id)) { s.bag[k] = std::min(999, n0(o["bag"][kShopItems[k].id])); s.bag_known |= uint8_t(1u << k); }
+  for (int i = 0; i < kTmCount && i < kMaxTms; ++i) {
+    const char* id = kMoves[kTms[i].move].id;
+    if (o["tms"].has(id)) { s.tms[i] = int16_t(std::min(999, n0(o["tms"][id]))); s.tms_known |= uint64_t(1) << i; }
+  }
+  for (const auto& kv : o["ptm"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d <= 0 || d > kMaxDex || !mon_by_dex(d) || !kv.second.is_arr()) continue;
+    for (const Json& id : kv.second.elems()) {
+      const int tm = id.is_str() ? tm_index_of_move(move_index(id.as_str().c_str())) : -1;
+      if (tm >= 0) s.ptm[d] |= uint64_t(1) << tm;
+    }
+  }
+  for (const auto& kv : o["pnat"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d <= 0 || d > kMaxDex || !mon_by_dex(d) || !kv.second.is_arr() || !kv.second[0].is_str()) continue;
+    for (int n = 0; n < kNatureCount; ++n)
+      if (kv.second[0].as_str() == kNatures[n].id) { s.pnat[d] = int8_t(n); s.pnat_at[d] = int64_t(n0(kv.second[1])); }
+  }
+  for (const auto& kv : o["pabil"].items()) {
+    const int d = std::atoi(kv.first.c_str());
+    if (d <= 0 || d > kMaxDex || !mon_by_dex(d) || !kv.second.is_arr() || !kv.second[0].is_num()) continue;
+    const double v = kv.second[0].as_num();
+    if (v == 0 || v == 1 || v == 2) { s.pabil[d] = int8_t(v); s.pabil_at[d] = int64_t(n0(kv.second[1])); }
+  }
   for (const auto& kv : o["skins"].items()) {
     const int k = skin_index(kv.first.c_str());
     if (k >= 0 && k < 8 && kv.second.is_num() && kv.second.as_num() > 0) s.skin_at[k] = int64_t(kv.second.as_num());

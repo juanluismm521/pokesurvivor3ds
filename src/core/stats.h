@@ -18,7 +18,7 @@
 namespace ps {
 
 // Multiplicador del daño que recibe quien tiene esa defensa base (guard).
-inline float stats_guard(int def) {
+inline float stats_guard(float def) {
   const double REF = 75, EXP = 0.35, LO = 0.78, HI = 1.25;
   const double d = def ? double(def) : REF;
   const double k = std::pow(REF / (d > 5 ? d : 5), EXP);

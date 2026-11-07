@@ -27,6 +27,12 @@ enum Scene : int8_t {
   SC_GIFT      // Regalos (core/gift.h)
 };
 
+// Pestañas de la ficha de un Pokémon (Colección → SELECT; app_ficha.cpp).
+enum FichaTab : int8_t { FT_MOVES, FT_NATURE, FT_ABILITY, FT_TM, FT_COUNT };
+
+// Lista de la Colección: los de una región con un filtro (app.cpp).
+int dex_list(const Save& s, int gen, int filter, int16_t* out);
+
 struct UiIn {
   u32 down = 0, held = 0, rep = 0;   // rep: pulsaciones con repetición (cruceta)
   bool tap = false;                   // toque nuevo en la pantalla de abajo
@@ -69,7 +75,8 @@ class App {
   int denied = 0;               // (autotest) veces que el anfitrión no te ha dejado entrar
   FILE* autolog = nullptr;      // (autotest) el log, para apuntar lo que pasa en la sala
   void bottom_mode();
-  // Halloween (app_shop.cpp): la Tienda Kecleon y la cuenta atrás.
+  // La Tienda Kecleon (app_shop.cpp): Mentas, Cápsulas, MT del día y la Mochila
+  // (y en Halloween, los disfraces de bruja), con su puesto arriba.
   void open_shop();
   void in_shop(const UiIn& in);
   void bottom_shop();
@@ -79,6 +86,36 @@ class App {
   void top_shop_badge();          // menú, arriba a la derecha: la Tienda Kecleon (R)
   void shop_demo_step(float dt);
   bool shop_demo_ = false;
+  bool shop_new_day() const;      // hay MT nuevas sin ver (punto rojo en el menú)
+  int shop_rows(void* out);       // filas de la lista de abajo (Row de app_shop.cpp)
+  void shop_counts();             // cuántos de tus Pokémon pueden aprender cada MT
+  void shop_say(const char* s);   // bocadillo del Kecleon morado
+  void shop_cheer();              // saltos y confeti al comprar
+  void shop_stall(float dt);
+  int shop_tab_ = 0, shop_sel_ = -1;
+  float shop_scroll_ = 0;
+  char shop_say_[96] = {};
+  float shop_say_t_ = 0, shop_cheer_t_ = 0, shop_t0_ = 0;
+  int shop_learn_[64] = {};
+  int shop_today_[8] = {};
+  int shop_ntoday_ = 0;
+  char shop_day_[12] = "";
+  struct ShopBit { float x, y, vx, vy, t, life; uint32_t c; };
+  static constexpr int kShopBits = 64;
+  ShopBit shop_bits_[kShopBits];
+  int shop_nbits_ = 0;
+  // La ficha de un Pokémon (app_ficha.cpp): pestaña, cursor y desplazamiento.
+  void open_ficha(int dex, int tab);
+  void in_ficha(const UiIn& in, int dex);
+  void bottom_ficha(int dex);
+  void top_ficha(int dex);
+  int ficha_tab_ = FT_MOVES, fi_cur_ = 0, fi_scroll_ = 0;
+  // Autotest «ficha»: la ficha de su compañero, pestaña a pestaña (capturas).
+  void start_ficha_demo();
+  void ficha_demo_step(float dt);
+  bool ficha_demo_ = false;
+  // Pruebas (autotest): naturaleza y habilidad de la partida («naturaleza=bold habilidad=static»).
+  int auto_nature = -1, auto_abil = -1;
   void start_update_demo();        // autotest "actualizar": busca y baja la versión nueva (para grabarlo)   // autotest "novedades [dex]": las novedades y el menú con ese compañero
   bool tour = false;
   void update(const UiIn& in, float dt);

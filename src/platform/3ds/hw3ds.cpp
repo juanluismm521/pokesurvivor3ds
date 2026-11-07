@@ -27,6 +27,11 @@ int64_t utc_now(bool& from_server) {
 }
 }  // namespace
 
+int64_t utc_ms() {
+  bool srv;
+  return utc_now(srv);
+}
+
 void force(int v) { g_force = v; }
 bool forced() { return g_force >= 0; }
 

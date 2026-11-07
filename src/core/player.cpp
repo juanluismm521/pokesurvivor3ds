@@ -5,7 +5,9 @@
 #include <cmath>
 #include <cstdio>
 
+#include "core/abilities.h"
 #include "core/game.h"
+#include "core/mons.h"
 #include "core/orbs.h"
 #include "core/mega.h"
 #include "core/stats.h"
@@ -19,11 +21,14 @@ float xp_for(int level) {
 }
 
 void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) {
-  (void)g;
   p = Player();
   p.active = true;
   p.dex = int16_t(dex);
-  p.mon = mon_by_dex(dex);
+  // Con su naturaleza (core/mons.h): una copia suya, kDex no se toca.
+  p.nature = int8_t(cfg.nature >= 0 && cfg.nature < kNatureCount ? cfg.nature : -1);
+  p.taught = cfg.taught;
+  mon_with_nature(*mon_by_dex(dex), p.nature, p.mon_buf);
+  p.mon = &p.mon_buf;
   p.shiny = shiny && has_shiny(dex);
   // Los grandes, algo más pequeños y con el choque de uno normal (anim.h).
   p.scale = player_scale(dex);
@@ -37,6 +42,10 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
   p.max_hp = p.mon->hp + k.hp;
   p.hp = p.max_hp;
   p.base_spd = p.mon->spd;
+  if (p.nature >= 0) {   // (la velocidad exacta: Mon::spd es entera)
+    const NatureDef& n = kNatures[p.nature];
+    p.base_spd = float(double(mon_by_dex(dex)->spd) * (n.up == NS_SPD ? 1.1 : n.down == NS_SPD ? 0.9 : 1.0));
+  }
   p.base_atk = p.mon->atk;
   p.xp_next = xp_for(1);
   p.reroll_bonus = k.rerolls;
@@ -45,6 +54,8 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
   p.four_up = cfg.four_up;
   for (auto& b : p.bind) b = -1;
   for (int s = 0; s < 4; ++s) for (int j = 0; j < 4; ++j) p.slots[s][j] = -1;
+  // Su habilidad (abilities.h): lo que hace al empezar, con las mejoras ya puestas.
+  abil_setup(g, p, cfg.abil);
 }
 
 // ---------------- stats efectivos ----------------
@@ -63,10 +74,12 @@ float player_atk_for(const Player& p, const MoveInst& m) {
 }
 
 float player_spd(Game& g, const Player& p) {
-  const float s = p.base_spd * p.spd_mul * (1 + p.buffs[BS_SPD].n * p.buffs[BS_SPD].amount) * (p.slow_t > 0 ? 0.5f : 1);
+  // (Habilidades: las «firmes» no se frenan; abil_speed multiplica.)
+  const bool steady = abil_steady(p), stuck = p.slow_t > 0 && !steady;
+  const float s = p.base_spd * p.spd_mul * (1 + p.buffs[BS_SPD].n * p.buffs[BS_SPD].amount) * (stuck ? 0.5f : 1) * abil_speed(g, p);
   const float w = weather_speed_for(g, p.mon->types);
   float slow = 1;
-  if (p.in_liquid) { const LiquidFx le = g.world.liquid_effect(p.mon->types); if (le.slow > 0) slow = le.slow; }
+  if (p.in_liquid && !steady) { const LiquidFx le = g.world.liquid_effect(p.mon->types); if (le.slow > 0) slow = le.slow; }
   // En la Sentencia, la velocidad tiene tope suave (contra la huida sin fin).
   if (!judgment_active(g)) return s * slow * w;
   return g.cfg.mode == MODE_QUICK ? judgment_cap_spd_quick(s * slow * w) : judgment_cap_spd(s * slow * w);
@@ -273,6 +286,21 @@ void player_cast(Game& g, Player& p, const MoveInst* m, int kind, float cd) {
 // cat: 'physical' | 'special', con qué defensa tuya se para (la del enemigo que pega).
 void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat) {
   if (p.invuln > 0 || p.dead) return;
+  // Habilidad (abilities.h): absorber un tipo, esquivar o recibir menos.
+  if (p.abil >= 0 && !pure) {
+    if (abil_absorbs(p, type)) {
+      p.invuln = 0.3f;
+      player_heal(g, p, p.max_hp * 0.03f);
+      return;
+    }
+    const float dodge = abil_dodge(g, p, type, cat);
+    if (dodge > 0 && g.rng.next() < dodge) {
+      p.invuln = 0.3f;
+      g.fx.dmg_text(p.x, p.y - p.body_h - 4, "¡Esquiva!", 0xbfe8ff);
+      return;
+    }
+    amount *= abil_in_mul(g, p, type, cat);
+  }
   if (!pure) amount *= stats_taken(p.mon, cat);
   int eff = EFF_NONE;
   if (type >= 0) {
@@ -300,6 +328,14 @@ void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat)
     g.fx.dmg_text(p.x, p.y - p.body_h - 16, "¡Banda Focus!", 0xff9a3d, true);
     g.fx.ring(p.x, p.y, 6, 70, 0xff9a3d, 0.5f, 4);
   }
+  // Robustez (habilidad): lo mismo, una vez cada 90 s.
+  if (p.hp <= 0 && abil_sturdy(p) && g.time - p.ab_sturdy > 90) {
+    p.ab_sturdy = float(g.time);
+    p.hp = 1; p.invuln = 1.2f;
+    g.fx.dmg_text(p.x, p.y - p.body_h - 16, "¡Robustez!", 0xc9b48a, true);
+    g.fx.ring(p.x, p.y, 6, 70, 0xc9b48a, 0.5f, 4);
+  }
+  if (p.abil >= 0 && p.hp > 0) abil_hurt(g, p, type, cat);
   if ((g.debug_immortal || g.cfg.members[int(&p - g.players) & 3].immortal) && p.hp < 1) p.hp = 1;
   if (p.hp <= 0) {
     p.hp = 0; p.dead = true;
@@ -310,6 +346,7 @@ void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat)
 }
 
 void player_heal(Game& g, Player& p, float amount) {
+  amount *= abil_heal_mul(p);     // Gula, Recogida
   const float before = p.hp;
   p.hp = std::fmin(p.max_hp, p.hp + amount);
   const int got = int(jsround(p.hp - before));
@@ -419,6 +456,7 @@ void player_update(Game& g, Player& p, const Input& in, float dt) {
   if (p.power.def >= 0 && (p.power.t -= dt) <= 0) { power_off(p, p.power.def); p.power.def = -1; }
   const float rg = player_regen(p);
   if (rg > 0) p.hp = std::fmin(p.max_hp, p.hp + rg * dt);
+  if (p.abil >= 0) abil_tick(g, p, dt);
 
   // --- movimiento con colisiones ---
   const float ax = p.frozen ? 0 : in.ax, ay = p.frozen ? 0 : in.ay;
@@ -434,10 +472,11 @@ void player_update(Game& g, Player& p, const Input& in, float dt) {
   if (p.walking) p.move_angle = std::atan2(ay, ax);
 
   // --- terreno líquido ---
-  p.in_liquid = g.world.is_liquid(p.x, p.y);
+  // (Levitación: flota por encima del agua y la lava.)
+  p.in_liquid = !abil_levitate(p) && g.world.is_liquid(p.x, p.y);
   if (p.in_liquid) {
     const LiquidFx le = g.world.liquid_effect(p.mon->types);
-    if (le.dmg > 0) {
+    if (le.dmg > 0 && !abil_lava_proof(p)) {
       p.lava_tick -= dt;
       if (p.lava_tick <= 0) {
         p.lava_tick = le.every; p.invuln = 0;

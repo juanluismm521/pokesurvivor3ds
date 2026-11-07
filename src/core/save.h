@@ -13,6 +13,10 @@ constexpr int kStartCoins = 500;   // START_COINS de db.js
 
 enum From : int8_t { FROM_NONE = 0, FROM_STARTER, FROM_GACHA, FROM_WILD, FROM_RESCUE, FROM_OTHER };
 
+// La Mochila de la Tienda Kecleon (shop.js ITEMS, en su orden; los caramelos van aparte).
+enum BagItem : int8_t { BAG_MINT, BAG_CAP, BAG_CAPH, BAG_COUNT };
+constexpr int kMaxTms = 64;              // (kTmCount ≤ 64: ver gen_data.js)
+
 struct Mission {
   int8_t def = -1;          // índice en kMissions
   int32_t goal = 0;
@@ -67,6 +71,22 @@ struct Save {
   int64_t skin_at[8] = {};               // por índice de kSkins (0 = no lo tiene)
   int8_t pskin[kMaxDex + 1];             // disfraz puesto (índice de kSkins; -1 ninguno)
   int64_t pskin_at[kMaxDex + 1] = {};    // cuándo se puso o quitó (gana el más reciente al juntar)
+  // Tienda Kecleon (web, 20-10-2026; core/mons.h): la Mochila (bag: Menta y
+  // Cápsulas, en la libreta como "b:<id>"), las MT sin usar (tms {movimiento: n},
+  // "m:<id>"), las aprendidas por cada Pokémon (ptm, para siempre; bit = kTms) y la
+  // naturaleza y la habilidad cambiadas (pnat / pabil {dex: [valor, fecha]}; -1:
+  // la que le tocó, que no se guarda).
+  int32_t bag[BAG_COUNT] = {};
+  int16_t tms[kMaxTms] = {};             // por índice de kTms
+  // (las que la partida tiene o ha tenido: entonces se escribe su número, también el 0,
+  // para que pise lo que hubiera en la copia de la web; bit = BagItem / kTms)
+  uint8_t bag_known = 0;
+  uint64_t tms_known = 0;
+  uint64_t ptm[kMaxDex + 1] = {};
+  int8_t pnat[kMaxDex + 1];              // índice de kNatures o -1
+  int64_t pnat_at[kMaxDex + 1] = {};
+  int8_t pabil[kMaxDex + 1];             // hueco 0, 1 o 2 (oculta) o -1
+  int64_t pabil_at[kMaxDex + 1] = {};
   int64_t legends[kMaxDex + 1] = {};
   int64_t arenas[T_COUNT] = {};
   int64_t items_found[IT_COUNT] = {};

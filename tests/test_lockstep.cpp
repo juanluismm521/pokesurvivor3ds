@@ -88,12 +88,14 @@ struct Result { bool same = true; int compared = 0; int64_t min_tick = 0; bool d
 
 // Juega `frames` fotogramas con n consolas. `on_frame` puede tocar la red.
 template <class F>
-Result play(int n, uint32_t seed, int frames, Net& net, std::vector<Console>& cs, F on_frame, const int* dexes = nullptr, bool stones = false) {
+Result play(int n, uint32_t seed, int frames, Net& net, std::vector<Console>& cs, F on_frame, const int* dexes = nullptr, bool stones = false,
+            void (*tweak)(RunConfig&) = nullptr) {
   RunConfig cfg;
   cfg.seed = seed; cfg.judged = 1; cfg.nplayers = n;
   static const int DEF[4] = {25, 4, 7, 1};
   const int* DEX = dexes ? dexes : DEF;
   for (int i = 0; i < n; ++i) { cfg.members[i].dex = DEX[i]; std::snprintf(cfg.members[i].name, 16, "J%d", i); }
+  if (tweak) tweak(cfg);
   cs.clear();
   cs.resize(size_t(n));
   for (int i = 0; i < n; ++i) {
@@ -202,6 +204,28 @@ TEST_CASE("lockstep: 4 consolas megaevolucionando a la vez van a la par") {
   CHECK(!r.desync);
   CHECK(r.compared > 300);
   CHECK(megas >= 8);
+}
+
+TEST_CASE("lockstep: 4 consolas con naturaleza, habilidad y MT de cada uno van a la par") {
+  Net net;
+  net.loss = 0.15f; net.lat_min = 1; net.lat_max = 4;
+  std::vector<Console> cs;
+  // Habilidades con azar (Entusiasmo, Veleta, Efecto Espora) y sus MT: todas las consolas igual.
+  static const int DEX[4] = {25, 4, 286, 150};
+  const Result r = play(4, 41, 60 * 150, net, cs, [](int) {}, DEX, false, [](RunConfig& c) {
+    static const char* const AB[4] = {"static", "blaze", "effect-spore", "pressure"};
+    for (int i = 0; i < 4; ++i) {
+      for (int a = 0; a < kAbilCount; ++a) if (!std::strcmp(kAbils[a].id, AB[i])) c.members[i].abil = int16_t(a);
+      c.members[i].nature = int8_t(i * 6);
+      c.members[i].taught = kDexTms[c.members[i].dex];
+    }
+    for (int a = 0; a < kAbilCount; ++a) if (!std::strcmp(kAbils[a].id, "moody")) c.members[1].abil = int16_t(a);
+  });
+  CHECK(r.same);
+  CHECK(!r.desync);
+  CHECK(r.compared > 300);
+  CHECK(cs[0].g->players[2].abil >= 0);
+  CHECK(cs[1].g->players[3].nature == 18);
 }
 
 TEST_CASE("lockstep: uno con mucho ping no frena a los demás (retraso de cada uno)") {

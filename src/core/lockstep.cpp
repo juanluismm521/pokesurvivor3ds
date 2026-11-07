@@ -55,6 +55,10 @@ static void put_member(W& w, const RunConfig::Member& m) {
   w.u8(m.test_stone ? 1 : 0);
   w.u8(uint8_t(m.skin));
   w.u8(m.four_up ? 1 : 0);
+  // Tienda Kecleon (protocolo 23): naturaleza, habilidad y MT aprendidas.
+  w.u8(uint8_t(m.nature));
+  w.u16(uint16_t(m.abil));
+  w.u32(uint32_t(m.taught)); w.u32(uint32_t(m.taught >> 32));
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
@@ -64,6 +68,13 @@ static void get_member(R& r, RunConfig::Member& m) {
   m.test_stone = r.u8() != 0;
   m.skin = int8_t(r.u8());
   m.four_up = r.u8() != 0;
+  m.nature = int8_t(r.u8());
+  m.abil = int16_t(r.u16());
+  m.taught = uint64_t(r.u32()); m.taught |= uint64_t(r.u32()) << 32;
+  if (m.nature < -1 || m.nature >= kNatureCount) m.nature = -1;
+  if (m.abil < -1 || m.abil >= kAbilCount) m.abil = -1;
+  if (m.dex >= 1 && m.dex <= kMaxDex) m.taught &= kDexTms[m.dex];   // (sólo MT que aprende de verdad)
+  else m.taught = 0;
   if (m.skin < -1 || m.skin >= kSkinCount || (m.skin >= 0 && kSkins[m.skin].dex != m.dex)) m.skin = -1;   // (sólo un disfraz suyo)
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }

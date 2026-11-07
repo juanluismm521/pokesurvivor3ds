@@ -73,7 +73,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   mega_start(*g, p);
   const MegaDef& d = kMegas[mega_index(94, 0)];
   CHECK(p.mega == mega_index(94, 0));
-  CHECK(p.mon == &d.mon);
+  CHECK(p.mon->name == d.mon.name);   // (su copia, con su naturaleza: Player::mega_buf)
   CHECK(p.base_spd == d.mon.spd);
   CHECK(p.base_atk == doctest::Approx(d.mon.atk));
   CHECK(p.max_hp == doctest::Approx(hp0 + (d.mon.hp - mon_by_dex(94)->hp)));
@@ -95,7 +95,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   // Pasa el tiempo: se acaba sola, vuelve todo y empieza la recarga.
   for (int i = 0; i < int(kMegaTime * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);
   CHECK(p.mega == -1);
-  CHECK(p.mon == mon_by_dex(94));
+  CHECK(p.mon->name == mon_by_dex(94)->name);
   CHECK(p.base_spd == spd0);
   CHECK(p.base_atk == doctest::Approx(atk0));
   CHECK(p.max_hp == doctest::Approx(hp0));
@@ -123,7 +123,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   g->pick_item(p, true);
   CHECK(p.item == IT_LEFTOVERS);
   CHECK(p.mega == -1);
-  CHECK(p.mon == mon_by_dex(94));
+  CHECK(p.mon->name == mon_by_dex(94)->name);
 }
 
 TEST_CASE("megas: la vida máxima vuelve a la de antes (aunque subas vida en medio)") {
@@ -186,7 +186,7 @@ TEST_CASE("megas: los shinys megaevolucionados siguen siendo shiny") {
   CHECK(q.anim.dex == 491);
   CHECK(q.anim.shiny);
   CHECK(q.anim.scale > player_scale(491));
-  CHECK(q.mon == &kMegas[mega_index(491, 0)].mon);   // (con las estadísticas de la mega)
+  CHECK(q.mon->name == kMegas[mega_index(491, 0)].mon.name);   // (con las estadísticas de la mega)
   // Sin shiny, Mega-Darkrai sí con su sprite.
   cfg.shiny = false; g->start_run(cfg);
   Player& r = g->players[0];
@@ -292,7 +292,7 @@ TEST_CASE("megas: las 91, en normal y en shiny, megaevolucionan y juegan sin err
       player_equip(*g, p, IT_MEGA_A + d.slot);
       mega_start(*g, p);
       REQUIRE_MESSAGE(p.mega == i, d.mon.name);
-      CHECK(p.mon == &d.mon);
+      CHECK(p.mon->name == d.mon.name);   // (su copia, con su naturaleza: Player::mega_buf)
       CHECK(anim_meta(p.anim.dex, A_WALK, p.anim.shiny) != nullptr);
       CHECK(p.body_h > 0);
       if (p.shiny) CHECK(p.anim.shiny);   // (el shiny nunca se pierde)
@@ -306,7 +306,7 @@ TEST_CASE("megas: las 91, en normal y en shiny, megaevolucionan y juegan sin err
       CHECK(finite_all(*g));
       CHECK(p.max_hp > 0);
       mega_end(*g, p);
-      CHECK(p.mon == mon_by_dex(d.base));
+      CHECK(p.mon->name == mon_by_dex(d.base)->name);
       CHECK(p.anim.dex == d.base);
       done++;
     }

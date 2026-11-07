@@ -35,7 +35,7 @@ int candidates(Game& g, Player& p, Cand* out) {
     int buffs = 0;
     for (int i = 0; i < p.nmoves; ++i) if (p.moves[i].kind() == K_BUFF) buffs++;
     int16_t all[kMaxMoves];
-    const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves);
+    const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves, p.taught);   // (con sus MT: poolFor de la web)
     int16_t pool[kMaxMoves];
     int np = 0;
     for (int i = 0; i < na; ++i) {

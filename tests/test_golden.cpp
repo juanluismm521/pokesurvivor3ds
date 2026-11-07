@@ -356,7 +356,7 @@ std::string json_diff(const Json& a, const Json& b, const std::string& path = ""
 
 TEST_CASE("dorado: partida de la web — migrate, libreta y fusión (db.js)") {
   const Json& cs = golden()["websave"];
-  REQUIRE(cs.size() == 5);
+  REQUIRE(cs.size() == 7);
   const int64_t NOW = 1700000000000LL;
   for (size_t c = 0; c < cs.size(); ++c) {
     CAPTURE(c);
@@ -367,6 +367,7 @@ TEST_CASE("dorado: partida de la web — migrate, libreta y fusión (db.js)") {
     CHECK_MESSAGE(json_diff(web::led_of(ma, "ctr3ds01"), C["led"]) == "", "ledOf");
     Json fa = ma;
     web::fold(fa, "ctr3ds01");
+    CHECK_MESSAGE(json_diff(fa, C["fa"]) == "", "fold");
     CHECK_MESSAGE(json_diff(web::merge(fa, mb, NOW), C["m1"]) == "", "merge 3DS+web");
     CHECK_MESSAGE(json_diff(web::merge(mb, ma, NOW), C["m2"]) == "", "merge web+3DS");
   }
@@ -395,4 +396,71 @@ TEST_CASE("partida de la web: Firestore ida y vuelta y superposición") {
   CHECK(o["stats"]["runs"].as_num() == 4);
   CHECK(o["stats"]["cosaNueva"].as_num() == 3);
   CHECK(o.has("led"));
+}
+
+// ---------------- Tienda Kecleon: naturaleza, habilidad y MT (mons.js, shop.js) ----------------
+#include "core/mons.h"
+
+TEST_CASE("dorado: la naturaleza y la habilidad que le tocan a cada Pokémon (mons.js)") {
+  const Json& cs = golden()["mons"];
+  REQUIRE(cs.size() == 4);
+  std::unique_ptr<Save> s(new Save());
+  for (size_t c = 0; c < cs.size(); ++c) {
+    s->reset();
+    s->created = int64_t(cs[c]["created"].as_num());
+    const Json& rows = cs[c]["rows"];
+    REQUIRE(rows.size() == size_t(kDexCount));
+    int bad = 0;
+    for (const Json& r : rows.elems()) {
+      const int dex = r[0].as_int();
+      if (nature_of(*s, dex) != r[1].as_int() || abil_of(*s, dex).slot != r[2].as_int()) bad++;
+    }
+    CHECK_MESSAGE(bad == 0, "created " << s->created);
+  }
+}
+
+TEST_CASE("dorado: las 8 MT del día y las que puede aprender cada uno (shop.js, mons.js)") {
+  std::unique_ptr<Save> s(new Save());
+  for (const Json& c : golden()["shop"].elems()) {
+    s->reset();
+    s->created = 1700000000000LL;
+    s->partner = int16_t(c["partner"].as_int());
+    for (const auto& kv : c["taught"].items())
+      for (const Json& id : kv.second.elems()) s->ptm[std::atoi(kv.first.c_str())] |= uint64_t(1) << tm_index_of_move(move_index(id.as_str().c_str()));
+    int out[kShopDaily];
+    REQUIRE(shop_daily(*s, c["day"].as_str().c_str(), out) == kShopDaily);
+    CAPTURE(c["day"].as_str());
+    for (int i = 0; i < kShopDaily; ++i) CHECK(std::string(kMoves[kTms[out[i]].move].id) == c["list"][size_t(i)].as_str());
+  }
+  s->reset();
+  s->created = 1700000000000LL;
+  s->ptm[150] |= uint64_t(1) << tm_index_of_move(move_index("shadow-ball"));
+  int bad = 0;
+  for (const Json& r : golden()["learn"].elems()) {
+    const int dex = r[0].as_int();
+    int l[kMaxTms];
+    const int n = tm_learnable(*s, dex, l);
+    bool ok = size_t(n) == r[1].size();
+    for (int i = 0; ok && i < n; ++i) ok = r[1][size_t(i)].as_str() == kMoves[kTms[l[i]].move].id;
+    if (!ok) { bad++; MESSAGE("MT de " << dex); }
+  }
+  CHECK(bad == 0);
+}
+
+TEST_CASE("dorado: el Pokémon con su naturaleza (monFor)") {
+  std::unique_ptr<Save> s(new Save());
+  s->created = 1792506454241LL;
+  for (const Json& r : golden()["monFor"].elems()) {
+    const int dex = r[0].as_int();
+    const int nat = nature_of(*s, dex);
+    REQUIRE(std::string(kNatures[nat].id) == r[1].as_str());
+    Mon m;
+    mon_with_nature(*mon_by_dex(dex), nat, m);
+    CHECK(m.pa == doctest::Approx(r[2].as_num()).epsilon(1e-5));
+    CHECK(m.sa == doctest::Approx(r[3].as_num()).epsilon(1e-5));
+    CHECK(m.df == doctest::Approx(r[4].as_num()).epsilon(1e-5));
+    CHECK(m.sd == doctest::Approx(r[5].as_num()).epsilon(1e-5));
+    CHECK(m.spd == int(std::lround(r[6].as_num())));
+    CHECK(m.atk == doctest::Approx(r[7].as_num()).epsilon(1e-5));
+  }
 }

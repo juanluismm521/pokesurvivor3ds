@@ -34,6 +34,15 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.36 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
+    {nullptr, NI_KECLEON, "Tienda Kecleon",
+     "Mentas, Cápsulas Habilidad y 8 MT nuevas cada día, por Pokémonedas. Pulsa R en el menú; lo que compras va a tu Mochila."},
+    {nullptr, NI_STAR, "Naturaleza y habilidad",
+     "Cada Pokémon tiene las suyas, las mismas que en la web. Su habilidad hace cosas en la partida: más daño, esquivar, curarse, traer el sol…"},
+    {nullptr, NI_BOOK, "MT para siempre",
+     "Enseñan ataques de fuera de sus tipos que aprende en los juegos. Úsalas en su ficha (Colección → SELECT): salen en sus cartas de nivel."},
+    {nullptr, NI_COSTUME, "Disfraces con X",
+     "En la Colección, X le pone o le quita su disfraz. Los caramelos y los disfraces de bruja vuelven en Halloween."},
     {"Versión 0.35.3 · ¡La nube vuelve!", 0, nullptr, nullptr},
     {nullptr, NI_CLOUD, "Nube arreglada",
      "pokesurvivor.com cambió su forma de guardar y la 3DS no podía sincronizar. Ya usa la nueva, con permiso de su creador."},
@@ -145,7 +154,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.35.3";
+constexpr const char* kNewsVersion = "0.36.0";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

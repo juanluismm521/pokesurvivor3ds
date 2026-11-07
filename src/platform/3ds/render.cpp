@@ -4,6 +4,8 @@
 //   Abajo (320×240, táctil): vida, nivel, reloj, movimientos y las elecciones
 //   (cartas de nivel, objeto, vínculo), pausa y resumen.
 #include "platform/3ds/render.h"
+#include "core/abilities.h"
+#include "core/mons.h"
 #include "core/stats.h"
 
 #include <string>
@@ -304,6 +306,7 @@ void Renderer::draw_sprite(const Animator& a, float sx, float sy, u32 flash_mode
   C2D_ImageTint tint;
   if (flash_mode == 1) C2D_PlainImageTint(&tint, C2D_Color32f(1, 1, 1, alpha), 1.0f);
   else if (flash_mode == 2) C2D_PlainImageTint(&tint, C2D_Color32f(1, 1, 1, alpha), 0.55f);
+  else if (flash_mode == 3) C2D_PlainImageTint(&tint, C2D_Color32f(0.62f, 0.32f, 0.95f, alpha), 0.5f);   // (el Kecleon morado de la tienda)
   else C2D_PlainImageTint(&tint, C2D_Color32f(1, 1, 1, alpha), 0.0f);
   C2D_DrawImageAt(img, x, y, 0, &tint, k, k);
 }
@@ -1389,13 +1392,25 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
   } else if (g.state == ST_PAUSED) {
     // Resumen de la partida (pauseSummary de run-ui.js): ataques con su
     // categoría, daño hecho y daño por segundo, y las estadísticas.
-    text("PAUSA", 160, 44, 0.6f, rgb(0xffcb3d), 1);
-    text("Ataque", 12, 64, 0.32f, rgb(0x8fa3c4), 0);
-    text("Daño", 236, 64, 0.32f, rgb(0x8fa3c4), 2);
-    text("por seg.", 308, 64, 0.32f, rgb(0x8fa3c4), 2);
+    const bool ab = p.abil >= 0 || p.nature >= 0;
+    text("PAUSA", 160, ab ? 40 : 44, ab ? 0.5f : 0.6f, rgb(0xffcb3d), 1);
+    // Su naturaleza y su habilidad (core/mons.h, abilities.h), con lo que hace.
+    if (p.abil >= 0 || p.nature >= 0) {
+      char d1[200], d2[120];
+      abil_desc(p.abil, p.mon, d1, sizeof(d1), d2, sizeof(d2));
+      std::snprintf(b, sizeof(b), "%s · %s %s", p.abil >= 0 ? abil_name(p.abil) : "—", tr("Naturaleza"), nature_name(p.nature));
+      text_fit(b, 160, 54, 304, 0.32f, rgb(0x9ae6ff), true, 1);
+      std::string dd = tr(d1);
+      if (d2[0]) { dd += " "; dd += tr(d2); }
+      text_fit(dd.c_str(), 160, 64, 304, 0.28f, rgb(0xb7c4dc), true, 1);
+    }
+    const float y0 = ab ? 74 : 64, dy = ab ? 12 : 13;
+    text("Ataque", 12, y0, 0.32f, rgb(0x8fa3c4), 0);
+    text("Daño", 236, y0, 0.32f, rgb(0x8fa3c4), 2);
+    text("por seg.", 308, y0, 0.32f, rgb(0x8fa3c4), 2);
     for (int i = 0; i < p.nmoves && i < 8; ++i) {
       const MoveInst& m = p.moves[i];
-      const float y = 78 + i * 13;
+      const float y = y0 + 14 + i * dy;
       const int ic = move_icon[m.def];
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 10, y, 0, nullptr, 0.75f, 0.75f);
       std::snprintf(b, sizeof(b), "%s Nv.%d", m.name(), m.lvl);
@@ -1413,7 +1428,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     // Ataque físico y especial (con sus danzas) y defensas.
     const float ap = player_atk(p) * stats_fit(p.mon, CAT_PHYSICAL) * (1 + p.buffs[BS_PATK].n * p.buffs[BS_PATK].amount);
     const float as = player_atk(p) * stats_fit(p.mon, CAT_SPECIAL) * (1 + p.buffs[BS_SATK].n * p.buffs[BS_SATK].amount);
-    std::snprintf(b, sizeof(b), "Ataque ×%.2f · At. Esp. ×%.2f · Defensa %d · Def. Esp. %d", ap, as, p.mon->df, p.mon->sd);
+    std::snprintf(b, sizeof(b), "Ataque ×%.2f · At. Esp. ×%.2f · Defensa %d · Def. Esp. %d", ap, as, int(std::lround(p.mon->df)), int(std::lround(p.mon->sd)));
     for (char* c = b; *c; ++c) if (*c == '.' && c[1] >= '0' && c[1] <= '9' && c > b && c[-1] >= '0' && c[-1] <= '9') *c = ',';
     text_fit(b, 160, 186, 304, 0.3f, rgb(0xb7c4dc), true, 1);
     if (p.item >= 0) {   // el objeto que llevas, con lo que hace (entero)

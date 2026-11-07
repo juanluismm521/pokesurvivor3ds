@@ -28,7 +28,7 @@ struct Mon {
   int16_t hp, spd;
   float atk;         // el mayor de pa y sa
   float pa, sa;      // daño de sus ataques físicos / especiales (stats.js)
-  int16_t df, sd;    // Defensa y Defensa Especial base de los juegos
+  float df, sd;      // Defensa y Defensa Especial base de los juegos (con decimales: la naturaleza las multiplica)
   int8_t rarity;
   int16_t bst;
   int8_t gen;
@@ -300,6 +300,24 @@ extern const int kAchCount;
 struct AchCat { const char* id; const char* name; };
 extern const AchCat kAchCats[];
 extern const int kAchCatCount;
+
+// ---------------- Tienda Kecleon: naturalezas, habilidades y MT (core/mons.h) ----------------
+// Stats que sube o baja una naturaleza (+10 % / −10 %).
+enum NatStat : int8_t { NS_PA, NS_SA, NS_DF, NS_SD, NS_SPD, NS_COUNT };
+struct NatureDef { const char* id; const char* name; const char* name_en; int8_t up, down; };   // up/down: NatStat o -1 (neutra)
+constexpr int kNatureCount = 25;
+extern const NatureDef kNatures[kNatureCount];
+struct AbilDef { const char* id; const char* name; const char* name_en; };
+extern const AbilDef kAbils[];
+extern const int kAbilCount;
+// Habilidades de cada Pokémon: [1, 2 o -1, oculta o -1] (índices en kAbils).
+extern const int16_t kDexAbil[kMaxDex + 1][3];
+// MT que hay en la web, por orden alfabético de su id (el del sorteo de cada día).
+struct TmDef { int16_t move; int16_t price; };
+extern const TmDef kTms[];
+extern const int kTmCount;
+// Bit i: el Pokémon aprende la MT kTms[i] en los juegos.
+extern const uint64_t kDexTms[kMaxDex + 1];
 
 // ---------------- versión de los datos ----------------
 extern const char* const kWebBase;       // commit de la web de reference/web (7 letras)

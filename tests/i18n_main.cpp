@@ -9,6 +9,8 @@
 #include <set>
 #include <string>
 
+#include "core/abilities.h"
+#include "core/mons.h"
 #include "core/gamedata.h"
 #include "core/i18n.h"
 
@@ -46,6 +48,20 @@ int check_data(bool strict) {
   for (int i = 0; i < kAchCount; ++i) { chk("logro", kAch[i].name); chk("logro", kAch[i].desc); chk("logro", kAch[i].title); }
   for (int i = 0; i < kAchCatCount; ++i) chk("logro", kAchCats[i].name);
   for (int i = 0; i < kMegaCount; ++i) { chk("mega", kMegas[i].mon.name); chk("mega", kMegas[i].stone); }
+  // Tienda Kecleon: lo que hace cada habilidad (con su tipo dentro: una por cada tipo
+  // principal) y los objetos de la tienda. (Los nombres de naturalezas y habilidades
+  // van en las dos lenguas en kNatures / kAbils.)
+  for (int a = -1; a < kAbilCount; ++a)
+    for (int t = 0; t < T_COUNT; ++t) {
+      Mon m{};
+      m.types[0] = int8_t(t); m.types[1] = T_NONE;
+      char d1[256], d2[160];
+      abil_desc(a, &m, d1, sizeof(d1), d2, sizeof(d2));
+      const std::string a1 = d1, a2 = d2;
+      chk("habilidad", a1.c_str());
+      chk("habilidad", a2.c_str());
+    }
+  for (int i = 0; i < BAG_COUNT; ++i) { chk("tienda", kShopItems[i].name); chk("tienda", kShopItems[i].desc); }
   std::fprintf(stderr, "datos: %zu textos · %d no salen enteros en inglés\n", seen.size(), bad);
   return strict && bad ? 1 : 0;
 }

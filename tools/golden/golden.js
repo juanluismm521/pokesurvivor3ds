@@ -228,10 +228,52 @@ out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
   for (const m of out.missions) for (const t of m.texts) out.i18n.push([t, GE.I18n.t(t)]);
 }
 
-// ---------------- partida de la web: migrate, sanitize, ledOf, merge (db.js) ----------------
+// ---------------- Tienda Kecleon: naturalezas, habilidades y MT (web del 20-10-2026) ----------------
+// reference/web es del 19-10 y no los tiene: salen de la última web con fuentes
+// (tools/cache/web, rama fuentes-28-10 = d667c216), leídos con git sin tocar reference/.
+// También db.js: la fusión con la Mochila, las MT, naturalezas y habilidades.
+const NEW_REF = process.env.PS_WEB_NEW || 'fuentes-28-10';
+function loadNew(f, edits) {
+  let src = require('child_process').execFileSync('git', ['-C', path.join(ROOT, 'tools', 'cache', 'web'), 'show', NEW_REF + ':' + f], { encoding: 'utf8', maxBuffer: 1 << 26 }).replace(/\r\n/g, '\n');
+  for (const [a, b] of edits || []) { if (!src.includes(a)) throw new Error(`${f}: no encuentro "${a}"`); src = src.replace(a, b); }
+  vm.runInContext(src, sandbox, { filename: f });
+}
+for (const f of ['js/data/natures.js', 'js/data/abilities.js', 'js/data/tms.js', 'js/core/skins.js']) loadNew(f);
+sandbox.G.DB = { save: null, commit() {} };
+loadNew('js/systems/mons.js');
+loadNew('js/data/shop.js', [['r = rng(\'kecleon:\' + today());', 'r = rng(\'kecleon:\' + (G.__DAY || today()));'],
+                            ['rng(\'kecleon:\' + today() + \':\' + dex)', 'rng(\'kecleon:\' + (G.__DAY || today()) + \':\' + dex)']]);
+{
+  // Naturaleza y habilidad que le tocan a cada Pokémon (semilla: fecha de creación + dex).
+  const CREATED = [1700000000000, 1792506454241, 1761000000123, 0];
+  out.mons = [];
+  for (const created of CREATED) {
+    G.DB.save = { created, pnat: {}, pabil: {}, ptm: {}, tms: {}, bag: {} };
+    const rows = [];
+    for (const p of G.DEX) {
+      const ab = G.Mons.abilityOf(p.dex);
+      rows.push([p.dex, G.NATURES.indexOf(G.Mons.natureOf(p.dex)), ab.slot]);
+    }
+    out.mons.push({ created, rows });
+  }
+  // Las MT del día (semilla: la fecha) y las que puede aprender cada uno.
+  out.shop = [];
+  for (const [day, partner, taught] of [['20261107', 25, {}], ['20261020', 54, {}], ['20251231', 6, {}], ['20261107', 150, { 150: ['shadow-ball'] }], ['20270615', 129, {}]]) {
+    G.__DAY = day;
+    G.DB.save = { created: 1700000000000, partner, pnat: {}, pabil: {}, ptm: taught, tms: {}, bag: {} };
+    out.shop.push({ day, partner, taught, list: G.Shop.dailyTms() });
+  }
+  G.__DAY = null;
+  G.DB.save = { created: 1700000000000, pnat: {}, pabil: {}, ptm: { 150: ['shadow-ball'] }, tms: {}, bag: {} };
+  out.learn = G.DEX.filter(p => p.dex !== 491).map(p => [p.dex, G.Mons.learnable(p.dex)]);   // (Darkrai: el port le da más ataques de serie)
+  out.monFor = G.DEX.slice(0, 60).map(p => { G.DB.save = { created: 1792506454241, pnat: {}, pabil: {} }; const m = G.Mons.monFor(p.dex); return [p.dex, m.nature, r6(m.pa), r6(m.sa), r6(m.df), r6(m.sd), r6(m.spd), r6(m.atk)]; });
+}
+
+// ---------------- partida de la web: migrate, sanitize, ledOf, fold, merge (db.js) ----------------
 {
   vm.runInContext('Date.now = () => 1700000000000;', sandbox);
-  load('js/core/db.js', [['return {\n    ready,', 'G.__DBX = { migrate, sanitize, ledOf, newSave, merge };']]);
+  loadNew('js/core/db.js', [['return {\n    ready,', 'G.__DBX = { migrate, sanitize, ledOf, newSave, merge, fold };\n    return {\n    ready,'],
+                            ["let d = read('ps.dev');", "let d = 'ctr3ds01';"]]);
   const X = G.__DBX, NOW = 1700000000000, DEV = 'ctr3ds01';
   const U = G.Upgrades.LIST.map(u => u.id), M = G.Moves.ALL.map(m => m.id);
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -269,10 +311,33 @@ out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
   // 5. una sin libreta y otra con ella (lo que gastó cada uno)
   cases.push([mk(s => { s.updated = NOW + 8; s.coins = 120; s.tickets = { t1: 0, t10: 0 }; }),
               mk(s => { s.updated = NOW + 3; s.coins = 300; s.led = { base: { c: [500, 0] }, dweb9: { c: [0, 200], t1: [3, 3] } }; })]);
+  // 6. Tienda Kecleon: la 3DS compró una Menta y dos MT y usó una; la web gastó la
+  //    Menta que tenía, cambió la naturaleza y enseñó otra MT. Libreta en negativo (fix).
+  const shop = mk(s => {
+    s.updated = NOW + 50; s.coins = 3000; s.owned = { 25: { at: 1 }, 150: { at: 2 } }; s.partner = 25;
+    s.bag = { mint: 1, caph: 2, candy: 40 }; s.tms = { 'shadow-ball': 1 };
+    s.led = { base: { c: [500, 0], t1: [0, 0], t10: [0, 0] }, dweb: { c: [2500, 0], 'b:mint': [1, 0], 'b:caph': [2, 0], 'b:candy': [40, 0], 'm:shadow-ball': [1, 0] } };
+    s.ptm = { 150: ['psychic', 'shadow-ball'] }; s.pnat = { 25: ['bold', NOW + 10] }; s.pabil = { 150: [2, NOW + 11] };
+    s.skins = { 'bruja-pikachu': NOW }; s.pskin = { 25: ['bruja-pikachu', NOW + 5] };
+  });
+  const ds6 = clone(shop), web6 = clone(shop);
+  ds6.updated = NOW + 90; ds6.coins = 900; ds6.bag.mint = 2; ds6.bag.cap = 1; ds6.tms['thunderbolt'] = 1; ds6.tms['shadow-ball'] = 0;
+  ds6.ptm[25] = ['psychic']; ds6.pnat[25] = ['timid', NOW + 20]; ds6.pabil[25] = [1, NOW + 21];
+  web6.updated = NOW + 80; web6.bag.mint = 0; web6.pnat[25] = ['modest', NOW + 30]; web6.ptm[150] = ['shadow-ball', 'thunderbolt'];
+  web6.led.dweb.c = [2500, 1500]; web6.led.dweb['b:mint'] = [1, 2]; web6.pskin[25] = ['', NOW + 40];
+  web6.pstart2 = { 25: 'thunder-shock', 9999: 'x' };
+  cases.push([ds6, web6]);
+  // 7. basura en lo de la tienda
+  cases.push([mk(s => {
+    s.updated = NOW + 4; s.bag = { mint: '3', bogus: 2, cap: -1 }; s.tms = { 'shadow-ball': 2.7, nope: 1, 'thunderbolt': 0 };
+    s.ptm = { 25: ['psychic', 'psychic', 7, 'nope'], 9999: ['psychic'], 4: 'x' }; s.pnat = { 25: ['nope', 5], 4: ['bold', '7'], 9999: ['bold', 1] };
+    s.pabil = { 25: [3, 1], 4: [1, -4] }; s.skins = { 'bruja-gengar': 'x', 'bruja-pikachu': 5, nope: 1 };
+    s.pskin = { 25: ['bruja-gengar', 1], 94: ['bruja-gengar', 2], 197: [5, 1] };
+  }), mk(s => { s.updated = NOW + 2; })]);
   out.websave = cases.map(([a, b]) => {
     const ma = X.migrate(clone(a)), mb = X.migrate(clone(b));
-    const fa = clone(ma); fa.led = X.ledOf(fa, DEV);
-    return { a, b, ma, mb, led: X.ledOf(ma, DEV), m1: X.merge(clone(fa), clone(mb)), m2: X.merge(clone(mb), clone(ma)) };
+    const fa = X.fold(clone(ma));
+    return { a, b, ma, mb, led: X.ledOf(ma, DEV), fa, m1: X.merge(clone(fa), clone(mb)), m2: X.merge(clone(mb), clone(ma)) };
   });
 }
 

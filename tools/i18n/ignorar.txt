@@ -51,3 +51,16 @@ web del
 Thanks for playing the PokéSurvivor port on your 3DS! This is for you.
 Rewards from your lost victory
 Thanks for playing PokéSurvivor on your 3DS and for supporting this port! As a thank-you for all your bug reports and support, here's a gift for you. The Kecleon Shop and more languages are coming very soon!
++{x} % de daño con {x}.
++{x} % de probabilidad de golpe crítico.
++50 % de velocidad con {x}.
+Pone {x} al empezar la partida y cada 3 minutos.
+Atrae los objetos desde más lejos (+{x} % de imán).
+Las curas le curan un {x} % más.
+los cortes
+los mordiscos
+los pulsos y esferas
+los puñetazos
+los sonidos
+tormenta de arena
+una tormenta de arena

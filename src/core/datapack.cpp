@@ -222,7 +222,7 @@ bool datapack_apply(const std::string& text, std::string& why) {
     m.name = keep(p[0].as_str());
     m.hp = int16_t(p[1].as_int()); m.spd = int16_t(p[2].as_int());
     m.atk = float(p[3].as_num()); m.pa = float(p[4].as_num()); m.sa = float(p[5].as_num());
-    m.df = int16_t(p[6].as_int()); m.sd = int16_t(p[7].as_int());
+    m.df = float(p[6].as_int()); m.sd = float(p[7].as_int());
     m.rarity = int8_t(p[8].as_int()); m.bst = int16_t(p[9].as_int());
   }
   for (int i = 0; i < kMoveCount; ++i) {

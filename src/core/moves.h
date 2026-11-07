@@ -42,21 +42,22 @@ bool move_evolve(MoveInst& m);
 // de la web (Set: primero el pool normal, luego los de cada tipo).
 int move_pool_for(const int8_t types[2], int16_t* out, int max);
 // Lo mismo más los movimientos extra de ese Pokémon (del port: los que en los
-// juegos aprende por MT o tutor y su tipo no le da; hoy, Darkrai). Es lo que
-// sale en las cartas de nivel, Repertorio, Atajos y Vetos.
-int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max);
+// juegos aprende por MT o tutor y su tipo no le da; hoy, Darkrai) y los que ha
+// aprendido con MT de la Tienda Kecleon (`taught`: bit = kTms, ver core/mons.h;
+// poolFor de la web). Es lo que sale en las cartas de nivel, Repertorio, Atajos y Vetos.
+int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, uint64_t taught = 0);
 int move_extras_for(int dex, int16_t* out, int max);
 // Movimiento inicial de serie (G.baseStartOf): el del starter o el de su tipo.
 int move_base_start_for(int dex);
-// Ataques que se pueden elegir para empezar (G.startChoices): los suyos, sin
-// potenciadores, y siempre el de serie. Devuelve cuántos.
-int move_start_choices(int dex, int16_t* out, int max);
+// Ataques que se pueden elegir para empezar (G.startChoices): los suyos (y los de
+// sus MT), sin potenciadores, y siempre el de serie. Devuelve cuántos.
+int move_start_choices(int dex, int16_t* out, int max, uint64_t taught = 0);
 // Con el que empieza (G.startMoveOf): el elegido (pick, de save.pstart) si
 // tiene comprada la mejora "Movimiento inicial" y sigue siendo de los suyos; si
 // no, el de serie.
-int move_start_for(int dex, int pick = -1, bool bought = false);
-// Mejora «Repertorio» (empiezas con 2): los que pueden ser el segundo (de sus tipos,
-// sin potenciadores ni el inicial), por orden de la tabla. Devuelve cuántos.
-int move_second_choices(int dex, int start, int16_t* out, int max);
+int move_start_for(int dex, int pick = -1, bool bought = false, uint64_t taught = 0);
+// Mejora «Repertorio» (empiezas con 2): los que pueden ser el segundo (de sus tipos
+// y sus MT, sin potenciadores ni el inicial), por orden de la tabla. Devuelve cuántos.
+int move_second_choices(int dex, int start, int16_t* out, int max, uint64_t taught = 0);
 
 }  // namespace ps

@@ -223,6 +223,43 @@ w('};');
 const mIdx = id => { const i = G.Moves.ALL.findIndex(m => m.id === id); if (i < 0) fail('mov ' + id); return i; };
 w(`const int8_t kStartMove[T_COUNT] = ${arr(TYPES.map(t => mIdx(G.__MV.START[t])))};`);
 
+// ---------------- Tienda Kecleon: naturalezas, habilidades y MT ----------------
+// (web, 20-10-2026, PR #236 de TheAdro7.) reference/web es del 19-10 y no los
+// tiene: salen de la última web con fuentes (tools/cache/web, rama fuentes-28-10
+// = d667c216), leídos con git sin tocar reference/. Nombres: [es, en, ...].
+{
+  const NEW_REF = process.env.PS_WEB_NEW || 'fuentes-28-10';
+  const CACHE = path.join(ROOT, 'tools', 'cache', 'web');
+  const sbx = require('./lib/websandbox').create();
+  const loadNew = f => {
+    let src;
+    try { src = require('child_process').execFileSync('git', ['-C', CACHE, 'show', NEW_REF + ':' + f], { encoding: 'utf8', maxBuffer: 1 << 26 }); }
+    catch (e) { fail(`${f}: no está en ${CACHE} (${NEW_REF})`); return; }
+    vm.runInContext(src, sbx, { filename: f });
+  };
+  for (const f of ['js/data/natures.js', 'js/data/abilities.js', 'js/data/tms.js']) loadNew(f);
+  const N = sbx.G.NATURES || [], AB = sbx.G.ABIL || {}, DA = sbx.G.DEX_ABIL || {}, TM = sbx.G.TM_MOVES || {}, TP = sbx.G.TM_PRICE || {};
+  const NSTAT = ['pa', 'sa', 'df', 'sd', 'spd'];
+  if (N.length !== 25) fail('Se esperaban 25 naturalezas');
+  w(`const NatureDef kNatures[kNatureCount] = ${arr(N.map(n => `{${esc(n.id)}, ${esc(n.n[0])}, ${esc(n.n[1])}, ${NSTAT.indexOf(n.up)}, ${NSTAT.indexOf(n.down)}}`))};`);
+  const abIds = Object.keys(AB);
+  w(`const AbilDef kAbils[] = ${arr(abIds.map(id => `{${esc(id)}, ${esc(AB[id][0])}, ${esc(AB[id][1])}}`))};`);
+  w(`const int kAbilCount = ${abIds.length};`);
+  const ai = id => (id ? abIds.indexOf(id) : -1);
+  for (const d in DA) for (const id of DA[d]) if (id && ai(id) < 0) fail('habilidad ' + id);
+  const dexAb = [];
+  for (let d = 0; d <= 1025; d++) { const l = DA[d] || [0, 0, 0]; dexAb.push(`{${ai(l[0])}, ${ai(l[1])}, ${ai(l[2])}}`); }
+  w(`const int16_t kDexAbil[kMaxDex + 1][3] = ${arr(dexAb)};`);
+  // MT: por orden alfabético de su id (como Object.keys(G.TM_MOVES).sort() de shop.js).
+  const tmIds = Object.keys(TM).sort();
+  if (tmIds.length > 64) fail('más de 64 MT: kDexTms no cabe en 64 bits');
+  w(`const TmDef kTms[] = ${arr(tmIds.map(id => `{${mIdx(id)}, ${TP[id] || 400}}`))};`);
+  w(`const int kTmCount = ${tmIds.length};`);
+  const bits = new Array(1026).fill(0n);
+  tmIds.forEach((id, i) => { for (const d of TM[id]) if (d >= 0 && d <= 1025) bits[d] |= 1n << BigInt(i); });
+  w(`const uint64_t kDexTms[kMaxDex + 1] = ${arr(bits.map(b => '0x' + b.toString(16) + 'ull'))};`);
+}
+
 // ---------------- vfx ----------------
 w(`const char* const kShapeId[SH_COUNT] = ${arr(SHAPES, esc)};`);
 w(`const ShapeInfo kShapeInfo[SH_COUNT] = ${arr(SHAPES.map(s => { const S = G.VFX.SHAPES[s]; return `{${S.w}, ${S.h}, ${S.frames || 1}, ${!!S.dir}, ${!!S.spin}}`; }))};`);

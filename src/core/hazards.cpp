@@ -7,6 +7,7 @@
 // y la Sentencia cae como un pilar de luz.
 #include <cmath>
 
+#include "core/abilities.h"
 #include "core/game.h"
 
 namespace ps {
@@ -55,7 +56,8 @@ void hazards_update(Game& g, float dt) {
       detonate(g, h);
       for (int k = 0; k < g.nplayers; ++k) {   // (cada consola, al suyo: aquí, a todos)
         Player& q = g.players[k];
-        if (q.active && !q.dead && hazard_inside(h, q.x, q.y, q.r)) {
+        // (Humedad: la explosión de un kamikaze no le daña, ver abilities.h.)
+        if (q.active && !q.dead && hazard_inside(h, q.x, q.y, q.r) && !(h.boom && abil_damp(q))) {
           q.invuln = 0;
           player_hurt(g, q, h.pct > 0 ? std::fmax(h.dmg, q.max_hp * h.pct) : h.dmg, h.type, h.pure, h.cat);
         }

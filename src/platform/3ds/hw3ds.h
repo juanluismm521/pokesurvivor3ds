@@ -8,6 +8,7 @@ namespace ps {
 namespace hw3ds {
 
 bool on();                                     // ¿es Halloween ahora (hora de España)?
+int64_t utc_ms();                              // la hora UTC de ahora (la del servidor si se sabe): MT del día
 bool countdown(bool& on_now, int64_t& ms);     // cuenta atrás del menú (core/halloween.h)
 void force(int v);                             // pruebas (autotest): 1 sí, 0 no, -1 lo de verdad
 bool forced();

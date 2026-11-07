@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "core/mons.h"
 #include "core/settings.h"
 #include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
@@ -87,6 +88,10 @@ RunConfig::Member App::my_member() const {
   m.test_stone = autotest && auto_mega;
   // Su disfraz de Halloween (pruebas: «disfraz» en el autotest, si lo tiene).
   m.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(m.dex) : -1) : skin_worn(*s_, m.dex));
+  // Su naturaleza, habilidad y MT (core/mons.h): todas las consolas simulan las de todos.
+  m.nature = int8_t(autotest ? auto_nature : nature_of(*s_, m.dex));
+  m.abil = int16_t(autotest ? auto_abil : abil_of(*s_, m.dex).id);
+  m.taught = autotest ? 0 : tm_taught_bits(*s_, m.dex);
   if (std::strcmp(s_->name, "Jugador") != 0) { std::memcpy(m.name, s_->name, sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0; }
   else console_name(m.name, sizeof(m.name));
   return m;

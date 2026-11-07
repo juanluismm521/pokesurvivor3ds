@@ -123,6 +123,17 @@ struct Player {
   bool four_told = false;       // (ya se le ha explicado lo de las 4 cartas)
   int candy = 0;                // caramelos de Halloween de esta partida
   int8_t skin = -1;             // disfraz (índice de kSkins; -1 ninguno)
+  // Naturaleza, habilidad y MT (core/mons.h, core/abilities.h): `mon` apunta a
+  // mon_buf, su Pokémon con la naturaleza aplicada (y a mega_buf durante la mega).
+  int8_t nature = -1;
+  int16_t abil = -1;            // índice de kAbils (-1: sin habilidad, como en las pruebas)
+  int16_t abx = -1;             // su efecto (abilities.cpp; -1: la pasiva genérica de su tipo)
+  int8_t ab_type = T_NONE;      // tipo de la pasiva genérica (+8 %): el primero del Pokémon al empezar
+  uint64_t taught = 0;          // MT aprendidas (bit = kTms): salen en sus cartas de nivel
+  float ab_moxie = 0, ab_spd = 0, ab_t = 0, ab_sum = 0, ab_sturdy = -999;
+  bool ab_angry = false, ab_shield = false, ab_boomed = false;
+  int8_t ab_mood = -1;
+  Mon mon_buf{}, mega_buf{};
   double dmg_dealt = 0;
 
   float invuln = 0, flash = 0;
@@ -346,6 +357,7 @@ struct Hazard {
   int8_t type = T_NONE;
   int8_t cat = CAT_NONE;        // la defensa tuya que lo para (la del enemigo que lo lanza)
   bool pure = false, hit = false;
+  bool boom = false;            // la explosión de un kamikaze (Humedad la aguanta)
   uint32_t color = 0;
 };
 
@@ -411,6 +423,11 @@ struct RunConfig {
   // el gran Gengar). En grupo lo decide el anfitrión.
   uint8_t hw = 0;
   int8_t skin = -1;                      // disfraz puesto (índice de kSkins; -1 ninguno)
+  // Tienda Kecleon (core/mons.h): naturaleza, habilidad y MT aprendidas de tu Pokémon
+  // (-1 / 0: ni naturaleza ni habilidad, como antes; las pruebas lo dejan así).
+  int8_t nature = -1;
+  int16_t abil = -1;
+  uint64_t taught = 0;
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
   // Cooperativo: cada jugador con su Pokémon y sus mejoras (el 0 es el
   // anfitrión). Con nplayers == 1 se usan los campos de arriba.
@@ -431,6 +448,9 @@ struct RunConfig {
     bool immortal = false;
     bool test_stone = false;   // pruebas: empieza con su megapiedra puesta
     int8_t skin = -1;          // su disfraz de Halloween (índice de kSkins; -1 ninguno)
+    int8_t nature = -1;        // su naturaleza (kNatures; -1: neutra)
+    int16_t abil = -1;         // su habilidad (kAbils; -1: ninguna)
+    uint64_t taught = 0;       // sus MT aprendidas (bit = kTms)
   };
   int nplayers = 1;
   Member members[4];
