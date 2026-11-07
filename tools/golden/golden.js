@@ -234,7 +234,10 @@ out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
 // También db.js: la fusión con la Mochila, las MT, naturalezas y habilidades.
 const NEW_REF = process.env.PS_WEB_NEW || 'fuentes-28-10';
 function loadNew(f, edits) {
-  let src = require('child_process').execFileSync('git', ['-C', path.join(ROOT, 'tools', 'cache', 'web'), 'show', NEW_REF + ':' + f], { encoding: 'utf8', maxBuffer: 1 << 26 }).replace(/\r\n/g, '\n');
+  // (el clon del publicador enlaza reference/ del repo de trabajo: la caché, a su lado)
+  const cache = [path.join(ROOT, 'tools', 'cache', 'web'), path.join(fs.realpathSync(path.join(ROOT, 'reference')), '..', 'tools', 'cache', 'web')]
+    .find(d => fs.existsSync(d)) || path.join(ROOT, 'tools', 'cache', 'web');
+  let src = require('child_process').execFileSync('git', ['-C', cache, 'show', NEW_REF + ':' + f], { encoding: 'utf8', maxBuffer: 1 << 26 }).replace(/\r\n/g, '\n');
   for (const [a, b] of edits || []) { if (!src.includes(a)) throw new Error(`${f}: no encuentro "${a}"`); src = src.replace(a, b); }
   vm.runInContext(src, sandbox, { filename: f });
 }

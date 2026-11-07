@@ -229,7 +229,9 @@ w(`const int8_t kStartMove[T_COUNT] = ${arr(TYPES.map(t => mIdx(G.__MV.START[t])
 // = d667c216), leídos con git sin tocar reference/. Nombres: [es, en, ...].
 {
   const NEW_REF = process.env.PS_WEB_NEW || 'fuentes-28-10';
-  const CACHE = path.join(ROOT, 'tools', 'cache', 'web');
+  // (el clon del publicador enlaza reference/ del repo de trabajo: la caché, a su lado)
+  const CACHE = [path.join(ROOT, 'tools', 'cache', 'web'), path.join(fs.realpathSync(path.join(ROOT, 'reference')), '..', 'tools', 'cache', 'web')]
+    .find(d => fs.existsSync(d)) || path.join(ROOT, 'tools', 'cache', 'web');
   const sbx = require('./lib/websandbox').create();
   const loadNew = f => {
     let src;
