@@ -5,9 +5,7 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
-## 0.5.0 — 2026-11-07 · Tienda Kecleon completa
-(El dueño la llama 0.5: la numeración sigue desde aquí. Las consolas se actualizan por el número
-de build, que sigue subiendo.)
+## 0.50.0 — 2026-11-07 · Tienda Kecleon completa
 - **¡Abre la Tienda Kecleon!** (como en pokesurvivor.com; R en el menú). Arriba, el puesto de
   los dos Kecleon (el verde y su hermano morado), que dan las gracias y saltan al comprar.
   Abajo, dos pestañas (L/R):

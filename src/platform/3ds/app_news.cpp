@@ -34,7 +34,7 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
-    {"Versión 0.5 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
+    {"Versión 0.50 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
     {nullptr, NI_KECLEON, "Tienda Kecleon",
      "Mentas, Cápsulas Habilidad y 8 MT nuevas cada día, por Pokémonedas. Pulsa R en el menú; lo que compras va a tu Mochila."},
     {nullptr, NI_STAR, "Naturaleza y habilidad",
