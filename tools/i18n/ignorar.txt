@@ -64,3 +64,6 @@ los puñetazos
 los sonidos
 tormenta de arena
 una tormenta de arena
+ · reintento
+No se ha podido conectar con 
+). Mira la fecha y hora de la consola y prueba otra vez.
