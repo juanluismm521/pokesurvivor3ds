@@ -866,7 +866,7 @@ const Tr kLangEnPort[] = {
     {"Cada día hay otras 8 en la Tienda Kecleon", "There are 8 new ones at the Kecleon Shop every day"},
     {"Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).", "Each enemy defeated gives +0.5% damage (up to +15%)."},
     {"Cada golpe cuerpo a cuerpo que recibe le sube un poco la defensa.", "Each melee hit it takes raises its defense a little."},
-    {"Cambia la habilidad de un Pokémon por cualquiera de las suyas, también la oculta.", "Changes a Pokémon’s ability to any of its own, including the hidden one."},
+    {"Cambia la habilidad de un Pokémon por cualquiera de las suyas, incluida su habilidad oculta.", "Changes a Pokémon’s ability to any of its own, including its hidden ability."},
     {"Cambia la habilidad de un Pokémon por otra de las suyas (no la oculta).", "Changes a Pokémon’s ability to another of its own (not the hidden one)."},
     {"Cambia la habilidad", "Changes the ability"},
     {"Cambia la naturaleza de un Pokémon por la que tú elijas.", "Changes a Pokémon’s nature to the one you choose."},

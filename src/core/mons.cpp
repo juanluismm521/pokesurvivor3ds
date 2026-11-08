@@ -194,7 +194,7 @@ bool tm_teach(Save& s, int dex, int tm) {
 const ShopItemDef kShopItems[BAG_COUNT] = {
     {"mint", "Menta", "Cambia la naturaleza de un Pokémon por la que tú elijas.", "mint", 1500},
     {"cap", "Cápsula Habilidad", "Cambia la habilidad de un Pokémon por otra de las suyas (no la oculta).", "capsule", 1500},
-    {"caph", "Cápsula Habilidad Oculta", "Cambia la habilidad de un Pokémon por cualquiera de las suyas, también la oculta.", "capsuleh", 5000},
+    {"caph", "Cápsula Habilidad Oculta", "Cambia la habilidad de un Pokémon por cualquiera de las suyas, incluida su habilidad oculta.", "capsuleh", 5000},
 };
 
 bool bag_take(Save& s, int item) {

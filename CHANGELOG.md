@@ -14,8 +14,8 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   (KH4P-H7MJ). La página
   a la que lleva el QR sale en el idioma del juego (español o inglés).
 - Tienda Kecleon: el nombre de la Cápsula Habilidad Oculta ya no se monta encima de su
-  descripción, y debajo de cada Cápsula dice claro qué hace («Cambia la habilidad, incluida
-  la oculta»).
+  descripción (sale en letra normal, en dos o tres líneas), y la Cápsula dice claro qué hace
+  («Cambia la habilidad, incluida la oculta» / «…incluida su habilidad oculta»).
 - Si la sincronización falla, el mensaje entero (con qué servidor y por qué) se ve en dos líneas.
 
 ## 0.50.1 — 2026-11-08 (sin publicar: va en la 0.50.5)

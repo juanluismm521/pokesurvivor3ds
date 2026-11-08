@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "core/abilities.h"
 #include "core/halloween.h"
@@ -501,13 +502,24 @@ void App::top_shop() {
   } else {
     const Row& r = rows[shop_sel_];
     float y = 16;
-    // El nombre, a la derecha del icono: los largos («Cápsula Habilidad Oculta»), con letra
-    // más pequeña; lo de debajo empieza donde acaba (antes se montaba encima).
+    // El nombre, a la derecha del icono: los largos («Cápsula Habilidad Oculta») en dos
+    // líneas; lo de debajo empieza donde acaba (antes se montaba encima).
     auto title = [&](const char* name, float yy) {
       const float w = pw - 54;
-      const float sz = r_->text_width(name, 0.42f) > w * 1.6f ? 0.36f : 0.42f;
-      const float h = r_->text_wrap(name, px + 50, yy + 2, sz, C_GOLD, w);
-      return std::max(44.0f, h + (r_->text_width(name, sz) > w ? 16.0f : 8.0f));
+      r_->text_wrap(name, px + 50, yy + 2, 0.42f, C_GOLD, w);
+      // Las líneas de verdad (palabra a palabra, como corta el texto).
+      const std::string t = tr(name);
+      int lines = 1;
+      std::string line;
+      for (size_t i = 0; i <= t.size(); ++i) {
+        const size_t e = std::min(t.find(' ', i), t.size());
+        const std::string word = t.substr(i, e - i);
+        const std::string cand = line.empty() ? word : line + " " + word;
+        if (!line.empty() && r_->text_width(cand.c_str(), 0.42f) > w) { ++lines; line = word; }
+        else line = cand;
+        i = e;
+      }
+      return std::max(44.0f, 8.0f + lines * 17.0f);
     };
     auto big_icon = [&](const char* name) { const int ic = r_->icons.find(name); if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), px + 8, y, 0, nullptr, 3, 3); };
     if (r.kind == SR_ITEM || r.kind == SR_BAG_ITEM) {
