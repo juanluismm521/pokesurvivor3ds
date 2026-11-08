@@ -783,6 +783,8 @@ const Tr kLangEnPort[] = {
     {"Decide si te quedas el primer objeto y mira en la pantalla de abajo qué hace el que llevas.",
      "Decide whether to keep the first item, and check on the bottom screen what the one you carry does."},
 
+    {"No se ha podido conectar con {x} ({x}). Mira la fecha y hora de la consola y prueba otra vez.",
+     "Couldn't connect to {x} ({x}). Check the console's date and time and try again."},
     // ---------------- Tienda Kecleon, naturalezas, habilidades y MT (0.36) ----------------
     {"MT", "TM"},
     {"neutra", "neutral"},

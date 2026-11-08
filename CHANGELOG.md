@@ -5,6 +5,14 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.50.1 — 2026-11-08
+- **Sincronizar: si falla la conexión, ahora dice con qué servidor y por qué** (en vez de sólo
+  «Sin conexión a internet»), y lo apunta en `nube.log` en la SD (cada petición: servidor, resultado,
+  lo que tardó y los bytes; sin contraseñas ni claves). Así se puede ver qué pasa en cada consola.
+- Más aguante al sincronizar: hasta 60 s por petición (antes 25; con mucha partida y una wifi lenta
+  no llegaba), un reintento si la conexión se corta y, si tu red no encuentra el servidor de la
+  partida de pokesurvivor.com, se prueba por su dirección directa.
+
 ## 0.50.0 — 2026-11-07 · Tienda Kecleon completa
 - **¡Abre la Tienda Kecleon!** (como en pokesurvivor.com; R en el menú). Arriba, el puesto de
   los dos Kecleon (el verde y su hermano morado), que dan las gracias y saltan al comprar.

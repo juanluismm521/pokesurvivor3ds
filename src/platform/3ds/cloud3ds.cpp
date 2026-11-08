@@ -116,7 +116,42 @@ volatile int64_t g_srv_ms = 0;      // hora UTC del servidor (ms) …
 volatile uint64_t g_srv_tick = 0;   // … en este tick de la consola
 }
 
+// nube.log en la SD (08-11-2026, un jugador con «Sin conexión a internet» en su
+// consola y no en el emulador): cada petición con su servidor y ruta (sin claves ni
+// tokens: la consulta ?key=… no se apunta), el resultado, el error de curl, lo que
+// tardó y los bytes. Para poder ver qué falla; se rehace si pasa de 48 KB.
+void net_log(const cloud::HttpReq& rq, int status, int code, const char* err, int ms, size_t up, size_t down, int attempt) {
+  const std::string f = path("nube.log");
+  FILE* fp = std::fopen(f.c_str(), "a");
+  if (!fp) return;
+  if (std::ftell(fp) > 48 * 1024) { std::fclose(fp); fp = std::fopen(f.c_str(), "w"); if (!fp) return; }
+  std::string u = rq.url.substr(0, rq.url.find('?'));
+  const size_t sch = u.find("://");
+  if (sch != std::string::npos) u = u.substr(sch + 3);
+  const int64_t t = now_ms() / 1000;
+  std::fprintf(fp, "%lld %s %s → %d%s%s (curl %d) · %d ms · %u B enviados · %u B recibidos%s\n", (long long)t, rq.method.c_str(), u.c_str(), status,
+               err && *err ? " · " : "", err ? err : "", code, ms, unsigned(up), unsigned(down), attempt ? " · reintento" : "");
+  std::fclose(fp);
+}
+std::string g_curl_host;   // servidor de la última petición que falló
+
+bool http_once(const cloud::HttpReq& rq, cloud::HttpResp& rs, int attempt, CURLcode& code);
+
 bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
+  // Un fallo de la conexión (no una respuesta del servidor): se reintenta una vez.
+  CURLcode code = CURLE_OK;
+  if (http_once(rq, rs, 0, code)) return true;
+  if (code == CURLE_COULDNT_CONNECT || code == CURLE_OPERATION_TIMEDOUT || code == CURLE_RECV_ERROR || code == CURLE_SEND_ERROR ||
+      code == CURLE_GOT_NOTHING || code == CURLE_SSL_CONNECT_ERROR || code == CURLE_PARTIAL_FILE || code == CURLE_COULDNT_RESOLVE_HOST) {
+    rs = cloud::HttpResp();
+    svcSleepThread(800000000ll);
+    return http_once(rq, rs, 1, code);
+  }
+  return false;
+}
+
+bool http_once(const cloud::HttpReq& rq, cloud::HttpResp& rs, int attempt, CURLcode& code) {
+  const u64 t0 = osGetTime();
   CURL* c = curl_easy_init();
   if (!c) return false;
   curl_slist* res = nullptr;
@@ -135,8 +170,12 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   curl_easy_setopt(c, CURLOPT_HEADERDATA, &rs);
   curl_easy_setopt(c, CURLOPT_CAINFO, "romfs:/cacert.pem");
   curl_easy_setopt(c, CURLOPT_USERAGENT, user_agent());
-  curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 10L);
-  curl_easy_setopt(c, CURLOPT_TIMEOUT, 25L);
+  // (con mucha partida y una wifi lenta, subirla y bajarla puede tardar: 60 s en total,
+  // y se corta antes si se queda parada 20 s)
+  curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 15L);
+  curl_easy_setopt(c, CURLOPT_TIMEOUT, 60L);
+  curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 32L);
+  curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 20L);
   curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
   CURLcode r = curl_easy_perform(c);
   if (dnsfb::retry_by_address(c, r, rq.url) && (res = dnsfb::dns_fallback(c, rq.url))) {   // (el DNS no lo encuentra o lo bloquea: por su dirección)
@@ -146,10 +185,16 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
     dnsfb::remember_ip(c, rq.url);
   }
   if (rs.date_ms > 0) { g_srv_tick = svcGetSystemTick(); g_srv_ms = rs.date_ms + 500; }   // (la cabecera va en segundos)
-  if (r != CURLE_OK) g_curl_err = curl_easy_strerror(r);
+  code = r;
+  if (r != CURLE_OK) {
+    g_curl_err = curl_easy_strerror(r);
+    int port = 0;
+    g_curl_host = dnsfb::url_host(rq.url, port);
+  }
   long st = 0;
   curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &st);
   rs.status = r == CURLE_OK ? int(st) : 0;
+  net_log(rq, rs.status, int(r), r != CURLE_OK ? curl_easy_strerror(r) : "", int(osGetTime() - t0), rq.body.size(), rs.body.size(), attempt);
   curl_slist_free_all(hs);
   curl_slist_free_all(res);
   curl_easy_cleanup(c);
@@ -182,6 +227,7 @@ void worker(void*) {
     if (g_state != JOB_BUSY) continue;
     bool ok = false;
     g_curl_err.clear();
+    g_curl_host.clear();
     if (!net_up()) {
       g_err = "No hay conexión a internet (¿wifi apagado?).";
     } else {
@@ -273,6 +319,9 @@ void worker(void*) {
         ok = true;
       } else {
         g_err = c.error.empty() ? "No se ha podido sincronizar." : c.error;
+        // «Sin conexión»: con qué servidor y por qué (lo dice curl), para saber qué pasa.
+        if (c.error == "Sin conexión a internet." && !g_curl_err.empty() && !g_curl_host.empty())
+          g_err = "No se ha podido conectar con " + g_curl_host + " (" + g_curl_err + "). Mira la fecha y hora de la consola y prueba otra vez.";
         // (curl dice por qué: si es la conexión segura, no es que no haya internet)
         if (g_curl_err.find("SSL") != std::string::npos || g_curl_err.find("certificate") != std::string::npos ||
             g_curl_err.find("CA ") != std::string::npos || g_curl_err.find("peer") != std::string::npos)
