@@ -29,6 +29,8 @@ struct FakeFs {
   int expired = 0;           // cuántas veces contesta 401 (token caducado)
   int refreshes = 0;
   Json eco;                  // lo que el servidor devuelve al guardar
+  bool no_direct = false;    // la API directa no responde (red de la consola)
+  int bridged = 0;           // peticiones que han ido por el puente
 };
 
 void fake_sleep(int ms, void* ctx) { FakeFs& fs = *static_cast<FakeFs*>(ctx); fs.now += ms; fs.waited_ms += ms; }
@@ -44,7 +46,10 @@ bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
   rs.status = 200;
   rs.date_ms = fs.now;
   const std::string& u = rq.url;
-  const std::string api = "https://ice.pokesurvivor.com/v1/d";
+  std::string api = "https://ice.pokesurvivor.com/v1/d";
+  // (la consola que no llega a la API: «Timeout»; por el puente de nuestro servidor, sí)
+  if (fs.no_direct && u.rfind(api, 0) == 0) { rs.status = 0; return false; }
+  if (u.rfind("https://puente/webapi", 0) == 0) { fs.bridged++; api = "https://puente/webapi"; }
   if (u.find("signInWithPassword") != std::string::npos) { rs.body = "{\"idToken\":\"t\",\"refreshToken\":\"r\",\"localId\":\"uid1\"}"; return true; }
   if (u.find("/v1/token") != std::string::npos) { fs.refreshes++; rs.body = "{\"id_token\":\"t\",\"refresh_token\":\"r\",\"user_id\":\"uid1\"}"; return true; }
   if (u.rfind(api, 0) != 0 || !bearer) { rs.status = 404; rs.body = "Not found"; return true; }
@@ -394,6 +399,29 @@ TEST_CASE("sincronizar: «no soy un robot», token caducado y el apodo") {
   CHECK(fs.refreshes == before + 2);   // (la de sync y la del 401)
   CHECK(fs.commits == 1);
   CHECK(fs.no_referer == 0);
+  CHECK(cloud::profile_name(c, ses) == "Ana");
+  save_raw() = Json();
+}
+
+TEST_CASE("sincronizar: si la consola no llega a la API, va por el puente de nuestro servidor") {
+  FakeFs fs;
+  fs.save = future_web_save();
+  fs.no_direct = true;
+  cloud::Client c;
+  c.http = fake_http; c.ctx = &fs;
+  cloud::Session ses;
+  REQUIRE(cloud::login(c, "Ana", "x", ses));
+  Json merged;
+  // Sin puente: «Sin conexión».
+  CHECK(!cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", 1800000002000LL, merged));
+  CHECK(c.error.find("Sin conexión") != std::string::npos);
+  // Con puente: sincroniza, y se queda con él (para la próxima vez).
+  c.error.clear();
+  c.cfg.api_alt = "https://puente/webapi";
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", 1800000002000LL, merged), c.error);
+  CHECK(fs.commits == 1);
+  CHECK(fs.bridged >= 2);
+  CHECK(c.cfg.api_base == "https://puente/webapi");
   CHECK(cloud::profile_name(c, ses) == "Ana");
   save_raw() = Json();
 }

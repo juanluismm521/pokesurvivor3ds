@@ -271,7 +271,15 @@ bool api(Client& c, Session& s, const std::string& method, const std::string& pa
     rq.url = c.cfg.api_base + path;
     rq.headers = {"Authorization: Bearer " + s.id_token};
     if (body) { rq.headers.push_back("Content-Type: application/json"); rq.body = *body; }
-    if (!call(c, rq, rs)) return false;
+    if (!call(c, rq, rs)) {
+      // La red de la consola no llega a la API (08-11-2026: un jugador, siempre «Timeout»
+      // ahí y no en nuestro servidor): por el puente del servidor del proyecto, una vez.
+      if (c.cfg.api_alt.empty() || c.cfg.api_alt == c.cfg.api_base) return false;
+      std::swap(c.cfg.api_base, c.cfg.api_alt);
+      c.error.clear();
+      rq.url = c.cfg.api_base + path;
+      if (!call(c, rq, rs)) return false;
+    }
     j = Json();
     j.parse(rs.body);
     if (rs.status != 401 || k > 0 || !refresh(c, s)) return true;

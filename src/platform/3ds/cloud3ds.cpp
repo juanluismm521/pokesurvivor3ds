@@ -87,6 +87,7 @@ void save_account() {
   o.set("lastSync", Json::num(double(g_acc.last_sync)));
   o.set("syncedPartner", Json::num(double(g_acc.synced_partner)));
   o.set("google", Json::boolean(g_acc.google));
+  o.set("puente", Json::boolean(g_acc.bridge));
   const std::string t = o.dump();
   const std::string tmp = path("cuenta.tmp"), cur = path("cuenta.json");
   FILE* f = std::fopen(tmp.c_str(), "wb");
@@ -141,6 +142,8 @@ bool http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void*) {
   // Un fallo de la conexión (no una respuesta del servidor): se reintenta una vez.
   CURLcode code = CURLE_OK;
   if (http_once(rq, rs, 0, code)) return true;
+  // (la API de la partida tiene su propio plan B, el puente: no se espera dos veces)
+  if (rq.url.compare(0, g_cfg.api_base.size(), g_cfg.api_base) == 0) return false;
   if (code == CURLE_COULDNT_CONNECT || code == CURLE_OPERATION_TIMEDOUT || code == CURLE_RECV_ERROR || code == CURLE_SEND_ERROR ||
       code == CURLE_GOT_NOTHING || code == CURLE_SSL_CONNECT_ERROR || code == CURLE_PARTIAL_FILE || code == CURLE_COULDNT_RESOLVE_HOST) {
     rs = cloud::HttpResp();
@@ -172,7 +175,7 @@ bool http_once(const cloud::HttpReq& rq, cloud::HttpResp& rs, int attempt, CURLc
   curl_easy_setopt(c, CURLOPT_USERAGENT, user_agent());
   // (con mucha partida y una wifi lenta, subirla y bajarla puede tardar: 60 s en total,
   // y se corta antes si se queda parada 20 s)
-  curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 15L);
+  curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 12L);
   curl_easy_setopt(c, CURLOPT_TIMEOUT, 60L);
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 32L);
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 20L);
@@ -233,6 +236,10 @@ void worker(void*) {
     } else {
       cloud::Client c;
       c.cfg = g_cfg;
+      // La API de la partida: directa y, si la red de la consola no llega, por el puente
+      // de nuestro servidor (la que fue bien la última vez, primero).
+      c.cfg.api_alt = g_vinc + "/webapi";
+      if (g_acc.bridge) std::swap(c.cfg.api_base, c.cfg.api_alt);
       c.http = http;
       c.sleep_ms = [](int ms, void*) { for (int k = 0; k < ms / 100 && !g_quit; ++k) svcSleepThread(100000000ll); };
       c.clock_delta = g_acc.delta;
@@ -313,6 +320,7 @@ void worker(void*) {
         g_acc.delta = c.clock_delta;
         g_acc.last_sync = now_ms();
         g_acc.synced_partner = cloud::partner_code(merged);
+        g_acc.bridge = c.cfg.api_base != g_cfg.api_base;
         save_account();
         g_result = merged;
         g_remote = c.last_remote;
@@ -382,6 +390,7 @@ void init(const char* dir) {
     g_acc.delta = int64_t(o["delta"].as_num(0)); g_acc.last_sync = int64_t(o["lastSync"].as_num(0));
     g_acc.synced_partner = int(o["syncedPartner"].as_num(-1));
     g_acc.google = o["google"].as_bool();
+    g_acc.bridge = o["puente"].as_bool();
     g_acc.on = !g_acc.refresh.empty();
   }
   if (g_acc.dev.empty()) {

@@ -9,6 +9,9 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 - **Sincronizar: si falla la conexión, ahora dice con qué servidor y por qué** (en vez de sólo
   «Sin conexión a internet»), y lo apunta en `nube.log` en la SD (cada petición: servidor, resultado,
   lo que tardó y los bytes; sin contraseñas ni claves). Así se puede ver qué pasa en cada consola.
+- **Si tu consola no llega al servidor de la partida de pokesurvivor.com** (pasa con algunas redes:
+  se quedaba esperando y salía «Sin conexión a internet»), ahora va por un puente de nuestro
+  servidor, al que sí llega, y lo recuerda para las siguientes veces.
 - Más aguante al sincronizar: hasta 60 s por petición (antes 25; con mucha partida y una wifi lenta
   no llegaba), un reintento si la conexión se corta y, si tu red no encuentra el servidor de la
   partida de pokesurvivor.com, se prueba por su dirección directa.

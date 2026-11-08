@@ -20,6 +20,7 @@ struct Account {
   int64_t last_sync = 0;         // (hora de la consola)
   int synced_partner = -1;       // compañero en la última sincronización (cloud::partner_code)
   bool google = false;           // se entró con Google (para el logo)
+  bool bridge = false;           // la API de la partida va por el puente de nuestro servidor (su red no llega)
 };
 
 enum JobState { JOB_IDLE, JOB_BUSY, JOB_DONE, JOB_FAILED };

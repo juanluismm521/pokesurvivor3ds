@@ -36,6 +36,9 @@ struct Config {
   // La partida: la API de pokesurvivor.com (desde noviembre de 2026 la web ya no la
   // guarda en Firestore; permiso del dueño de la web para la 3DS, 06-11-2026).
   std::string api_base = "https://ice.pokesurvivor.com/v1/d";
+  // Si la consola no llega a la API, el puente del servidor del proyecto (lo mismo, por
+  // pokesurvivor3ds.duckdns.org/webapi). Tras sincronizar, api_base es el que ha ido.
+  std::string api_alt;
   // La clave de la web sólo acepta peticiones que vengan de la web (Referer);
   // con permiso del proyecto, la 3DS se presenta como la web.
   std::string referer = "https://pokesurvivor.com/";
