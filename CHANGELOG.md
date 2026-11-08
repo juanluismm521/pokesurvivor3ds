@@ -5,7 +5,20 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
-## 0.50.1 — 2026-11-08
+## 0.50.5 — 2026-11-08
+(Lleva también lo de la 0.50.1, que no llegó a publicarse.)
+- Mientras sincroniza, debajo de «Conectando con pokesurvivor.com…» pone que puede tardar un
+  poco (con algunas redes va por el puente de nuestro servidor y la primera vez tarda más).
+- **Entrar con Google:** el código de la consola sólo lleva letras y cifras que no se confunden
+  en su letra (fuera 0/O/C/D, 6/G, W/H, U/V, 1/I/L, 2/Z, 5/S, 8/B y 9) y sale partido en dos
+  (KH4P-H7MJ). La página
+  a la que lleva el QR sale en el idioma del juego (español o inglés).
+- Tienda Kecleon: el nombre de la Cápsula Habilidad Oculta ya no se monta encima de su
+  descripción, y debajo de cada Cápsula dice claro qué hace («Cambia la habilidad, incluida
+  la oculta»).
+- Si la sincronización falla, el mensaje entero (con qué servidor y por qué) se ve en dos líneas.
+
+## 0.50.1 — 2026-11-08 (sin publicar: va en la 0.50.5)
 - **Sincronizar: si falla la conexión, ahora dice con qué servidor y por qué** (en vez de sólo
   «Sin conexión a internet»), y lo apunta en `nube.log` en la SD (cada petición: servidor, resultado,
   lo que tardó y los bytes; sin contraseñas ni claves). Así se puede ver qué pasa en cada consola.

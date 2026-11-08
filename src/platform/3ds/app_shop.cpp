@@ -290,7 +290,7 @@ void App::bottom_shop() {
         r_->text_fit(it.name, 46, y + 2, 186, 0.4f, sel ? C_GOLD : C_TEXT);
         if (s_->bag[r.id] > 0) std::snprintf(b, sizeof(b), "%s", tr("tienes {x}"));
         if (s_->bag[r.id] > 0) { char t[32]; std::snprintf(t, sizeof(t), "%d", int(s_->bag[r.id])); std::string q = b; const size_t p = q.find("{x}"); if (p != std::string::npos) q.replace(p, 3, t); r_->text_fit(q.c_str(), 46, y + 16, 180, 0.32f, C_GOLD); }
-        else r_->text_fit(r.id == BAG_MINT ? "Cambia la naturaleza" : r.id == BAG_CAP ? "Cambia la habilidad" : "También la oculta", 46, y + 16, 180, 0.32f, C_MUTED);
+        else r_->text_fit(r.id == BAG_MINT ? "Cambia la naturaleza" : r.id == BAG_CAP ? "Cambia la habilidad (no la oculta)" : "Cambia la habilidad, incluida la oculta", 46, y + 16, 180, 0.32f, C_MUTED);
         price(it.price, s_->coins >= it.price, "coin", C_COIN);
         break;
       }
@@ -501,12 +501,19 @@ void App::top_shop() {
   } else {
     const Row& r = rows[shop_sel_];
     float y = 16;
+    // El nombre, a la derecha del icono: los largos («Cápsula Habilidad Oculta»), con letra
+    // más pequeña; lo de debajo empieza donde acaba (antes se montaba encima).
+    auto title = [&](const char* name, float yy) {
+      const float w = pw - 54;
+      const float sz = r_->text_width(name, 0.42f) > w * 1.6f ? 0.36f : 0.42f;
+      const float h = r_->text_wrap(name, px + 50, yy + 2, sz, C_GOLD, w);
+      return std::max(44.0f, h + (r_->text_width(name, sz) > w ? 16.0f : 8.0f));
+    };
     auto big_icon = [&](const char* name) { const int ic = r_->icons.find(name); if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), px + 8, y, 0, nullptr, 3, 3); };
     if (r.kind == SR_ITEM || r.kind == SR_BAG_ITEM) {
       const ShopItemDef& it = kShopItems[r.id];
       big_icon(it.icon);
-      r_->text_wrap(it.name, px + 50, y + 2, 0.42f, C_GOLD, pw - 54);
-      y += 44;
+      y += title(it.name, y);
       y += r_->text_wrap(it.desc, px + 8, y, 0.36f, C_TEXT, pw - 16) + 8;
       std::snprintf(b, sizeof(b), "%s: %d", tr("En tu Mochila"), int(s_->bag[r.id]));
       r_->text(b, px + 8, y, 0.36f, C_GOLD); y += 18;
@@ -528,8 +535,7 @@ void App::top_shop() {
       const int ic = r_->move_icon[mv];
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), px + 8, y, 0, nullptr, 2.5f, 2.5f);
       std::snprintf(b, sizeof(b), "%s %s", tr("MT"), tr(d.name));
-      r_->text_wrap(b, px + 50, y + 2, 0.42f, C_GOLD, pw - 54);
-      y += 44;
+      y += title(b, y);
       C2D_DrawRectSolid(px + 8, y, 0, 60, 14, rgb(kTypeColor[d.type]));
       r_->text(kTypeName[d.type], px + 38, y, 0.32f, C_TEXT, 1);
       const bool buff = d.kind == K_BUFF || d.cat < 0;
@@ -634,6 +640,7 @@ void App::shop_demo_step(float dt) {
   news_t_ += dt;
   auto at = [&](float s) { return t0 < s && news_t_ >= s; };
   UiIn none;
+  if (at(2)) { shop_sel_ = -1; for (int i = 0; i < 2; ++i) { UiIn d; d.rep = KEY_DDOWN; in_shop(d); } }   // la Cápsula Habilidad Oculta
   if (at(4)) { shop_sel_ = -1; for (int i = 0; i < 3; ++i) { UiIn d; d.rep = KEY_DDOWN; in_shop(d); } }   // a la primera MT
   if (at(6)) { UiIn a; a.down = KEY_A; in_shop(a); }                                                      // la compra
   if (at(9)) { shop_sel_ = -1; in_shop(none); UiIn a; a.down = KEY_A; in_shop(a); }                          // una Menta

@@ -13,6 +13,7 @@
 #include "core/save_io.h"
 #include "core/settings.h"
 #include "core/websave.h"
+#include "core/i18n.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/app_ui.h"
 #include "platform/3ds/audio3ds.h"
@@ -276,6 +277,14 @@ void App::bottom_account() {
     r_->text_wrap("Entra con tu cuenta de pokesurvivor.com para tener la MISMA partida en la web y en la 3DS: Pokémon, shinies, monedas, tickets y mejoras. Nunca se pierde nada: se juntan las dos.", 160, 30, 0.36f, C_TEXT, 290, 1);
     std::string gcode, gurl;
     if (busy && cloud3ds::google_code(gcode, gurl) && cloud3ds::google_qr()) {
+      // La página, en el idioma del juego (/vincular/es/… o /vincular/en/…).
+      {
+        const size_t v = gurl.find("/vincular/");
+        if (v != std::string::npos && gurl.compare(v + 10, 3, "es/") != 0 && gurl.compare(v + 10, 3, "en/") != 0)
+          gurl.insert(v + 10, i18n_lang() == LANG_EN ? "en/" : "es/");
+      }
+      // El código partido en dos (ACEF-GHJK): se lee mejor.
+      if (gcode.size() == 8) gcode.insert(4, "-");
       // Pantalla entera: el QR a la página que lo explica, y el código por si
       // se escribe la dirección a mano.
       C2D_DrawRectSolid(0, 22, 0, BW, BH - 22, C_BG);
@@ -310,7 +319,8 @@ void App::bottom_account() {
     button(20, 132, 280, 34, busy ? "Entrando…" : "Entrar con usuario y contraseña", cur_ == 0);
     button(20, 172, 280, 34, "Entrar con Google", cur_ == 1);
   } else {
-    std::snprintf(b, sizeof(b), "Conectado como %s", a.name.c_str());
+    if (a.name.empty()) std::snprintf(b, sizeof(b), "Conectado");
+    else std::snprintf(b, sizeof(b), "Conectado como %s", a.name.c_str());
     r_->text(b, 160, 36, 0.5f, C_GOLD, 1);
     char t[32];
     ago(a.last_sync, t, sizeof(t));
@@ -323,9 +333,15 @@ void App::bottom_account() {
   if (busy) {
     const int dots = int(osGetTime() / 300) % 4;
     std::snprintf(b, sizeof(b), "Conectando con pokesurvivor.com%.*s", dots, "...");
-    r_->text(b, 160, 212, 0.34f, C_GOLD, 1);
+    r_->text(b, 160, 210, 0.34f, C_GOLD, 1);
+    // (con algunas redes va por el puente de nuestro servidor y la primera vez tarda más)
+    r_->text("Esto puede tardar un poco", 160, 226, 0.32f, C_MUTED, 1);
+    return;
   } else if (cloud_msg_[0]) {
-    r_->text(cloud_msg_, 160, 212, 0.34f, cloud_done < 0 ? C2D_Color32(255, 138, 150, 255) : C2D_Color32(126, 224, 122, 255), 1);
+    // (el error entero, en dos líneas si hace falta: dice con qué servidor y por qué)
+    const u32 col = cloud_done < 0 ? C2D_Color32(255, 138, 150, 255) : C2D_Color32(126, 224, 122, 255);
+    if (r_->text_width(cloud_msg_, 0.34f) <= 312) r_->text(cloud_msg_, 160, 212, 0.34f, col, 1);
+    else r_->text_wrap(cloud_msg_, 160, 206, 0.3f, col, 312, 1);
   }
   r_->text("A: elegir · B: volver", 160, 228, 0.32f, C_MUTED, 1);
 }

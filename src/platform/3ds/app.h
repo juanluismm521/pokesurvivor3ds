@@ -297,7 +297,7 @@ class App {
   int cloud_done = 0;            // (autotest) 1 = bien, -1 = mal
  private:
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
-  char cloud_msg_[128] = {};
+  char cloud_msg_[256] = {};
   bool over_synced_ = false;
   uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
