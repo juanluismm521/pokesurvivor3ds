@@ -36,10 +36,14 @@ Json overlay(const Json& base, const Json& top);
 // cambiado se queda exactamente como lo dejó la web (también lo que la 3DS
 // no sabe leer).
 Json overlay_changes(const Json& raw, const Json& was, const Json& now);
-// merge + red de seguridad para versiones nuevas de la web: lo que no es del
-// formato conocido (claves nuevas) se UNE en vez de quedarse sólo lo del más
-// nuevo.
+// merge para sincronizar: `a` es la partida de la consola y `b`, la de la NUBE. En lo
+// que la 3DS no conoce (claves nuevas de una web más nueva, la foto y el marco del
+// perfil) manda la de la nube: la consola no lo cambia nunca y su copia es vieja.
 Json merge_safe(const Json& a, const Json& b, int64_t now_ms);
+// Antes de fusionar: apunta en `local` (ptmOn) las MT que ha enseñado la consola desde
+// la última sincronización, como hace la web al enseñarlas (si no, una MT que se borró
+// en la web y se ha vuelto a enseñar aquí se borraría otra vez).
+void mark_taught(Json& local, const Json& remote, int64_t now_ms);
 // Al acabar una sincronización (se pidió con la partida tal como estaba al
 // empezarla): ¿hay que juntar otra vez con la de ahora? Sí si se guardó algo
 // mientras (`updated` cambió) o si hay cambios SIN guardar (`dirty`: un shiny, un

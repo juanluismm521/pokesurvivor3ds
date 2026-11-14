@@ -375,6 +375,23 @@ TEST_CASE("sincronizar: lo que deja el servidor al guardar (eco) queda en la con
   CHECK(!merged["shiny"].has("1100"));
   CHECK(merged["owned"].has("25"));
   CHECK(merged["led"]["base"]["c"][0].as_num() == 850);
+  // Como la web del 13-11-2026: el guardado dice qué versión del eco entiende.
+  { Json b; REQUIRE(b.parse(fs.last_commit)); CHECK(b["eco"].as_num() == 2); }
+  save_raw() = Json();
+}
+
+TEST_CASE("sincronizar: si en la nube quedó «Jugador» como nombre, se repone el de la cuenta") {
+  FakeFs fs;
+  fs.save = future_web_save();
+  fs.save.set("name", Json::str("Jugador"));
+  cloud::Client c;
+  c.http = fake_http; c.ctx = &fs;
+  cloud::Session ses;
+  REQUIRE(cloud::login(c, "Ana", "x", ses));
+  Json merged;
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Jugador", 1), "ctrprueba", 1800000002000LL, merged), c.error);
+  CHECK(merged["name"].as_str() == "Ana");
+  CHECK(fs.save["name"].as_str() == "Ana");
   save_raw() = Json();
 }
 

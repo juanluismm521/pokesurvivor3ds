@@ -365,6 +365,7 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
     local = web::migrate(local, "", now, false);
     web::fold(local, dev);
     const Json rem = remote.is_obj() ? web::migrate(remote, "", now, false) : Json();
+    if (rem.is_obj()) web::mark_taught(local, rem, now);
     merged = rem.is_obj() ? web::merge_safe(local, rem, now) : local;
     // El compañero: la fusión de la web se queda con el de la copia más nueva,
     // pero la consola guarda por cualquier cosa (una misión, un logro) y su
@@ -383,10 +384,17 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
       c.error = "Por seguridad no se ha sincronizado (se perdería " + lost + "). Avisa al creador del juego.";
       return false;
     }
+    // Una consola recién estrenada pudo dejar «Jugador» como nombre en la nube (versiones
+    // anteriores): se repone el de la cuenta.
+    if (merged["name"].as_str().empty() || merged["name"].as_str() == "Jugador") {
+      const std::string nick = profile_name(c, s);
+      if (!nick.empty()) merged.set("name", Json::str(nick));
+    }
     // Subir
     Json body = Json::object();
     body.set("save", merged);
     body.set("rev", Json::num(double(rev + 1)));
+    body.set("eco", Json::num(2));   // (como la web del 13-11-2026: versión del eco que entiende)
     const std::string b = body.dump();
     if (!api(c, s, "PUT", "/save", &b, rs, j)) return false;
     if (rs.status == 200) { apply_eco(merged, j["eco"]); return true; }

@@ -470,6 +470,38 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
         rt.set(kv.first, l);
       }
   }
+  // MT vacía (web del 13-11-2026): ptmOn / ptmOff apuntan cuándo se enseñó y cuándo se
+  // borró cada MT; de cada una, la fecha mayor. Una MT borrada después de enseñada se quita.
+  if (r["ptmOn"].is_obj() || older["ptmOn"].is_obj() || r["ptmOff"].is_obj() || older["ptmOff"].is_obj()) {
+    for (const char* k : {"ptmOn", "ptmOff"}) {
+      Json m = Json::object();
+      for (const Json* src : {&r[k], &older[k]}) {
+        if (!src->is_obj()) continue;
+        for (const auto& dv : src->items()) {
+          if (!dv.second.is_obj()) continue;
+          Json& md = m.ref(dv.first);
+          if (!md.is_obj()) md = Json::object();
+          for (const auto& kv : dv.second.items()) md.set(kv.first, Json::num(std::fmax(num(md[kv.first.c_str()]), num(kv.second))));
+        }
+      }
+      r.set(k, m);
+    }
+    Json& rt = r.ref("ptm");
+    auto& it = rt.items_mut();
+    for (size_t i = it.size(); i-- > 0;) {
+      const char* d = it[i].first.c_str();
+      const Json& off = r["ptmOff"][d];
+      if (off.is_obj() && it[i].second.is_arr()) {
+        Json keep = Json::array();
+        for (const Json& id : it[i].second.elems()) {
+          const char* m = id.is_str() ? id.as_str().c_str() : "";
+          if (!(num(off[m]) > num(r["ptmOn"][d][m]))) keep.push(id);
+        }
+        it[i].second = keep;
+      }
+      if (!it[i].second.is_arr() || !it[i].second.size()) it.erase(it.begin() + long(i));
+    }
+  }
   for (const char* k : {"pnat", "pabil", "pskin"}) {
     Json& rp = r.ref(k);
     if (!truthy(rp) || !rp.is_obj()) rp = Json::object();
@@ -487,6 +519,29 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
         const Json& mine = rc[kv.first.c_str()];
         if (!truthy(mine) || or0(kv.second["at"]) < or0(mine["at"])) rc.set(kv.first, kv.second);
       }
+  }
+  // Retirados por el servidor (rvk): de cada uno, la fecha mayor; lo conseguido hasta esa
+  // fecha se quita (lo conseguido después, no).
+  if (a["rvk"].is_obj() || b["rvk"].is_obj()) {
+    Json rv = Json::object();
+    for (const Json* src : {&a["rvk"], &b["rvk"]}) {
+      if (!src->is_obj()) continue;
+      for (const char* coll : {"owned", "shiny"}) {
+        if (!(*src)[coll].is_obj()) continue;
+        Json& rc = rv.ref(coll);
+        if (!rc.is_obj()) rc = Json::object();
+        for (const auto& kv : (*src)[coll].items()) rc.set(kv.first, Json::num(std::fmax(num(rc[kv.first.c_str()]), num(kv.second))));
+      }
+    }
+    r.set("rvk", rv);
+    for (const char* coll : {"owned", "shiny"}) {
+      Json* rc = r.get(coll);
+      if (!rc || !rc->is_obj() || !rv[coll].is_obj()) continue;
+      auto& it = rc->items_mut();
+      for (size_t i = it.size(); i-- > 0;)
+        if (rv[coll].has(it[i].first.c_str()) && truthy(it[i].second) && plus0(it[i].second["at"]) <= num(rv[coll][it[i].first.c_str()]))
+          it.erase(it.begin() + long(i));
+    }
   }
   if (older["upgrades"].is_obj())
     for (const auto& kv : older["upgrades"].items()) {
@@ -648,7 +703,7 @@ bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
                                   "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin", "regalos",
-                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil"};
+                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }
@@ -666,32 +721,91 @@ void add_missing(Json& dst, const Json& src) {
 Json merge_safe(const Json& a, const Json& b, int64_t now_ms) {
   Json r = merge(a, b, now_ms);
   if (!a.is_obj() || !b.is_obj()) return r;
-  for (const Json* side : {&a, &b})
-    for (const auto& kv : side->items()) {
-      if (known_key(kv.first)) continue;
-      Json* d = r.get(kv.first);
-      if (!d) r.set(kv.first, kv.second);
-      else if (d->is_obj() && kv.second.is_obj()) add_missing(*d, kv.second);
+  // Lo que la 3DS no conoce (maestría, huevos, estelas, fotos, marcos, dificultad…: la
+  // web del 13-11-2026) NUNCA lo cambia la consola: su copia es la de la última
+  // sincronización y la de la nube (b) es igual o más nueva. Manda la de la nube; lo
+  // que la nube no trae se queda como estaba.
+  for (const auto& kv : a.items()) if (!known_key(kv.first)) r.set(kv.first, kv.second);
+  for (const auto& kv : b.items()) if (!known_key(kv.first)) r.set(kv.first, kv.second);
+  // El nombre es el de la cuenta: el de la nube (una consola recién estrenada trae «Jugador»).
+  if (b["name"].is_str() && !b["name"].as_str().empty()) r.set("name", b["name"]);
+  // Misiones: las del día (y la semana) más reciente, no las de la copia guardada más
+  // tarde: una consola sin misiones, o con las de ayer, borraba las de hoy de la web.
+  // (Las del mismo día ya las ha juntado merge.)
+  {
+    const char* const PER[2][2] = {{"day", "daily"}, {"week", "weekly"}};
+    for (const auto& pl : PER) {
+      const std::string da = a["missions"][pl[1]].is_arr() ? a["missions"][pl[0]].as_str() : "";
+      const std::string db = b["missions"][pl[1]].is_arr() ? b["missions"][pl[0]].as_str() : "";
+      if (da == db) continue;
+      const Json& src = (da > db ? a : b)["missions"];
+      Json& rm = r.ref("missions");
+      if (!rm.is_obj()) rm = Json::object();
+      rm.set(pl[0], src[pl[0]]);
+      rm.set(pl[1], src[pl[1]]);
+      if (pl[0][0] == 'd' && src.has("rerolled")) rm.set("rerolled", src["rerolled"]);
     }
+  }
+  // Igual con lo del perfil que la 3DS no toca (foto, marco…): sólo son suyos favs y title.
+  if (b["profile"].is_obj()) {
+    Json& rp = r.ref("profile");
+    if (!rp.is_obj()) rp = Json::object();
+    for (const auto& kv : b["profile"].items()) if (kv.first != "favs" && kv.first != "title") rp.set(kv.first, kv.second);
+  }
   return r;
+}
+
+void mark_taught(Json& local, const Json& remote, int64_t now_ms) {
+  if (!local["ptm"].is_obj() || !remote.is_obj()) return;
+  std::vector<std::pair<std::string, std::string>> marks;   // (dex, movimiento)
+  for (const auto& dv : local["ptm"].items()) {
+    if (!dv.second.is_arr()) continue;
+    const char* d = dv.first.c_str();
+    for (const Json& id : dv.second.elems()) {
+      if (!id.is_str()) continue;
+      const char* m = id.as_str().c_str();
+      bool in_remote = false;
+      for (const Json& q : remote["ptm"][d].elems()) if (same(q, id)) in_remote = true;
+      if (in_remote) continue;
+      // La nube no la tiene. Si la borró DESPUÉS de la última sincronización de esta
+      // consola (su ptmOff es más nuevo que el que la consola conocía), manda el borrado.
+      // Si no, la ha enseñado la consola: se apunta cuándo, como hace la web.
+      if (num(remote["ptmOff"][d][m]) > num(local["ptmOff"][d][m])) continue;
+      marks.emplace_back(dv.first, id.as_str());
+    }
+  }
+  if (marks.empty()) return;
+  Json& on = local.ref("ptmOn");
+  if (!on.is_obj()) on = Json::object();
+  for (const auto& mk : marks) {
+    Json& od = on.ref(mk.first);
+    if (!od.is_obj()) od = Json::object();
+    od.set(mk.second, Json::num(double(now_ms)));
+  }
 }
 
 bool loses_progress(const Json& prev, const Json& merged, std::string& what) {
   if (!prev.is_obj()) return false;
   for (const char* coll : {"owned", "shiny", "legends", "arenas", "itemsFound", "evoMoves", "ach"})
     for (const auto& kv : prev[coll].items())
-      if (!truthy(merged[coll][kv.first.c_str()]) && truthy(kv.second)) { what = std::string(coll) + "." + kv.first; return true; }
+      if (!truthy(merged[coll][kv.first.c_str()]) && truthy(kv.second)) {
+        if (merged["rvk"][coll].has(kv.first.c_str())) continue;   // (lo ha retirado el servidor)
+        what = std::string(coll) + "." + kv.first;
+        return true;
+      }
   for (const auto& dv : prev["pupg"].items())
     for (const auto& kv : dv.second.items())
       if (plus(merged["pupg"][dv.first.c_str()][kv.first.c_str()]) < plus(kv.second)) { what = "pupg." + dv.first + "." + kv.first; return true; }
   for (const auto& kv : prev["stats"].items())
     if (plus(merged["stats"][kv.first.c_str()]) < plus(kv.second)) { what = "stats." + kv.first; return true; }
-  // Las MT aprendidas no se olvidan.
+  // Las MT aprendidas no se olvidan (salvo las borradas con la MT vacía).
   for (const auto& dv : prev["ptm"].items()) {
     if (!dv.second.is_arr()) continue;
     for (const Json& id : dv.second.elems()) {
       bool in = false;
       for (const Json& q : merged["ptm"][dv.first.c_str()].elems()) if (same(q, id)) in = true;
+      const char* m = id.is_str() ? id.as_str().c_str() : "";
+      if (!in && num(merged["ptmOff"][dv.first.c_str()][m]) > num(merged["ptmOn"][dv.first.c_str()][m])) continue;   // (borrada con la MT vacía)
       if (!in) { what = "ptm." + dv.first; return true; }
     }
   }

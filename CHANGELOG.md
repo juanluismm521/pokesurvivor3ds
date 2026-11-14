@@ -5,6 +5,16 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.50.6 — 2026-11-14
+Sincronización con pokesurvivor.com al día con su Gran Actualización (13-11):
+- **Lo nuevo de la web ya no se pisa desde la consola:** maestría, huevos, estelas, fotos y
+  marcos, la foto y el marco del perfil, la dificultad, el Vestidor y la Pokédex de vistos se
+  quedan como los tengas en la web (antes, al sincronizar desde la 3DS podían volver a como
+  estaban la última vez).
+- Una consola recién estrenada ya no borra las misiones del día de la web ni cambia el nombre
+  de tu cuenta a «Jugador» (si te pasó, al sincronizar vuelve tu nombre).
+- Las MT que borres en la web con la MT vacía ya no vuelven al sincronizar.
+
 ## 0.50.5 — 2026-11-08
 (Lleva también lo de la 0.50.1, que no llegó a publicarse.)
 - Mientras sincroniza, debajo de «Conectando con pokesurvivor.com…» pone que puede tardar un

@@ -10,7 +10,8 @@ OUT=${3:-captures}
 SHOTS=${4:-1}
 mkdir -p "$OUT"
 export DISPLAY=:99
-if ! pgrep -x Xvfb >/dev/null; then
+# (el Xvfb de ESTA pantalla: en el VPS hay otros servicios con el suyo)
+if ! pgrep -f "Xvfb :99( |$)" >/dev/null; then
   Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
   sleep 2
 fi
