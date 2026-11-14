@@ -49,7 +49,7 @@ Input unpack_input(const uint8_t* b) {
 
 static void put_member(W& w, const RunConfig::Member& m) {
   w.u16(uint32_t(m.dex)); w.u8(m.shiny ? 1 : 0);
-  w.raw(m.upgrades, UP_COUNT); w.raw(m.pbind, 4); w.raw(m.pban, 3); w.u8(uint8_t(m.pstart)); w.u8(uint8_t(m.pmove2)); w.raw(m.name, 16);
+  w.raw(m.upgrades, UP_COUNT); for (int16_t v : m.pbind) w.u16(uint16_t(v)); for (int16_t v : m.pban) w.u16(uint16_t(v)); w.u16(uint16_t(m.pstart)); w.u16(uint16_t(m.pmove2)); w.raw(m.name, 16);
   w.u8(m.immortal ? 1 : 0);
   w.u8(m.mega_up);
   w.u8(m.test_stone ? 1 : 0);
@@ -58,11 +58,11 @@ static void put_member(W& w, const RunConfig::Member& m) {
   // Tienda Kecleon (protocolo 23): naturaleza, habilidad y MT aprendidas.
   w.u8(uint8_t(m.nature));
   w.u16(uint16_t(m.abil));
-  w.u32(uint32_t(m.taught)); w.u32(uint32_t(m.taught >> 32));
+  for (int k = 0; k < 2; ++k) { w.u32(uint32_t(m.taught.w[k])); w.u32(uint32_t(m.taught.w[k] >> 32)); }
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
-  r.raw(m.upgrades, UP_COUNT); r.raw(m.pbind, 4); r.raw(m.pban, 3); m.pstart = int8_t(r.u8()); m.pmove2 = int8_t(r.u8()); r.raw(m.name, 16);
+  r.raw(m.upgrades, UP_COUNT); for (int16_t& v : m.pbind) v = int16_t(r.u16()); for (int16_t& v : m.pban) v = int16_t(r.u16()); m.pstart = int16_t(r.u16()); m.pmove2 = int16_t(r.u16()); r.raw(m.name, 16);
   m.immortal = r.u8() != 0;
   m.mega_up = uint8_t(r.u8());
   m.test_stone = r.u8() != 0;
@@ -70,11 +70,11 @@ static void get_member(R& r, RunConfig::Member& m) {
   m.four_up = r.u8() != 0;
   m.nature = int8_t(r.u8());
   m.abil = int16_t(r.u16());
-  m.taught = uint64_t(r.u32()); m.taught |= uint64_t(r.u32()) << 32;
+  for (int k = 0; k < 2; ++k) { m.taught.w[k] = uint64_t(r.u32()); m.taught.w[k] |= uint64_t(r.u32()) << 32; }
   if (m.nature < -1 || m.nature >= kNatureCount) m.nature = -1;
   if (m.abil < -1 || m.abil >= kAbilCount) m.abil = -1;
-  if (m.dex >= 1 && m.dex <= kMaxDex) m.taught &= kDexTms[m.dex];   // (sólo MT que aprende de verdad)
-  else m.taught = 0;
+  if (m.dex >= 1 && m.dex <= kMaxDex) m.taught = m.taught & kDexTms[m.dex];   // (sólo MT que aprende de verdad)
+  else m.taught = TmBits{};
   if (m.skin < -1 || m.skin >= kSkinCount || (m.skin >= 0 && kSkins[m.skin].dex != m.dex)) m.skin = -1;   // (sólo un disfraz suyo)
   m.name[15] = 0;
   if (m.dex < 1 || m.dex > kMaxDex) { m.dex = 25; r.ok = false; }
@@ -83,9 +83,9 @@ static void get_member(R& r, RunConfig::Member& m) {
   // Todas las consolas leen los mismos bytes, así que acaban igual.
   for (int u = 0; u < UP_COUNT; ++u) if (m.upgrades[u] > uint8_t(kUpgrades[u].max)) m.upgrades[u] = uint8_t(kUpgrades[u].max);
   if (m.mega_up > kMegaUpMax) m.mega_up = kMegaUpMax;
-  auto mv = [](int8_t& v) { if (v < -1 || v >= kMoveCount) v = -1; };
-  for (int8_t& v : m.pbind) mv(v);
-  for (int8_t& v : m.pban) mv(v);
+  auto mv = [](int16_t& v) { if (v < -1 || v >= kMoveCount) v = -1; };
+  for (int16_t& v : m.pbind) mv(v);
+  for (int16_t& v : m.pban) mv(v);
   mv(m.pstart); mv(m.pmove2);
 }
 

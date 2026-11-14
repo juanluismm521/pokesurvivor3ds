@@ -102,7 +102,7 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
   // Mejora "Repertorio": un segundo movimiento de ataque, el elegido (del port:
   // Mejoras → Repertorio) si sigue valiendo, o al azar como en la web.
   if (perks.start_moves >= 2 && c.pmove2 >= 0 && c.pmove2 < kMoveCount && !player_has_move(p, c.pmove2) &&
-      !p.banned.has(c.pmove2) && kMoves[c.pmove2].kind != K_BUFF && in_type_pool(p, c.pmove2)) {
+      !p.banned.has(c.pmove2) && !kind_is_status(kMoves[c.pmove2].kind) && in_type_pool(p, c.pmove2)) {
     player_add_move(g, p, c.pmove2);
     player_set_active(g, p, 0);
   } else if (perks.start_moves >= 2) {
@@ -111,7 +111,7 @@ static void init_player(Game& g, Player& p, const RunConfig& c) {
     int np = 0;
     for (int i = 0; i < na; ++i) {
       const int id = all[i];
-      if (player_has_move(p, id) || p.banned.has(id) || kMoves[id].kind == K_BUFF) continue;
+      if (player_has_move(p, id) || p.banned.has(id) || kind_is_status(kMoves[id].kind)) continue;
       pool[np++] = int16_t(id);
     }
     if (np) player_add_move(g, p, pool[int(g.rng.next() * np)]);
@@ -495,13 +495,14 @@ void Game::leave(int who) {
 // coop.js xpFactor: la media de los bonus de cada uno, repartida entre los que
 // sois (en grupo se sube más despacio; si no, el triple de rápido).
 static float xp_factor(const Game& g) {
-  if (g.nplayers <= 1) return 1;
+  // (modo rápido: la experiencia llega antes, en la misma proporción que el reloj: quick_xp_k)
+  if (g.nplayers <= 1) return quick_xp_k(g);
   const Player& p0 = g.players[0];
   float s = 0;
   int n = 0;
   for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) { s += g.players[i].xp_mul > 0 ? g.players[i].xp_mul : 1; n++; }
   const float own = p0.xp_mul > 0 ? p0.xp_mul : 1;
-  return (s / n) / own / (1 + 0.6f * (n - 1));
+  return (s / n) / own / (1 + 0.6f * (n - 1)) * quick_xp_k(g);
 }
 
 float game_xp_factor(const Game& g) { return xp_factor(g); }

@@ -1,7 +1,7 @@
 // spawner.cpp — oleadas, jefes y shinies (spawner.js de la web).
 // Los enemigos aparecen en un anillo justo fuera de la vista. Cada ~45 s hay
 // una "marea": una avalancha desde un lado concreto. Cada enemigo tiene 1/4096
-// de salir shiny. Al llegar al tope (64), los que siguen saliendo son "élite".
+// de salir shiny. Cuántos salen y lo que aguantan lo dicen las curvas de core/diff.h.
 #include <cmath>
 #include <cstdio>
 
@@ -11,13 +11,7 @@
 namespace ps {
 
 namespace {
-constexpr float ELITE_FROM = 0.85f;
-// Menos Pokémon pero más fuertes: salen ~24% de los de antes, cada uno con más
-// vida, daño y experiencia.
-constexpr float DENSITY = 0.24f, DMG_K = 2.4f, XP_K = 5.6f;
 constexpr float SHINY_RATE = 1.0f / 4096;
-// La resistencia extra crece con la run: ×3,3 al principio y hasta ×5 hacia el minuto 6.
-float hp_k(float t) { return 3.3f + std::fmin(1.7f, t / 210); }
 
 void ring_point(Game& g, const Player& p, float angle, float& x, float& y) {
   const float d = g.camera.outer_radius() + g.rng.range(10, 70);
@@ -91,17 +85,9 @@ Enemy* spawn_one(Game& g, Player& p, float t, float angle, bool has_angle) {
   float x, y;
   if (!free_point(g, p, has_angle ? angle : g.rng.next() * kTau, hovers(def.dex), x, y)) return nullptr;
   const bool shiny = roll_shiny(g, def.dex);
-  Scale3 sc = enemies_scale(t);
-  sc.hp *= coop_scale_hp(g.team_size()) * hp_k(t);
-  Enemy* e = enemy_spawn(g, def, x, y, sc);
+  Enemy* e = enemy_spawn(g, def, x, y, enemies_scale(g, t, &def));
   if (!e) return nullptr;
-  e->dmg *= DMG_K;
-  e->xp = float(jsround(e->xp * XP_K));
-  if (g.enemies.n - 1 >= kEnemyCap * ELITE_FROM) {
-    e->max_hp = e->hp = float(jsround(e->max_hp * 1.6f));
-    e->dmg *= 1.25f;
-    e->xp = float(jsround(e->xp * 1.6f));
-  }
+  e->xp = enemies_xp_of(g, t, &def);
   if (shiny) enemy_make_shiny(g, *e);
   if (events_golden(g)) enemy_make_golden(*e);
   if (shiny) {
@@ -116,9 +102,7 @@ Enemy* spawn_one(Game& g, Player& p, float t, float angle, bool has_angle) {
 void spawn_boss(Game& g, Player& p, float t, const EnemyDef& b) {
   float x, y;
   ring_point(g, p, g.rng.next() * kTau, x, y);
-  Scale3 sc = enemies_boss_scale(t);
-  sc.hp *= coop_scale_hp(g.team_size()) * (g.team_size() > 1 ? 1.4f : 1);
-  Enemy* e = enemy_spawn(g, b, x, y, sc, true);
+  Enemy* e = enemy_spawn(g, b, x, y, enemies_boss_scale(g, t, b), true);
   if (!e) return;
   if (roll_shiny(g, b.dex)) enemy_make_shiny(g, *e);
   char s[96];
@@ -129,7 +113,7 @@ void spawn_boss(Game& g, Player& p, float t, const EnemyDef& b) {
 }
 }  // namespace
 
-float spawner_rate(float t) { return (1.6f + t * 0.028f + std::pow(t / 60, 1.6f) * 0.5f) * DENSITY; }
+float spawner_rate(const Game& g, float t) { return float(diff_rate(t, g.team_size())); }
 
 void spawner_reset(Game& g) {
   g.spawner = Game::SpawnerState();
@@ -140,7 +124,8 @@ void spawner_update(Game& g, float dt) {
   // En la arena de la grieta no sale nada más (y el reloj de jefes espera).
   // En la Sentencia de Arceus, sólo sus legendarios.
   if (g.rift.arena || judgment_active(g)) return;
-  const float t = float(g.time);
+  // (t = tiempo equivalente: en el modo rápido todo llega antes, ver game_teq)
+  const float t = game_teq(g);
 
   // --- jefes ---
   if (g.spawner.boss_idx < g.nbosses) {
@@ -153,7 +138,7 @@ void spawner_update(Game& g, float dt) {
 
   // --- goteo normal ---
   if (g.enemies.n < kEnemyCap) {
-    g.spawner.acc += spawner_rate(t) * coop_scale_rate(g.team_size()) * (boss_fight ? 0.25f : 1) * dt;
+    g.spawner.acc += spawner_rate(g, t) * (boss_fight ? 0.25f : 1) * dt;
     int n = int(std::floor(g.spawner.acc));
     g.spawner.acc -= n;
     while (n-- > 0 && g.enemies.n < kEnemyCap) spawn_one(g, anchor(g), t, 0, false);
@@ -165,7 +150,7 @@ void spawner_update(Game& g, float dt) {
     g.spawner.surge_t = g.rng.range(38, 56);
     const float base = g.rng.next() * kTau;
     Player& target = anchor(g);
-    const int n = std::min(kEnemyCap - g.enemies.n, int(jsround((14 + std::floor(t / 22)) * coop_scale_rate(g.team_size()) * 0.4f)));
+    const int n = std::min(kEnemyCap - g.enemies.n, int(jsround(spawner_rate(g, t) * 8)));
     for (int i = 0; i < n; ++i) spawn_one(g, target, t, base + g.rng.range(-0.55f, 0.55f), true);
     g.say("¡Marea de Pokémon!", 2.2f);
     g.sfx(SFX_SURGE);
@@ -176,7 +161,7 @@ void spawner_update(Game& g, float dt) {
 void spawner_burst(Game& g, int n) {
   const float base = g.rng.next() * kTau;
   Player& target = anchor(g);
-  for (int i = 0; i < n && g.enemies.n < kEnemyCap + 10; ++i) spawn_one(g, target, float(g.time), base + g.rng.range(-0.6f, 0.6f), true);
+  for (int i = 0; i < n && g.enemies.n < kEnemyCap + 10; ++i) spawn_one(g, target, game_teq(g), base + g.rng.range(-0.6f, 0.6f), true);
 }
 
 // Un rezagado vuelve a salir por delante del jugador (hacia donde corre),

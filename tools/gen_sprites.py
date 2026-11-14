@@ -39,12 +39,20 @@ TEX3DS = os.path.join(os.environ.get('DEVKITPRO', '/opt/devkitpro'), 'tools', 'b
 
 
 def load_meta():
-    """SPRITE_META de la web (se ejecuta el .js con node)."""
-    js = ("const fs=require('fs');global.G={};"
-          "eval(fs.readFileSync(process.argv[1],'utf8').replace(/\\r\\n/g,'\\n'));"
-          "process.stdout.write(JSON.stringify(G.SPRITE_META))")
-    out = subprocess.check_output(['node', '-e', js, os.path.join(ROOT, 'reference', 'web', 'js', 'data', 'sprites-meta.js')])
-    return json.loads(out)
+    """SPRITE_META de la web nueva (reference/web-gran, tools/web/volcar.js): los 1025 y las
+    formas regionales, éstas con su número del port (assets-src/formas/formas.json)."""
+    gran = os.path.join(ROOT, 'reference', 'web-gran')
+    T = json.loads(subprocess.check_output(['node', os.path.join(ROOT, 'tools', 'web', 'volcar.js'), gran]))
+    ff = os.path.join(ROOT, 'assets-src', 'formas', 'formas.json')
+    por_id = {f['id']: f['dex'] for f in json.load(open(ff, encoding='utf-8'))['formas']} if os.path.exists(ff) else {}
+    meta = {}
+    for p in T['dex']:
+        d = p['dex']
+        m = T['meta'].get(str(d))
+        if not m:
+            continue
+        meta[str(por_id.get(d, d) if d > 1025 else d)] = m
+    return meta
 
 
 def pack(sizes):

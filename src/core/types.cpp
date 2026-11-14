@@ -26,4 +26,16 @@ int type_from_id(const char* id) {
   return T_NONE;
 }
 
+// Formas regionales: su id en la web (500037 = Vulpix de Alola) y al revés.
+int form_web_id(int dex) {
+  if (dex <= kNationalDex) return dex;
+  for (int i = 0; i < kFormWebCount; ++i) if (kFormWeb[i].dex == dex) return kFormWeb[i].web;
+  return dex;
+}
+int form_from_web(int web_id) {
+  if (web_id >= 1 && web_id <= kNationalDex) return web_id;
+  for (int i = 0; i < kFormWebCount; ++i) if (kFormWeb[i].web == web_id) return kFormWeb[i].dex;
+  return 0;
+}
+
 }  // namespace ps

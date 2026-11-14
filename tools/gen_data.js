@@ -69,6 +69,70 @@ load('js/systems/levelup.js', [['/** Construye el conjunto', 'G.__LV = { STATS }
 sandbox.G.Sprites = { PX: 2 };
 load('js/entities/vfx.js', [['const TYPE_SHAPE', 'G.__VX = { MOVE };']]);
 
+// ---------------- la Gran Actualización (web del 13-11-2026) ----------------
+// Desde nov-2026 la web sólo publica su código ofuscado: reference/web-gran es ese
+// app.min.js partido en módulos (tools/web/bajar.sh). De ahí salen los DATOS nuevos
+// (Pokédex de 1025 y formas regionales, movimientos, objetos, mejoras, cartas de nivel,
+// enemigos, misiones, logros, naturalezas, habilidades y MT). El mundo (tiles.js,
+// weather.js, interact.js) y el gacha siguen saliendo de reference/web (19-10): su
+// lógica en C++ es la de esa web.
+const GRAN = process.env.PS_WEB_GRAN || path.join(ROOT, 'reference', 'web-gran');
+const { local } = require('./lib/websandbox');
+const FORMAS_FILE = path.join(ROOT, 'assets-src', 'formas', 'formas.json');
+const FORMAS = fs.existsSync(FORMAS_FILE) ? JSON.parse(fs.readFileSync(FORMAS_FILE, 'utf8')).formas : [];
+const NIVELES_FILE = path.join(ROOT, 'assets-src', 'evos', 'niveles.json');
+const NIVELES = fs.existsSync(NIVELES_FILE) ? JSON.parse(fs.readFileSync(NIVELES_FILE, 'utf8')).niveles : {};
+let N = null;
+{
+  process.env.PS_WEB = GRAN;
+  const sb = require('./lib/websandbox').create();
+  delete process.env.PS_WEB;
+  N = sb.G;
+  const gtext = f => fs.readFileSync(path.join(GRAN, f), 'utf8').replace(/\r\n/g, '\n');
+  const gload = (f, inject) => {
+    let src = gtext(f);
+    if (inject) { if (!src.includes(inject[0])) fail(`web-gran ${f}: no encuentro "${inject[0]}"`); src = src.replace(inject[0], inject[1] + '\n' + inject[0]); }
+    try { vm.runInContext(src, sb, { filename: 'gran/' + f }); } catch (e) { if (!REPORT) throw e; fail(`web-gran ${f}: ${e.message}`); }
+  };
+  /** Tablas que la web guarda dentro de un cierre: se buscan por lo que contienen. */
+  const expose = (f, into, marker, tabs) => {
+    const src = gtext(f);
+    gload(f, [marker, `G.${into} = { ${tabs.map(([n, re]) => `${n}: ${local(src, re, n)}`).join(', ')} };`]);
+  };
+  gload('js/core/util.js'); gload('js/core/i18n.js');
+  const add2 = N.I18n.add;
+  N.I18n.add = (d, lang, extra) => { if ((!lang || lang === 'en') && !extra) Object.assign(EN, d); add2(d, lang, extra); };
+  for (const f of ['js/data/lang-en.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/evos.js', 'js/data/megas.js', 'js/data/powers.js',
+                   'js/data/balance.js', 'js/data/natures.js', 'js/data/abilities.js', 'js/data/tms.js', 'js/data/forms.js']) gload(f);
+  expose('js/data/moves.js', '__MV', 'G.Moves = {', [
+    ['LADDERS', /const (_0x\w+) = \{\n\s+projectile: \[\{/], ['EVO_MODS', /const (_0x\w+) = \{\n\s+projectile: \{\n\s+t: /],
+    ['START', /const (_0x\w+) = \{\n\s+fire: "ember"/], ['MULT', /const (_0x\w+) = \["dmg", "cd"/], ['ADD', /const (_0x\w+) = \["count", "pierce"/]]);
+  for (const f of ['js/data/types.js', 'js/data/starters.js', 'js/data/difficulty.js']) gload(f);
+  expose('js/data/enemies.js', '__EN', 'return {\n    TIERS', [
+    ['HEAL', /const (_0x\w+) = new Set\(\[35, 36, 113/], ['SHIELD', /const (_0x\w+) = new Set\(\[95, 122, 208/],
+    ['BOMB', /const (_0x\w+) = new Set\(\[74, 75, 76/], ['SUMMON', /const (_0x\w+) = \{\n\s+15: 13,/]]);
+  for (const f of ['js/data/upgrades.js', 'js/data/items.js', 'js/data/missions.js', 'js/data/achievements.js', 'js/systems/levelup.js']) gload(f);
+  N.__LV = { STATS: N.LevelUp.STATS };
+  N.Sprites = { PX: 2 };
+  expose('js/entities/vfx.js', '__VX', 'return {\n    clearCache', [['MOVE', /const (_0x\w+) = \{\n\s+"quick-attack": \{\n\s+proj: /]]);
+  // Las formas regionales llevan en la web un id 500xxx; en el port, un número de Pokédex
+  // propio y estable (assets-src/formas/formas.json, tools/fetch_gran.py).
+  const porDex = {};
+  for (const f of FORMAS) porDex[f.id] = f.dex;
+  N.__WEBID = {};
+  for (const p of N.DEX) if (p.dex > 1025) {
+    if (!porDex[p.dex]) { fail(`forma regional sin número en formas.json: ${p.dex} ${p.slug} (pasar tools/fetch_gran.py)`); continue; }
+    N.__WEBID[porDex[p.dex]] = p.dex;
+    N.SPRITE_META[porDex[p.dex]] = N.SPRITE_META[p.dex]; N.DEX_ABIL[porDex[p.dex]] = N.DEX_ABIL[p.dex];
+    p.web = p.dex; p.dex = porDex[p.dex];
+    N.DEX_BY[p.dex] = p;
+  }
+  N.__pd = d => (d > 1025 ? porDex[d] || 0 : d);
+  // Lo que pasa a salir de la web nueva
+  for (const k of ['DEX', 'DEX_BY', 'SPRITE_META', 'Moves', '__MV', 'Types', 'Items', 'Upgrades', '__LV', 'Enemies', '__EN', 'STARTERS', 'STARTER_BY',
+                   'TRAIT_TEXT', 'PERSONALITY_TEST', 'MissionDefs', 'AchDefs', 'VFX', '__VX']) G[k] = N[k];
+}
+
 // ---------------- utilidades de salida ----------------
 const esc = s => s == null ? 'nullptr' : '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"';
 const col = h => { if (!h) return '0x000000u'; const n = parseInt(h.slice(1), 16); return '0x' + n.toString(16).padStart(6, '0') + 'u'; };
@@ -83,15 +147,19 @@ if (TYPES.join() !== EXPECT_TYPES.join()) fail('El orden de los tipos ha cambiad
 const T = t => (t == null ? -1 : TYPES.indexOf(t));
 const ANIMS = ['Idle', 'Walk', 'Attack', 'Shoot', 'Charge', 'Hurt', 'Faint'];
 const KINDS = ['projectile', 'melee', 'beam', 'orbit', 'nova', 'aura', 'boomerang', 'chain', 'mine', 'meteor', 'turret', 'dash', 'trail', 'cone',
-               'homing', 'bounce', 'charge', 'spin', 'quake', 'vortex', 'shove', 'stun', 'buff'];
-if (Object.keys(G.__MV.LADDERS).join() !== KINDS.join()) fail('Las familias de movimientos han cambiado: ' + Object.keys(G.__MV.LADDERS).join());
+               'homing', 'bounce', 'charge', 'spin', 'quake', 'vortex', 'shove', 'stun', 'buff',
+               // Gran Actualización (13-11-2026)
+               'tremor', 'wave', 'cross', 'storm', 'punch', 'scissor', 'blitz', 'leap', 'guard', 'rest', 'screen', 'decoy', 'boom', 'weather'];
+if (Object.keys(G.__MV.LADDERS).slice().sort().join() !== KINDS.slice().sort().join()) fail('Las familias de movimientos han cambiado: ' + Object.keys(G.__MV.LADDERS).join());
 const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain',
-                'pull', 'bounce', 'stun', 'charge'];
+                'pull', 'bounce', 'stun', 'charge',
+                // Gran Actualización: wx (clima que pone, índice de WX) y shield (0 físico, 1 especial) van como número
+                'zap', 'shred', 'noItem', 'puddle', 'pr', 'splash', 'boost', 'critUp', 'minCd', 'cost', 'wx', 'shield'];
 const BUFFS = ['atk', 'patk', 'satk', 'spd', 'def', 'regen'];
 const LSTATS = G.__LV.STATS.map(s => s.id);
-if (LSTATS.join() !== 'hp,atk,spd,cd,def,rgn,mag,xp,heal') fail('Las mejoras de nivel han cambiado: ' + LSTATS.join());
+if (LSTATS.join() !== 'hp,atk,spd,cd,def,rgn,mag,xp,heal,crit,critd,hunt,dodge,pwr,luck,coin') fail('Las mejoras de nivel han cambiado: ' + LSTATS.join());
 const SHAPES = Object.keys(G.VFX.SHAPES);
-const EXPECT_SHAPES = ['fire', 'drop', 'bubble', 'leaf', 'bolt', 'shard', 'rock', 'blob', 'needle', 'star', 'streak', 'wind', 'web', 'ring', 'crescent', 'note', 'impact', 'claw', 'jaws', 'arrow', 'ball', 'shadow', 'heart'];
+const EXPECT_SHAPES = ['fire', 'drop', 'bubble', 'leaf', 'bolt', 'shard', 'rock', 'blob', 'needle', 'star', 'zroll', 'streak', 'wind', 'web', 'ring', 'crescent', 'note', 'impact', 'claw', 'jaws', 'arrow', 'ball', 'shadow', 'spiral', 'eye', 'prism', 'mist', 'psiwave', 'comet', 'snowflake', 'fist', 'seed', 'feather', 'boulder', 'heart'];
 if (SHAPES.join() !== EXPECT_SHAPES.join()) fail('Las formas de vfx.js han cambiado: ' + SHAPES.join());
 const shapeIdx = s => (s == null ? -1 : s === 'lightning' ? 100 : (() => { const i = SHAPES.indexOf(s); if (i < 0) fail('forma ' + s); return i; })());
 const PALS = Object.keys(G.VFX.PAL);
@@ -118,15 +186,40 @@ for (const a of TYPES) w('  ' + arr(TYPES.map(d => { const r = G.Types.CHART[a] 
 w('};');
 
 // ---------------- Pokédex ----------------
+const REGS = ['', 'alola', 'galar', 'hisui', 'paldea'];
+for (const p of G.DEX) if (REGS.indexOf(p.reg || '') < 0) fail('región nueva: ' + p.reg);
 w('Mon kDex[] = {');
 for (const p of G.DEX) {
   for (const k of ['pa', 'sa', 'df', 'sd']) if (typeof p[k] !== 'number') fail(`Pokédex ${p.dex}: falta ${k}`);
-  w(`  {${p.dex}, ${esc(p.name)}, {${T(p.types[0])}, ${T(p.types[1])}}, ${p.hp}, ${p.spd}, ${fl(p.atk)}, ${fl(p.pa)}, ${fl(p.sa)}, ${p.df}, ${p.sd}, ${p.rarity}, ${p.bst}, ${p.gen}, ${!!p.starter}, ${!!p.leg}},`);
+  w(`  {${p.dex}, ${esc(p.name)}, {${T(p.types[0])}, ${T(p.types[1])}}, ${p.hp}, ${p.spd}, ${fl(p.atk)}, ${fl(p.pa)}, ${fl(p.sa)}, ${p.df}, ${p.sd}, ${p.rarity}, ${p.bst}, ${p.gen}, ${!!p.starter}, ${!!p.leg}, ${p.num || p.dex}, ${REGS.indexOf(p.reg || '')}},`);
 }
 w('};');
 w(`const int kDexCount = ${G.DEX.length};`);
-const idx = new Array(1026).fill(-1);
-G.DEX.forEach((p, i) => { if (p.dex > 1025) fail('dex > 1025'); idx[p.dex] = i; });
+const MAXDEX = 1199;   // kMaxDex de gamedata.h
+const idx = new Array(MAXDEX + 1).fill(-1);
+G.DEX.forEach((p, i) => { if (p.dex > MAXDEX) fail('dex > kMaxDex'); idx[p.dex] = i; });
+w(`const int kDexLast = ${Math.max(...G.DEX.map(p => p.dex))};`);
+// Formas regionales: su id en la web (las partidas de pokesurvivor.com las guardan con él)
+{
+  const rows = G.DEX.filter(p => p.web).map(p => `{${p.dex}, ${p.web}}`);
+  w(`const FormWeb kFormWeb[] = ${arr(rows.length ? rows : ['{0, 0}'])};`);
+  w(`const int kFormWebCount = ${rows.length};`);
+}
+// Evoluciones (evos.js): a quién evoluciona cada uno y a qué nivel de los juegos
+// (assets-src/evos/niveles.json, de PokeAPI: tools/fetch_evos.py; 0 = sin nivel: piedra, intercambio…)
+{
+  const rows = [];
+  for (const p of G.DEX) {
+    const web = p.web || p.dex;
+    for (const to of N.EVOS[web] || []) {
+      const t = N.__pd(to);
+      if (!t || !G.DEX_BY[t]) continue;
+      rows.push(`{${p.dex}, ${t}, ${NIVELES[to] || 0}}`);
+    }
+  }
+  w(`const EvoDef kEvos[] = ${arr(rows)};`);
+  w(`const int kEvoCount = ${rows.length};`);
+}
 w(`const int16_t kDexIndex[kMaxDex + 1] = ${arr(idx)};`);
 
 // ---------------- sprites ----------------
@@ -179,7 +272,7 @@ MEGAS.forEach((m, i) => {
   const b = G.DEX.find(p => p.dex === m.dex);
   if (!b) fail('mega de un Pokémon que no está: ' + m.form);
   if (m.id !== 3000 + i) fail('número de sprite de mega desordenado: ' + m.form);
-  w(`  {${m.dex}, ${m.slot}, ${m.sprite ? m.id : m.dex}, ${!!m.sprite}, ${esc(m.stone)}, {${m.dex}, ${esc(m.name)}, {${T(m.types[0])}, ${T(m.types[1])}}, ${m.hp}, ${m.spd}, ${fl(m.atk)}, ${fl(m.pa)}, ${fl(m.sa)}, ${m.df}, ${m.sd}, ${b.rarity}, ${m.bst}, ${b.gen}, false, ${!!b.leg}}},`);
+  w(`  {${m.dex}, ${m.slot}, ${m.sprite ? m.id : m.dex}, ${!!m.sprite}, ${esc(m.stone)}, {${m.dex}, ${esc(m.name)}, {${T(m.types[0])}, ${T(m.types[1])}}, ${m.hp}, ${m.spd}, ${fl(m.atk)}, ${fl(m.pa)}, ${fl(m.sa)}, ${m.df}, ${m.sd}, ${b.rarity}, ${m.bst}, ${b.gen}, false, ${!!b.leg}, ${m.dex}, 0}},`);
 });
 if (!MEGAS.length) w('  {}');
 w('};');
@@ -194,16 +287,20 @@ w(`const int kSkinCount = ${SKINS.length};`);
 w(`const char* const kKindId[K_COUNT] = ${arr(KINDS, esc)};`);
 w(`const char* const kMoveStatId[MS_NUM] = ${arr(MSTATS, esc)};`);
 w(`const uint8_t kMoveStatOp[MS_NUM] = ${arr(MSTATS.map(k => (G.__MV.MULT.includes(k) ? 1 : G.__MV.ADD.includes(k) ? 2 : 0)))};`);
-const known = new Set(['id', 'name', 'type', 'kind', 'desc', 'stat', 'cat', ...MSTATS]);
+const known = new Set(['id', 'name', 'type', 'kind', 'desc', 'stat', 'cat', 'only', ...MSTATS]);
+// (web nueva: EVO[id] = la mejora que pide; el nombre evolucionado es «Nombre +»)
+const evoOf = m => { const e = G.Moves.EVO[m.id]; return !e ? null : typeof e === 'string' ? [m.name + ' +', e] : e; };
 w('MoveDef kMoves[] = {');
 for (const m of G.Moves.ALL) {
   if (m.stat && BUFFS.indexOf(m.stat) < 0) fail(`movimiento ${m.id}: potenciador de «${m.stat}» desconocido`);
   if (![null, 'physical', 'special'].includes(m.cat == null ? null : m.cat)) fail(`movimiento ${m.id}: categoría «${m.cat}» desconocida`);
   for (const k of Object.keys(m)) if (!known.has(k) && k !== 'ups' && k !== 'maxLvl') fail(`movimientos: campo nuevo «${k}» (p. ej. en ${G.Moves.ALL.find(x => k in x).id}; en ${G.Moves.ALL.filter(x => k in x).length} movimientos)`);
-  let has = 0;
-  const v = MSTATS.map((k, i) => { if (m[k] != null) { has |= 1 << i; return fl(m[k]); } return '0.0f'; });
-  const evo = G.Moves.EVO[m.id];
-  w(`  {${esc(m.id)}, ${esc(m.name)}, ${esc(m.desc)}, ${T(m.type)}, ${KINDS.indexOf(m.kind)}, ${m.stat ? BUFFS.indexOf(m.stat) : -1}, ${m.cat === 'physical' ? 0 : m.cat === 'special' ? 1 : -1}, 0x${(has >>> 0).toString(16)}u, ${arr(v)}, ${evo ? LSTATS.indexOf(evo[1]) : -1}, ${evo ? esc(evo[0]) : 'nullptr'}},`);
+  let has = 0n;
+  const num = (k, x) => (k === 'wx' ? WX.indexOf(x) : k === 'shield' ? ['physical', 'special'].indexOf(x) : x);
+  const v = MSTATS.map((k, i) => { if (m[k] != null) { if (num(k, m[k]) < 0 || typeof num(k, m[k]) !== 'number') fail(`movimiento ${m.id}: ${k} = ${m[k]}`); has |= 1n << BigInt(i); return fl(num(k, m[k])); } return '0.0f'; });
+  const evo = evoOf(m);
+  w(`  {${esc(m.id)}, ${esc(m.name)}, ${esc(m.desc)}, ${T(m.type)}, ${KINDS.indexOf(m.kind)}, ${m.stat ? BUFFS.indexOf(m.stat) : -1}, ${m.cat === 'physical' ? 0 : m.cat === 'special' ? 1 : -1}, 0x${has.toString(16)}ull, ${arr(v)}, ${evo ? LSTATS.indexOf(evo[1]) : -1}, ${evo ? esc(evo[0]) : 'nullptr'}, ${arr([0, 1, 2].map(i => (m.only || [])[i] || 0))}},`);
+  if ((m.only || []).length > 3) fail('exclusivo de más de 3: ' + m.id);
 }
 w('};');
 w(`const int kMoveCount = ${G.Moves.ALL.length};`);
@@ -220,46 +317,42 @@ w('};');
 w('Ladder kEvoMods[K_COUNT] = {');
 for (const k of KINDS) w('  ' + (G.__MV.EVO_MODS[k] ? ladder(G.__MV.EVO_MODS[k]) : '{nullptr, 0, {}}') + ',');
 w('};');
+w(`float kMoveK2[] = ${arr(G.Moves.ALL.map(m => fl((N.MOVE_K2 || {})[m.id] || 0)))};`);
+w(`float kFamK[K_COUNT] = ${arr(KINDS.map(k => fl((N.FAM_K || {})[k] || 0)))};`);
 const mIdx = id => { const i = G.Moves.ALL.findIndex(m => m.id === id); if (i < 0) fail('mov ' + id); return i; };
-w(`const int8_t kStartMove[T_COUNT] = ${arr(TYPES.map(t => mIdx(G.__MV.START[t])))};`);
+w(`const int kOnlyLvl = ${G.Moves.ONLY_LVL};   // nivel desde el que sale la carta del ataque exclusivo`);
+w(`const int16_t kStartMove[T_COUNT] = ${arr(TYPES.map(t => mIdx(G.__MV.START[t])))};`);
 
 // ---------------- Tienda Kecleon: naturalezas, habilidades y MT ----------------
 // (web, 20-10-2026, PR #236 de TheAdro7.) reference/web es del 19-10 y no los
 // tiene: salen de la última web con fuentes (tools/cache/web, rama fuentes-28-10
 // = d667c216), leídos con git sin tocar reference/. Nombres: [es, en, ...].
 {
-  const NEW_REF = process.env.PS_WEB_NEW || 'fuentes-28-10';
-  // (el clon del publicador enlaza reference/ del repo de trabajo: la caché, a su lado)
-  const CACHE = [path.join(ROOT, 'tools', 'cache', 'web'), path.join(fs.realpathSync(path.join(ROOT, 'reference')), '..', 'tools', 'cache', 'web')]
-    .find(d => fs.existsSync(d)) || path.join(ROOT, 'tools', 'cache', 'web');
-  const sbx = require('./lib/websandbox').create();
-  const loadNew = f => {
-    let src;
-    try { src = require('child_process').execFileSync('git', ['-C', CACHE, 'show', NEW_REF + ':' + f], { encoding: 'utf8', maxBuffer: 1 << 26 }); }
-    catch (e) { fail(`${f}: no está en ${CACHE} (${NEW_REF})`); return; }
-    vm.runInContext(src, sbx, { filename: f });
-  };
-  for (const f of ['js/data/natures.js', 'js/data/abilities.js', 'js/data/tms.js']) loadNew(f);
-  const N = sbx.G.NATURES || [], AB = sbx.G.ABIL || {}, DA = sbx.G.DEX_ABIL || {}, TM = sbx.G.TM_MOVES || {}, TP = sbx.G.TM_PRICE || {};
+  // (desde la Gran Actualización salen de reference/web-gran; las formas regionales tienen las suyas)
+  const AB = N.ABIL || {}, DA = N.DEX_ABIL || {}, TM = N.TM_MOVES || {}, TP = N.TM_PRICE || {};
+  const NAT = N.NATURES || [];
   const NSTAT = ['pa', 'sa', 'df', 'sd', 'spd'];
-  if (N.length !== 25) fail('Se esperaban 25 naturalezas');
-  w(`const NatureDef kNatures[kNatureCount] = ${arr(N.map(n => `{${esc(n.id)}, ${esc(n.n[0])}, ${esc(n.n[1])}, ${NSTAT.indexOf(n.up)}, ${NSTAT.indexOf(n.down)}}`))};`);
+  if (NAT.length !== 25) fail('Se esperaban 25 naturalezas');
+  w(`const NatureDef kNatures[kNatureCount] = ${arr(NAT.map(n => `{${esc(n.id)}, ${esc(n.n[0])}, ${esc(n.n[1])}, ${NSTAT.indexOf(n.up)}, ${NSTAT.indexOf(n.down)}}`))};`);
   const abIds = Object.keys(AB);
   w(`const AbilDef kAbils[] = ${arr(abIds.map(id => `{${esc(id)}, ${esc(AB[id][0])}, ${esc(AB[id][1])}}`))};`);
   w(`const int kAbilCount = ${abIds.length};`);
   const ai = id => (id ? abIds.indexOf(id) : -1);
   for (const d in DA) for (const id of DA[d]) if (id && ai(id) < 0) fail('habilidad ' + id);
   const dexAb = [];
-  for (let d = 0; d <= 1025; d++) { const l = DA[d] || [0, 0, 0]; dexAb.push(`{${ai(l[0])}, ${ai(l[1])}, ${ai(l[2])}}`); }
+  for (let d = 0; d <= MAXDEX; d++) { const l = DA[d] || [0, 0, 0]; dexAb.push(`{${ai(l[0])}, ${ai(l[1])}, ${ai(l[2])}}`); }
   w(`const int16_t kDexAbil[kMaxDex + 1][3] = ${arr(dexAb)};`);
   // MT: por orden alfabético de su id (como Object.keys(G.TM_MOVES).sort() de shop.js).
   const tmIds = Object.keys(TM).sort();
-  if (tmIds.length > 64) fail('más de 64 MT: kDexTms no cabe en 64 bits');
+  if (tmIds.length > 128) fail('más de 128 MT: TmBits no da');
   w(`const TmDef kTms[] = ${arr(tmIds.map(id => `{${mIdx(id)}, ${TP[id] || 400}}`))};`);
   w(`const int kTmCount = ${tmIds.length};`);
-  const bits = new Array(1026).fill(0n);
+  const bits = new Array(MAXDEX + 1).fill(0n);
   tmIds.forEach((id, i) => { for (const d of TM[id]) if (d >= 0 && d <= 1025) bits[d] |= 1n << BigInt(i); });
-  w(`const uint64_t kDexTms[kMaxDex + 1] = ${arr(bits.map(b => '0x' + b.toString(16) + 'ull'))};`);
+  // (las formas regionales: su propia lista, FORMS.tms de la web)
+  for (const p of G.DEX) if (p.web) { bits[p.dex] = 0n; N.tmsOf(p.web).forEach(id => { const i = tmIds.indexOf(id); if (i >= 0) bits[p.dex] |= 1n << BigInt(i); }); }
+  const M64 = (1n << 64n) - 1n;
+  w(`const TmBits kDexTms[kMaxDex + 1] = ${arr(bits.map(b => `{{0x${(b & M64).toString(16)}ull, 0x${(b >> 64n).toString(16)}ull}}`))};`);
 }
 
 // ---------------- vfx ----------------
@@ -284,13 +377,20 @@ w(`LevelStatDef kLevelStats[LS_COUNT] = ${arr(G.__LV.STATS.map(s => `{${esc(s.id
 w(`const char* const kNeedName[LS_COUNT] = ${arr(LSTATS.map(k => esc(G.Moves.NEED_NAME[k] || null)))};`);
 
 // ---------------- objetos ----------------
+// (La Gran Actualización trae 13 objetos más y 5 mejoras más —Segundo objeto, Objeto inicial…—:
+// el port no los lleva todavía. De la web nueva salen los números y textos de los que sí.)
 const ITEMS = ['leftovers', 'choiceband', 'quickclaw', 'focussash', 'shellbell', 'amuletcoin', 'luckyegg', 'lifeorb', 'choicescarf', 'rockyhelmet', 'assaultvest'];
-if (G.Items.LIST.map(i => i.id).join() !== ITEMS.join()) fail('Objetos: ' + G.Items.LIST.map(i => i.id).join());
+const ITEMS_NEW = ['heavydutyboots', 'metronome', 'mirrorherb', 'covertcloak', 'punchingglove', 'superpads', 'throatspray', 'loadeddice', 'safetygoggles', 'expcharm', 'luckincense', 'rareincense', 'radargoggles'];
+if (G.Items.LIST.map(i => i.id).join() !== ITEMS.concat(ITEMS_NEW).join()) fail('Objetos: ' + G.Items.LIST.map(i => i.id).join());
+G.Items = Object.assign({}, G.Items, { LIST: G.Items.LIST.filter(i => ITEMS.includes(i.id)) });
 w(`ItemDef kItems[IT_COUNT] = ${arr(G.Items.LIST.map(i => `{${esc(i.id)}, ${esc(i.name)}, ${esc(i.desc)}}`))};`);
 
 // ---------------- mejoras ----------------
 const UPS = ['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'coins', 'moves', 'crit', 'reroll', 'ban', 'start'];
-if (G.Upgrades.LIST.map(u => u.id).join() !== UPS.join()) fail('Mejoras: ' + G.Upgrades.LIST.map(u => u.id).join());
+const UPS_NEW = ['critdmg', 'start2', 'item2', 'item3', 'startitem'];
+if (G.Upgrades.LIST.map(u => u.id).slice().sort().join() !== UPS.concat(UPS_NEW).sort().join()) fail('Mejoras: ' + G.Upgrades.LIST.map(u => u.id).join());
+// (Veto: la web deja 5; el port guarda 3 por Pokémon)
+G.Upgrades = Object.assign({}, G.Upgrades, { LIST: UPS.map(id => G.Upgrades.LIST.find(u => u.id === id)).map(u => (u.id === 'ban' ? Object.assign({}, u, { max: Math.min(u.max, 3) }) : u)) });
 w(`UpgradeDef kUpgrades[UP_COUNT] = ${arr(G.Upgrades.LIST.map(u => `{${esc(u.id)}, ${esc(u.icon)}, ${esc(u.name)}, ${esc(u.unit)}, ${u.max}, ${u.base}, ${fl(u.grow)}}`))};`);
 
 // ---------------- enemigos ----------------
@@ -305,6 +405,29 @@ for (const [name, set] of [['Heal', G.__EN.HEAL], ['Shield', G.__EN.SHIELD], ['B
 const summ = Object.entries(G.__EN.SUMMON);
 w(`const SummonPair kSummon[] = ${arr(summ.map(([a, b]) => `{${a}, ${b}}`))};`);
 w(`const int kSummonCount = ${summ.length};`);
+
+// ---------------- dificultad y equilibrio (difficulty.js de la web nueva) ----------------
+// Las curvas (tiempo → valor, interpoladas en logaritmo) viven en un cierre: se leen del texto.
+{
+  const src = fs.readFileSync(path.join(GRAN, 'js/data/difficulty.js'), 'utf8');
+  const curves = [...src.matchAll(/= _0x\w+\((\[\[[\d., \[\]]+\]\])\);/g)].map(m => JSON.parse(m[1]));
+  if (curves.length !== 4) fail('difficulty.js: se esperaban 4 curvas (CROWD, SINGLE, XP_S, daño) y hay ' + curves.length);
+  // (comprobación: las tres públicas dan lo mismo que la tabla leída)
+  const ev = (c, t) => { if (t <= c[0][0]) return c[0][1]; for (let i = 1; i < c.length; i++) if (t <= c[i][0]) { const [a, va] = c[i - 1], [b, vb] = c[i]; return Math.exp(Math.log(va) + (Math.log(vb) - Math.log(va)) * (t - a) / (b - a)); } return c[c.length - 1][1]; };
+  [N.Diff.CROWD, N.Diff.SINGLE, N.Diff.XP_S].forEach((f, i) => { for (const t of [0, 77, 400, 1234, 2500]) if (Math.abs(f(t) - ev(curves[i] || [[0, 0]], t)) > 1e-9) fail('difficulty.js: la curva ' + i + ' no cuadra'); });
+  if (Math.abs(N.Diff.bossDmg(500) / 1.6 - ev(curves[3] || [[0, 1]], 500)) > 1e-9) fail('difficulty.js: la curva de daño no cuadra');
+  const D = N.Diff;
+  if (D.ORDER.join() !== 'normal,hard,nightmare') fail('dificultades: ' + D.ORDER.join());
+  w(`const int kDiffCurveN[4] = ${arr(curves.map(c => c.length))};`);
+  if (Math.max(...curves.map(c => c.length)) > 32) fail('difficulty.js: curva de más de 32 puntos');
+  w(`const double kDiffCurve[4][32][2] = ${arr(curves.map(c => arr(c.map(p => `{${p[0]}, ${p[1]}}`))))};`);
+  w(`const DiffMode kDiffModes[DF_COUNT] = ${arr(D.ORDER.map(k => `{${fl(D.MODES[k].hp)}, ${fl(D.MODES[k].dmg)}, ${fl(D.MODES[k].reward)}}`))};`);
+  w(`const float kDiffBossS[5] = ${arr(D.BOSS_S.map(fl))};`);
+  w(`const float kDiffLegendS[5] = ${arr(D.LEGEND_S.map(fl))};`);
+  w(`const float kDiffBossK[5] = ${arr(D.BOSS_K.map(fl))};`);
+  w(`const float kDiffFieldK = ${fl(D.FIELD_K)}, kDiffEternaS = ${fl(D.ETERNA_S)}, kDiffEternaK = ${fl(D.ETERNA_K)};`);
+  w(`const DiffGuard kDiffGuard = {${fl(D.GUARD.hit)}, ${fl(D.GUARD.minFrac)}, ${fl(D.GUARD.over)}, ${fl(D.GUARD.window)}, ${fl(D.GUARD.player)}};`);
+}
 
 // ---------------- biomas y arenas ----------------
 const biome = B => {
@@ -374,7 +497,7 @@ w(`MissionDef kMissions[] = ${arr(missions.map(([m, wk]) => {
 }))};`);
 w(`const int kMissionCount = ${missions.length};`);
 w('AchDef kAch[] = {');
-for (const a of G.AchDefs.LIST) w(`  {${esc(a.id)}, ${esc(a.cat)}, ${a.tier}, ${esc(a.name)}, ${esc(a.desc)}, ${a.goal}, ${rew(a.reward)}, ${esc(a.title || null)}, ${a.dex || 0}},`);
+for (const a of G.AchDefs.LIST) w(`  {${esc(a.id)}, ${esc(a.cat)}, ${a.tier}, ${esc(a.name)}, ${esc(a.desc)}, ${a.goal}, ${rew(a.reward)}, ${esc(a.title || null)}, ${a.dex ? N.__pd(a.dex) : 0}},`);
 w('};');
 w(`const int kAchCount = ${G.AchDefs.LIST.length};`);
 w(`const AchCat kAchCats[] = ${arr(G.AchDefs.CATS.map(c => `{${esc(c[0])}, ${esc(c[1])}}`))};`);
@@ -402,7 +525,7 @@ const check = {
   logros: G.AchDefs.LIST.length, misiones: missions.length, traducciones: tr.length,
   duraciones: durs.length, sumaDex: sumDex
 };
-if (check.pokemon !== 966) fail('Se esperaban 966 Pokémon');
+if (check.pokemon !== 1025 + FORMAS.length) fail('Se esperaban 1025 Pokémon y ' + FORMAS.length + ' formas regionales');
 const expDur = G.DEX.reduce((a, p) => { const m = G.SPRITE_META[p.dex]; let n = 0; for (const k of ANIMS) if (m.a[k]) n += m.a[k].d.length; if (m.sa) for (const k of ANIMS) if (m.sa[k]) n += m.sa[k].d.length; return a + n; }, 0);
 if (expDur !== durDex) fail('duraciones perdidas');
 
@@ -445,7 +568,7 @@ const schema = fnv(forma).toString(16).padStart(8, '0');
 const ladderOut = l => [l.t, Object.entries(l.m).map(([k, v]) => [MSTATS.indexOf(k), n6(v)])];
 const datos = {
   dex: G.DEX.map(p => [p.name, p.hp, p.spd, n6(p.atk), n6(p.pa), n6(p.sa), p.df, p.sd, p.rarity, p.bst]),
-  movs: G.Moves.ALL.map(m => { const evo = G.Moves.EVO[m.id]; return [m.name, m.desc, MSTATS.map(k => (m[k] == null ? null : n6(m[k]))), evo ? LSTATS.indexOf(evo[1]) : -1, evo ? evo[0] : null]; }),
+  movs: G.Moves.ALL.map(m => { const evo = evoOf(m); return [m.name, m.desc, MSTATS.map(k => (m[k] == null ? null : n6(k === 'wx' ? WX.indexOf(m[k]) : k === 'shield' ? ['physical', 'special'].indexOf(m[k]) : m[k]))), evo ? LSTATS.indexOf(evo[1]) : -1, evo ? evo[0] : null]; }),
   escaleras: KINDS.map(k => G.__MV.LADDERS[k].map(ladderOut)),
   evos: KINDS.map(k => (G.__MV.EVO_MODS[k] ? ladderOut(G.__MV.EVO_MODS[k]) : null)),
   tabla: TYPES.map(a => TYPES.map(d => { const r = G.Types.CHART[a] || {}; return n6(r[d] == null ? 1 : r[d]); })),

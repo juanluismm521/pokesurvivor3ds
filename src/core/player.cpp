@@ -16,8 +16,9 @@
 namespace ps {
 
 float xp_for(int level) {
-  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido.)
-  return float(std::floor((8 + level * 6 + std::pow(double(level), 1.75) * 1.6) * 4));
+  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido. 14-11-2026: un tercio,
+  // se sube 3 veces más rápido.)
+  return float(std::floor((8 + level * 6 + std::pow(double(level), 1.75) * 1.6) * 4 / 3));
 }
 
 void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) {
@@ -70,7 +71,19 @@ bool player_mono_type(const Player& p, int type) { return p.mon->types[1] < 0 &&
 float player_atk_for(const Player& p, const MoveInst& m) {
   const int cat = m.cat();
   const Buff* b = cat == CAT_PHYSICAL ? &p.buffs[BS_PATK] : cat == CAT_SPECIAL ? &p.buffs[BS_SATK] : nullptr;
-  return player_atk(p) * stats_fit(p.mon, cat) * (b ? 1 + b->n * b->amount : 1) * (player_mono_type(p, m.type()) ? kMonoK : 1);
+  return player_atk(p) * stats_fit(p.mon, cat) * (b ? 1 + b->n * b->amount : 1) * (player_mono_type(p, m.type()) ? kMonoK : 1) * player_group_k(p, m);
+}
+
+// Vínculos (groupK, web 13-11-2026): los movimientos unidos en un hueco ya no pegan
+// cada uno entero; entre todos hacen ×1,6 (dos), ×2 (tres) o ×2,3 (cuatro).
+float player_group_k(const Player& p, const MoveInst& m) {
+  static const float kFuseTotal[5] = {1, 1, 1.6f, 2, 2.3f};
+  const int mi = int(&m - p.moves);
+  if (mi < 0 || mi >= p.nmoves) return 1;
+  for (int s = 0; s < p.nslots; ++s)
+    for (int j = 0; j < p.slot_n[s]; ++j)
+      if (p.slots[s][j] == mi) { const int n = p.slot_n[s]; return n > 1 ? kFuseTotal[std::min(4, n)] / n : 1; }
+  return 1;
 }
 
 float player_spd(Game& g, const Player& p) {
@@ -175,7 +188,7 @@ void player_set_active(Game& g, Player& p, int i) {
   g.sfx(SFX_SELECT);
   for (int j = 0; j < p.slot_n[i]; ++j) {
     MoveInst& m = p.moves[p.slots[i][j]];
-    m.t = std::fmin(m.t, m.get(MS_CD) * 0.35f);
+    m.t = std::fmin(m.t, std::fmax(m.get(MS_MINCD), m.get(MS_CD) * 0.35f));   // (Protección: minCd)
   }
   const MoveInst& m = p.moves[p.slots[i][0]];
   g.fx.ring(p.x, p.y - kLift * 0.5f, 6, p.r * 3.4f, kTypeColor[m.type()], 0.3f, 3);
@@ -255,6 +268,8 @@ void player_cast(Game& g, Player& p, const MoveInst* m, int kind, float cd) {
     case K_BEAM: case K_PROJECTILE: case K_BOOMERANG: case K_CHAIN: case K_CONE: anim = A_SHOOT; break;
     case K_AURA: case K_BUFF: case K_ORBIT: case K_MINE: case K_METEOR: case K_TURRET: anim = A_CHARGE; break;
     case K_TRAIL: anim = A_WALK; break;
+    case K_WAVE: case K_CROSS: anim = A_SHOOT; break;
+    case K_STORM: case K_WEATHER: case K_GUARD: case K_REST: case K_SCREEN: case K_DECOY: anim = A_CHARGE; break;
     default: break;
   }
   // Las familias nuevas suenan como la parecida de las de siempre.
@@ -267,6 +282,10 @@ void player_cast(Game& g, Player& p, const MoveInst* m, int kind, float cd) {
     case K_DASH: snd = K_MELEE; break;
     case K_TRAIL: snd = K_AURA; break;
     case K_CONE: snd = K_PROJECTILE; break;
+    case K_TREMOR: case K_CROSS: case K_BOOM: snd = K_NOVA; break;
+    case K_WAVE: case K_STORM: snd = K_BEAM; break;
+    case K_PUNCH: case K_SCISSOR: case K_BLITZ: case K_LEAP: snd = K_MELEE; break;
+    case K_WEATHER: case K_GUARD: case K_REST: case K_SCREEN: case K_DECOY: snd = K_BUFF; break;
     default: break;
   }
   // El rastro no suena a cada charco (sería un zumbido constante).
@@ -286,6 +305,20 @@ void player_cast(Game& g, Player& p, const MoveInst* m, int kind, float cd) {
 // cat: 'physical' | 'special', con qué defensa tuya se para (la del enemigo que pega).
 void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat) {
   if (p.invuln > 0 || p.dead) return;
+  // Protección (familia «guard»): nada te toca mientras dura (salvo lo de Arceus en la Sentencia).
+  if (p.guard_t > 0 && !(pure && judgment_active(g))) {
+    p.invuln = 0.2f;
+    if (g.vrng.next() < 0.3f) g.fx.ring(p.x, p.y - p.body_h * 0.5f, p.r, p.r * 2.2f, 0x9ae6ff, 0.2f, 2);
+    return;
+  }
+  // Reflejo / Pantalla Luz: menos daño físico / especial.
+  if (cat == CAT_PHYSICAL || cat == CAT_SPECIAL) { if (p.screen_t[cat] > 0) amount *= 1 - p.screen_k[cat]; }
+  // Esquiva (carta de nivel)
+  if (!pure && p.dodge > 0 && g.rng.next() < p.dodge) {
+    p.invuln = 0.3f;
+    g.fx.dmg_text(p.x, p.y - p.body_h - 4, "¡Esquiva!", 0xbfe8ff);
+    return;
+  }
   // Habilidad (abilities.h): absorber un tipo, esquivar o recibir menos.
   if (p.abil >= 0 && !pure) {
     if (abil_absorbs(p, type)) {
@@ -310,8 +343,10 @@ void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat)
   }
   // Con un ataque cuerpo a cuerpo activo se recibe un 25 % menos.
   bool close = false;
-  for (int j = 0; j < p.slot_n[p.active_slot]; ++j) if (p.moves[p.slots[p.active_slot][j]].kind() == K_MELEE) close = true;
-  const float d = pure ? std::fmax(1.0f, amount) : std::fmax(1.0f, amount * (1 - player_reduction(p)) * (close ? 0.75f : 1));
+  for (int j = 0; j < p.slot_n[p.active_slot]; ++j) { const int k = p.moves[p.slots[p.active_slot][j]].kind(); if (k == K_MELEE || k == K_PUNCH || k == K_SCISSOR) close = true; }
+  float d = pure ? std::fmax(1.0f, amount) : std::fmax(1.0f, amount * (1 - player_reduction(p)) * (close ? 0.75f : 1));
+  // Un golpe no quita más del 30 % de tu vida (Diff.GUARD.player; lo puro de la Sentencia, sí).
+  if (!pure) d = std::fmin(d, std::fmax(1.0f, p.max_hp * kDiffGuard.player));
   p.hp -= d;
   p.invuln = 0.45f;
   p.flash = 0.14f;
@@ -360,9 +395,11 @@ void player_heal(Game& g, Player& p, float amount) {
 void player_add_max_hp(Player& p, float amount) { p.max_hp += amount; p.hp += amount; }
 
 int player_gain_xp(Player& p, float amount) {
-  p.xp += amount * p.xp_mul;
+  const float gain = amount * p.xp_mul;
+  if (!std::isfinite(gain) || gain <= 0) return 0;
+  p.xp += gain;
   int leveled = 0;
-  while (p.xp >= p.xp_next) {
+  while (p.xp >= p.xp_next && leveled < 50) {
     p.xp -= p.xp_next;
     p.level++;
     p.xp_next = xp_for(p.level);
@@ -435,8 +472,11 @@ void player_add_power(Player& p, int def, float dur) {
 void player_add_buff(Player& p, int stat, float amount, float dur, int max_stacks) {
   if (stat < 0 || stat >= BS_COUNT) return;
   Buff& b = p.buffs[stat];
+  // (web, 13-11-2026: un potenciador más flojo no pisa a otro más fuerte que ya tienes; sólo lo alarga)
+  const int n = std::min(max_stacks, b.n + 1);
+  if (b.n && b.n * b.amount > n * amount) { b.t = std::fmax(b.t, dur); return; }
   b.amount = amount;
-  b.n = std::min(max_stacks, b.n + 1);
+  b.n = n;
   b.t = dur;
 }
 
@@ -452,6 +492,12 @@ void player_update(Game& g, Player& p, const Input& in, float dt) {
 
   for (auto& b : p.buffs) if (b.n > 0) { b.t -= dt; if (b.t <= 0) b.n = 0; }
   if (p.slow_t > 0) p.slow_t -= dt;
+  if (p.guard_t > 0) p.guard_t -= dt;
+  for (int k = 0; k < 2; ++k) if (p.screen_t[k] > 0) p.screen_t[k] -= dt;
+  if (p.rest_t > 0) {
+    p.rest_t -= dt;
+    if ((p.zzz_t -= dt) <= 0) { p.zzz_t = 0.6f; g.fx.dmg_text(p.x + 8, p.y - p.body_h - 6, "Z", 0xc9a6ff); }
+  }
   if (p.bell_heal > 0) { const float h = std::fmin(p.bell_heal, 4 * dt); p.hp = std::fmin(p.max_hp, p.hp + h); p.bell_heal -= h; }
   if (p.power.def >= 0 && (p.power.t -= dt) <= 0) { power_off(p, p.power.def); p.power.def = -1; }
   const float rg = player_regen(p);
@@ -459,7 +505,8 @@ void player_update(Game& g, Player& p, const Input& in, float dt) {
   if (p.abil >= 0) abil_tick(g, p, dt);
 
   // --- movimiento con colisiones ---
-  const float ax = p.frozen ? 0 : in.ax, ay = p.frozen ? 0 : in.ay;
+  const bool still = p.frozen || p.rest_t > 0;   // (Descanso: dormido, quieto)
+  const float ax = still ? 0 : in.ax, ay = still ? 0 : in.ay;
   p.walking = ax != 0 || ay != 0;
   const float s = player_spd(g, p);
   // Hielo: resbalas (la velocidad cambia despacio).

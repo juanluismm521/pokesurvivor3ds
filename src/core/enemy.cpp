@@ -608,6 +608,7 @@ static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
     e.kx *= std::pow(0.0015f, dt); e.ky *= std::pow(0.0015f, dt);
     return;
   }
+  if (e.shred_t > 0) e.shred_t -= dt;
   if (e.stun_t > 0) { e.stun_t -= dt; e.anim.loop(A_IDLE); return; }
 
   const float spd = e.spd * (1 - e.slow) * terrain_mul * weather_speed_for(g, e.types);
@@ -851,7 +852,16 @@ void enemies_update(Game& g, float dt) {
   for (int i = 0; i < g.enemies.n; ++i) {
     Enemy& e = g.enemies[i];
     Player* near = nearest_player(g, e.x, e.y);
-    enemy_update(g, e, dt, near ? *near : pl);
+    Player& tp = near ? *near : pl;
+    // Doble Equipo: los que están cerca de una copia van a por ella (los jefes no pican).
+    const Field* dc = nullptr;
+    if (!e.boss && !e.arceus) for (const Field& f : g.fields) if (f.kind == FK_DECOY && !f.gone && f.t < f.life && dist2(f.x, f.y, e.x, e.y) < f.pull * f.pull) { dc = &f; break; }
+    if (dc) {
+      const float ox = tp.x, oy = tp.y;
+      tp.x = dc->x; tp.y = dc->y;
+      enemy_update(g, e, dt, tp);
+      tp.x = ox; tp.y = oy;
+    } else enemy_update(g, e, dt, tp);
   }
   separate(g, dt);
   for (int i = g.enemies.n - 1; i >= 0; --i) {

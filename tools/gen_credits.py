@@ -26,6 +26,11 @@ EN = {
     'Sprites de las megaevoluciones': 'Mega Evolution sprites',
     'Datos': 'Data',
     'Disfraces de Halloween': 'Halloween costumes',
+    'Pokémon y megas de la Gran Actualización': 'Pokémon and Megas from the Great Update',
+    'Vienen de PokéSurvivor (JPTER78), con su permiso: las formas regionales (Vulpix de Alola, Meowth de Galar, Growlithe de Hisui…) son de SpriteCollab (CC BY-NC 4.0, sus artistas en la tabla de arriba y en los créditos de pokesurvivor.com).':
+        'They come from PokéSurvivor (JPTER78), with his permission: the regional forms (Alolan Vulpix, Galarian Meowth, Hisuian Growlithe…) are from SpriteCollab (CC BY-NC 4.0, their artists in the table above and in the pokesurvivor.com credits).',
+    'Los 59 Pokémon que faltaban (Simisear, Zarude, Miraidon, Pecharunt…) y las megaevoluciones que SpriteCollab no tiene son material de Pokémon Edición Reloaded, de F3R y de los dibujantes que han participado en él, como Jhony_Ryu (pokemon-reloaded.blogspot.com), que la web usa con crédito.':
+        'The 59 Pokémon that were missing (Simisear, Zarude, Miraidon, Pecharunt…) and the Mega Evolutions SpriteCollab lacks are material from Pokémon Edición Reloaded, by F3R and the artists who took part in it, such as Jhony_Ryu (pokemon-reloaded.blogspot.com), which the website uses with credit.',
     'Los disfraces de bruja (Gengar, Pikachu, Umbreon y el sombrero de Kecleon) vienen de PokéSurvivor (JPTER78): pintados con tools/make_skins.py de la web sobre los sprites de SpriteCollab (CC BY-NC 4.0).':
         'The witch costumes (Gengar, Pikachu, Umbreon and Kecleon\'s hat) come from PokéSurvivor (JPTER78): painted with the website\'s tools/make_skins.py over the SpriteCollab sprites (CC BY-NC 4.0).',
     'Fuente': 'Font',
@@ -34,8 +39,8 @@ EN = {
     'Los sprites estilo Pokémon Mundo Misterioso vienen de SpriteCollab, bajo licencia CC BY-NC 4.0: uso no comercial y con atribución a sus artistas.':
         'The Pokémon Mystery Dungeon style sprites come from SpriteCollab, under the CC BY-NC 4.0 license: non-commercial use with attribution to their artists.',
     'De SpriteCollab (CC BY-NC 4.0), por sus autores:': 'From SpriteCollab (CC BY-NC 4.0), by their authors:',
-    'Mega-Lucario Z aún no está en SpriteCollab: el port recolorea el de Mega-Lucario (tools/megas_derivadas.py). Las megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de PokeAPI (de los juegos, © Nintendo / Game Freak).':
-        'Mega Lucario Z is not on SpriteCollab yet: the port recolors Mega Lucario\'s (tools/megas_derivadas.py). Megas without a SpriteCollab sprite use their normal form\'s. Mega Stones: item artwork from PokeAPI (from the games, © Nintendo / Game Freak).',
+    'Mega-Lucario Z aún no está en SpriteCollab: el port recolorea el de Mega-Lucario (tools/megas_derivadas.py). Las megas sin sprite en SpriteCollab usan el de la web (más abajo) o el de su forma normal. Las megapiedras: dibujos de los objetos de PokeAPI (de los juegos, © Nintendo / Game Freak).':
+        'Mega Lucario Z is not on SpriteCollab yet: the port recolors Mega Lucario\'s (tools/megas_derivadas.py). Megas without a SpriteCollab sprite use the website\'s (below) or their normal form\'s. Mega Stones: item artwork from PokeAPI (from the games, © Nintendo / Game Freak).',
     'Stats base y nombres en español: PokeAPI, descargados una vez y guardados en js/data/pokedex.js.':
         'Base stats and Spanish names: PokeAPI, downloaded once and stored in js/data/pokedex.js.',
     'Pixelify Sans (SIL Open Font License 1.1, licencia en assets/fonts/OFL.txt). El juego usa una versión modificada, "Pixelify PS", con los números redibujados para distinguirlos mejor (tools/make_font.py).':

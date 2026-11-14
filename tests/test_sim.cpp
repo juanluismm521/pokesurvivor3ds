@@ -79,7 +79,7 @@ TEST_CASE("sim: cada movimiento de la web se usa sin errores") {
     CHECK_MESSAGE(!s.nan, kMoves[id].id);
     CHECK(s.max_proj < kMaxProjectiles);
     CHECK(s.max_fields < kMaxFields);
-    if (kMoves[id].kind != K_BUFF && g->pl().moves[0].dealt <= 0) {
+    if (!kind_is_status(kMoves[id].kind) && g->pl().moves[0].dealt <= 0) {
       std::printf("[sim] %s (%s) no ha hecho daño en 35 s\n", kMoves[id].id, kKindId[kMoves[id].kind]);
       sin_dano++;
     }
@@ -102,7 +102,7 @@ TEST_CASE("movimiento inicial: el elegido con la mejora, y si no el de serie") {
   CHECK(base);
   CHECK(!buff);
   std::unique_ptr<Game> g(new Game());
-  RunConfig cfg; cfg.dex = 130; cfg.seed = 3; cfg.pstart = int8_t(wp); cfg.upgrades[UP_START] = 1;
+  RunConfig cfg; cfg.dex = 130; cfg.seed = 3; cfg.pstart = int16_t(wp); cfg.upgrades[UP_START] = 1;
   g->start_run(cfg);
   CHECK(g->pl().moves[0].def == wp);
   (void)wg;

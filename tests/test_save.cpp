@@ -113,8 +113,8 @@ TEST_CASE("guardado: ida y vuelta por JSON y archivo con copia de seguridad") {
   save_grant_shiny_dex(*s, 6, FROM_GACHA, 1760000000002LL);
   s->partner = 25; s->partner_shiny = false; s->starter = 25;
   s->pupg[25][UP_ATK] = 3; s->pupg[25][UP_HP] = 99;   // 99 > máximo: se recorta al leer
-  s->pbind[25][0] = int8_t(move_index("thunder-shock"));
-  s->pban[25][0] = int8_t(move_index("tackle"));
+  s->pbind[25][0] = int16_t(move_index("thunder-shock"));
+  s->pban[25][0] = int16_t(move_index("tackle"));
   s->t1 = 12; s->t10 = 2; s->pity[1] = 33;
   s->legends[150] = 9; s->arenas[T_PSYCHIC] = 9; s->items_found[IT_LIFEORB] = 9; s->evo_moves[3] = 9; s->ach[0] = 9;
   s->stats.runs = 7; s->stats.best_time = 1234; s->stats.judged = 1;

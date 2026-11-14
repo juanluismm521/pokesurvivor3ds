@@ -26,10 +26,10 @@ TEST_CASE("repertorio: el segundo movimiento elegido, o al azar si no vale") {
   const int st = move_start_for(dex);
   const int n = move_second_choices(dex, st, opc, kMaxMoves);
   REQUIRE(n >= 2);
-  for (int i = 0; i < n; ++i) { CHECK(opc[i] != st); CHECK(kMoves[opc[i]].kind != K_BUFF); }
+  for (int i = 0; i < n; ++i) { CHECK(opc[i] != st); CHECK(!kind_is_status(kMoves[opc[i]].kind)); }
   std::unique_ptr<Game> g(new Game());
   for (int k = 0; k < n; ++k) {   // cada candidato, elegido, sale de segundo
-    RunConfig c; c.dex = dex; c.seed = 11; c.judged = 1; c.upgrades[UP_MOVES] = 1; c.pmove2 = int8_t(opc[k]);
+    RunConfig c; c.dex = dex; c.seed = 11; c.judged = 1; c.upgrades[UP_MOVES] = 1; c.pmove2 = opc[k];
     g->start_run(c);
     const Player& p = g->players[0];
     CHECK(p.nmoves == 2);
@@ -49,16 +49,16 @@ TEST_CASE("repertorio: el segundo movimiento elegido, o al azar si no vale") {
   const int azar = g->players[0].moves[1].def;
   const uint32_t h = g->state_hash();
   for (int malo : {otro, st}) {
-    RunConfig c = base; c.pmove2 = int8_t(malo);
+    RunConfig c = base; c.pmove2 = int16_t(malo);
     g->start_run(c);
     CHECK(g->players[0].moves[1].def == azar);   // la misma tirada que sin elegir
     CHECK(g->state_hash() == h);
   }
-  RunConfig vet = base; vet.pmove2 = int8_t(opc[0]); vet.upgrades[UP_BAN] = 1; vet.pban[0] = int8_t(opc[0]);
+  RunConfig vet = base; vet.pmove2 = int16_t(opc[0]); vet.upgrades[UP_BAN] = 1; vet.pban[0] = int16_t(opc[0]);
   g->start_run(vet);
   CHECK(!has(g->players[0], opc[0]));
   // Sin la mejora, aunque haya uno elegido: sólo el inicial.
-  RunConfig sin = base; sin.upgrades[UP_MOVES] = 0; sin.pmove2 = int8_t(opc[0]);
+  RunConfig sin = base; sin.upgrades[UP_MOVES] = 0; sin.pmove2 = int16_t(opc[0]);
   g->start_run(sin);
   CHECK(g->players[0].nmoves == 1);
 }
@@ -68,7 +68,7 @@ TEST_CASE("repertorio: se guarda, se sincroniza y viaja con la sala") {
   REQUIRE(move_second_choices(6, move_start_for(6), opc, kMaxMoves) > 0);
   Save a;
   save_from_json(a, "{}");
-  a.pmove2[6] = int8_t(opc[0]);
+  a.pmove2[6] = int16_t(opc[0]);
   Save b;
   REQUIRE(save_from_json(b, save_to_json(a)));
   CHECK(b.pmove2[6] == opc[0]);
@@ -84,7 +84,7 @@ TEST_CASE("repertorio: se guarda, se sincroniza y viaja con la sala") {
   CHECK(m["pmove2"]["6"].as_str() == std::string(kMoves[opc[0]].id));
   // En grupo: va con cada jugador.
   RunConfig c; c.seed = 5; c.nplayers = 2; c.members[0].dex = 6; c.members[1].dex = 25;
-  c.members[0].pmove2 = int8_t(opc[0]); c.members[0].upgrades[UP_MOVES] = 1;
+  c.members[0].pmove2 = int16_t(opc[0]); c.members[0].upgrades[UP_MOVES] = 1;
   uint8_t buf[1024];
   const int len = net::write_config(c, buf, sizeof(buf));
   REQUIRE(len > 0);

@@ -44,12 +44,12 @@ void nat_line(int nat, char* out, int cap) {
 int ficha_tms(const Save& s, int dex, int* out) {
   int n = 0;
   if (dex <= 0 || dex > kMaxDex) return 0;
-  const uint64_t all = kDexTms[dex] & ~tm_natural_bits(dex);
+  const TmBits all = kDexTms[dex] & ~tm_natural_bits(dex);
   auto by_name = [](int a, int b) { return std::strcmp(tr(kMoves[kTms[a].move].name), tr(kMoves[kTms[b].move].name)) < 0; };
-  for (int t = 0; t < kTmCount; ++t) if (((all >> t) & 1u) && tm_taught(s, dex, t)) out[n++] = t;
+  for (int t = 0; t < kTmCount; ++t) if (all.test(t) && tm_taught(s, dex, t)) out[n++] = t;
   std::sort(out, out + n, by_name);
   const int k = n;
-  for (int t = 0; t < kTmCount; ++t) if (((all >> t) & 1u) && !tm_taught(s, dex, t)) out[n++] = t;
+  for (int t = 0; t < kTmCount; ++t) if (all.test(t) && !tm_taught(s, dex, t)) out[n++] = t;
   std::sort(out + k, out + n, by_name);
   return n;
 }
@@ -405,7 +405,7 @@ void App::start_ficha_demo() {
   s_->bag_known |= 7;
   int l[kMaxTms];
   const int n = tm_learnable(*s_, dex, l);
-  for (int i = 0; i < n && i < 2; ++i) { s_->tms[l[i]] += 1; s_->tms_known |= uint64_t(1) << l[i]; }
+  for (int i = 0; i < n && i < 2; ++i) { s_->tms[l[i]] += 1; s_->tms_known.set(l[i]); }
   for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].sell && kSkins[k].dex == dex && !s_->skin_at[k]) s_->skin_at[k] = now_ms();
   open_ficha(dex, FT_MOVES);
 }

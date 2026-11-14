@@ -14,8 +14,8 @@ TEST_CASE("movimientos extra: Darkrai aprende más que su tipo; los demás, igua
   int16_t a[kMaxMoves], b[kMaxMoves];
   const int nt = move_pool_for(dk->types, a, kMaxMoves);
   const int nd = move_pool_for_dex(491, dk->types, b, kMaxMoves);
-  CHECK(nt == 16);
-  CHECK(nd == 24);
+  CHECK(nt == 21);   // (16 hasta la Gran Actualización)
+  CHECK(nd == 29);
   auto has = [&](const char* id) { for (int i = 0; i < nd; ++i) if (b[i] == move_index(id)) return true; return false; };
   for (const char* id : {"shadow-ball", "ominous-wind", "psychic", "ice-beam", "thunderbolt", "thunder-wave", "sludge", "toxic", "dark-pulse"})
     CHECK_MESSAGE(has(id), id);
@@ -29,7 +29,7 @@ TEST_CASE("movimientos extra: Darkrai aprende más que su tipo; los demás, igua
   for (int i = 0; i < n2; ++i) sb = sb || a[i] == move_index("shadow-ball");
   CHECK(sb);
   std::unique_ptr<Game> g(new Game());
-  RunConfig c; c.dex = 491; c.seed = 4; c.judged = 1; c.upgrades[UP_MOVES] = 1; c.pmove2 = int8_t(move_index("shadow-ball"));
+  RunConfig c; c.dex = 491; c.seed = 4; c.judged = 1; c.upgrades[UP_MOVES] = 1; c.pmove2 = int16_t(move_index("shadow-ball"));
   g->start_run(c);
   CHECK(g->players[0].moves[1].def == move_index("shadow-ball"));
   // El inicial elegible sigue siendo el de la web (para la partida sincronizada).

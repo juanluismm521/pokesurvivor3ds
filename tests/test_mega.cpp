@@ -90,7 +90,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   p.dmg_reduce = dr + 0.68f + kMegaArmor;
   Card c; c.type = CT_STAT; c.stat = LS_DEF;
   levelup_apply(*g, p, c);
-  CHECK(p.dmg_reduce == doctest::Approx(0.7f + kMegaArmor));
+  CHECK(p.dmg_reduce == doctest::Approx(0.5f + kMegaArmor));
   p.dmg_reduce = dr + kMegaArmor;
   // Pasa el tiempo: se acaba sola, vuelve todo y empieza la recarga.
   for (int i = 0; i < int(kMegaTime * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);

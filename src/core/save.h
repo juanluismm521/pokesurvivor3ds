@@ -15,7 +15,7 @@ enum From : int8_t { FROM_NONE = 0, FROM_STARTER, FROM_GACHA, FROM_WILD, FROM_RE
 
 // La Mochila de la Tienda Kecleon (shop.js ITEMS, en su orden; los caramelos van aparte).
 enum BagItem : int8_t { BAG_MINT, BAG_CAP, BAG_CAPH, BAG_COUNT };
-constexpr int kMaxTms = 64;              // (kTmCount ≤ 64: ver gen_data.js)
+constexpr int kMaxTms = 128;             // (kTmCount ≤ 128: TmBits, ver gen_data.js)
 
 struct Mission {
   int8_t def = -1;          // índice en kMissions
@@ -47,10 +47,10 @@ struct Save {
   char trait[16] = "";
   int16_t trait_scores[32] = {};         // por rasgo (kTraits)
   uint8_t pupg[kMaxDex + 1][UP_COUNT] = {};   // mejoras de cada Pokémon
-  int8_t pbind[kMaxDex + 1][4];          // Atajos: movimiento por hueco (-1 nada)
-  int8_t pban[kMaxDex + 1][3];           // Veto
-  int8_t pstart[kMaxDex + 1];            // Movimiento inicial elegido (-1: el de serie)
-  int8_t pmove2[kMaxDex + 1];            // segundo movimiento con «Repertorio» (del port: "pmove2"; -1: al azar)
+  int16_t pbind[kMaxDex + 1][4];          // Atajos: movimiento por hueco (-1 nada)
+  int16_t pban[kMaxDex + 1][3];           // Veto
+  int16_t pstart[kMaxDex + 1];            // Movimiento inicial elegido (-1: el de serie)
+  int16_t pmove2[kMaxDex + 1];            // segundo movimiento con «Repertorio» (del port: "pmove2"; -1: al azar)
   uint8_t pmega[kMaxDex + 1] = {};       // mejora «Megapiedra» por Pokémon (del port: "pmega")
   uint8_t pfour[kMaxDex + 1] = {};       // mejora «Más pasivas a niveles altos» por Pokémon (del port: "pfour"; 0 o 1)
   int64_t arceus_win[kMaxDex + 1] = {};  // medalla: cuándo derrotó a Arceus (modo rápido) cada Pokémon (del port: "arceusWin"; 0 nunca)
@@ -81,8 +81,8 @@ struct Save {
   // (las que la partida tiene o ha tenido: entonces se escribe su número, también el 0,
   // para que pise lo que hubiera en la copia de la web; bit = BagItem / kTms)
   uint8_t bag_known = 0;
-  uint64_t tms_known = 0;
-  uint64_t ptm[kMaxDex + 1] = {};
+  TmBits tms_known = {};
+  TmBits ptm[kMaxDex + 1] = {};
   int8_t pnat[kMaxDex + 1];              // índice de kNatures o -1
   int64_t pnat_at[kMaxDex + 1] = {};
   int8_t pabil[kMaxDex + 1];             // hueco 0, 1 o 2 (oculta) o -1

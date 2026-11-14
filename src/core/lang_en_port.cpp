@@ -14,6 +14,7 @@ namespace ps {
 
 const Tr kLangEnPort[] = {
     // ---------------- iguales en inglés (para que no se toquen a trozos) ----------------
+    {"Surf", "Surf"}, {"-1% recarga", "-1% cooldown"}, {"-5% de recarga en todos los movimientos.", "-5% cooldown on all moves."},
     {"Normal", "Normal"}, {"Todas", "All"}, {"Todas las regiones", "All regions"}, {"Pokémon", "Pokémon"}, {"Gacha", "Gacha"}, {"Shiny", "Shiny"}, {"shiny", "shiny"},
     {"PokéSurvivor", "PokéSurvivor"}, {"PokéSurvivor 3DS", "PokéSurvivor 3DS"}, {"Auto", "Auto"}, {"No", "No"},
     {"English", "English"}, {"Español", "Español"}, {"New 3DS", "New 3DS"}, {"Arceus", "Arceus"}, {"Pokédex", "Pokédex"},

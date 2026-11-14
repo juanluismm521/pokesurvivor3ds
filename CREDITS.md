@@ -182,9 +182,15 @@ De [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) (CC BY-NC 4.0), por
 | Mega-Tatsugiri | Emmuffin |
 
 Mega-Lucario Z aún no está en SpriteCollab: el port recolorea el de Mega-Lucario (tools/megas_derivadas.py).
-Las megas sin sprite en SpriteCollab usan el de su forma normal. Las megapiedras: dibujos de los objetos de
+Las megas sin sprite en SpriteCollab usan el de la web (más abajo) o el de su forma normal. Las megapiedras: dibujos de los objetos de
 [PokeAPI](https://github.com/PokeAPI/sprites) (de los juegos, © Nintendo / Game Freak).
 <!-- /megas -->
+
+## Pokémon y megas de la Gran Actualización
+
+Vienen de PokéSurvivor (JPTER78), con su permiso: las formas regionales (Vulpix de Alola, Meowth de Galar, Growlithe de Hisui…) son de SpriteCollab (CC BY-NC 4.0, sus artistas en la tabla de arriba y en los créditos de pokesurvivor.com).
+
+Los 59 Pokémon que faltaban (Simisear, Zarude, Miraidon, Pecharunt…) y las megaevoluciones que SpriteCollab no tiene son material de Pokémon Edición Reloaded, de F3R y de los dibujantes que han participado en él, como Jhony_Ryu (pokemon-reloaded.blogspot.com), que la web usa con crédito.
 
 ## Disfraces de Halloween
 

@@ -235,7 +235,7 @@ bool datapack_apply(const std::string& text, std::string& why) {
       const Json& v = j[2][s];
       if (v.is_null()) { m.v[s] = 0; continue; }
       m.v[s] = float(v.as_num());
-      m.has |= 1u << s;
+      m.has |= 1ull << s;
     }
     m.evo_need = int8_t(j[3].as_int());
     m.evo_name = j[4].is_null() ? nullptr : keep(j[4].as_str());

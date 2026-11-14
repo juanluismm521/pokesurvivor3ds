@@ -636,6 +636,46 @@ void Renderer::draw_top(Game& g, float eye) {
       dot_ring(x, y, r, r * 0.6f, 1, rgbf(f.col, 0.6f));
     } else if (f.kind == FK_TURRET) {
       ellipse(x, y, 5.5f, 2.25f, C2D_Color32(0, 0, 0, 77));
+    } else if (f.kind == FK_TREMOR) {
+      // Terremoto: una onda que crece y se apaga.
+      const float k = std::fmin(1.0f, f.t / f.life), rr = r * k;
+      dot_ring(x, y, rr, rr * 0.6f, 2, rgbf(f.col, (1 - k * 0.6f) * 0.55f));
+      dot_ring(x, y, rr * 0.8f, rr * 0.48f, 1, rgbf(f.col, (1 - k) * 0.25f));
+    } else if (f.kind == FK_LEAP) {
+      // Salto: la sombra viaja hasta donde cae y el círculo del golpe se abre.
+      const float k = clamp(f.t / f.at, 0.0f, 1.0f);
+      ellipse(v.sx(f.sx + (f.x - f.sx) * k), v.sy(f.sy + (f.y - f.sy) * k), 7, 3, C2D_Color32(0, 0, 0, 90));
+      dot_ring(x, y, r * k, r * 0.6f * k, 1, rgbf(f.col, 0.5f));
+    } else if (f.kind == FK_CROSS && f.t < f.delay) {
+      // Llamarada: la cruz se dibuja en el suelo antes de estallar.
+      const float k = clamp(f.t / f.delay, 0.0f, 1.0f), w = f.w * 0.5f;
+      const u32 c = rgbf(f.col, 0.18f + k * 0.3f);
+      C2D_DrawRectSolid(x - r * k, y - w * 0.3f, 0, r * 2 * k, w * 0.6f, c);
+      C2D_DrawRectSolid(x - w / 2, y - r * 0.6f * k, 0, w, r * 1.2f * k, c);
+    } else if (f.kind == FK_BOLT && f.t >= 0 && f.t < f.delay) {
+      // Trueno: una marca avisa dónde va a caer.
+      const float k = clamp(f.t / f.delay, 0.0f, 1.0f);
+      dot_ring(x, y, r * (1.4f - k * 0.4f), r * 0.6f * (1.4f - k * 0.4f), 1, rgbf(f.col, 0.35f + k * 0.4f));
+    } else if (f.kind == FK_DECOY) {
+      // Doble Equipo: tu copia, medio transparente (parpadea al irse).
+      const Player& o = g.players[f.owner];
+      const float left = f.life - f.t;
+      if (left > 1 || int(now * 10) % 2) {
+        ellipse(x, y, 6, 2.5f, C2D_Color32(0, 0, 0, 60));
+        draw_sprite(o.anim, x, y, 0, 0.55f);
+      }
+    }
+  }
+  // Surf: la ola (una franja de su color con la espuma delante), aparte porque es grande.
+  for (const Field& f : g.fields) {
+    if (f.kind != FK_WAVE) continue;
+    const float wx = f.x + f.ca * f.d, wy = f.y + f.sa * f.d;
+    if (!cam.sees(wx, wy, f.w)) continue;
+    for (float o = -f.w / 2; o < f.w / 2; o += 6) {
+      const float bx = wx - f.sa * o, by = wy + f.ca * o;
+      for (int k = 1; k <= 4; ++k) C2D_DrawRectSolid(std::floor(v.sx(bx - f.ca * k * 8)) - 2, std::floor(v.sy(by - f.sa * k * 8)) - 2, 0, 4, 4, rgbf(f.col, 0.5f - k * 0.08f));
+      const float wob = std::sin(now * 10 + o) * 3;
+      C2D_DrawRectSolid(std::floor(v.sx(bx + f.ca * wob)) - 1, std::floor(v.sy(by + f.sa * wob)) - 2, 0, 3, 4, rgbf(0xe8fbff, 0.85f));
     }
   }
 

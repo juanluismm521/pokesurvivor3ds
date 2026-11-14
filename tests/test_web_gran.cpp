@@ -221,3 +221,40 @@ TEST_CASE("gran actualización: una consola recién estrenada no borra las misio
   CHECK(web::merge_safe(manana, nube, 1794001000000LL)["missions"]["daily"][0]["id"].as_str() == "coins");
   save_raw() = Json();
 }
+
+TEST_CASE("gran actualización: las formas regionales se guardan con su id de la web (500037 = Vulpix de Alola)") {
+  const int vulpix = form_from_web(500037);
+  REQUIRE(vulpix > kNationalDex);
+  CHECK(form_web_id(vulpix) == 500037);
+  CHECK(form_web_id(25) == 25);
+  CHECK(form_from_web(999999) == 0);
+  const Mon* m = mon_by_dex(vulpix);
+  REQUIRE(m);
+  CHECK(m->num == 37);
+  CHECK(m->reg == 1);                       // Alola
+  CHECK(m->types[0] == T_ICE);
+  std::unique_ptr<Save> s(new Save());
+  s->reset();
+  s->created = 1794000000000LL;
+  save_grant_dex(*s, vulpix, FROM_GACHA, 1794000000001LL);
+  s->partner = int16_t(vulpix);
+  s->pupg[vulpix][UP_HP] = 2;
+  Json j;
+  REQUIRE(j.parse(save_to_json(*s)));
+  CHECK(j["owned"].has("500037"));
+  CHECK(!j["owned"].has(std::to_string(vulpix).c_str()));
+  CHECK(j["partner"].as_int() == 500037);
+  CHECK(j["pupg"]["500037"]["hp"].as_int() == 2);
+  std::unique_ptr<Save> r(new Save());
+  r->reset();
+  REQUIRE(save_from_json(*r, save_to_json(*s)));
+  CHECK(r->partner == vulpix);
+  CHECK(r->owned_at[vulpix] > 0);
+  CHECK(r->pupg[vulpix][UP_HP] == 2);
+  // Y la fusión con la web no la tira por «Pokémon que no existe».
+  Json web;
+  REQUIRE(web.parse(R"({"name":"Ana","created":1794000000000,"updated":1794000001000,"coins":10,"owned":{"25":{"at":1},"500037":{"at":2,"from":"gacha"}},"partner":500037})"));
+  const Json mg = web::migrate(web, "", 1794000002000LL, false);
+  CHECK(mg["owned"].has("500037"));
+  CHECK(mg["partner"].as_int() == 500037);
+}

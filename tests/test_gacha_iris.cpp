@@ -68,14 +68,14 @@ TEST_CASE("Amuleto Iris: con la Pokédex de la región completa, shiny al 2 % en
 TEST_CASE("gacha: el cartel del banner, legendarios de verdad (y los que eligió el dueño)") {
   int16_t f[3];
   // (el dueño, 2026-10-30) Kanto: Dragonite en vez de Articuno; Paldea: Koraidon y
-  // Gholdengo (Miraidon no está en la Pokédex del juego); «Todas»: tres famosos.
+  // Gholdengo; desde la Gran Actualización (los 1025) también Miraidon. «Todas»: tres famosos.
   REQUIRE(gacha_featured(1, f) == 3);
   CHECK((f[0] == 149 || f[1] == 149 || f[2] == 149));
   CHECK((f[0] != 144 && f[1] != 144 && f[2] != 144));
   REQUIRE(gacha_featured(9, f) == 3);
   CHECK(f[0] == 1007);
-  CHECK(f[1] == 1000);
-  CHECK(mon_by_dex(f[2])->leg);
+  CHECK(f[1] == 1008);
+  CHECK(f[2] == 1000);
   REQUIRE(gacha_featured(kGachaAll, f) == 3);
   for (int i = 0; i < 3; ++i) CHECK(mon_by_dex(f[i])->leg);
   for (int gen = 2; gen <= 8; ++gen) {

@@ -67,7 +67,7 @@ Json pair(double a, double b) { Json p = Json::array(); p.push(Json::num(a)); p.
 std::string key_of(int n) { char b[16]; std::snprintf(b, sizeof(b), "%d", n); return b; }
 bool dex_ok(const std::string& k) {
   const int d = std::atoi(k.c_str());
-  return key_of(d) == k && mon_by_dex(d) != nullptr;
+  return key_of(d) == k && mon_by_dex(form_from_web(d)) != nullptr;   // (las formas regionales: su id de la web)
 }
 int upgrade_by_id(const std::string& id) {
   for (int k = 0; k < UP_COUNT; ++k) if (id == kUpgrades[k].id) return k;

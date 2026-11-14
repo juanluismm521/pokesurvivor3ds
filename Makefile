@@ -174,8 +174,8 @@ endif
 #---------------------------------------------------------------------------------
 all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(T3XHFILES)
 	@mkdir -p $(ROMFS)
-	@if [ -d reference/web/js/data ]; then node tools/gen_data.js $(GENDIR)/gamedata.cpp; \
-	else echo "Sin reference/web: se usa $(GENDIR)/gamedata.cpp tal cual"; fi
+	@if [ -d reference/web/js/data ] && [ -d reference/web-gran/js/data ]; then node tools/gen_data.js $(GENDIR)/gamedata.cpp; \
+	else echo "Sin reference/web y reference/web-gran: se usa $(GENDIR)/gamedata.cpp tal cual"; fi
 	@tools/gen_build.sh $(GENDIR)/build.h
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 

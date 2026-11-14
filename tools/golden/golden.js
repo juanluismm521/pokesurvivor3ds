@@ -40,6 +40,40 @@ sandbox.G.Ranking = { periodIds: () => G.__periods };
 sandbox.G.DB = { save: null, commit() {} };
 load('js/systems/progress.js');
 
+// ---------------- la Gran Actualización (web del 13-11-2026) ----------------
+// reference/web-gran: la web ofuscada, partida en módulos (tools/web/bajar.sh). De ella
+// salen los casos de lo que el port sigue de la web nueva (datos, fórmulas de equilibrio,
+// movimientos, mejoras, misiones…). El mundo y su pintado siguen comparándose con
+// reference/web (19-10): G es esa web y N, la nueva.
+const GRAN = process.env.PS_WEB_GRAN || path.join(ROOT, 'reference', 'web-gran');
+const { local } = require('../lib/websandbox');
+process.env.PS_WEB = GRAN;
+const sandboxN = require('../lib/websandbox').create();
+delete process.env.PS_WEB;
+const N = sandboxN.G;
+const gtext = f => fs.readFileSync(path.join(GRAN, f), 'utf8').replace(/\r\n/g, '\n');
+function gload(f, edits) {
+  let src = gtext(f);
+  for (const [a, b] of edits || []) { if (!src.includes(a)) throw new Error(`web-gran ${f}: no encuentro "${a}"`); src = src.replace(a, b); }
+  vm.runInContext(src, sandboxN, { filename: 'gran/' + f });
+}
+for (const f of ['js/core/util.js', 'js/core/i18n.js', 'js/data/lang-en.js', 'js/core/settings.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/evos.js',
+                 'js/data/megas.js', 'js/data/powers.js', 'js/core/sprites.js', 'js/core/skins.js', 'js/data/balance.js', 'js/data/natures.js', 'js/data/abilities.js',
+                 'js/data/tms.js', 'js/data/forms.js', 'js/data/moves.js', 'js/data/types.js', 'js/data/starters.js', 'js/data/difficulty.js']) gload(f);
+{
+  const src = gtext('js/data/enemies.js');
+  const beh = local(src, /function (_0x\w+)\(_0x\w+\) \{\n\s+const _0x\w+ = _0x\w+\.types;/, 'behaviorOf');
+  const def = local(src, /function (_0x\w+)\(_0x\w+, _0x\w+, _0x\w+\) \{\n\s+const _0x\w+ = G\.U\.clamp\(_0x\w+\(_0x\w+\) \/ 65, 0\.7, 1\.6\);/, 'defFor');
+  gload('js/data/enemies.js', [['return {\n    TIERS', `G.__EN2 = { behaviorOf: ${beh}, defFor: ${def} };\n  return {\n    TIERS`]]);
+}
+for (const f of ['js/data/upgrades.js', 'js/data/items.js', 'js/data/missions.js', 'js/data/achievements.js', 'js/systems/stats.js',
+                 'js/systems/abilities.js', 'js/entities/player.js', 'js/systems/spawner.js', 'js/systems/mode.js', 'js/systems/levelup.js', 'js/systems/gacha.js']) gload(f);
+// Formas regionales: en la web llevan un id 500xxx; en el port, su número (assets-src/formas/formas.json)
+const FORMAS = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets-src', 'formas', 'formas.json'), 'utf8')).formas;
+const porDex = {};
+for (const f of FORMAS) porDex[f.id] = f.dex;
+const pd = d => (d > 1025 ? porDex[d] || 0 : d);
+
 const out = {};
 const r6 = x => Math.round(x * 1e6) / 1e6;
 
@@ -95,69 +129,82 @@ out.typeMult = [];
 for (const a of TYPES) for (const d1 of TYPES) for (const d2 of [null, ...TYPES]) {
   if (d2 === d1) continue;
   if (d2 && TYPES.indexOf(d2) % 5 !== TYPES.indexOf(d1) % 5) continue;   // muestra (no las 5.800)
-  out.typeMult.push([TYPES.indexOf(a), TYPES.indexOf(d1), d2 ? TYPES.indexOf(d2) : -1, r6(G.Types.mult(a, d2 ? [d1, d2] : [d1]))]);
+  out.typeMult.push([TYPES.indexOf(a), TYPES.indexOf(d1), d2 ? TYPES.indexOf(d2) : -1, r6(N.Types.mult(a, d2 ? [d1, d2] : [d1]))]);
 }
 
 // ---------------- jugador y fórmulas ----------------
 out.xpFor = [];
-for (let l = 1; l <= 80; l++) out.xpFor.push(G.Player.xpFor(l));
-out.scale = [];
-for (const t of [0, 30, 60, 95, 180, 333, 600, 900, 1200, 1799]) {
-  const s = G.Enemies.scale(t), b = G.Enemies.bossScale(t);
-  out.scale.push([t, r6(s.hp), r6(s.dmg), r6(s.spd), r6(b.hp), r6(b.dmg), r6(G.Spawner.rate(t))]);
+for (let l = 1; l <= 80; l++) out.xpFor.push(N.Player.xpFor(l));
+// Equilibrio (difficulty.js): por dificultad, tiempo y jugadores.
+out.diff = [];
+{
+  const D = N.Diff;
+  D.ORDER.forEach((mode, mi) => {
+    D.setMode(mode);
+    for (const t of [0, 30, 60, 95, 180, 333, 600, 900, 1200, 1500, 1799, 2400]) for (const n of [1, 2, 4]) {
+      const idx = Math.floor(t / 97) % 6;
+      out.diff.push([mi, t, n, idx, D.mobHp(t, n), D.mobDmg(t), D.mobXp(t), D.rate(t, n), D.bossHp(idx, t, n), D.bossDmg(t),
+                     D.legendHp(idx, t, n), D.legendHp(idx, t, n, 900 + t, 0), D.legendHp(idx, t, n, 0, 5e6), D.legendDmg(t), D.eternaHp(n), D.judgeHp(n)]);
+    }
+  });
+  D.setMode('normal');
 }
 out.dir = [];
 for (let a = -3.3; a <= 3.3; a += 0.137) out.dir.push([r6(a), G.Sprites.dirFromAngle(a)]);
 
 // ---------------- Pokédex: comportamiento, cuerpo, movimiento inicial ----------------
-out.dex = G.DEX.map(p => [p.dex, G.__EN2.behaviorOf(p), r6(G.Sprites.bodyRadius(p.dex)), r6(G.Sprites.bodyHeight(p.dex)), G.Moves.ALL.findIndex(m => m.id === G.startMoveOf(p.dex))]);
-// Desde 2026-10-18/19: físico/especial (stats.js), tamaño de los grandes
-// (playerScale/playerRadius) y movimientos para empezar (startChoices).
-if (G.Stats) {
-  const mi = id => G.Moves.ALL.findIndex(m => m.id === id);
-  out.stats = G.DEX.map(p => [p.dex, r6(G.Stats.taken(p, 'physical')), r6(G.Stats.taken(p, 'special')), G.Stats.sideOf(p) === 'special' ? 1 : 0,
-                               r6(G.Stats.fit(p, 'physical')), r6(G.Stats.fit(p, 'special')),
-                               r6(G.Sprites.playerScale(p.dex)), r6(G.Sprites.playerRadius(p.dex)), G.startChoices(p.dex).map(mi)]);
+// (web nueva; las formas regionales salen con su número del port)
+out.dex = N.DEX.map(p => [pd(p.dex), N.__EN2.behaviorOf(p), r6(N.Sprites.bodyRadius(p.dex)), r6(N.Sprites.bodyHeight(p.dex)), N.Moves.ALL.findIndex(m => m.id === N.startMoveOf(p.dex))]);
+{
+  const mi = id => N.Moves.ALL.findIndex(m => m.id === id);
+  out.stats = N.DEX.map(p => [pd(p.dex), r6(N.Stats.taken(p, 'physical')), r6(N.Stats.taken(p, 'special')), N.Stats.sideOf(p) === 'special' ? 1 : 0,
+                               r6(N.Stats.fit(p, 'physical')), r6(N.Stats.fit(p, 'special')),
+                               r6(N.Sprites.playerScale(p.dex)), r6(N.Sprites.playerRadius(p.dex)), N.startChoices(p.dex).map(mi)]);
 }
 out.defFor = [];
-G.Enemies.TIERS.forEach((tier, ti) => {
-  for (const p of G.__EN2.candidates(tier).filter((_, i) => i % 7 === 0)) {
-    const d = G.__EN2.defFor(p, tier, ti);
-    out.defFor.push([ti, p.dex, d.behavior, d.hp, d.spd, d.dmg, d.xp, d.shotDmg || 0, d.shotCd || 0, d.range || 0, d.minion || 0, d.fanN || 0, d.zones || 0]);
+N.Enemies.TIERS.forEach((tier, ti) => {
+  for (const p of N.Enemies.candidates(tier).filter((_, i) => i % 7 === 0)) {
+    const d = N.__EN2.defFor(p, tier, ti);
+    out.defFor.push([ti, pd(p.dex), d.behavior, d.hp, d.spd, d.dmg, d.xp, d.shotDmg || 0, d.shotCd || 0, d.range || 0, pd(d.minion || 0), d.fanN || 0, d.zones || 0, r6(d.hpF), r6(d.dmgF), r6(d.xpF)]);
   }
 });
-out.candidates = G.Enemies.TIERS.map(t => G.__EN2.candidates(t).length);
+out.candidates = N.Enemies.TIERS.map(t => N.Enemies.candidates(t).length);
 
 // ---------------- movimientos ----------------
 // (mismo orden que MoveStat en src/core/gamedata.h)
 const MSTATS = ['cd', 'dmg', 'speed', 'count', 'spread', 'pierce', 'life', 'size', 'radius', 'arc', 'width', 'knock', 'burn', 'poison', 'slow', 'homing', 'amount', 'dur', 'stacks', 'rate', 'range', 'hex', 'drain',
-                'pull', 'bounce', 'stun', 'charge'];
+                'pull', 'bounce', 'stun', 'charge', 'zap', 'shred', 'noItem', 'puddle', 'pr', 'splash', 'boost', 'critUp', 'minCd', 'cost', 'wx', 'shield'];
 out.moves = [];
-for (const m of G.Moves.ALL) {
+for (const m of N.Moves.ALL) {
+  const num = (k, x) => (x == null ? null : k === 'wx' ? ['sun', 'rain', 'sand', 'snow', 'fog'].indexOf(x) : k === 'shield' ? ['physical', 'special'].indexOf(x) : r6(x));
   for (let lvl = 1; lvl <= 5; lvl++) {
-    const s = G.Moves.instance(m.id, lvl);
-    out.moves.push([m.id, lvl, 0, MSTATS.map(k => (s[k] == null ? null : r6(s[k])))]);
+    const s = N.Moves.instance(m.id, lvl);
+    out.moves.push([m.id, lvl, 0, MSTATS.map(k => num(k, s[k]))]);
   }
-  const s = G.Moves.instance(m.id, 5);
-  if (G.Moves.evolve(s)) out.moves.push([m.id, 5, 1, MSTATS.map(k => (s[k] == null ? null : r6(s[k])))]);
+  const s = N.Moves.instance(m.id, 5);
+  if (N.Moves.evolve(s)) out.moves.push([m.id, 5, 1, MSTATS.map(k => num(k, s[k]))]);
 }
 out.pool = [];
 for (const types of [['fire'], ['water', 'flying'], ['grass', 'poison'], ['normal'], ['dragon', 'ghost'], ['bug', 'steel']]) {
-  out.pool.push([types.map(t => TYPES.indexOf(t)), G.Moves.poolFor({ types }).map(id => G.Moves.ALL.findIndex(m => m.id === id))]);
+  out.pool.push([types.map(t => TYPES.indexOf(t)), N.Moves.poolFor({ types }).map(id => N.Moves.ALL.findIndex(m => m.id === id))]);
 }
+out.only = N.DEX.filter(p => N.Moves.exclusiveFor(p.dex).length).map(p => [pd(p.dex), N.Moves.exclusiveFor(p.dex).map(id => N.Moves.ALL.findIndex(m => m.id === id))]);
 
 // ---------------- mejoras ----------------
+// (las del port: las 14 de antes, con los números de la web nueva; Veto, hasta 3)
+const UPL = ['hp', 'atk', 'spd', 'cd', 'def', 'regen', 'magnet', 'xp', 'coins', 'moves', 'crit', 'reroll', 'ban', 'start'].map(id => N.Upgrades.LIST.find(u => u.id === id));
+const upMax = u => (u.id === 'ban' ? Math.min(3, u.max) : u.max);
 out.upCost = [];
-for (const u of G.Upgrades.LIST) for (let l = 0; l < u.max; l++) out.upCost.push([u.id, l, G.Upgrades.cost(u.id, l)]);
+for (const u of UPL) for (let l = 0; l < upMax(u); l++) out.upCost.push([u.id, l, N.Upgrades.cost(u.id, l)]);
 out.perks = [];
 for (const lv of [{}, { hp: 3, atk: 10, spd: 99, cd: 4, def: 8, regen: 5, magnet: 2, xp: 8, coins: 1, moves: 1, crit: 10, reroll: 2, ban: 3 }]) {
-  const p = G.Upgrades.perks(lv);
-  out.perks.push([G.Upgrades.LIST.map(u => lv[u.id] || 0), [p.hp, r6(p.atkMul), r6(p.spdMul), r6(p.cdMul), r6(p.dmgReduce), r6(p.regen), r6(p.magnetMul), r6(p.xpMul), r6(p.coinMul), p.startMoves, r6(p.crit), p.rerolls, p.bans]]);
+  const p = N.Upgrades.perks(lv);
+  out.perks.push([UPL.map(u => lv[u.id] || 0), [p.hp, r6(p.atkMul), r6(p.spdMul), r6(p.cdMul), r6(p.dmgReduce), r6(p.regen), r6(p.magnetMul), r6(p.xpMul), r6(p.coinMul), p.startMoves, r6(p.crit), p.rerolls, p.bans]]);
 }
 
 // ---------------- gacha ----------------
 out.gachaPools = [];
-for (let gen = 1; gen <= 9; gen++) for (let r = 1; r <= 5; r++) out.gachaPools.push([gen, r, G.Gacha.pool(r, gen).length]);
+for (let gen = 1; gen <= 9; gen++) for (let r = 1; r <= 5; r++) out.gachaPools.push([gen, r, N.Gacha.pool(r, gen).length]);
 
 // ---------------- huecos con atajos y vínculos (player.js) ----------------
 {
@@ -191,22 +238,29 @@ for (let gen = 1; gen <= 9; gen++) for (let r = 1; r <= 5; r++) out.gachaPools.p
 
 // ---------------- misiones (sorteo con semilla de fecha + partida) ----------------
 out.missions = [];
+N.Ranking = { periodIds: () => N.__periods };
+N.DB = { save: null, commit() {} };
+gload('js/systems/progress.js');
 for (const [d, w, created] of [['d20261018', 'w2026-42', 1760000000000], ['d20270101', 'w2026-53', 0], ['d20250315', 'w2025-11', 1234567]]) {
-  G.__periods = { d, w };
+  N.__periods = { d, w };
   const sv = { created, missions: {}, stats: {} };
-  G.Progress.ensure(sv);
+  N.Progress.ensure(sv);
   const m = sv.missions;
   out.missions.push({ d, w, created, daily: m.daily.map(x => [x.id, x.goal, x.param]), weekly: m.weekly.map(x => [x.id, x.goal, x.param]),
-                      texts: m.daily.concat(m.weekly).map(x => G.Progress.text(x)) });
+                      texts: m.daily.concat(m.weekly).map(x => N.Progress.text(x)) });
 }
-out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
+out.ach = N.AchDefs.LIST.map(a => [a.id, a.goal]);
 
 // ---------------- traducciones (i18n.js en inglés) ----------------
 {
+  process.env.PS_WEB = GRAN;
   const sb = require('../lib/websandbox').create('en');
+  delete process.env.PS_WEB;
   const GE = sb.G;
-  const ld = f => vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8').replace(/\r\n/g, '\n'), sb, { filename: f });
+  const ld = f => vm.runInContext(fs.readFileSync(path.join(GRAN, f), 'utf8').replace(/\r\n/g, '\n'), sb, { filename: f });
   ld('js/core/util.js'); ld('js/core/i18n.js'); ld('js/data/lang-en.js');
+  // (los nombres de las formas regionales: su diccionario va con forms.js)
+  ld('js/data/pokedex.js'); ld('js/data/sprites-meta.js'); ld('js/data/forms.js');
   const samples = [
     '¡Un Pikachu shiny anda cerca!', '¡Horda de tipo Fuego!', 'HORDA FUEGO · 23 s', '¡Hora dorada! Doble de experiencia',
     '¡Has conseguido a Pikachu shiny!', '¡Otro Eevee shiny! (+300 monedas)', '¡Marea de Pokémon!', '— Bosque Umbrío —',
@@ -222,19 +276,26 @@ out.ach = G.AchDefs.LIST.map(a => [a.id, a.goal]);
     'Misión completada: Derrota a 300 Pokémon', '¡Logro: Coleccionista!', 'Nuevo título: Coleccionista'];
   for (const m of GE.MissionDefs ? [] : []) samples.push(m);
   out.i18n = samples.map(s => [s, GE.I18n.t(s)]);
-  for (const m of G.Moves.ALL) { out.i18n.push([m.name, GE.I18n.t(m.name)]); out.i18n.push([m.desc, GE.I18n.t(m.desc)]); }
-  for (const it of G.Items.LIST) { out.i18n.push([it.name, GE.I18n.t(it.name)]); out.i18n.push([it.desc, GE.I18n.t(it.desc)]); }
-  for (const a of G.AchDefs.LIST.slice(0, 60)) { out.i18n.push([a.name, GE.I18n.t(a.name)]); out.i18n.push([a.desc, GE.I18n.t(a.desc)]); }
+  for (const m of N.Moves.ALL) { out.i18n.push([m.name, GE.I18n.t(m.name)]); out.i18n.push([m.desc, GE.I18n.t(m.desc)]); }
+  for (const it of N.Items.LIST.slice(0, 11)) { out.i18n.push([it.name, GE.I18n.t(it.name)]); out.i18n.push([it.desc, GE.I18n.t(it.desc)]); }
+  for (const a of N.AchDefs.LIST.slice(0, 60)) { out.i18n.push([a.name, GE.I18n.t(a.name)]); out.i18n.push([a.desc, GE.I18n.t(a.desc)]); }
   for (const m of out.missions) for (const t of m.texts) out.i18n.push([t, GE.I18n.t(t)]);
 }
 
-// ---------------- Tienda Kecleon: naturalezas, habilidades y MT (web del 20-10-2026) ----------------
-// reference/web es del 19-10 y no los tiene: salen de la última web con fuentes
-// (tools/cache/web, rama fuentes-28-10 = d667c216), leídos con git sin tocar reference/.
-// También db.js: la fusión con la Mochila, las MT, naturalezas y habilidades.
+// ---------------- Tienda Kecleon: naturalezas, habilidades y MT (web nueva) ----------------
+// (las formas regionales: en la web su clave es el id 500xxx; el port les aplica el mismo)
+N.DB = { save: null, commit() {} };
+gload('js/systems/mons.js');
+{
+  // El día del sorteo, fijo para la prueba: "kecleon:" + hoy() → "kecleon:" + (G.__DAY || hoy())
+  const src = gtext('js/data/shop.js');
+  const m = /\("kecleon:" \+ (_0x\w+)\(\)\)/.exec(src);
+  if (!m) throw new Error('shop.js: no encuentro el sorteo del día');
+  gload('js/data/shop.js', [[m[0], `("kecleon:" + (G.__DAY || ${m[1]}()))`]]);
+}
+// (db.js de la web del 28-10, para la fusión de partidas: más abajo)
 const NEW_REF = process.env.PS_WEB_NEW || 'fuentes-28-10';
 function loadNew(f, edits) {
-  // (el clon del publicador enlaza reference/ del repo de trabajo: la caché, a su lado)
   const cache = [path.join(ROOT, 'tools', 'cache', 'web'), path.join(fs.realpathSync(path.join(ROOT, 'reference')), '..', 'tools', 'cache', 'web')]
     .find(d => fs.existsSync(d)) || path.join(ROOT, 'tools', 'cache', 'web');
   let src = require('child_process').execFileSync('git', ['-C', cache, 'show', NEW_REF + ':' + f], { encoding: 'utf8', maxBuffer: 1 << 26 }).replace(/\r\n/g, '\n');
@@ -244,32 +305,31 @@ function loadNew(f, edits) {
 for (const f of ['js/data/natures.js', 'js/data/abilities.js', 'js/data/tms.js', 'js/core/skins.js']) loadNew(f);
 sandbox.G.DB = { save: null, commit() {} };
 loadNew('js/systems/mons.js');
-loadNew('js/data/shop.js', [['r = rng(\'kecleon:\' + today());', 'r = rng(\'kecleon:\' + (G.__DAY || today()));'],
-                            ['rng(\'kecleon:\' + today() + \':\' + dex)', 'rng(\'kecleon:\' + (G.__DAY || today()) + \':\' + dex)']]);
+loadNew('js/data/shop.js');
 {
   // Naturaleza y habilidad que le tocan a cada Pokémon (semilla: fecha de creación + dex).
   const CREATED = [1700000000000, 1792506454241, 1761000000123, 0];
   out.mons = [];
   for (const created of CREATED) {
-    G.DB.save = { created, pnat: {}, pabil: {}, ptm: {}, tms: {}, bag: {} };
+    N.DB.save = { created, pnat: {}, pabil: {}, ptm: {}, tms: {}, bag: {} };
     const rows = [];
-    for (const p of G.DEX) {
-      const ab = G.Mons.abilityOf(p.dex);
-      rows.push([p.dex, G.NATURES.indexOf(G.Mons.natureOf(p.dex)), ab.slot]);
+    for (const p of N.DEX) {
+      const ab = N.Mons.abilityOf(p.dex);
+      rows.push([pd(p.dex), N.NATURES.indexOf(N.Mons.natureOf(p.dex)), ab.slot]);
     }
     out.mons.push({ created, rows });
   }
-  // Las MT del día (semilla: la fecha) y las que puede aprender cada uno.
+  // Las MT del día (semilla: la fecha; desde la Gran Actualización, las mismas para todos).
   out.shop = [];
-  for (const [day, partner, taught] of [['20261107', 25, {}], ['20261020', 54, {}], ['20251231', 6, {}], ['20261107', 150, { 150: ['shadow-ball'] }], ['20270615', 129, {}]]) {
-    G.__DAY = day;
-    G.DB.save = { created: 1700000000000, partner, pnat: {}, pabil: {}, ptm: taught, tms: {}, bag: {} };
-    out.shop.push({ day, partner, taught, list: G.Shop.dailyTms() });
+  for (const day of ['20261107', '20261020', '20251231', '20261114', '20270615']) {
+    N.__DAY = day;
+    N.DB.save = { created: 1700000000000, partner: 25, pnat: {}, pabil: {}, ptm: {}, tms: {}, bag: {} };
+    out.shop.push({ day, list: N.Shop.dailyTms() });
   }
-  G.__DAY = null;
-  G.DB.save = { created: 1700000000000, pnat: {}, pabil: {}, ptm: { 150: ['shadow-ball'] }, tms: {}, bag: {} };
-  out.learn = G.DEX.filter(p => p.dex !== 491).map(p => [p.dex, G.Mons.learnable(p.dex)]);   // (Darkrai: el port le da más ataques de serie)
-  out.monFor = G.DEX.slice(0, 60).map(p => { G.DB.save = { created: 1792506454241, pnat: {}, pabil: {} }; const m = G.Mons.monFor(p.dex); return [p.dex, m.nature, r6(m.pa), r6(m.sa), r6(m.df), r6(m.sd), r6(m.spd), r6(m.atk)]; });
+  N.__DAY = null;
+  N.DB.save = { created: 1700000000000, pnat: {}, pabil: {}, ptm: { 150: ['shadow-ball'] }, tms: {}, bag: {} };
+  out.learn = N.DEX.filter(p => p.dex !== 491).map(p => [pd(p.dex), N.Mons.learnable(p.dex)]);   // (Darkrai: el port le da más ataques de serie)
+  out.monFor = N.DEX.slice(0, 60).map(p => { N.DB.save = { created: 1792506454241, pnat: {}, pabil: {} }; const m = N.Mons.monFor(p.dex); return [pd(p.dex), m.nature, r6(m.pa), r6(m.sa), r6(m.df), r6(m.sd), r6(m.spd), r6(m.atk)]; });
 }
 
 // ---------------- partida de la web: migrate, sanitize, ledOf, fold, merge (db.js) ----------------

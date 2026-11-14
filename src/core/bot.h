@@ -33,8 +33,8 @@ struct Bot {
         const Card& cd = me.cards[c];
         int score = 1;
         if (cd.type == CT_EVO) score = 9;
-        else if (cd.type == CT_UP && me.moves[cd.move].kind() != K_BUFF) score = 6;
-        else if (cd.type == CT_NEW && kMoves[cd.move].kind != K_BUFF) score = 5;
+        else if (cd.type == CT_UP && !kind_is_status(me.moves[cd.move].kind())) score = 6;
+        else if (cd.type == CT_NEW && !kind_is_status(kMoves[cd.move].kind)) score = 5;
         else if (cd.type == CT_STAT && cd.evo_for >= 0) score = 7;
         else if (cd.type == CT_STAT) score = 3;
         score = score * 10 + int(rng.next() * 10);
@@ -106,7 +106,7 @@ struct Bot {
       int bs = -1, bl = -1;
       for (int k = 0; k < p.nslots; ++k) {
         const MoveInst& mm = p.moves[p.slots[k][0]];
-        const int score = (mm.kind() == K_BUFF ? 0 : 10) + mm.lvl + (p.slot_n[k] > 1 ? 20 : 0);
+        const int score = (kind_is_status(mm.kind()) ? 0 : 10) + mm.lvl + (p.slot_n[k] > 1 ? 20 : 0);
         if (score > bl) { bl = score; bs = k; }
       }
       if (bs >= 0 && bs != p.active_slot) in.select = int8_t(bs);

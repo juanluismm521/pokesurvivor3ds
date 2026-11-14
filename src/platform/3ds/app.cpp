@@ -234,8 +234,8 @@ void App::start_run() {
   cfg.four_up = autotest ? true : s_->pfour[cfg.dex] > 0;   // (en las pruebas, con las 4 cartas)
   for (int k = 0; k < 4; ++k) cfg.pbind[k] = autotest ? -1 : s_->pbind[cfg.dex][k];
   for (int k = 0; k < 3; ++k) cfg.pban[k] = autotest ? -1 : s_->pban[cfg.dex][k];
-  cfg.pstart = autotest ? int8_t(auto_move_) : s_->pstart[cfg.dex];
-  cfg.pmove2 = autotest ? int8_t(-1) : s_->pmove2[cfg.dex];
+  cfg.pstart = autotest ? int16_t(auto_move_) : s_->pstart[cfg.dex];
+  cfg.pmove2 = autotest ? int16_t(-1) : s_->pmove2[cfg.dex];
   if (autotest && auto_move_ >= 0) cfg.upgrades[UP_START] = 1;
   cfg.seed = autotest ? 12345u : uint32_t(osGetTime());
   // Halloween (core/halloween.h): lo que sea al empezar vale toda la partida.
@@ -246,7 +246,7 @@ void App::start_run() {
   const bool mine = !autotest || auto_real;
   cfg.nature = int8_t(mine ? nature_of(*s_, cfg.dex) : auto_nature);
   cfg.abil = int16_t(mine ? abil_of(*s_, cfg.dex).id : auto_abil);
-  cfg.taught = mine ? tm_taught_bits(*s_, cfg.dex) : 0;
+  cfg.taught = mine ? tm_taught_bits(*s_, cfg.dex) : TmBits{};
   cfg.judged = autotest ? 1 : s_->stats.judged;
   for (int d = 0; d <= kMaxDex; ++d) if (s_->legends[d]) cfg.legends_beaten[d >> 3] |= uint8_t(1 << (d & 7));
   const u64 t0 = svcGetSystemTick();
@@ -1275,7 +1275,7 @@ void App::top_detail(int dex, bool shiny, bool own) {
     r_->text(tr("Habilidad"), 210, 138, 0.32f, C_MUTED);
     r_->text_fit(ab.id >= 0 ? abil_name(ab.id) : "—", 276, 138, 118, 0.34f, ab.slot == 2 ? C_GOLD : C_TEXT);
   }
-  const uint64_t taught = tm_taught_bits(*s_, dex);
+  const TmBits taught = tm_taught_bits(*s_, dex);
   std::snprintf(b, sizeof(b), "Empieza con %s", kMoves[move_start_for(dex, s_->pstart[dex], s_->pupg[dex][UP_START] > 0, taught)].name);
   r_->text_fit(b, 300, 154, 196, 0.36f, C_GOLD, true, 1);
   int16_t pool[kMaxMoves];
@@ -1329,7 +1329,7 @@ void App::bottom_dex_moves(int dex) {
   header(b);
   const MvGrid G = mv_grid(n);
   const float box = G.icon * 16;
-  const uint64_t taught = tm_taught_bits(*s_, dex);
+  const TmBits taught = tm_taught_bits(*s_, dex);
   for (int i = 0; i < n; ++i) {
     const float x = G.x0 + (i % G.cols) * G.step, y = G.y0 + (i / G.cols) * G.step;
     const bool sel = i == mv_cur_;
@@ -1340,7 +1340,7 @@ void App::bottom_dex_moves(int dex) {
     if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), x, y, 0, nullptr, G.icon, G.icon);
     // (los aprendidos con MT, con su marca: «MT» pequeñito en la esquina)
     const int tm = tm_index_of_move(pool[i]);
-    if (tm >= 0 && ((taught >> tm) & 1u)) { C2D_DrawRectSolid(x + box - 13, y, 0, 13, 8, C2D_Color32(127, 147, 255, 230)); r_->text("MT", x + box - 6.5f, y - 1, 0.24f, C_TEXT, 1, false); }
+    if (tm >= 0 && taught.test(tm)) { C2D_DrawRectSolid(x + box - 13, y, 0, 13, 8, C2D_Color32(127, 147, 255, 230)); r_->text("MT", x + box - 6.5f, y - 1, 0.24f, C_TEXT, 1, false); }
   }
   r_->text("Toca uno para ver qué hace · L/R: pestaña · B: volver", 160, 226, 0.32f, C_MUTED, 1);
 }
@@ -1487,7 +1487,7 @@ void App::in_upgrades(const UiIn& in) {
     if (in.rep & KEY_DUP) cur_ = (cur_ + 3) % 4;
     if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % 4;
     if (in.rep & (KEY_DLEFT | KEY_DRIGHT)) {
-      int8_t& slot = s_->pbind[up_dex_][cur_];
+      int16_t& slot = s_->pbind[up_dex_][cur_];
       int idx = -1;
       for (int i = 0; i < np; ++i) if (pool[i] == slot) idx = i;
       idx += (in.rep & KEY_DRIGHT) ? 1 : -1;
@@ -1513,9 +1513,9 @@ void App::in_upgrades(const UiIn& in) {
     for (int i = 0; i < 9 && scroll_ + i < n; ++i) if (in_rect(&in, 10, 40 + i * 20, 300, 18)) { cur_ = scroll_ + i; tap = true; }
     if (((in.down & KEY_A) || tap) && n) {
       const int id = ids[cur_], base = move_base_start_for(up_dex_);
-      s_->pstart[up_dex_] = int8_t(id == base ? -1 : id);
+      s_->pstart[up_dex_] = int16_t(id == base ? -1 : id);
       // El inicial no puede estar vetado.
-      int8_t* l = s_->pban[up_dex_];
+      int16_t* l = s_->pban[up_dex_];
       for (int k = 0; k < 3; ++k) if (l[k] == id) { for (int q = k; q < 2; ++q) l[q] = l[q + 1]; l[2] = -1; break; }
       g_->dirty = true;
       audio::play("select");
@@ -1538,9 +1538,9 @@ void App::in_upgrades(const UiIn& in) {
     for (int i = 0; i < 9 && scroll_ + i < n; ++i) if (in_rect(&in, 10, 40 + i * 20, 300, 18)) { cur_ = scroll_ + i; tap = true; }
     if ((in.down & KEY_A) || tap) {
       const int id = cur_ == 0 ? -1 : ids[cur_ - 1];
-      s_->pmove2[up_dex_] = int8_t(id);
+      s_->pmove2[up_dex_] = int16_t(id);
       if (id >= 0) {   // (el elegido no puede estar vetado)
-        int8_t* l = s_->pban[up_dex_];
+        int16_t* l = s_->pban[up_dex_];
         for (int k = 0; k < 3; ++k) if (l[k] == id) { for (int q = k; q < 2; ++q) l[q] = l[q + 1]; l[2] = -1; break; }
       }
       g_->dirty = true;
@@ -1565,7 +1565,7 @@ void App::in_upgrades(const UiIn& in) {
     const int max = s_->pupg[up_dex_][UP_BAN];
     if ((in.down & KEY_A) && np) {
       const int id = pool[cur_];
-      int8_t* l = s_->pban[up_dex_];
+      int16_t* l = s_->pban[up_dex_];
       int at = -1, cnt = 0;
       for (int k = 0; k < 3; ++k) { if (l[k] == id) at = k; if (l[k] >= 0) cnt++; }
       if (at >= 0) { for (int k = at; k < 2; ++k) l[k] = l[k + 1]; l[2] = -1; }

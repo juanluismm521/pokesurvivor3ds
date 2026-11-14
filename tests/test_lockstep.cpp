@@ -288,7 +288,7 @@ TEST_CASE("sala: lo que llega de otro jugador se limita a lo que puede ser (jueg
   m.dex = 6;
   for (int u = 0; u < UP_COUNT; ++u) m.upgrades[u] = 250;
   m.mega_up = 99;
-  m.pbind[0] = 120; m.pban[1] = -50; m.pstart = 127; m.pmove2 = 3;
+  m.pbind[0] = 250; m.pban[1] = -50; m.pstart = 255; m.pmove2 = 3;
   uint8_t b[128];
   const int n = net::write_member(m, b, sizeof(b));
   REQUIRE(n > 0);

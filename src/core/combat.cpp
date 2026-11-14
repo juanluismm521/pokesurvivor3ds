@@ -21,7 +21,8 @@ const MoveVis& vis_of(const MoveInst& m) { return kMoveVis[m.def]; }
 bool needs_target(int kind) {
   switch (kind) {
     case K_MELEE: case K_BEAM: case K_PROJECTILE: case K_BOOMERANG: case K_CHAIN: case K_METEOR: case K_DASH: case K_CONE:
-    case K_HOMING: case K_BOUNCE: case K_CHARGE: case K_SPIN: case K_QUAKE: case K_VORTEX: case K_SHOVE: case K_STUN: return true;
+    case K_HOMING: case K_BOUNCE: case K_CHARGE: case K_SPIN: case K_QUAKE: case K_VORTEX: case K_SHOVE: case K_STUN:
+    case K_TREMOR: case K_WAVE: case K_CROSS: case K_STORM: case K_PUNCH: case K_SCISSOR: case K_BLITZ: case K_LEAP: case K_BOOM: return true;
     default: return false;
   }
 }
@@ -37,7 +38,14 @@ float reach(const MoveInst& m) {
     case K_CONE: return m.get(MS_SPEED) * m.get(MS_LIFE) + 30;
     case K_SPIN: case K_SHOVE: case K_CHARGE: return m.get(MS_RADIUS) + 20;
     case K_QUAKE: return m.geti(MS_COUNT) * QSTEP + m.get(MS_RADIUS);
-    case K_VORTEX: case K_STUN: return 300;
+    case K_VORTEX: case K_STUN: case K_CROSS: return 300;
+    case K_TREMOR: return m.get(MS_RADIUS);
+    case K_WAVE: return m.get(MS_RADIUS) * 0.8f;
+    case K_STORM: return 460;
+    case K_PUNCH: case K_SCISSOR: return m.get(MS_RADIUS) + 30;
+    case K_BLITZ: return m.get(MS_RADIUS);
+    case K_LEAP: return m.get(MS_RANGE) > 0 ? m.get(MS_RANGE) : 220;
+    case K_BOOM: return m.get(MS_RADIUS) * 0.8f;
     default: return 520;
   }
 }
@@ -45,7 +53,11 @@ float reach(const MoveInst& m) {
 // Tabla de tipos × clima para un ataque de tipo `type` contra `e`.
 float type_k(Game& g, int type, const Enemy& e) { return type_mult(type, e.types) * weather_mult(g, type); }
 
-bool is_crit(Game& g, const Player& p) { return p.crit > 0 && g.rng.next() < p.crit; }
+// Crítico con tope (web, 13-11-2026): 60 % de probabilidad y ×3,5 de daño como mucho.
+bool is_crit(Game& g, const Player& p) { return p.crit > 0 && g.rng.next() < std::fmin(0.6f, p.crit); }
+float crit_mul(const Player& p) { return std::fmin(3.5f, abil_crit_mul(p) + p.crit_dmg); }
+// Cazador (carta de nivel): más daño a jefes y legendarios (a Arceus y los suyos, no).
+float hunt_k(const Player& p, const Enemy& e) { return (e.boss || e.legend) && !e.arceus && !e.judge ? p.boss_mul : 1.0f; }
 
 void on_dealt(Player& p, float dmg) {
   // Cascabel Concha: un poco de vida por el daño que haces (tope 4/s).
@@ -61,7 +73,7 @@ void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float 
   const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat()) * arc_k(g, e) * abil_out(g, p, &m, &e);
   const bool crit = is_crit(g, p);
   const float sk = abil_status_k(p);
-  dmg *= k * (crit ? abil_crit_mul(p) : 1);
+  dmg *= k * (crit ? crit_mul(p) : 1) * (e.shred_t > 0 ? 1.25f : 1) * hunt_k(p, e);
   enemy_hurt(g, e, dmg, col, dx, dy, sk > 0 ? knock : 0, crit ? EFF_CRIT : type_label(type_mult(m.type(), e.types)));
   on_dealt(p, dmg);
   p.dmg_dealt += dmg;
@@ -69,6 +81,7 @@ void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float 
   if (m.get(MS_BURN) > 0 && sk > 0) enemy_apply_burn(e, m.get(MS_BURN) * sk);
   if (m.get(MS_POISON) > 0 && sk > 0) enemy_apply_poison(e, m.get(MS_POISON) * sk);
   if (m.get(MS_SLOW) > 0 && sk > 0) enemy_apply_slow(e, std::fmin(0.8f, m.get(MS_SLOW) * sk));
+  if (m.get(MS_SHRED) > 0 && !e.dead) e.shred_t = m.get(MS_SHRED);   // Triturar
   if (p.abil >= 0) abil_after_hit(g, p, e, &m);
 }
 
@@ -573,6 +586,188 @@ void stun_zone(Game& g, Player& p, const MoveInst& m, int mi) {
   if (f) { f->x = tg->x; f->y = tg->y; f->delay = 0.45f; f->r = m.get(MS_RADIUS); }
 }
 
+// ---------------- familias de la Gran Actualización (web, 13-11-2026) ----------------
+
+bool field_hit_once(Field& f, int32_t id) {
+  for (int i = 0; i < f.nhits; ++i) if (f.hits[i] == id) return false;
+  if (f.nhits < 40) f.hits[f.nhits++] = id;
+  return true;
+}
+
+// Terremoto: una onda que crece alrededor de ti y golpea una vez a cada uno.
+void tremor(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_TREMOR, p, m, mi);
+  if (f) { f->x = p.x; f->y = p.y; f->life = 0.55f; f->r = m.get(MS_RADIUS); }
+  g.camera.kick(0.4f);
+}
+
+// Surf: una ola ancha sale de detrás de ti, barre hacia delante y arrastra a los enemigos.
+void wave(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_WAVE, p, m, mi);
+  if (!f) return;
+  f->ca = std::cos(p.aim); f->sa = std::sin(p.aim); f->a = p.aim;
+  f->x = p.x - f->ca * 50; f->y = p.y - f->sa * 50;
+  f->d = 0; f->len = m.get(MS_RADIUS) + 50; f->w = m.get(MS_WIDTH);
+}
+
+// Llamarada: una cruz de fuego estalla sobre el enemigo.
+void cross(Game& g, Player& p, const MoveInst& m, int mi) {
+  Enemy* tg = spot_for(g, p, m);
+  if (!tg) return;
+  Field* f = new_field(g, FK_CROSS, p, m, mi);
+  if (f) { f->x = tg->x; f->y = tg->y; f->delay = 0.3f; f->r = m.get(MS_RADIUS); f->w = m.get(MS_WIDTH); }
+}
+
+// Trueno: rayos que caen del cielo sobre enemigos al azar de los que ves.
+void storm(Game& g, Player& p, const MoveInst& m, int mi) {
+  Enemy* seen[kMaxEnemies];
+  int ns = 0;
+  for (Enemy& e : g.enemies) if (!e.dead && !e.arceus && g.seen_by_any(e.x, e.y, 0) && ns < kMaxEnemies) seen[ns++] = &e;
+  if (!ns) return;
+  const int n = std::max(1, m.geti(MS_COUNT));
+  for (int i = 0; i < n; ++i) {
+    Enemy* e = seen[int(g.rng.next() * ns)];
+    const float ox = g.rng.range(-12, 12), oy = g.rng.range(-8, 8);
+    Field* f = new_field(g, FK_BOLT, p, m, mi);
+    if (!f) break;
+    f->x = e->x + ox; f->y = e->y + oy; f->t = -i * 0.09f; f->delay = 0.32f; f->r = m.get(MS_RADIUS);
+  }
+}
+
+// Día Soleado, Danza Lluvia, Tormenta Arena: cambian el clima un rato.
+void weather_move(Game& g, Player& p, const MoveInst& m) {
+  const int wx = m.has_(MS_WX) ? m.geti(MS_WX) : -1;
+  if (wx < 0 || wx >= WX_COUNT) return;
+  const uint32_t col = kWeather[wx].color;
+  g.fx.ring(p.x, p.y - kLift * 0.5f, p.r, p.r * 4, col, 0.5f, 3);
+  for (int i = 0; i < 10; ++i) { PxOpts o; o.vy = -g.vrng.range(60, 120); o.life = 0.6f; g.fx.px(p.x + g.vrng.range(-20, 20), p.y - g.vrng.range(0, 40), col, o); }
+  weather_force(g, wx, m.get(MS_DUR));
+}
+
+// Puños: tres golpes seguidos delante de ti; el último pega más (lo hace tick_new_field).
+void punch(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_PUNCH, p, m, mi);
+  if (f) { f->x = p.x; f->y = p.y; f->n = int8_t(std::max(1, m.geti(MS_COUNT))); f->i = 0; f->next = 0; }
+}
+
+// Tijera X: dos tajos cruzados a la vez.
+void scissor(Game& g, Player& p, const MoveInst& m) {
+  const uint32_t col = kTypeColor[m.type()];
+  const float radius = m.get(MS_RADIUS), half = m.get(MS_ARC) / 2;
+  const float dmg = m.get(MS_DMG) * player_atk_for(p, m);
+  for (float off : {-0.45f, 0.45f}) {
+    const float a = p.aim + off;
+    g.fx.slash(p.x, p.y - kLift * 0.5f, a, radius, m.get(MS_ARC), col, &vis_of(m));
+    Enemy* list[kMaxEnemies];
+    const int n = g.query_circle(p.x, p.y, radius, list, kMaxEnemies);
+    int32_t ids[kMaxEnemies];
+    for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+    for (int i = 0; i < n; ++i) {
+      Enemy* e = g.enemy_by_id(ids[i]);
+      if (e && in_arc(p.x, p.y, e->x, e->y, a, half)) hit(g, p, *e, dmg, col, e->x - p.x, e->y - p.y, 30, m);
+    }
+    Prop* props[64];
+    const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
+    for (int i = 0; i < np; ++i) if (!props[i]->gone && in_arc(p.x, p.y, props[i]->x, props[i]->y, a, half)) g.world.damage_prop(props[i], dmg, col);
+  }
+}
+
+// Velocidad Extrema: saltas de enemigo en enemigo, un golpe a cada uno.
+void blitz(Game& g, Player& p, const MoveInst& m, int mi) {
+  Field* f = new_field(g, FK_BLITZ, p, m, mi);
+  if (f) { f->x = p.x; f->y = p.y; f->n = int8_t(std::max(1, m.geti(MS_COUNT))); f->i = 0; f->next = 0; }
+}
+
+// Acróbata: saltas sobre el enemigo y golpeas donde caes (más fuerte sin objeto).
+void leap(Game& g, Player& p, const MoveInst& m, int mi) {
+  Enemy* tg = spot_for(g, p, m);
+  if (!tg) return;
+  Field* f = new_field(g, FK_LEAP, p, m, mi);
+  if (!f) return;
+  f->x = tg->x; f->y = tg->y; f->sx = p.x; f->sy = p.y; f->at = 0.32f; f->r = m.get(MS_RADIUS);
+  if (m.get(MS_NOITEM) > 0 && p.item == IT_NONE) f->dmg *= m.get(MS_NOITEM);
+  p.invuln = std::fmax(p.invuln, 0.45f);
+}
+
+// Protección: un momento en que nada te toca.
+void guard(Game& g, Player& p, const MoveInst& m) {
+  g.fx.ring(p.x, p.y - kLift * 0.5f, p.r * 3, p.r * 1.2f, 0x9ae6ff, 0.3f, 3);
+  p.guard_t = m.get(MS_DUR);
+  g.fx.dmg_text(p.x, p.y - p.body_h - 8, "Protección", 0x9ae6ff);
+}
+
+// Descanso: recuperas mucha vida y te quedas dormido un momento. → false si no hacía falta.
+bool rest(Game& g, Player& p, const MoveInst& m) {
+  if (p.hp >= p.max_hp * 0.98f) return false;
+  player_heal(g, p, p.max_hp * m.get(MS_AMOUNT));
+  p.rest_t = m.get(MS_DUR);
+  g.fx.ring(p.x, p.y, 6, 60, 0xc9a6ff, 0.5f, 3);
+  return true;
+}
+
+// Reflejo / Pantalla Luz: menos daño físico / especial un rato.
+void screen(Game& g, Player& p, const MoveInst& m) {
+  const int k = m.geti(MS_SHIELD) == 1 ? CAT_SPECIAL : CAT_PHYSICAL;
+  const uint32_t col = k == CAT_PHYSICAL ? 0xffcb3d : 0xc47bff;
+  g.fx.ring(p.x, p.y - kLift * 0.5f, p.r, p.r * 3.5f, col, 0.4f, 3);
+  p.screen_t[k] = m.get(MS_DUR); p.screen_k[k] = m.get(MS_AMOUNT);
+  g.fx.dmg_text(p.x, p.y - p.body_h - 8, m.d().name, col);
+}
+
+// Doble Equipo: una copia tuya se queda atrás y los enemigos cercanos van a por ella.
+void decoy(Game& g, Player& p, const MoveInst& m, int mi) {
+  const int n = std::max(1, m.geti(MS_COUNT));
+  for (int i = 0; i < n; ++i) {
+    const float a = p.aim + kPi + (i - (n - 1) / 2.0f) * 0.9f;
+    Field* f = new_field(g, FK_DECOY, p, m, mi);
+    if (!f) break;
+    f->x = p.x + std::cos(a) * 50; f->y = p.y + std::sin(a) * 40;
+    f->life = m.get(MS_DUR); f->r = p.r; f->pull = m.get(MS_RADIUS); f->col = 0xffffff;
+    g.fx.burst(f->x, f->y - 10, 0xe8fbff, 8, 90);
+  }
+}
+
+// Explosión: te cuesta parte de tu vida y arrasa todo lo de alrededor.
+void boom(Game& g, Player& p, const MoveInst& m) {
+  const uint32_t col = kTypeColor[T_FIRE];
+  const float radius = m.get(MS_RADIUS), dmg = m.get(MS_DMG) * player_atk_for(p, m);
+  g.fx.ring(p.x, p.y, 8, radius, 0xffffff, 0.35f, 6);
+  g.fx.ring(p.x, p.y, 8, radius * 0.8f, col, 0.45f, 5);
+  g.fx.burst(p.x, p.y - 10, col, 30, 260);
+  g.sfx(SFX_BOSS);
+  g.camera.kick(1);
+  p.hp = std::fmax(1.0f, p.hp - std::fmax(1.0f, p.hp * m.get(MS_COST)));
+  Enemy* list[kMaxEnemies];
+  const int n = g.query_circle(p.x, p.y, radius, list, kMaxEnemies);
+  int32_t ids[kMaxEnemies];
+  for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+  const float knock = m.get(MS_KNOCK) > 0 ? m.get(MS_KNOCK) : 200;
+  for (int i = 0; i < n; ++i) { Enemy* e = g.enemy_by_id(ids[i]); if (e) hit(g, p, *e, dmg, col, e->x - p.x, e->y - p.y, knock, m); }
+  Prop* props[64];
+  const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
+  for (int i = 0; i < np; ++i) if (!props[i]->gone) g.world.damage_prop(props[i], dmg, col);
+}
+
+// Puño Trueno: el último golpe salta a los dos (o tres) enemigos más cercanos.
+void zap(Game& g, Player& p, Enemy& from, const MoveInst& m, float dmg, uint32_t col) {
+  Enemy* list[kMaxEnemies];
+  const int n = g.query_circle(from.x, from.y, 130, list, kMaxEnemies);
+  struct C { int32_t id; float d; } c[kMaxEnemies];
+  int nc = 0;
+  for (int i = 0; i < n; ++i) if (list[i] != &from && !list[i]->dead) c[nc++] = {list[i]->id, dist2(list[i]->x, list[i]->y, from.x, from.y)};
+  const int want = std::min(nc, m.geti(MS_ZAP));
+  const float fx = from.x, fy = from.y;
+  for (int k = 0; k < want; ++k) {
+    int best = k;
+    for (int j = k + 1; j < nc; ++j) if (c[j].d < c[best].d) best = j;
+    const C t = c[best]; c[best] = c[k]; c[k] = t;
+    Enemy* e = g.enemy_by_id(c[k].id);
+    if (!e || e->dead) continue;
+    g.fx.beam(fx, fy - kLift * 0.5f, std::atan2(e->y - fy, e->x - fx), std::hypot(e->x - fx, e->y - fy), 8, col, T_ELECTRIC, SH_LIGHTNING);
+    hit(g, p, *e, dmg, col, e->x - fx, e->y - fy, 0, m);
+  }
+}
+
 void run(Game& g, Player& p, MoveInst& m, int mi) {
   switch (m.kind()) {
     case K_PROJECTILE: fire_projectiles(g, p, m); break;
@@ -597,6 +792,20 @@ void run(Game& g, Player& p, MoveInst& m, int mi) {
     case K_VORTEX: vortex(g, p, m, mi); break;
     case K_SHOVE: shove(g, p, m); break;
     case K_STUN: stun_zone(g, p, m, mi); break;
+    case K_TREMOR: tremor(g, p, m, mi); break;
+    case K_WAVE: wave(g, p, m, mi); break;
+    case K_CROSS: cross(g, p, m, mi); break;
+    case K_STORM: storm(g, p, m, mi); break;
+    case K_WEATHER: weather_move(g, p, m); break;
+    case K_PUNCH: punch(g, p, m, mi); break;
+    case K_SCISSOR: scissor(g, p, m); break;
+    case K_BLITZ: blitz(g, p, m, mi); break;
+    case K_LEAP: leap(g, p, m, mi); break;
+    case K_GUARD: guard(g, p, m); break;
+    case K_REST: if (!rest(g, p, m)) m.t = 1; break;   // (con la vida llena no se gasta: vuelve a mirar en 1 s)
+    case K_SCREEN: screen(g, p, m); break;
+    case K_DECOY: decoy(g, p, m, mi); break;
+    case K_BOOM: boom(g, p, m); break;
     default: break;
   }
 }
@@ -612,15 +821,23 @@ void tick_move(Game& g, Player& p, int mi, float dt) {
     return;
   }
   // (Bromista: los potenciadores se recargan antes.)
-  m.t = std::fmax(0.05f, m.get(MS_CD) * p.cd_mul * (m.kind() == K_BUFF ? abil_status_cd(p) : 1.0f));
+  m.t = std::fmax(0.05f, m.get(MS_CD) * p.cd_mul * (kind_is_status(m.kind()) ? abil_status_cd(p) : 1.0f));
+  // (Protección: su recarga no baja de minCd por muchas mejoras que lleves)
+  if (m.get(MS_MINCD) > 0) m.t = std::fmax(m.t, m.get(MS_MINCD));
   player_cast(g, p, &m, m.kind(), m.get(MS_CD));
   m.cast_at = float(g.time);
+  // Viento Plata: a veces te sube el ataque y la velocidad.
+  if (m.get(MS_BOOST) > 0 && g.rng.next() < m.get(MS_BOOST)) {
+    player_add_buff(p, BS_ATK, 0.08f, 6, 3);
+    player_add_buff(p, BS_SPD, 0.08f, 6, 3);
+    g.fx.dmg_text(p.x, p.y - p.body_h - 8, "¡Ataque y Velocidad suben!", 0xc9d6ff);
+  }
   run(g, p, m, mi);
 }
 }  // namespace
 
 void combat_tick(Game& g, Player& p, float dt) {
-  if (p.dead) return;
+  if (p.dead || p.rest_t > 0) return;   // (dormido con Descanso no se ataca)
   // Vínculos: todos los movimientos del hueco activo, cada uno con su recarga.
   const int s = p.active_slot;
   for (int j = 0; j < p.slot_n[s]; ++j) tick_move(g, p, p.slots[s][j], dt);
@@ -729,6 +946,185 @@ static bool tick_new_field(Game& g, Field& f, float dt) {
     }
     return false;
   }
+  if (f.kind == FK_PUNCH) {
+    f.next -= dt;
+    if (f.next > 0) return false;
+    f.next = 0.09f;
+    f.i++;
+    const bool last = f.i >= f.n;
+    const float a = p.aim + (f.i % 2 ? -0.18f : 0.18f), half = m.get(MS_ARC) / 2, radius = m.get(MS_RADIUS);
+    g.fx.slash(p.x + std::cos(a) * 10, p.y + std::sin(a) * 10 - kLift * 0.5f, a, radius, m.get(MS_ARC) * 0.7f, f.col, &vis_of(m));
+    if (!f.ghost && !p.dead) {
+      float healed = 0;
+      const float d = m.get(MS_DMG) * player_atk_for(p, m) * (last ? 1.4f : 1);
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(p.x, p.y, radius, list, kMaxEnemies);
+      int32_t ids[kMaxEnemies];
+      for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+      for (int i = 0; i < n; ++i) {
+        Enemy* e = g.enemy_by_id(ids[i]);
+        if (!e || !in_arc(p.x, p.y, e->x, e->y, a, half)) continue;
+        const bool arc = e->arceus;
+        hit(g, p, *e, d, f.col, e->x - p.x, e->y - p.y, last ? 70 : 10, m);
+        e = g.enemy_by_id(ids[i]);
+        if (m.get(MS_DRAIN) > 0 && !arc) healed += m.get(MS_DRAIN);
+        if (!e) continue;
+        if (last && m.get(MS_STUN) > 0 && !e->dead) enemy_apply_stun(*e, m.get(MS_STUN) * (e->boss || e->judge ? 0.35f : 1));
+        if (last && m.get(MS_ZAP) > 0 && !e->dead) zap(g, p, *e, m, d * 0.6f, f.col);
+      }
+      Prop* props[64];
+      const int np = g.world.props_in_circle(p.x, p.y, radius, props, 64);
+      for (int i = 0; i < np; ++i) if (!props[i]->gone && in_arc(p.x, p.y, props[i]->x, props[i]->y, a, half)) g.world.damage_prop(props[i], d, f.col);
+      if (healed > 0) player_heal(g, p, std::fmin(healed, 6.0f));
+    }
+    return last;
+  }
+  if (f.kind == FK_BLITZ) {
+    f.next -= dt;
+    if (f.next > 0) return false;
+    f.next = 0.08f;
+    if (f.ghost || p.dead) return true;
+    Enemy* list[kMaxEnemies];
+    const int n = g.query_circle(p.x, p.y, m.get(MS_RADIUS), list, kMaxEnemies);
+    Enemy* tg = nullptr;
+    float bd = 1e30f;
+    for (int i = 0; i < n; ++i) {
+      Enemy* e = list[i];
+      if (e->dead || e->arceus) continue;
+      bool done = false;
+      for (int k = 0; k < f.nhits; ++k) if (f.hits[k] == e->id) done = true;
+      if (done) continue;
+      const float d = dist2(e->x, e->y, p.x, p.y);
+      if (d < bd) { bd = d; tg = e; }
+    }
+    if (!tg) return true;
+    field_hit_once(f, tg->id);
+    const float ox = p.x, oy = p.y;
+    const float a = std::atan2(tg->y - oy, tg->x - ox);
+    const float nx = tg->x - std::cos(a) * (tg->r + p.r), ny = tg->y - std::sin(a) * (tg->r + p.r);
+    if (!judgment_pinned(g) && g.world.is_free(nx, ny, p.r * 0.8f, true)) { p.x = nx; p.y = ny; g.world.collide(p.x, p.y, p.r); }
+    for (float k = 0; k <= 1.001f; k += 0.2f) {
+      SpOpts o; o.life = 0.2f; o.angle = a;
+      g.fx.sp(f.vis_proj >= 0 ? int(f.vis_proj) : int(SH_STREAK), f.vis_pal, ox + (p.x - ox) * k, oy + (p.y - oy) * k - kLift * 0.6f, o);
+    }
+    p.invuln = std::fmax(p.invuln, 0.25f);
+    const float tx = tg->x, ty = tg->y;
+    hit(g, p, *tg, m.get(MS_DMG) * player_atk_for(p, m), f.col, std::cos(a), std::sin(a), 50, m);
+    g.fx.slash(tx, ty - kLift * 0.5f, a, 30, 2, f.col, &vis_of(m));
+    return ++f.i >= f.n;
+  }
+  if (f.kind == FK_LEAP) {
+    if (f.t < f.at) return false;
+    if (f.ghost || p.dead || judgment_pinned(g) || !g.world.is_free(f.x, f.y, p.r * 0.8f, true)) { /* no cabe: golpea desde donde está */ }
+    else { p.x = f.x; p.y = f.y; g.world.collide(p.x, p.y, p.r); }
+    if (g.camera.sees(f.x, f.y, f.r)) {
+      g.fx.ring(f.x, f.y, 4, f.r, f.col, 0.3f, 4);
+      g.fx.burst(f.x, f.y - 6, f.col, 10, 160);
+      if (!f.ghost) g.camera.kick(0.25f);
+    }
+    Field b = f;
+    blast(g, b, f.r);
+    return true;
+  }
+  if (f.kind == FK_TREMOR) {
+    const float r = f.r * std::fmin(1.0f, f.t / f.life);
+    if (g.camera.sees(f.x, f.y, f.r) && g.vrng.next() < 0.9f) {
+      const float a = g.vrng.next() * kTau;
+      SpOpts o; o.vy = -g.vrng.range(40, 90); o.life = 0.3f;
+      g.fx.sp(f.vis_proj, f.vis_pal, f.x + std::cos(a) * r, f.y + std::sin(a) * r * 0.6f - 4, o);
+    }
+    if (!f.ghost && !p.dead) {
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(f.x, f.y, r, list, kMaxEnemies);
+      int32_t ids[kMaxEnemies];
+      for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+      for (int i = 0; i < n; ++i) {
+        if (!field_hit_once(f, ids[i])) continue;
+        Enemy* e = g.enemy_by_id(ids[i]);
+        if (e) hit(g, p, *e, f.dmg, f.col, e->x - f.x, e->y - f.y, m.get(MS_KNOCK), m);
+      }
+      Prop* props[64];
+      const int np = g.world.props_in_circle(f.x, f.y, r, props, 64);
+      for (int i = 0; i < np; ++i) if (!props[i]->gone && field_hit_once(f, -props[i]->id - 1)) g.world.damage_prop(props[i], f.dmg, f.col);
+    }
+    return f.t >= f.life;
+  }
+  if (f.kind == FK_WAVE) {
+    const float speed = m.get(MS_SPEED);
+    f.d += speed * dt;
+    const float cx = f.x + f.ca * f.d, cy = f.y + f.sa * f.d;
+    if (g.vrng.next() < dt * 30 && g.camera.sees(cx, cy, f.w)) {
+      const float o = g.vrng.range(-f.w / 2, f.w / 2);
+      PxOpts po; po.vx = f.ca * 80; po.vy = f.sa * 80 - 40; po.life = 0.4f;
+      g.fx.px(cx - f.sa * o, cy + f.ca * o - 6, 0xe8fbff, po);
+    }
+    if (!f.ghost && !p.dead) {
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(cx, cy, f.w / 2 + 30, list, kMaxEnemies);
+      int32_t ids[kMaxEnemies];
+      for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+      const float knock = m.get(MS_KNOCK) > 0 ? m.get(MS_KNOCK) : 160;
+      for (int i = 0; i < n; ++i) {
+        Enemy* e = g.enemy_by_id(ids[i]);
+        if (!e) continue;
+        const float along = (e->x - f.x) * f.ca + (e->y - f.y) * f.sa, side = -(e->x - f.x) * f.sa + (e->y - f.y) * f.ca;
+        if (std::fabs(side) > f.w / 2 || along < f.d - 34 || along > f.d + 14) continue;
+        if (field_hit_once(f, ids[i])) { hit(g, p, *e, f.dmg, f.col, f.ca, f.sa, 0, m); e = g.enemy_by_id(ids[i]); }
+        if (!e || e->dead || e->arceus) continue;
+        // La ola se los lleva por delante (a los jefes, casi nada).
+        const float push = speed * dt * (e->boss || e->judge ? 0.15f : 0.75f) * std::fmin(1.5f, knock / 160);
+        e->x += f.ca * push; e->y += f.sa * push;
+      }
+      Prop* props[64];
+      const int np = g.world.props_in_circle(cx, cy, f.w / 2, props, 64);
+      for (int i = 0; i < np; ++i) if (!props[i]->gone && field_hit_once(f, -props[i]->id - 1)) g.world.damage_prop(props[i], f.dmg, f.col);
+    }
+    return f.d >= f.len;
+  }
+  if (f.kind == FK_CROSS) {
+    if (f.t < f.delay) return false;
+    if (g.camera.sees(f.x, f.y, f.r)) {
+      g.fx.ring(f.x, f.y, 4, f.w * 1.4f, f.col, 0.3f, 4);
+      static const int8_t D[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+      for (const auto& dd : D) for (int k = 1; k <= 4; ++k) g.fx.burst(f.x + dd[0] * f.r * k / 4, f.y + dd[1] * f.r * 0.6f * k / 4 - 4, f.col, 4, 110);
+      g.sfx(SFX_BREAK);
+      if (!f.ghost) g.camera.kick(0.2f);
+    }
+    if (!f.ghost) {
+      auto in_cross = [&](float x, float y, float r) {
+        const float dx = std::fabs(x - f.x), dy = std::fabs(y - f.y) / 0.6f;
+        return (dx <= f.r + r && dy <= f.w / 2 + r) || (dy <= f.r + r && dx <= f.w / 2 + r);
+      };
+      Enemy* list[kMaxEnemies];
+      const int n = g.query_circle(f.x, f.y, f.r + 30, list, kMaxEnemies);
+      int32_t ids[kMaxEnemies];
+      for (int i = 0; i < n; ++i) ids[i] = list[i]->id;
+      for (int i = 0; i < n; ++i) {
+        Enemy* e = g.enemy_by_id(ids[i]);
+        if (e && in_cross(e->x, e->y, e->r)) hit(g, p, *e, f.dmg, f.col, e->x - f.x, e->y - f.y, 40, m);
+      }
+      Prop* props[64];
+      const int np = g.world.props_in_circle(f.x, f.y, f.r, props, 64);
+      for (int i = 0; i < np; ++i) if (!props[i]->gone && in_cross(props[i]->x, props[i]->y, props[i]->r > 0 ? props[i]->r : 8)) g.world.damage_prop(props[i], f.dmg, f.col);
+    }
+    return true;
+  }
+  if (f.kind == FK_BOLT) {
+    if (f.t < f.delay) return false;
+    if (!f.struck) {
+      f.struck = true;
+      if (g.camera.sees(f.x, f.y, 60)) {
+        g.fx.ring(f.x, f.y, 3, f.r, 0xffffff, 0.2f, 3);
+        g.fx.beam(f.x, f.y - 150, kPi / 2, 150, 10, f.col, f.vis_pal, SH_LIGHTNING);
+        g.fx.burst(f.x, f.y - 4, f.col, 8, 140);
+        g.sfx(SFX_BREAK);
+      }
+      Field b = f;
+      blast(g, b, f.r);
+    }
+    return f.t >= f.delay + 0.16f;
+  }
+  if (f.kind == FK_DECOY) return false;   // (dura `life`; los enemigos lo persiguen: enemies_update)
   if (f.kind == FK_STUNZONE) {
     if (f.t < f.delay) return false;
     g.fx.ring(f.x, f.y, 4, f.r, f.col, 0.35f, 4);
@@ -987,10 +1383,11 @@ void combat_resolve(Game& g, float dt) {
       }
 
       Player& pl = g.players[p->owner];
-      const bool crit = is_crit(g, pl);
       const MoveInst* srcm = p->src >= 0 && p->src < pl.nmoves ? &pl.moves[p->src] : nullptr;
+      // (Roca Afilada, Disparo Certero…: su propia probabilidad de crítico, aparte de la tuya)
+      const bool crit = is_crit(g, pl) || (srcm && srcm->get(MS_CRITUP) > 0 && g.rng.next() < srcm->get(MS_CRITUP));
       const float sk = abil_status_k(pl);
-      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? abil_crit_mul(pl) : 1) * arc_k(g, *e) *
+      const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? crit_mul(pl) : 1) * (e->shred_t > 0 ? 1.25f : 1) * hunt_k(pl, *e) * arc_k(g, *e) *
                        abil_out(g, pl, srcm, e);
       const float dvx = p->vx != 0 ? p->vx : (e->x - pl.x), dvy = p->vy != 0 ? p->vy : (e->y - pl.y);
       const int eff = crit ? EFF_CRIT : p->mtype >= 0 ? type_label(type_mult(p->mtype, e->types)) : EFF_NONE;
@@ -1013,6 +1410,32 @@ void combat_resolve(Game& g, float dt) {
       if (slow > 0 && sk > 0) enemy_apply_slow(*e, std::fmin(0.8f, slow * sk));
       if (drain > 0) player_heal(g, pl, drain);         // Beso Drenaje
       if (pl.abil >= 0 && !e->dead) abil_after_hit(g, pl, *e, srcm);
+      // Gran Actualización: Triturar, Fuerza Lunar (salpica) y Bomba Lodo / Humareda (dejan charco)
+      if (srcm) {
+        const MoveInst& sm = *srcm;
+        if (sm.get(MS_SHRED) > 0 && !e->dead) e->shred_t = sm.get(MS_SHRED);
+        const float ex = e->x, ey = e->y;
+        const int32_t eid = e->id;
+        if (sm.get(MS_SPLASH) > 0) {
+          const float sr = sm.get(MS_SPLASH);
+          g.fx.ring(ex, ey, 4, sr, pcol, 0.25f, 3);
+          Enemy* near[kMaxEnemies];
+          const int nn = g.query_circle(ex, ey, sr, near, kMaxEnemies);
+          int32_t nid[kMaxEnemies];
+          for (int q = 0; q < nn; ++q) nid[q] = near[q]->id;
+          for (int q = 0; q < nn; ++q) {
+            Enemy* o = g.enemy_by_id(nid[q]);
+            if (o && o->id != eid && !o->dead) enemy_hurt(g, *o, dmg * 0.6f, pcol, o->x - ex, o->y - ey, 0, EFF_NONE);
+          }
+        }
+        if (sm.get(MS_PUDDLE) > 0) {
+          if (Field* f = new_field(g, FK_PATCH, pl, sm, src)) {
+            f->x = ex; f->y = ey; f->life = sm.get(MS_PUDDLE); f->r = sm.get(MS_PR) > 0 ? sm.get(MS_PR) : 30; f->tick = 0;
+            f->dmg = dmg * 0.3f; f->col = pcol;
+            trim_fields(g, FK_PATCH, int(&pl - g.players), 12, true);
+          }
+        }
+      }
 
       p = &g.projectiles[i];
       if (!p->orb && rebound(g, *p, e->x, e->y)) break;

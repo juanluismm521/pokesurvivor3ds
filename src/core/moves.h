@@ -11,7 +11,7 @@ struct MoveInst {
   int16_t def = -1;          // índice en kMoves
   int8_t lvl = 1;
   bool evolved = false;
-  uint32_t has = 0;          // qué números existen (ver MoveDef::has)
+  uint64_t has = 0;          // qué números existen (ver MoveDef::has)
   float v[MS_NUM] = {};
   float t = 0;               // recarga restante
   float cast_at = -1;        // cuándo se lanzó (destello del icono en el HUD)
@@ -22,7 +22,7 @@ struct MoveInst {
   int cat() const { return kMoves[def].cat; }
   int kind() const { return kMoves[def].kind; }
   int type() const { return kMoves[def].type; }
-  bool has_(int s) const { return (has >> s) & 1u; }
+  bool has_(int s) const { return (has >> s) & 1ull; }
   float get(int s) const { return has_(s) ? v[s] : 0.0f; }   // `m.x || 0`
   int geti(int s) const { return int(get(s)); }               // `m.x | 0`
   const char* name() const;  // nombre (el evolucionado si ha evolucionado)
@@ -45,19 +45,20 @@ int move_pool_for(const int8_t types[2], int16_t* out, int max);
 // juegos aprende por MT o tutor y su tipo no le da; hoy, Darkrai) y los que ha
 // aprendido con MT de la Tienda Kecleon (`taught`: bit = kTms, ver core/mons.h;
 // poolFor de la web). Es lo que sale en las cartas de nivel, Repertorio, Atajos y Vetos.
-int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, uint64_t taught = 0);
+int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, TmBits taught = {});
 int move_extras_for(int dex, int16_t* out, int max);
+int move_exclusives_for(int dex, int16_t* out, int max);
 // Movimiento inicial de serie (G.baseStartOf): el del starter o el de su tipo.
 int move_base_start_for(int dex);
 // Ataques que se pueden elegir para empezar (G.startChoices): los suyos (y los de
 // sus MT), sin potenciadores, y siempre el de serie. Devuelve cuántos.
-int move_start_choices(int dex, int16_t* out, int max, uint64_t taught = 0);
+int move_start_choices(int dex, int16_t* out, int max, TmBits taught = {});
 // Con el que empieza (G.startMoveOf): el elegido (pick, de save.pstart) si
 // tiene comprada la mejora "Movimiento inicial" y sigue siendo de los suyos; si
 // no, el de serie.
-int move_start_for(int dex, int pick = -1, bool bought = false, uint64_t taught = 0);
+int move_start_for(int dex, int pick = -1, bool bought = false, TmBits taught = {});
 // Mejora «Repertorio» (empiezas con 2): los que pueden ser el segundo (de sus tipos
 // y sus MT, sin potenciadores ni el inicial), por orden de la tabla. Devuelve cuántos.
-int move_second_choices(int dex, int start, int16_t* out, int max, uint64_t taught = 0);
+int move_second_choices(int dex, int start, int16_t* out, int max, TmBits taught = {});
 
 }  // namespace ps

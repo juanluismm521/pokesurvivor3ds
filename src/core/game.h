@@ -75,6 +75,7 @@ struct Card {
   int16_t move = -1;            // CT_NEW: kMoves · CT_UP/CT_EVO: índice en pl.moves
   int8_t stat = -1;             // CT_STAT
   int8_t evo_for = -1;          // CT_STAT: movimiento que espera esta mejora (índice en pl.moves)
+  bool excl = false;            // CT_NEW: es el ataque exclusivo de tu Pokémon (carta dorada)
   float w = 0;
 };
 
@@ -129,7 +130,7 @@ struct Player {
   int16_t abil = -1;            // índice de kAbils (-1: sin habilidad, como en las pruebas)
   int16_t abx = -1;             // su efecto (abilities.cpp; -1: la pasiva genérica de su tipo)
   int8_t ab_type = T_NONE;      // tipo de la pasiva genérica (+8 %): el primero del Pokémon al empezar
-  uint64_t taught = 0;          // MT aprendidas (bit = kTms): salen en sus cartas de nivel
+  TmBits taught = {};          // MT aprendidas (bit = kTms): salen en sus cartas de nivel
   float ab_moxie = 0, ab_spd = 0, ab_t = 0, ab_sum = 0, ab_sturdy = -999;
   bool ab_angry = false, ab_shield = false, ab_boomed = false;
   int8_t ab_mood = -1;
@@ -152,6 +153,11 @@ struct Player {
   bool dead = false;
   PowerState power;
   float slow_t = 0;
+  // Gran Actualización: Protección, Descanso, Reflejo [físico] / Pantalla Luz [especial], y las
+  // cartas de nivel nuevas (esquiva, daño de los críticos, daño a jefes, más monedas).
+  float guard_t = 0, rest_t = 0, zzz_t = 0;
+  float screen_t[2] = {}, screen_k[2] = {};
+  float dodge = 0, crit_dmg = 0, boss_mul = 1, power_cd = 1;
   int8_t item = IT_NONE;
   float sash_t = -999;          // (segundos de partida)
   float bell_heal = 0;
@@ -205,6 +211,10 @@ struct EnemyDef {
   int16_t minion = 0;
   int8_t fan_n = 0, zones = 0;
   int16_t at = 0;               // jefes: segundo en que salen
+  // Gran Actualización (enemies.js): su tramo (-1 = ninguno), lo que multiplica a la vida,
+  // el daño y la XP que le tocan por tiempo (core/diff.h), y qué jefe es (0..4).
+  int8_t ti = -1, idx = 0;
+  float hp_f = 1, dmg_f = 1, xp_f = 1;
   bool loot_t10 = false;        // ladrón: Gholdengo (ticket ×10)
 };
 
@@ -265,6 +275,7 @@ struct Enemy {
   float shield = 0, shield_t = 0;
   float rd = 0;                 // jefes: daño recibido hace poco (bossDps = rd / 6)
   float stun_t = 0;             // aturdido: quieto y sin atacar
+  float shred_t = 0;            // Triturar: recibe un 25 % más mientras dura
   float sleep_t = 0;            // dormido (Soporesfera): quieto, sin atacar ni hacer daño al tocarte
   float skill_cd = 0;
   int32_t minions[8];
@@ -331,7 +342,9 @@ struct Pickup {
 // ---------------- campos (minas, meteoros, torretas, charcos) ----------------
 enum FieldKind : int8_t { FK_MINE, FK_METEOR, FK_TURRET, FK_PATCH,
                           // familias nuevas (2026-10-19)
-                          FK_CHARGE, FK_SPIN, FK_QUAKE, FK_VORTEX, FK_STUNZONE };
+                          FK_CHARGE, FK_SPIN, FK_QUAKE, FK_VORTEX, FK_STUNZONE,
+                          // Gran Actualización (13-11-2026)
+                          FK_TREMOR, FK_WAVE, FK_CROSS, FK_BOLT, FK_PUNCH, FK_BLITZ, FK_LEAP, FK_DECOY };
 struct Field {
   int8_t kind = FK_MINE;
   int8_t owner = 0;
@@ -346,6 +359,12 @@ struct Field {
   // remolino (pull) y zona de aturdir (delay)
   float at = 0, next = 0, a = 0, ca = 0, sa = 0, pull = 0, delay = 0;
   int8_t n = 0, i = 0;
+  // Gran Actualización: de dónde salta (leap), lo que lleva y mide la ola (wave), si el rayo
+  // ya cayó (bolt) y a quién ha tocado ya (ids de enemigo; negativos, props)
+  float sx = 0, sy = 0, d = 0, len = 0, w = 0;
+  bool struck = false;
+  uint8_t nhits = 0;
+  int32_t hits[40];
 };
 
 // ---------------- peligros con aviso ----------------
@@ -406,10 +425,10 @@ struct RunConfig {
   uint8_t upgrades[UP_COUNT] = {};
   uint8_t mega_up = 0;                   // mejora «Megapiedra» (del port: Save::pmega)
   bool four_up = false;                  // mejora «Más pasivas a niveles altos» (del port: Save::pfour)
-  int8_t pbind[4] = {-1, -1, -1, -1};   // movimientos con hueco fijo
-  int8_t pban[3] = {-1, -1, -1};
-  int8_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
-  int8_t pmove2 = -1;                    // segundo movimiento con «Repertorio» (-1: al azar, como la web)
+  int16_t pbind[4] = {-1, -1, -1, -1};   // movimientos con hueco fijo
+  int16_t pban[3] = {-1, -1, -1};
+  int16_t pstart = -1;                    // Movimiento inicial elegido (-1: el de serie)
+  int16_t pmove2 = -1;                    // segundo movimiento con «Repertorio» (-1: al azar, como la web)
   uint32_t seed = 1;
   int judged = 0;                        // veces que ha visto la Sentencia (saltar animación)
   // Para grabar (tráiler, también en grupo): empezar con el reloj adelantado y
@@ -418,6 +437,8 @@ struct RunConfig {
   // Modo de juego (del port, 2026-10-26): 0 normal (la Sentencia a los 30 min),
   // 1 rápido (a los 20). En grupo lo elige quien crea la sala.
   uint8_t mode = 0;
+  // Dificultad (web, 13-11-2026): 0 Normal, 1 Difícil, 2 Pesadilla (core/diff.h). En grupo, la del anfitrión.
+  uint8_t diff = 0;
   uint8_t demo_level = 0;
   // Halloween (core/halloween.h): la partida es del evento (mapa de noche, caramelos,
   // el gran Gengar). En grupo lo decide el anfitrión.
@@ -427,7 +448,7 @@ struct RunConfig {
   // (-1 / 0: ni naturaleza ni habilidad, como antes; las pruebas lo dejan así).
   int8_t nature = -1;
   int16_t abil = -1;
-  uint64_t taught = 0;
+  TmBits taught = {};
   uint8_t legends_beaten[(kMaxDex + 8) / 8] = {};   // bit por dex: legendarios ya vencidos (rift.cpp)
   // Cooperativo: cada jugador con su Pokémon y sus mejoras (el 0 es el
   // anfitrión). Con nplayers == 1 se usan los campos de arriba.
@@ -437,10 +458,10 @@ struct RunConfig {
     uint8_t upgrades[UP_COUNT] = {};
   uint8_t mega_up = 0;                   // mejora «Megapiedra» (del port: Save::pmega)
     bool four_up = false;
-    int8_t pbind[4] = {-1, -1, -1, -1};
-    int8_t pban[3] = {-1, -1, -1};
-    int8_t pstart = -1;
-    int8_t pmove2 = -1;
+    int16_t pbind[4] = {-1, -1, -1, -1};
+    int16_t pban[3] = {-1, -1, -1};
+    int16_t pstart = -1;
+    int16_t pmove2 = -1;
     char name[16] = {};
     // Pruebas: la vida de ESTE jugador nunca baja de 1. Va con los datos de la
     // sala para que todas las consolas lo simulen igual (debug_immortal es de
@@ -450,7 +471,7 @@ struct RunConfig {
     int8_t skin = -1;          // su disfraz de Halloween (índice de kSkins; -1 ninguno)
     int8_t nature = -1;        // su naturaleza (kNatures; -1: neutra)
     int16_t abil = -1;         // su habilidad (kAbils; -1: ninguna)
-    uint64_t taught = 0;       // sus MT aprendidas (bit = kTms)
+    TmBits taught = {};       // sus MT aprendidas (bit = kTms)
   };
   int nplayers = 1;
   Member members[4];
@@ -643,6 +664,7 @@ void player_hurt(Game& g, Player& p, float amount, int type = T_NONE, bool pure 
 void player_heal(Game& g, Player& p, float amount);
 void player_add_max_hp(Player& p, float amount);
 int player_gain_xp(Player& p, float amount);
+float player_group_k(const Player& p, const MoveInst& m);
 void player_equip(Game& g, Player& p, int item);
 void player_add_power(Player& p, int def, float dur);
 void player_add_buff(Player& p, int stat, float amount, float dur, int max_stacks);
@@ -690,10 +712,12 @@ void spawner_reset(Game& g);
 void spawner_update(Game& g, float dt);
 void spawner_burst(Game& g, int n);
 bool spawner_ahead(Game& g, Enemy& e, Player& p);
-float spawner_rate(float t);
+float spawner_rate(const Game& g, float t);
 void enemies_roll_run(Game& g);
-Scale3 enemies_scale(float t);
-Scale3 enemies_boss_scale(float t);
+// (t = tiempo equivalente de la partida: game_teq)
+Scale3 enemies_scale(const Game& g, float t, const EnemyDef* def = nullptr);
+Scale3 enemies_boss_scale(const Game& g, float t, const EnemyDef& boss);
+float enemies_xp_of(const Game& g, float t, const EnemyDef* def);
 int behavior_of(const Mon& p);
 EnemyDef enemy_def_for(const Mon& p, int ti);
 int enemies_bag_at(Game& g, float t, const EnemyDef** out, int max);
@@ -744,6 +768,26 @@ constexpr float kJudgmentAt = 30 * 60;
 constexpr float kJudgmentAtQuick = 20 * 60;   // modo rápido
 enum PlayMode : uint8_t { MODE_NORMAL, MODE_QUICK, MODE_COUNT };
 inline float judgment_at(const Game& g) { return g.cfg.mode == MODE_QUICK ? kJudgmentAtQuick : kJudgmentAt; }
+// Eternatus Eternamax (web, 13-11-2026): minuto 20; en el modo rápido (del port), el 13.
+constexpr float kEternaAt = 20 * 60;
+constexpr float kEternaAtQuick = 13 * 60;
+inline float eterna_at(const Game& g) { return g.cfg.mode == MODE_QUICK ? kEternaAtQuick : kEternaAt; }
+// Tiempo EQUIVALENTE (del port): el equilibrio de la web va por el reloj (curvas de
+// core/diff.h, tramos de enemigos, jefes). En el modo rápido todo llega antes y en la
+// misma proporción: el minuto 13 pesa como el 20 de la web y el 20, como el 30. A
+// cambio la experiencia llega más deprisa (quick_xp_k) para subir lo mismo en menos rato.
+inline float teq_of(int mode, float t) {
+  if (mode != MODE_QUICK) return t;
+  return t <= kEternaAtQuick ? t * (kEternaAt / kEternaAtQuick)
+                             : kEternaAt + (t - kEternaAtQuick) * ((kJudgmentAt - kEternaAt) / (kJudgmentAtQuick - kEternaAtQuick));
+}
+inline float game_teq(const Game& g) { return teq_of(g.cfg.mode, float(g.time)); }
+inline float quick_xp_k(const Game& g) { return g.cfg.mode == MODE_QUICK ? kEternaAt / kEternaAtQuick : 1.0f; }
+// Lo que tarda algo que en la web pasa en el segundo `at` (jefes, grietas…)
+inline float at_of(const Game& g, float at) {
+  if (g.cfg.mode != MODE_QUICK) return at;
+  return at <= kEternaAt ? at * (kEternaAtQuick / kEternaAt) : kEternaAtQuick + (at - kEternaAt) * ((kJudgmentAtQuick - kEternaAtQuick) / (kJudgmentAt - kEternaAt));
+}
 void judgment_reset(Game& g);
 void judgment_update(Game& g, float dt);
 void judgment_cine_tick(Game& g, float dt);
@@ -756,6 +800,8 @@ inline float judgment_cap_spd(float s) { return s <= 130 ? s : 130 + (s - 130) *
 // se le puede ganar, y con un Pokémon rápido el de la web quitaba un 30-50 %.
 inline float judgment_cap_spd_quick(float s) { return s <= 170 ? s : 170 + (s - 170) * 0.5f; }
 bool judgment_cinematic(const Game& g);
+// (Gravedad de Arceus: clavado al suelo, sin saltos ni embestidas. Aún no está en el port.)
+inline bool judgment_pinned(const Game&) { return false; }
 // Arceus en la pelea: qué parte del daño recibe (el 5 %, y cada vez menos) y
 // si le protegen los legendarios (entonces no se le apunta).
 float judgment_dmg_k(const Game& g);

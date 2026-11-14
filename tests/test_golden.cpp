@@ -157,16 +157,24 @@ TEST_CASE("dorado: tabla de tipos") {
 TEST_CASE("dorado: experiencia, escalado y apuntado") {
   const Json& g = golden();
   for (size_t l = 0; l < g["xpFor"].size(); ++l) CHECK(xp_for(int(l) + 1) == float(g["xpFor"][l].as_num()));
-  for (size_t i = 0; i < g["scale"].size(); ++i) {
-    const Json& s = g["scale"][i];
-    const float t = float(s[0].as_num());
-    const Scale3 a = enemies_scale(t), b = enemies_boss_scale(t);
-    CHECK(close_rel(a.hp, s[1].as_num()));
-    CHECK(close_rel(a.dmg, s[2].as_num()));
-    CHECK(close_rel(a.spd, s[3].as_num()));
-    CHECK(close_rel(b.hp, s[4].as_num()));
-    CHECK(close_rel(b.dmg, s[5].as_num()));
-    CHECK(close_rel(spawner_rate(t), s[6].as_num()));
+  // Equilibrio (difficulty.js de la web nueva)
+  REQUIRE(g["diff"].size() > 0);
+  for (size_t i = 0; i < g["diff"].size(); ++i) {
+    const Json& s = g["diff"][i];
+    const int mode = int(s[0].as_int()), n = int(s[2].as_int()), idx = int(s[3].as_int());
+    const double t = s[1].as_num();
+    CHECK(diff_mob_hp(mode, t, n) == doctest::Approx(s[4].as_num()).epsilon(1e-6));
+    CHECK(diff_mob_dmg(mode, t) == doctest::Approx(s[5].as_num()).epsilon(1e-6));
+    CHECK(diff_mob_xp(t) == doctest::Approx(s[6].as_num()).epsilon(1e-6));
+    CHECK(diff_rate(t, n) == doctest::Approx(s[7].as_num()).epsilon(1e-6));
+    CHECK(diff_boss_hp(mode, idx, t, n) == doctest::Approx(s[8].as_num()).epsilon(1e-6));
+    CHECK(diff_boss_dmg(mode, t) == doctest::Approx(s[9].as_num()).epsilon(1e-6));
+    CHECK(diff_legend_hp(mode, idx, t, n) == doctest::Approx(s[10].as_num()).epsilon(1e-6));
+    CHECK(diff_legend_hp(mode, idx, t, n, 900 + t, 0) == doctest::Approx(s[11].as_num()).epsilon(1e-6));
+    CHECK(diff_legend_hp(mode, idx, t, n, 0, 5e6) == doctest::Approx(s[12].as_num()).epsilon(1e-6));
+    CHECK(diff_legend_dmg(mode, t) == doctest::Approx(s[13].as_num()).epsilon(1e-6));
+    CHECK(diff_eterna_hp(mode, n) == doctest::Approx(s[14].as_num()).epsilon(1e-6));
+    CHECK(diff_judge_hp(mode, n) == doctest::Approx(s[15].as_num()).epsilon(1e-6));
   }
   for (size_t i = 0; i < g["dir"].size(); ++i) CHECK(dir_from_angle(float(g["dir"][i][0].as_num())) == g["dir"][i][1].as_int());
 }
@@ -178,7 +186,7 @@ TEST_CASE("dorado: Pokédex (personalidad, cuerpo y movimiento inicial)") {
   for (size_t i = 0; i < d.size(); ++i) {
     const Mon* m = mon_by_dex(int(d[i][0].as_int()));
     REQUIRE(m);
-    if (std::string(kBehaviorId[behavior_of(*m)]) != d[i][1].as_str()) bad++;
+    if (std::string(kBehaviorId[behavior_of(*m)]) != d[i][1].as_str()) { if (bad++ < 5) MESSAGE(m->dex << " " << m->name << ": " << kBehaviorId[behavior_of(*m)] << " / web " << d[i][1].as_str()); }
     CHECK(body_radius(m->dex) == doctest::Approx(d[i][2].as_num()).epsilon(1e-5));
     CHECK(body_height(m->dex) == doctest::Approx(d[i][3].as_num()).epsilon(1e-5));
     CHECK(move_start_for(m->dex) == d[i][4].as_int());
@@ -202,7 +210,7 @@ TEST_CASE("dorado: Pokédex (personalidad, cuerpo y movimiento inicial)") {
     const int n = move_start_choices(m->dex, ch, kMaxMoves);
     bool same = size_t(n) == r[8].size();
     for (int k = 0; same && k < n; ++k) same = ch[k] == r[8][k].as_int();
-    if (!same) bad_choices++;
+    if (!same) { if (bad_choices++ < 5) MESSAGE(m->dex << " " << m->name << ": " << n << " / web " << r[8].size()); }
   }
   CHECK(bad_choices == 0);
   const Json& f = golden()["defFor"];
@@ -220,6 +228,9 @@ TEST_CASE("dorado: Pokédex (personalidad, cuerpo y movimiento inicial)") {
     CHECK(e.minion == r[10].as_int());
     CHECK(e.fan_n == r[11].as_int());
     CHECK(e.zones == r[12].as_int());
+    CHECK(e.hp_f == doctest::Approx(r[13].as_num()).epsilon(1e-5));
+    CHECK(e.dmg_f == doctest::Approx(r[14].as_num()).epsilon(1e-5));
+    CHECK(e.xp_f == doctest::Approx(r[15].as_num()).epsilon(1e-5));
   }
 }
 
@@ -235,15 +246,24 @@ TEST_CASE("dorado: movimientos (5 niveles y evolución)") {
     for (int s = 0; s < MS_NUM; ++s) {
       // (la separación de los de un solo disparo es de la web del 28-10, que este dorado
       // aún no tiene: base 0,12 en moves.cpp, comprobada en test_tienda)
-      if (s == MS_SPREAD && !(kMoves[def].has & (1u << MS_SPREAD)) &&
+      if (s == MS_SPREAD && !(kMoves[def].has & (1ull << MS_SPREAD)) &&
           (kMoves[def].kind == K_PROJECTILE || kMoves[def].kind == K_HOMING || kMoves[def].kind == K_BOUNCE)) continue;
       if (v[s].is_null()) { CHECK_MESSAGE(!m.has_(s), r[0].as_str() << " " << kMoveStatId[s]); continue; }
       CHECK_MESSAGE(m.has_(s), r[0].as_str() << " " << kMoveStatId[s]);
       // (arreglo del port, moves.cpp count_base: «+1 proyectil» en un ataque sin
       // `count` suma a los que ya dispara, 1; la web suma a 0 y se queda en 1)
-      const double want = s == MS_COUNT && !(kMoves[def].has & (1u << MS_COUNT)) ? v[s].as_num() + 1 : v[s].as_num();
+      const double want = s == MS_COUNT && !(kMoves[def].has & (1ull << MS_COUNT)) ? v[s].as_num() + 1 : v[s].as_num();
       CHECK_MESSAGE(close_rel(m.v[s], want), r[0].as_str() << " nv" << r[1].as_int() << " " << kMoveStatId[s]);
     }
+  }
+  // Ataques exclusivos (Moves.exclusiveFor): los mismos, y fuera del pool de su tipo.
+  const Json& only = golden()["only"];
+  REQUIRE(only.size() > 30);
+  for (size_t i = 0; i < only.size(); ++i) {
+    int16_t ex[8];
+    const int n = move_exclusives_for(int(only[i][0].as_int()), ex, 8);
+    REQUIRE(size_t(n) == only[i][1].size());
+    for (int k = 0; k < n; ++k) CHECK(ex[k] == only[i][1][size_t(k)].as_int());
   }
   const Json& pool = golden()["pool"];
   for (size_t i = 0; i < pool.size(); ++i) {
@@ -428,9 +448,7 @@ TEST_CASE("dorado: las 8 MT del día y las que puede aprender cada uno (shop.js,
   for (const Json& c : golden()["shop"].elems()) {
     s->reset();
     s->created = 1700000000000LL;
-    s->partner = int16_t(c["partner"].as_int());
-    for (const auto& kv : c["taught"].items())
-      for (const Json& id : kv.second.elems()) s->ptm[std::atoi(kv.first.c_str())] |= uint64_t(1) << tm_index_of_move(move_index(id.as_str().c_str()));
+    s->partner = 25;
     int out[kShopDaily];
     REQUIRE(shop_daily(*s, c["day"].as_str().c_str(), out) == kShopDaily);
     CAPTURE(c["day"].as_str());
@@ -438,7 +456,7 @@ TEST_CASE("dorado: las 8 MT del día y las que puede aprender cada uno (shop.js,
   }
   s->reset();
   s->created = 1700000000000LL;
-  s->ptm[150] |= uint64_t(1) << tm_index_of_move(move_index("shadow-ball"));
+  s->ptm[150].set(tm_index_of_move(move_index("shadow-ball")));
   int bad = 0;
   for (const Json& r : golden()["learn"].elems()) {
     const int dex = r[0].as_int();

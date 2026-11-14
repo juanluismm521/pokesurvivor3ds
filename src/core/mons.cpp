@@ -19,7 +19,7 @@ inline uint32_t imul(uint32_t a, uint32_t b) { return a * b; }   // Math.imul (l
 // La semilla de cada Pokémon: «fecha de creación:dex:sal» (como roll de mons.js).
 double roll(int64_t created, int dex, const char* salt) {
   char b[64];
-  std::snprintf(b, sizeof(b), "%lld:%d:%s", (long long)created, dex, salt);
+  std::snprintf(b, sizeof(b), "%lld:%d:%s", (long long)created, form_web_id(dex), salt);   // (formas regionales: su id de la web)
   return mons_hash01(b);
 }
 
@@ -141,34 +141,34 @@ int tm_index_of_move(int move) {
 
 // MT que ya sabe de serie (los de sus tipos y, del port, los extra de su Pokémon:
 // Darkrai). Se calcula una vez por Pokémon (la tienda cuenta quién puede aprender cada una).
-uint64_t tm_natural_bits(int dex) {
-  static uint64_t cache[kMaxDex + 1];
+TmBits tm_natural_bits(int dex) {
+  static TmBits cache[kMaxDex + 1];
   static uint8_t done[kMaxDex + 1];
-  if (dex < 0 || dex > kMaxDex) return 0;
+  if (dex < 0 || dex > kMaxDex) return TmBits{};
   if (done[dex]) return cache[dex];
-  uint64_t b = 0;
+  TmBits b = {};
   if (const Mon* m = mon_by_dex(dex)) {
     int16_t pool[kMaxMoves];
     const int n = move_pool_for_dex(dex, m->types, pool, kMaxMoves);
     for (int t = 0; t < kTmCount; ++t)
-      for (int i = 0; i < n; ++i) if (pool[i] == kTms[t].move) { b |= uint64_t(1) << t; break; }
+      for (int i = 0; i < n; ++i) if (pool[i] == kTms[t].move) { b.set(t); break; }
   }
   cache[dex] = b;
   done[dex] = 1;
   return b;
 }
 
-bool tm_natural(int dex, int tm) { return tm >= 0 && tm < kTmCount && ((tm_natural_bits(dex) >> tm) & 1u); }
+bool tm_natural(int dex, int tm) { return tm >= 0 && tm < kTmCount && tm_natural_bits(dex).test(tm); }
 
 bool tm_taught(const Save& s, int dex, int tm) {
-  return dex >= 0 && dex <= kMaxDex && tm >= 0 && tm < kTmCount && ((s.ptm[dex] >> tm) & 1u);
+  return dex >= 0 && dex <= kMaxDex && tm >= 0 && tm < kTmCount && s.ptm[dex].test(tm);
 }
 
-uint64_t tm_taught_bits(const Save& s, int dex) { return dex >= 0 && dex <= kMaxDex ? s.ptm[dex] : 0; }
+TmBits tm_taught_bits(const Save& s, int dex) { return dex >= 0 && dex <= kMaxDex ? s.ptm[dex] : TmBits{}; }
 
 bool tm_can_learn(const Save& s, int dex, int tm) {
   if (!dex_ok(dex) || tm < 0 || tm >= kTmCount) return false;
-  return ((kDexTms[dex] >> tm) & 1u) && !tm_natural(dex, tm) && !tm_taught(s, dex, tm);
+  return kDexTms[dex].test(tm) && !tm_natural(dex, tm) && !tm_taught(s, dex, tm);
 }
 
 int tm_learnable(const Save& s, int dex, int* out) {
@@ -185,7 +185,7 @@ bool tm_take(Save& s, int tm) {
 
 bool tm_teach(Save& s, int dex, int tm) {
   if (!tm_can_learn(s, dex, tm) || !tm_take(s, tm)) return false;
-  s.ptm[dex] |= uint64_t(1) << tm;
+  s.ptm[dex].set(tm);
   return true;
 }
 
@@ -221,21 +221,9 @@ int shop_daily(const Save& s, const char* day, int out[kShopDaily]) {
   }
   const int n = kTmCount < kShopDaily ? kTmCount : kShopDaily;
   for (int i = 0; i < n; ++i) out[i] = all[i];
-  // Si ninguna le sirve a tu compañero, la última se cambia por una que sí aprenda.
-  const int dex = s.partner;
-  if (dex > 0 && n == kShopDaily) {
-    bool any = false;
-    for (int i = 0; i < n; ++i) if (tm_can_learn(s, dex, out[i])) any = true;
-    if (!any) {
-      int mine[kMaxTms];
-      const int nm = tm_learnable(s, dex, mine);   // (ya por orden alfabético: kTms lo está)
-      if (nm) {
-        std::snprintf(seed, sizeof(seed), "kecleon:%s:%d", day, dex);
-        ShopRng r2(seed);
-        out[kShopDaily - 1] = mine[int(std::floor(r2.next() * nm))];
-      }
-    }
-  }
+  // (Desde la Gran Actualización, las mismas 8 para todos: ya no se cambia la última
+  // por una que le sirva a tu compañero.)
+  (void)s;
   return n;
 }
 
@@ -264,7 +252,7 @@ ShopBuy shop_buy_tm(Save& s, int tm, const char* day) {
   if (s.tms[tm] >= 999) return BUY_FULL;
   s.coins -= price;
   s.tms[tm]++;
-  s.tms_known |= uint64_t(1) << tm;
+  s.tms_known.set(tm);
   return BUY_OK;
 }
 

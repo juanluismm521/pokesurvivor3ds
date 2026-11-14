@@ -39,7 +39,7 @@ if (process.env.PS_QJS) {
   fs.writeFileSync(process.env.PS_QJS, pre + '\n' + bundle(web));
   console.log('paquete para QuickJS:', process.env.PS_QJS);
 } else {
-  const ctx = { console, print: s => console.log(s), __clock: () => Number(process.hrtime.bigint()) / 1e6 };
+  const ctx = { console, print: s => console.log(s), __clock: () => Number(process.hrtime.bigint()) / 1e6, TextEncoder, TextDecoder, Intl };
   vm.createContext(ctx);
   vm.runInContext(bundle(web), ctx, { filename: 'web.js' });
   vm.runInContext(`__setup(${+dex}, ${+seed}); __bench(${+secs}, ${+every}, __clock);`, ctx);

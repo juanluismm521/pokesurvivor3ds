@@ -51,9 +51,9 @@ const char* abil_name(int id);                         // en el idioma del juego
 // ---------------- MT ----------------
 int tm_index_of_move(int move);                        // índice de kTms o -1
 bool tm_natural(int dex, int tm);                      // ya lo sabe sin MT (es de sus tipos)
-uint64_t tm_natural_bits(int dex);                     // (todas a la vez: bit = kTms)
+TmBits tm_natural_bits(int dex);                     // (todas a la vez: bit = kTms)
 bool tm_taught(const Save& s, int dex, int tm);
-uint64_t tm_taught_bits(const Save& s, int dex);       // las aprendidas (bit = kTms), para las listas de ataques
+TmBits tm_taught_bits(const Save& s, int dex);       // las aprendidas (bit = kTms), para las listas de ataques
 bool tm_can_learn(const Save& s, int dex, int tm);     // la aprende en los juegos y aún no la sabe
 int tm_learnable(const Save& s, int dex, int* out);    // las que puede aprender (índices de kTms)
 bool tm_teach(Save& s, int dex, int tm);               // gasta una de la Mochila; false si no puede

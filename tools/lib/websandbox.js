@@ -44,4 +44,14 @@ function create(lang) {
   return sandbox;
 }
 
-module.exports = { create };
+/** ¿Es la web partida del app.min.js ofuscado (tools/web/partir.js)? Sus variables locales
+ * no tienen nombre: se buscan por lo que contienen (local()). */
+const esPartida = web => fs.existsSync(path.join(web, 'app.min.js'));
+/** Nombre (ofuscado) de la variable local que declara `re` (su grupo 1) en el texto. */
+function local(src, re, what) {
+  const m = re.exec(src);
+  if (!m) throw new Error('no encuentro la tabla ' + (what || re));
+  return m[1];
+}
+
+module.exports = { create, esPartida, local };

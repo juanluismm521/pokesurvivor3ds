@@ -156,7 +156,7 @@ void mega_end(Game& g, Player& p) {
   p.mega = -1;
   p.mega_t = p.mega_tf = 0;
   p.mega_dhp = 0;
-  p.mega_cd = kMegaCooldown;
+  p.mega_cd = kMegaCooldown * p.power_cd;   // (carta «Poder rápido»)
   g.fx.burst(p.x, p.y - p.body_h * 0.5f, 0xc47bff, 12, 120);
 }
 

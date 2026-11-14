@@ -5,6 +5,31 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 0.51.0 — en preparación (sin publicar)
+**La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor). Por ahora:
+- **Los 1025 Pokémon:** llegan los 59 que faltaban (Miraidon, Zarude, Pecharunt…).
+- **57 formas regionales** como Pokémon nuevos: Vulpix de Alola, Meowth de Galar, Growlithe de
+  Hisui, Wooper de Paldea… Salen en el gacha y en la Colección.
+- **46 megaevoluciones estrenan sprite propio** (Venusaur, Blastoise, Gyarados, Garchomp…); antes
+  se veían como su forma normal.
+- **73 ataques nuevos** (176 en total), con 14 formas de atacar nuevas: Terremoto, Surf,
+  Llamarada, Trueno, los puños elementales, Tijera X, Velocidad Extrema, Acróbata, Protección,
+  Descanso, Reflejo y Pantalla Luz, Doble Equipo, Explosión, Día Soleado, Danza Lluvia…
+- **Ataques exclusivos:** 39 Pokémon tienen el suyo (Tacleada de Voltios, Onda Certera, Sentencia
+  de Arceus…): su carta dorada sale desde el nivel 10.
+- **Equilibrio nuevo, el de la web:** se sube de nivel 3 veces más rápido, los enemigos y los
+  jefes aguantan según el minuto de la partida, los jefes llegan en los minutos 2, 6, 10, 14 y
+  18, las mejoras de nivel se suman en vez de multiplicarse, las mejoras permanentes dan menos
+  y un golpe nunca te quita más del 30 % de la vida.
+- **Cartas de nivel nuevas:** Ojo Crítico, Golpe Brutal, Cazador (más daño a jefes), Esquiva,
+  Racha de suerte, Bolsa de monedas y Poder rápido (menos recarga de la megaevolución).
+- **Vínculos:** los movimientos unidos ya no pegan cada uno entero: entre todos hacen ×1,6
+  (dos), ×2 (tres) o ×2,3 (cuatro).
+- **Crítico con tope:** 60 % de probabilidad y ×3,5 de daño como mucho.
+- **Modo rápido:** todo llega antes en la misma proporción (y la experiencia también), para
+  que siga siendo la misma partida en menos tiempo.
+- 92 MT en la Tienda Kecleon (antes 58); las 8 del día son las mismas para todos.
+
 ## 0.50.6 — 2026-11-14
 Sincronización con pokesurvivor.com al día con su Gran Actualización (13-11):
 - **Lo nuevo de la web ya no se pisa desde la consola:** maestría, huevos, estelas, fotos y

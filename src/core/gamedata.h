@@ -4,6 +4,8 @@
 #pragma once
 #include <cstdint>
 
+#include "core/diff.h"
+
 namespace ps {
 
 // ---------------- tipos ----------------
@@ -34,10 +36,27 @@ struct Mon {
   int8_t gen;
   bool starter;
   bool leg;
+  int16_t num;       // número de la Pokédex nacional (el de su especie en las formas regionales)
+  int8_t reg;        // forma regional: 0 no, 1 Alola, 2 Galar, 3 Hisui, 4 Paldea
 };
 extern Mon kDex[];
 extern const int kDexCount;
-constexpr int kMaxDex = 1025;
+// Los 1025 de la Pokédex nacional y, a partir de 1026, las formas regionales
+// (Vulpix de Alola…): en la web llevan un id 500xxx; aquí, un número propio y estable
+// (assets-src/formas/formas.json). kMaxDex deja sitio para las que vengan.
+constexpr int kNationalDex = 1025;
+constexpr int kMaxDex = 1199;
+extern const int kDexLast;             // el último número en uso
+struct FormWeb { int16_t dex; int32_t web; };
+extern const FormWeb kFormWeb[];       // forma regional → id en la web
+extern const int kFormWebCount;
+int form_web_id(int dex);              // id con el que la web guarda este Pokémon (el dex si no es una forma)
+int form_from_web(int web_id);         // y al revés (0 si no se conoce)
+// Evoluciones (evos.js de la web) con el nivel al que evoluciona en los juegos
+// (0 = no es por nivel: piedra, intercambio, amistad…).
+struct EvoDef { int16_t from, to; uint8_t lvl; };
+extern const EvoDef kEvos[];
+extern const int kEvoCount;
 // Índice en kDex de cada número de Pokédex (-1 si no existe).
 extern const int16_t kDexIndex[kMaxDex + 1];
 inline const Mon* mon_by_dex(int dex) {
@@ -106,8 +125,13 @@ enum Kind : int8_t {
   K_MINE, K_METEOR, K_TURRET, K_DASH, K_TRAIL, K_CONE,
   // desde 2026-10-19 (moves.js)
   K_HOMING, K_BOUNCE, K_CHARGE, K_SPIN, K_QUAKE, K_VORTEX, K_SHOVE, K_STUN,
-  K_BUFF, K_COUNT
+  K_BUFF,
+  // Gran Actualización (web, 13-11-2026)
+  K_TREMOR, K_WAVE, K_CROSS, K_STORM, K_PUNCH, K_SCISSOR, K_BLITZ, K_LEAP,
+  K_GUARD, K_REST, K_SCREEN, K_DECOY, K_BOOM, K_WEATHER, K_COUNT
 };
+// Los que no pegan (Moves.isStatus de la web): potenciadores, climas, Protección…
+inline bool kind_is_status(int k) { return k == K_BUFF || k == K_WEATHER || k == K_GUARD || k == K_REST || k == K_SCREEN || k == K_DECOY; }
 extern const char* const kKindId[K_COUNT];
 
 // Números de un movimiento. `has` dice cuáles existen (en la web, los que
@@ -116,7 +140,10 @@ enum MoveStat : int8_t {
   MS_CD, MS_DMG, MS_SPEED, MS_COUNT, MS_SPREAD, MS_PIERCE, MS_LIFE, MS_SIZE,
   MS_RADIUS, MS_ARC, MS_WIDTH, MS_KNOCK, MS_BURN, MS_POISON, MS_SLOW, MS_HOMING,
   MS_AMOUNT, MS_DUR, MS_STACKS, MS_RATE, MS_RANGE, MS_HEX, MS_DRAIN,
-  MS_PULL, MS_BOUNCE, MS_STUN, MS_CHARGE, MS_NUM
+  MS_PULL, MS_BOUNCE, MS_STUN, MS_CHARGE,
+  // Gran Actualización: MS_WX = clima que pone (WeatherKind), MS_SHIELD = 0 físico / 1 especial
+  MS_ZAP, MS_SHRED, MS_NOITEM, MS_PUDDLE, MS_PR, MS_SPLASH, MS_BOOST, MS_CRITUP, MS_MINCD, MS_COST, MS_WX, MS_SHIELD,
+  MS_NUM
 };
 extern const char* const kMoveStatId[MS_NUM];
 // Cómo se aplica cada número en las mejoras: 0 = se asigna, 1 = multiplica, 2 = suma.
@@ -135,22 +162,24 @@ struct MoveDef {
   int8_t kind;
   int8_t buff;               // BuffStat (sólo los potenciadores)
   int8_t cat;                // MoveCat
-  uint32_t has;              // bit i = MoveStat i existe
+  uint64_t has;              // bit i = MoveStat i existe
   float v[MS_NUM];
   int8_t evo_need;           // LevelStat que pide para evolucionar (-1 = no evoluciona)
   const char* evo_name;
+  int16_t only[3];           // exclusivo de estos Pokémon (0 = nada): su carta sale desde kOnlyLvl
 };
+extern const int kOnlyLvl;
 extern MoveDef kMoves[];
 extern const int kMoveCount;
 // Tope de movimientos del port (los ids caben en int8_t). gen_data comprueba
 // al compilar que la web no lo pasa; si algún día lo pasa, hay que agrandar
 // los int8_t de los movimientos (atajos, vetos...).
-constexpr int kMaxMoves = 127;
+constexpr int kMaxMoves = 255;
 // Un conjunto de movimientos (bit por id): vetos...
 struct MoveBits {
-  uint64_t w[2] = {};
-  void set(int id) { if (id >= 0 && id < 128) w[id >> 6] |= 1ull << (id & 63); }
-  bool has(int id) const { return id >= 0 && id < 128 && ((w[id >> 6] >> (id & 63)) & 1ull); }
+  uint64_t w[4] = {};
+  void set(int id) { if (id >= 0 && id < 256) w[id >> 6] |= 1ull << (id & 63); }
+  bool has(int id) const { return id >= 0 && id < 256 && ((w[id >> 6] >> (id & 63)) & 1ull); }
 };
 int move_index(const char* id);   // -1 si no existe
 
@@ -158,13 +187,16 @@ struct Mod { int8_t stat; float val; };
 struct Ladder { const char* text; int8_t n; Mod m[5]; };
 extern Ladder kLadder[K_COUNT][4];   // mejoras de nivel 1→5
 extern Ladder kEvoMods[K_COUNT];     // al evolucionar
-extern const int8_t kStartMove[T_COUNT];   // movimiento inicial por tipo principal
+extern float kFamK[K_COUNT];         // × al daño del evolucionado, por familia (FAM_K; 0 = nada)
+extern float kMoveK2[];              // y por movimiento (MOVE_K2), mismo orden que kMoves
+extern const int16_t kStartMove[T_COUNT];   // movimiento inicial por tipo principal
 
 // Aspecto de cada movimiento (vfx.js): formas y paleta.
 enum Shape : int8_t {
   SH_NONE = -1, SH_FIRE, SH_DROP, SH_BUBBLE, SH_LEAF, SH_BOLT, SH_SHARD, SH_ROCK, SH_BLOB,
-  SH_NEEDLE, SH_STAR, SH_STREAK, SH_WIND, SH_WEB, SH_RING, SH_CRESCENT, SH_NOTE, SH_IMPACT,
-  SH_CLAW, SH_JAWS, SH_ARROW, SH_BALL, SH_SHADOW, SH_HEART, SH_COUNT, SH_LIGHTNING = 100
+  SH_NEEDLE, SH_STAR, SH_ZROLL, SH_STREAK, SH_WIND, SH_WEB, SH_RING, SH_CRESCENT, SH_NOTE, SH_IMPACT,
+  SH_CLAW, SH_JAWS, SH_ARROW, SH_BALL, SH_SHADOW, SH_SPIRAL, SH_EYE, SH_PRISM, SH_MIST, SH_PSIWAVE,
+  SH_COMET, SH_SNOWFLAKE, SH_FIST, SH_SEED, SH_FEATHER, SH_BOULDER, SH_HEART, SH_COUNT, SH_LIGHTNING = 100
 };
 extern const char* const kShapeId[SH_COUNT];
 struct ShapeInfo { uint8_t w, h, frames; bool dir, spin; };
@@ -182,7 +214,9 @@ extern const MoveVis kMoveVis[];                 // mismo orden que kMoves
 extern const int8_t kTypeShape[T_COUNT];         // disparo por defecto de cada tipo
 
 // ---------------- subir de nivel ----------------
-enum LevelStat : int8_t { LS_HP, LS_ATK, LS_SPD, LS_CD, LS_DEF, LS_RGN, LS_MAG, LS_XP, LS_HEAL, LS_COUNT };
+enum LevelStat : int8_t { LS_HP, LS_ATK, LS_SPD, LS_CD, LS_DEF, LS_RGN, LS_MAG, LS_XP, LS_HEAL,
+  // Gran Actualización: Ojo Crítico, Golpe Brutal, Cazador, Esquiva, Poder rápido, Racha de suerte y (14-11) Sabiduría
+  LS_CRIT, LS_CRITD, LS_HUNT, LS_DODGE, LS_PWR, LS_LUCK, LS_COIN, LS_COUNT };
 struct LevelStatDef { const char* id; const char* icon; const char* title; const char* desc; int16_t max; };
 extern LevelStatDef kLevelStats[LS_COUNT];
 extern const char* const kNeedName[LS_COUNT];    // "Vigor"... (condición de evolución)
@@ -271,7 +305,7 @@ extern const char* const kRarityName[6];
 extern const uint32_t kRarityColor[6];
 
 // ---------------- compañeros y test ----------------
-struct StarterDef { int16_t dex; int8_t start; const char* traits[2]; };
+struct StarterDef { int16_t dex; int16_t start; const char* traits[2]; };
 extern const StarterDef kStarters[];
 extern const int kStarterCount;
 struct TraitText { const char* id; const char* text; };
@@ -316,8 +350,21 @@ extern const int16_t kDexAbil[kMaxDex + 1][3];
 struct TmDef { int16_t move; int16_t price; };
 extern const TmDef kTms[];
 extern const int kTmCount;
+// Un conjunto de MT (bit i = kTms[i]); la web pasó de 64 con la Gran Actualización.
+struct TmBits {
+  uint64_t w[2];
+  bool test(int i) const { return i >= 0 && i < 128 && ((w[i >> 6] >> (i & 63)) & 1ull); }
+  void set(int i) { if (i >= 0 && i < 128) w[i >> 6] |= 1ull << (i & 63); }
+  void clear(int i) { if (i >= 0 && i < 128) w[i >> 6] &= ~(1ull << (i & 63)); }
+  bool any() const { return (w[0] | w[1]) != 0; }
+  TmBits operator&(const TmBits& o) const { return {{w[0] & o.w[0], w[1] & o.w[1]}}; }
+  TmBits operator|(const TmBits& o) const { return {{w[0] | o.w[0], w[1] | o.w[1]}}; }
+  TmBits operator~() const { return {{~w[0], ~w[1]}}; }
+  bool operator==(const TmBits& o) const { return w[0] == o.w[0] && w[1] == o.w[1]; }
+  bool operator!=(const TmBits& o) const { return !(*this == o); }
+};
 // Bit i: el Pokémon aprende la MT kTms[i] en los juegos.
-extern const uint64_t kDexTms[kMaxDex + 1];
+extern const TmBits kDexTms[kMaxDex + 1];
 
 // ---------------- versión de los datos ----------------
 extern const char* const kWebBase;       // commit de la web de reference/web (7 letras)

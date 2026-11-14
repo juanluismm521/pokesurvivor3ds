@@ -24,13 +24,15 @@ endif()
 # ya generadas que sí van (src/gen/gamedata.cpp y tests/web-generado/).
 find_program(NODE node REQUIRED)
 set(PS_HAY_WEB OFF)
-if(EXISTS ${CMAKE_SOURCE_DIR}/reference/web/js/data)
+if(EXISTS ${CMAKE_SOURCE_DIR}/reference/web/js/data AND EXISTS ${CMAKE_SOURCE_DIR}/reference/web-gran/js/data)
   set(PS_HAY_WEB ON)
 endif()
 set(WEB_GEN ${CMAKE_SOURCE_DIR}/tests/web-generado)
 if(PS_HAY_WEB)
   file(GLOB WEB_DATA CONFIGURE_DEPENDS reference/web/js/data/*.js reference/web/js/world/tiles.js
-       reference/web/js/systems/*.js reference/web/js/entities/vfx.js)
+       reference/web/js/systems/*.js reference/web/js/entities/vfx.js
+       reference/web-gran/js/data/*.js reference/web-gran/js/systems/levelup.js reference/web-gran/js/entities/vfx.js
+       assets-src/formas/formas.json assets-src/megas/megas.json)
   set(GEN_DATA ${CMAKE_BINARY_DIR}/gen/gamedata.cpp)
   set(GEN_PACK ${CMAKE_BINARY_DIR}/gen/paquete.json)   # paquete de datos del juego
   add_custom_command(OUTPUT ${GEN_DATA} ${GEN_PACK}

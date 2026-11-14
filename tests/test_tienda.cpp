@@ -74,7 +74,7 @@ TEST_CASE("tienda: comprar Mentas, Cápsulas y las MT de hoy, y gastarlas") {
   REQUIRE(shop_buy_tm(*s, today[0], "20261107") == BUY_OK);
   CHECK(s->coins == before - tm_price(today[0]));
   CHECK(s->tms[today[0]] == 1);
-  CHECK(((s->tms_known >> today[0]) & 1u) == 1);
+  CHECK(s->tms_known.test(today[0]));
   // Gastar: se acaba.
   CHECK(bag_take(*s, BAG_MINT));
   CHECK(!bag_take(*s, BAG_MINT));
@@ -155,8 +155,8 @@ TEST_CASE("tienda: la Mochila, las MT, naturalezas y habilidades se guardan (y u
   s->owned_at[25] = 1; s->owned_at[150] = 2; s->partner = 25;
   s->bag[BAG_MINT] = 2; s->bag[BAG_CAP] = 1; s->bag_known = 3;
   const int sb = tm_of("shadow-ball"), tb = tm_of("thunderbolt");
-  s->tms[sb] = 3; s->tms_known |= uint64_t(1) << sb;
-  s->ptm[150] |= uint64_t(1) << sb;
+  s->tms[sb] = 3; s->tms_known.set(sb);
+  s->ptm[150].set(sb);
   s->pnat[25] = int8_t(nature_index("bold")); s->pnat_at[25] = 77;
   s->pabil[150] = 1; s->pabil_at[150] = 88;
   const std::string txt = save_to_json(*s);
@@ -370,7 +370,7 @@ TEST_CASE("grupo: naturaleza, habilidad y MT viajan con cada jugador (y se limit
   m.dex = 150;
   m.nature = int8_t(nature_index("modest"));
   m.abil = int16_t(abil_index("pressure"));
-  m.taught = (uint64_t(1) << tm_of("shadow-ball")) | (uint64_t(1) << 63);   // (la 63 no la aprende: fuera)
+  m.taught.set(tm_of("shadow-ball")); m.taught.set(127);   // (la 127 no existe: fuera)
   uint8_t buf[256];
   const int n = net::write_member(m, buf, sizeof(buf));
   REQUIRE(n > 0);
@@ -378,7 +378,7 @@ TEST_CASE("grupo: naturaleza, habilidad y MT viajan con cada jugador (y se limit
   REQUIRE(net::read_member(buf, n, r));
   CHECK(r.nature == m.nature);
   CHECK(r.abil == m.abil);
-  CHECK(r.taught == (uint64_t(1) << tm_of("shadow-ball")));
+  { TmBits want = {}; want.set(tm_of("shadow-ball")); CHECK(r.taught == want); }
   // Basura: fuera de rango, se queda en nada.
   m.nature = 99; m.abil = 9999;
   REQUIRE(net::read_member(buf, net::write_member(m, buf, sizeof(buf)), r));

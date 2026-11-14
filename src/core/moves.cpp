@@ -18,15 +18,15 @@ void apply_mods(MoveInst& s, const Ladder& L) {
       case 1:  // MULT: multiplica si existe; si no, se asigna (como el else de applyMods)
         if (s.has_(k)) { s.v[k] *= val; break; }
         s.v[k] = val;
-        s.has |= 1u << k;
+        s.has |= 1ull << k;
         break;
       case 2:  // ADD: (s[k] || 0) + m (count: los que ya dispara, ver count_base)
         s.v[k] = (s.has_(k) ? s.v[k] : k == MS_COUNT ? count_base(s.kind()) : 0.0f) + val;
-        s.has |= 1u << k;
+        s.has |= 1ull << k;
         break;
       default:  // se asigna
         s.v[k] = val;
-        s.has |= 1u << k;
+        s.has |= 1ull << k;
         break;
     }
   }
@@ -45,7 +45,7 @@ MoveInst move_instance(int def, int lvl) {
   // la web les dio 0,12 (28-10-2026) para que, con «+1 proyectil», los disparos se
   // abran en abanico en vez de salir uno encima del otro.
   const int k = kMoves[def].kind;
-  if ((k == K_PROJECTILE || k == K_HOMING || k == K_BOUNCE) && !s.has_(MS_SPREAD)) { s.v[MS_SPREAD] = 0.12f; s.has |= 1u << MS_SPREAD; }
+  if ((k == K_PROJECTILE || k == K_HOMING || k == K_BOUNCE) && !s.has_(MS_SPREAD)) { s.v[MS_SPREAD] = 0.12f; s.has |= 1ull << MS_SPREAD; }
   for (int i = 0; i < lvl - 1; ++i) apply_mods(s, kLadder[kMoves[def].kind][i]);
   return s;
 }
@@ -76,6 +76,9 @@ bool move_evolve(MoveInst& m) {
   const MoveDef& d = m.d();
   if (d.evo_need < 0 || m.evolved) return false;
   apply_mods(m, kEvoMods[d.kind]);
+  // (ajuste de equilibrio por familia al evolucionar: FAM_K de balance.js)
+  if (m.has_(MS_DMG) && m.v[MS_DMG] != 0 && kFamK[d.kind] > 0) m.v[MS_DMG] *= kFamK[d.kind];
+  if (m.has_(MS_DMG) && m.v[MS_DMG] != 0 && kMoveK2[m.def] > 0) m.v[MS_DMG] *= kMoveK2[m.def];   // (y por movimiento: MOVE_K2)
   m.evolved = true;
   return true;
 }
@@ -84,7 +87,7 @@ int move_pool_for(const int8_t types[2], int16_t* out, int max) {
   int n = 0;
   auto add_type = [&](int t) {
     for (int i = 0; i < kMoveCount; ++i) {
-      if (kMoves[i].type != t) continue;
+      if (kMoves[i].type != t || kMoves[i].only[0]) continue;   // (los exclusivos no están en el pool de su tipo)
       bool dup = false;
       for (int j = 0; j < n; ++j) if (out[j] == i) { dup = true; break; }
       if (!dup && n < max) out[n++] = int16_t(i);
@@ -118,7 +121,7 @@ int move_extras_for(int dex, int16_t* out, int max) {
   return n;
 }
 
-int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, uint64_t taught) {
+int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, TmBits taught) {
   int n = move_pool_for(types, out, max);
   auto add = [&](int16_t id) {
     for (int j = 0; j < n; ++j) if (out[j] == id) return;
@@ -128,7 +131,7 @@ int move_pool_for_dex(int dex, const int8_t types[2], int16_t* out, int max, uin
   const int ne = move_extras_for(dex, ex, 16);
   for (int i = 0; i < ne; ++i) add(ex[i]);
   // MT aprendidas (Tienda Kecleon), en el orden de kTms.
-  for (int i = 0; i < kTmCount && taught; ++i) if ((taught >> i) & 1u) add(kTms[i].move);
+  for (int i = 0; i < kTmCount && taught.any(); ++i) if (taught.test(i)) add(kTms[i].move);
   return n;
 }
 
@@ -140,20 +143,20 @@ int move_base_start_for(int dex) {
   return kStartMove[T_NORMAL];
 }
 
-int move_start_choices(int dex, int16_t* out, int max, uint64_t taught) {
+int move_start_choices(int dex, int16_t* out, int max, TmBits taught) {
   const Mon* m = mon_by_dex(dex);
   if (!m || max <= 0) return 0;
   int16_t all[kMaxMoves];
   // (las MT aprendidas también, como poolFor de la web; los extra del port, no)
   int na = move_pool_for(m->types, all, kMaxMoves);
-  for (int i = 0; i < kTmCount && taught; ++i) {
-    if (!((taught >> i) & 1u)) continue;
+  for (int i = 0; i < kTmCount && taught.any(); ++i) {
+    if (!taught.test(i)) continue;
     bool dup = false;
     for (int j = 0; j < na; ++j) if (all[j] == kTms[i].move) dup = true;
     if (!dup && na < kMaxMoves) all[na++] = kTms[i].move;
   }
   int n = 0;
-  for (int i = 0; i < na && n < max; ++i) if (kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];
+  for (int i = 0; i < na && n < max; ++i) if (!kind_is_status(kMoves[all[i]].kind)) out[n++] = all[i];
   const int base = move_base_start_for(dex);
   bool has = false;
   for (int i = 0; i < n; ++i) if (out[i] == base) has = true;
@@ -161,7 +164,7 @@ int move_start_choices(int dex, int16_t* out, int max, uint64_t taught) {
   return n;
 }
 
-int move_start_for(int dex, int pick, bool bought, uint64_t taught) {
+int move_start_for(int dex, int pick, bool bought, TmBits taught) {
   if (pick >= 0 && bought) {
     int16_t ch[kMaxMoves];
     const int n = move_start_choices(dex, ch, kMaxMoves, taught);
@@ -170,14 +173,22 @@ int move_start_for(int dex, int pick, bool bought, uint64_t taught) {
   return move_base_start_for(dex);
 }
 
-int move_second_choices(int dex, int start, int16_t* out, int max, uint64_t taught) {
+int move_second_choices(int dex, int start, int16_t* out, int max, TmBits taught) {
   const Mon* m = mon_by_dex(dex);
   if (!m) return 0;
   int16_t all[kMaxMoves];
   const int na = move_pool_for_dex(dex, m->types, all, kMaxMoves, taught);
   int n = 0;
   for (int i = 0; i < na && n < max; ++i)
-    if (all[i] != start && kMoves[all[i]].kind != K_BUFF) out[n++] = all[i];
+    if (all[i] != start && !kind_is_status(kMoves[all[i]].kind)) out[n++] = all[i];
+  return n;
+}
+
+// Ataques exclusivos de un Pokémon (Moves.exclusiveFor): su carta sale desde kOnlyLvl.
+int move_exclusives_for(int dex, int16_t* out, int max) {
+  int n = 0;
+  for (int i = 0; i < kMoveCount && n < max; ++i)
+    for (int16_t d : kMoves[i].only) if (d && d == dex) { out[n++] = int16_t(i); break; }
   return n;
 }
 

@@ -33,7 +33,7 @@ int candidates(Game& g, Player& p, Cand* out) {
   if (p.nslots < p.max_moves) {
     // Con 2 potenciadores ya no se ofrecen más (no hacen daño).
     int buffs = 0;
-    for (int i = 0; i < p.nmoves; ++i) if (p.moves[i].kind() == K_BUFF) buffs++;
+    for (int i = 0; i < p.nmoves; ++i) if (kind_is_status(p.moves[i].kind())) buffs++;   // (Moves.isStatus)
     int16_t all[kMaxMoves];
     const int na = move_pool_for_dex(p.dex, p.mon->types, all, kMaxMoves, p.taught);   // (con sus MT: poolFor de la web)
     int16_t pool[kMaxMoves];
@@ -42,7 +42,7 @@ int candidates(Game& g, Player& p, Cand* out) {
       const int id = all[i];
       if (player_has_move(p, id)) continue;
       if (p.banned.has(id)) continue;
-      if (buffs >= 2 && kMoves[id].kind == K_BUFF) continue;
+      if (buffs >= 2 && kind_is_status(kMoves[id].kind)) continue;
       pool[np++] = int16_t(id);
     }
     // pickWeighted(pool, 6, weight): los de su lado bueno (y los empatados y
@@ -59,6 +59,17 @@ int candidates(Game& g, Player& p, Cand* out) {
       c.c = Card(); c.c.type = CT_NEW; c.c.move = pool[j]; c.c.w = 10;
       for (int q = j; q < np - 1; ++q) { pool[q] = pool[q + 1]; w[q] = w[q + 1]; }
       np--;
+    }
+  }
+
+  // --- su ataque exclusivo (web, 13-11-2026): carta especial desde el nivel kOnlyLvl ---
+  if (p.nslots < p.max_moves && p.level >= kOnlyLvl) {
+    int16_t ex[8];
+    const int ne = move_exclusives_for(p.dex, ex, 8);
+    for (int i = 0; i < ne; ++i) {
+      if (player_has_move(p, ex[i]) || p.banned.has(ex[i])) continue;
+      Cand& c = out[n++];
+      c.c = Card(); c.c.type = CT_NEW; c.c.move = ex[i]; c.c.w = 30; c.c.excl = true;
     }
   }
 
@@ -87,6 +98,8 @@ int candidates(Game& g, Player& p, Cand* out) {
   for (int s = 0; s < LS_COUNT; ++s) {
     if (waiting[s] >= 0) continue;
     if (kLevelStats[s].max && p.stats_taken[s] >= kLevelStats[s].max) continue;
+    // Poder rápido: sólo si llevas una megapiedra (en la web, si tienes poder de Eternatus)
+    if (s == LS_PWR && !is_mega_stone(p.item)) continue;
     avail[na++] = int8_t(s);
   }
   int8_t picks[LS_COUNT];
@@ -102,7 +115,7 @@ int candidates(Game& g, Player& p, Cand* out) {
     const int s = picks[k];
     Cand& c = out[n++];
     c.c = Card(); c.c.type = CT_STAT; c.c.stat = int8_t(s); c.c.evo_for = waiting[s];
-    c.c.w = waiting[s] >= 0 ? 14 : p.nslots < p.max_moves ? 4 : 7;
+    c.c.w = (waiting[s] >= 0 ? 14.0f : p.nslots < p.max_moves ? 4.0f : 7.0f) * (waiting[s] < 0 && s == LS_LUCK ? 0.4f : 1.0f);   // (wk)
   }
   for (int i = 0; i < n; ++i) out[i].key = card_key(out[i].c);
   return n;
@@ -161,21 +174,35 @@ void levelup_offer(Game& g, Player& p) {
   }
 }
 
+// Las mejoras que multiplican ya no se acumulan una sobre otra (web, 13-11-2026): la
+// n-ésima deja el total en 1 + k·n (sumar), no en (1 + k)^n.
+static void stack(float& field, const Player& p, int s, float k) {
+  const int n = p.stats_taken[s];
+  field *= (1 + k * (n + 1)) / (1 + k * n);
+}
+
 static void apply_stat(Game& g, Player& p, int s) {
   switch (s) {
     case LS_HP: player_add_max_hp(p, 20); break;
-    case LS_ATK: p.atk_mul *= 1.10f; break;
-    case LS_SPD: p.spd_mul *= 1.07f; break;
-    case LS_CD: p.cd_mul *= 0.92f; break;
+    case LS_ATK: stack(p.atk_mul, p, s, 0.08f); break;
+    case LS_SPD: stack(p.spd_mul, p, s, 0.05f); break;
+    case LS_CD: stack(p.cd_mul, p, s, -0.05f); break;
     case LS_DEF: {   // (el tope es sin la mega, que se quita al acabar)
       const float mega = p.mega >= 0 ? mega_boost(p.mega).armor : 0;
-      p.dmg_reduce = std::fmin(0.7f, p.dmg_reduce - mega + 0.06f) + mega;
+      p.dmg_reduce = std::fmin(0.5f, p.dmg_reduce - mega + 0.05f) + mega;
       break;
     }
-    case LS_RGN: p.regen_flat += 0.9f; break;
-    case LS_MAG: p.magnet *= 1.30f; break;
-    case LS_XP: p.xp_mul *= 1.12f; break;
+    case LS_RGN: p.regen_flat += 0.6f; break;
+    case LS_MAG: stack(p.magnet, p, s, 0.25f); break;
+    case LS_XP: stack(p.xp_mul, p, s, 0.08f); break;
     case LS_HEAL: player_heal(g, p, p.max_hp * 0.45f); break;
+    case LS_CRIT: p.crit += 0.02f; break;                       // Ojo Crítico
+    case LS_CRITD: p.crit_dmg += 0.05f; break;                  // Golpe Brutal
+    case LS_HUNT: stack(p.boss_mul, p, s, 0.06f); break;        // Cazador
+    case LS_DODGE: p.dodge = std::fmin(0.15f, p.dodge + 0.03f); break;
+    case LS_PWR: stack(p.power_cd, p, s, -0.08f); break;        // Poder rápido (aquí: la megaevolución)
+    case LS_LUCK: stack(p.coin_mul, p, s, 0.1f); break;         // Racha de suerte
+    case LS_COIN: p.coins += 60; break;                         // Bolsa de monedas
     default: break;
   }
 }

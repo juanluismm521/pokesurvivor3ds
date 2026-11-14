@@ -1,0 +1,461 @@
+{
+ "_": "Formas regionales: id de la web → número de Pokédex del port (estable; sólo se añade al final). tools/fetch_gran.py",
+ "formas": [
+  {
+   "id": 500019,
+   "dex": 1026,
+   "num": 19,
+   "slug": "rattata-alola",
+   "name": "Rattata de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500020,
+   "dex": 1027,
+   "num": 20,
+   "slug": "raticate-alola",
+   "name": "Raticate de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500026,
+   "dex": 1028,
+   "num": 26,
+   "slug": "raichu-alola",
+   "name": "Raichu de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500027,
+   "dex": 1029,
+   "num": 27,
+   "slug": "sandshrew-alola",
+   "name": "Sandshrew de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500028,
+   "dex": 1030,
+   "num": 28,
+   "slug": "sandslash-alola",
+   "name": "Sandslash de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500037,
+   "dex": 1031,
+   "num": 37,
+   "slug": "vulpix-alola",
+   "name": "Vulpix de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500038,
+   "dex": 1032,
+   "num": 38,
+   "slug": "ninetales-alola",
+   "name": "Ninetales de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500050,
+   "dex": 1033,
+   "num": 50,
+   "slug": "diglett-alola",
+   "name": "Diglett de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500051,
+   "dex": 1034,
+   "num": 51,
+   "slug": "dugtrio-alola",
+   "name": "Dugtrio de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500052,
+   "dex": 1035,
+   "num": 52,
+   "slug": "meowth-alola",
+   "name": "Meowth de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 510052,
+   "dex": 1036,
+   "num": 52,
+   "slug": "meowth-galar",
+   "name": "Meowth de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500053,
+   "dex": 1037,
+   "num": 53,
+   "slug": "persian-alola",
+   "name": "Persian de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500058,
+   "dex": 1038,
+   "num": 58,
+   "slug": "growlithe-hisui",
+   "name": "Growlithe de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500059,
+   "dex": 1039,
+   "num": 59,
+   "slug": "arcanine-hisui",
+   "name": "Arcanine de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500074,
+   "dex": 1040,
+   "num": 74,
+   "slug": "geodude-alola",
+   "name": "Geodude de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500075,
+   "dex": 1041,
+   "num": 75,
+   "slug": "graveler-alola",
+   "name": "Graveler de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500076,
+   "dex": 1042,
+   "num": 76,
+   "slug": "golem-alola",
+   "name": "Golem de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500077,
+   "dex": 1043,
+   "num": 77,
+   "slug": "ponyta-galar",
+   "name": "Ponyta de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500078,
+   "dex": 1044,
+   "num": 78,
+   "slug": "rapidash-galar",
+   "name": "Rapidash de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500079,
+   "dex": 1045,
+   "num": 79,
+   "slug": "slowpoke-galar",
+   "name": "Slowpoke de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500080,
+   "dex": 1046,
+   "num": 80,
+   "slug": "slowbro-galar",
+   "name": "Slowbro de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500083,
+   "dex": 1047,
+   "num": 83,
+   "slug": "farfetchd-galar",
+   "name": "Farfetch’d de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500088,
+   "dex": 1048,
+   "num": 88,
+   "slug": "grimer-alola",
+   "name": "Grimer de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500089,
+   "dex": 1049,
+   "num": 89,
+   "slug": "muk-alola",
+   "name": "Muk de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500100,
+   "dex": 1050,
+   "num": 100,
+   "slug": "voltorb-hisui",
+   "name": "Voltorb de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500101,
+   "dex": 1051,
+   "num": 101,
+   "slug": "electrode-hisui",
+   "name": "Electrode de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500103,
+   "dex": 1052,
+   "num": 103,
+   "slug": "exeggutor-alola",
+   "name": "Exeggutor de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500105,
+   "dex": 1053,
+   "num": 105,
+   "slug": "marowak-alola",
+   "name": "Marowak de Alola",
+   "reg": "alola"
+  },
+  {
+   "id": 500110,
+   "dex": 1054,
+   "num": 110,
+   "slug": "weezing-galar",
+   "name": "Weezing de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500122,
+   "dex": 1055,
+   "num": 122,
+   "slug": "mr-mime-galar",
+   "name": "Mr. Mime de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500128,
+   "dex": 1056,
+   "num": 128,
+   "slug": "tauros-paldea-aqua-breed",
+   "name": "Tauros de Paldea (Raza Acuática)",
+   "reg": "paldea"
+  },
+  {
+   "id": 510128,
+   "dex": 1057,
+   "num": 128,
+   "slug": "tauros-paldea-blaze-breed",
+   "name": "Tauros de Paldea (Raza Ardiente)",
+   "reg": "paldea"
+  },
+  {
+   "id": 520128,
+   "dex": 1058,
+   "num": 128,
+   "slug": "tauros-paldea-combat-breed",
+   "name": "Tauros de Paldea (Raza Combatiente)",
+   "reg": "paldea"
+  },
+  {
+   "id": 500144,
+   "dex": 1059,
+   "num": 144,
+   "slug": "articuno-galar",
+   "name": "Articuno de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500145,
+   "dex": 1060,
+   "num": 145,
+   "slug": "zapdos-galar",
+   "name": "Zapdos de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500146,
+   "dex": 1061,
+   "num": 146,
+   "slug": "moltres-galar",
+   "name": "Moltres de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500157,
+   "dex": 1062,
+   "num": 157,
+   "slug": "typhlosion-hisui",
+   "name": "Typhlosion de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 510194,
+   "dex": 1063,
+   "num": 194,
+   "slug": "wooper-paldea",
+   "name": "Wooper de Paldea",
+   "reg": "paldea"
+  },
+  {
+   "id": 500199,
+   "dex": 1064,
+   "num": 199,
+   "slug": "slowking-galar",
+   "name": "Slowking de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500211,
+   "dex": 1065,
+   "num": 211,
+   "slug": "qwilfish-hisui",
+   "name": "Qwilfish de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500215,
+   "dex": 1066,
+   "num": 215,
+   "slug": "sneasel-hisui",
+   "name": "Sneasel de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500222,
+   "dex": 1067,
+   "num": 222,
+   "slug": "corsola-galar",
+   "name": "Corsola de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500263,
+   "dex": 1068,
+   "num": 263,
+   "slug": "zigzagoon-galar",
+   "name": "Zigzagoon de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500264,
+   "dex": 1069,
+   "num": 264,
+   "slug": "linoone-galar",
+   "name": "Linoone de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500503,
+   "dex": 1070,
+   "num": 503,
+   "slug": "samurott-hisui",
+   "name": "Samurott de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500549,
+   "dex": 1071,
+   "num": 549,
+   "slug": "lilligant-hisui",
+   "name": "Lilligant de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500554,
+   "dex": 1072,
+   "num": 554,
+   "slug": "darumaka-galar",
+   "name": "Darumaka de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500555,
+   "dex": 1073,
+   "num": 555,
+   "slug": "darmanitan-galar-standard",
+   "name": "Darmanitan de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500562,
+   "dex": 1074,
+   "num": 562,
+   "slug": "yamask-galar",
+   "name": "Yamask de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500570,
+   "dex": 1075,
+   "num": 570,
+   "slug": "zorua-hisui",
+   "name": "Zorua de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500571,
+   "dex": 1076,
+   "num": 571,
+   "slug": "zoroark-hisui",
+   "name": "Zoroark de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500618,
+   "dex": 1077,
+   "num": 618,
+   "slug": "stunfisk-galar",
+   "name": "Stunfisk de Galar",
+   "reg": "galar"
+  },
+  {
+   "id": 500628,
+   "dex": 1078,
+   "num": 628,
+   "slug": "braviary-hisui",
+   "name": "Braviary de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500705,
+   "dex": 1079,
+   "num": 705,
+   "slug": "sliggoo-hisui",
+   "name": "Sliggoo de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500706,
+   "dex": 1080,
+   "num": 706,
+   "slug": "goodra-hisui",
+   "name": "Goodra de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500713,
+   "dex": 1081,
+   "num": 713,
+   "slug": "avalugg-hisui",
+   "name": "Avalugg de Hisui",
+   "reg": "hisui"
+  },
+  {
+   "id": 500724,
+   "dex": 1082,
+   "num": 724,
+   "slug": "decidueye-hisui",
+   "name": "Decidueye de Hisui",
+   "reg": "hisui"
+  }
+ ]
+}

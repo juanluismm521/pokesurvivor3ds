@@ -94,8 +94,8 @@ void App::shop_counts() {
   for (int i = 0; i < kDexCount; ++i) {
     const int d = kDex[i].dex;
     if (!s_->owns(d)) continue;
-    const uint64_t can = kDexTms[d] & ~tm_natural_bits(d) & ~s_->ptm[d];
-    for (int t = 0; t < kTmCount && t < kMaxTms; ++t) if ((can >> t) & 1u) shop_learn_[t]++;
+    const TmBits can = kDexTms[d] & ~tm_natural_bits(d) & ~s_->ptm[d];
+    for (int t = 0; t < kTmCount && t < kMaxTms; ++t) if (can.test(t)) shop_learn_[t]++;
   }
 }
 

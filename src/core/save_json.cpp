@@ -31,6 +31,9 @@ int from_id(const std::string& s) {
   return FROM_OTHER;
 }
 std::string num_key(int n) { char b[16]; std::snprintf(b, sizeof(b), "%d", n); return b; }
+// Clave de un Pokémon en el guardado: como la web (las formas regionales, con su id 500xxx).
+std::string dex_key(int dex) { return num_key(form_web_id(dex)); }
+int key_dex(const std::string& k) { return form_from_web(std::atoi(k.c_str())); }
 
 Json dates_by_dex(const int64_t* at, const int8_t* from) {
   Json o = Json::object();
@@ -39,14 +42,14 @@ Json dates_by_dex(const int64_t* at, const int8_t* from) {
     Json e = Json::object();
     e.set("at", Json::num(double(at[d])));
     e.set("from", Json::str(kFrom[from ? clamp_from(from[d]) : 0]));
-    o.set(num_key(d), std::move(e));
+    o.set(dex_key(d), std::move(e));
   }
   return o;
 }
 
 void read_dates_by_dex(const Json& o, int64_t* at, int8_t* from) {
   for (const auto& kv : o.items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (!mon_by_dex(d)) continue;   // (sanitize: Pokémon que no existen fuera)
     const Json& e = kv.second;
     at[d] = e.is_obj() ? int64_t(e["at"].as_num(1)) : int64_t(e.as_num(1));
@@ -102,7 +105,7 @@ std::string save_to_json(const Save& s) {
   o.set("coins", Json::num(s.coins));
   o.set("owned", dates_by_dex(s.owned_at, s.owned_from));
   o.set("shiny", dates_by_dex(s.shiny_at, s.shiny_from));
-  o.set("partner", s.partner ? Json::num(s.partner) : Json());
+  o.set("partner", s.partner ? Json::num(form_web_id(s.partner)) : Json());
   o.set("partnerShiny", Json::boolean(s.partner_shiny));
   o.set("starter", s.starter ? Json::num(s.starter) : Json());
   if (s.trait[0]) {
@@ -121,7 +124,7 @@ std::string save_to_json(const Save& s) {
     Json u = Json::object();
     bool any = false;
     for (int k = 0; k < UP_COUNT; ++k) if (s.pupg[d][k]) { u.set(kUpgrades[k].id, Json::num(s.pupg[d][k])); any = true; }
-    if (any) pupg.set(num_key(d), std::move(u));
+    if (any) pupg.set(dex_key(d), std::move(u));
   }
   o.set("pupg", std::move(pupg));
   o.set("pupgDone", Json::boolean(true));
@@ -142,29 +145,29 @@ std::string save_to_json(const Save& s) {
     if (bag.size()) o.set("bag", std::move(bag));
     Json tms = Json::object();
     for (int i = 0; i < kTmCount && i < kMaxTms; ++i)
-      if (s.tms[i] > 0 || ((s.tms_known >> i) & 1u)) tms.set(kMoves[kTms[i].move].id, Json::num(s.tms[i]));
+      if (s.tms[i] > 0 || s.tms_known.test(i)) tms.set(kMoves[kTms[i].move].id, Json::num(s.tms[i]));
     if (tms.size()) o.set("tms", std::move(tms));
   }
   // MT aprendidas ({dex: [movimientos]}), naturaleza y habilidad cambiadas ({dex: [valor, fecha]}).
   {
     Json ptm = Json::object(), pnat = Json::object(), pabil = Json::object();
     for (int d = 0; d <= kMaxDex; ++d) {
-      if (s.ptm[d]) {
+      if (s.ptm[d].any()) {
         Json l = Json::array();
-        for (int i = 0; i < kTmCount; ++i) if ((s.ptm[d] >> i) & 1u) l.push(Json::str(kMoves[kTms[i].move].id));
-        ptm.set(num_key(d), std::move(l));
+        for (int i = 0; i < kTmCount; ++i) if (s.ptm[d].test(i)) l.push(Json::str(kMoves[kTms[i].move].id));
+        ptm.set(dex_key(d), std::move(l));
       }
       if (s.pnat[d] >= 0 && s.pnat[d] < kNatureCount) {
         Json e = Json::array();
         e.push(Json::str(kNatures[s.pnat[d]].id));
         e.push(Json::num(double(s.pnat_at[d])));
-        pnat.set(num_key(d), std::move(e));
+        pnat.set(dex_key(d), std::move(e));
       }
       if (s.pabil[d] >= 0 && s.pabil[d] <= 2) {
         Json e = Json::array();
         e.push(Json::num(s.pabil[d]));
         e.push(Json::num(double(s.pabil_at[d])));
-        pabil.set(num_key(d), std::move(e));
+        pabil.set(dex_key(d), std::move(e));
       }
     }
     if (ptm.size()) o.set("ptm", std::move(ptm));
@@ -181,7 +184,7 @@ std::string save_to_json(const Save& s) {
     Json e = Json::array();
     e.push(Json::str(s.pskin[d] >= 0 && s.pskin[d] < kSkinCount ? kSkins[s.pskin[d]].id : ""));
     e.push(Json::num(double(s.pskin_at[d])));
-    pskin.set(num_key(d), std::move(e));
+    pskin.set(dex_key(d), std::move(e));
   }
   if (pskin.size()) o.set("pskin", std::move(pskin));
   o.set("legends", date_map(s.legends, kMaxDex + 1, nullptr));
@@ -212,7 +215,7 @@ std::string save_to_json(const Save& s) {
   o.set("missions", std::move(mi));
   Json prof = Json::object();
   Json favs = Json::array();
-  for (int f : s.favs) if (f) favs.push(Json::num(f));
+  for (int f : s.favs) if (f) favs.push(Json::num(form_web_id(f)));
   prof.set("favs", std::move(favs));
   prof.set("title", Json::str(s.title));
   o.set("profile", std::move(prof));
@@ -232,34 +235,34 @@ std::string save_to_json(const Save& s) {
     if (any) {
       Json a = Json::array();
       for (int k = 0; k < 4; ++k) a.push(s.pbind[d][k] >= 0 && s.pbind[d][k] < kMoveCount ? Json::str(kMoves[s.pbind[d][k]].id) : Json());
-      pb.set(num_key(d), std::move(a));
+      pb.set(dex_key(d), std::move(a));
     }
     Json b = Json::array();
     for (int k = 0; k < 3; ++k) if (s.pban[d][k] >= 0 && s.pban[d][k] < kMoveCount) b.push(Json::str(kMoves[s.pban[d][k]].id));
-    if (b.size()) pn.set(num_key(d), std::move(b));
+    if (b.size()) pn.set(dex_key(d), std::move(b));
   }
   o.set("pbind", std::move(pb));
   o.set("pban", std::move(pn));
   Json pst = Json::object(), pus = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) {
-    if (s.pstart[d] >= 0 && s.pstart[d] < kMoveCount) pst.set(num_key(d), Json::str(kMoves[s.pstart[d]].id));
-    if (s.pused[d] > 0) pus.set(num_key(d), Json::num(s.pused[d]));
+    if (s.pstart[d] >= 0 && s.pstart[d] < kMoveCount) pst.set(dex_key(d), Json::str(kMoves[s.pstart[d]].id));
+    if (s.pused[d] > 0) pus.set(dex_key(d), Json::num(s.pused[d]));
   }
   o.set("pstart", std::move(pst));
   o.set("pused", std::move(pus));
   // Del port (la web no lo conoce y lo deja tal cual): la mejora «Megapiedra».
   Json pmg = Json::object();
-  for (int d = 0; d <= kMaxDex; ++d) if (s.pmega[d] > 0) pmg.set(num_key(d), Json::num(s.pmega[d]));
+  for (int d = 0; d <= kMaxDex; ++d) if (s.pmega[d] > 0) pmg.set(dex_key(d), Json::num(s.pmega[d]));
   if (pmg.size()) o.set("pmega", std::move(pmg));   // (sólo si hay: si no, la partida de la web queda idéntica)
   Json pf = Json::object();
-  for (int d = 0; d <= kMaxDex; ++d) if (s.pfour[d] > 0) pf.set(num_key(d), Json::num(1));
+  for (int d = 0; d <= kMaxDex; ++d) if (s.pfour[d] > 0) pf.set(dex_key(d), Json::num(1));
   if (pf.size()) o.set("pfour", std::move(pf));
   // Del port: el segundo movimiento elegido con «Repertorio».
   Json pm2 = Json::object();
-  for (int d = 0; d <= kMaxDex; ++d) if (s.pmove2[d] >= 0 && s.pmove2[d] < kMoveCount) pm2.set(num_key(d), Json::str(kMoves[s.pmove2[d]].id));
+  for (int d = 0; d <= kMaxDex; ++d) if (s.pmove2[d] >= 0 && s.pmove2[d] < kMoveCount) pm2.set(dex_key(d), Json::str(kMoves[s.pmove2[d]].id));
   if (pm2.size()) o.set("pmove2", std::move(pm2));
   Json aw = Json::object();
-  for (int d = 0; d <= kMaxDex; ++d) if (s.arceus_win[d] > 0) aw.set(num_key(d), Json::num(double(s.arceus_win[d])));
+  for (int d = 0; d <= kMaxDex; ++d) if (s.arceus_win[d] > 0) aw.set(dex_key(d), Json::num(double(s.arceus_win[d])));
   if (aw.size()) o.set("arceusWin", std::move(aw));
   Json gf = Json::object();
   for (int i = 0; i < s.ngifts && i < Save::kMaxGifts; ++i) if (s.gift_id[i][0]) gf.set(s.gift_id[i], Json::num(double(s.gift_at[i] > 0 ? s.gift_at[i] : 1)));
@@ -277,7 +280,7 @@ bool save_from_json(Save& s, const std::string& text) {
   s.coins = n0(o["coins"]);
   read_dates_by_dex(o["owned"], s.owned_at, s.owned_from);
   read_dates_by_dex(o["shiny"], s.shiny_at, s.shiny_from);
-  s.partner = int16_t(o["partner"].as_int(0));
+  s.partner = int16_t(form_from_web(int(o["partner"].as_int(0))));
   if (!mon_by_dex(s.partner)) s.partner = 0;
   s.partner_shiny = o["partnerShiny"].as_bool();
   s.starter = int16_t(o["starter"].as_int(0));
@@ -292,7 +295,7 @@ bool save_from_json(Save& s, const std::string& text) {
     for (int k = 0; k < UP_COUNT; ++k) s.pupg[s.partner][k] = uint8_t(std::min(int(kUpgrades[k].max), n0(up[kUpgrades[k].id])));
   }
   for (const auto& kv : o["pupg"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d < 0 || d > kMaxDex || !kv.second.is_obj()) continue;
     for (int k = 0; k < UP_COUNT; ++k) s.pupg[d][k] = uint8_t(std::min(int(kUpgrades[k].max), n0(kv.second[kUpgrades[k].id])));
   }
@@ -307,24 +310,24 @@ bool save_from_json(Save& s, const std::string& text) {
     if (o["bag"].has(kShopItems[k].id)) { s.bag[k] = std::min(999, n0(o["bag"][kShopItems[k].id])); s.bag_known |= uint8_t(1u << k); }
   for (int i = 0; i < kTmCount && i < kMaxTms; ++i) {
     const char* id = kMoves[kTms[i].move].id;
-    if (o["tms"].has(id)) { s.tms[i] = int16_t(std::min(999, n0(o["tms"][id]))); s.tms_known |= uint64_t(1) << i; }
+    if (o["tms"].has(id)) { s.tms[i] = int16_t(std::min(999, n0(o["tms"][id]))); s.tms_known.set(i); }
   }
   for (const auto& kv : o["ptm"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d <= 0 || d > kMaxDex || !mon_by_dex(d) || !kv.second.is_arr()) continue;
     for (const Json& id : kv.second.elems()) {
       const int tm = id.is_str() ? tm_index_of_move(move_index(id.as_str().c_str())) : -1;
-      if (tm >= 0) s.ptm[d] |= uint64_t(1) << tm;
+      if (tm >= 0) s.ptm[d].set(tm);
     }
   }
   for (const auto& kv : o["pnat"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d <= 0 || d > kMaxDex || !mon_by_dex(d) || !kv.second.is_arr() || !kv.second[0].is_str()) continue;
     for (int n = 0; n < kNatureCount; ++n)
       if (kv.second[0].as_str() == kNatures[n].id) { s.pnat[d] = int8_t(n); s.pnat_at[d] = int64_t(n0(kv.second[1])); }
   }
   for (const auto& kv : o["pabil"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d <= 0 || d > kMaxDex || !mon_by_dex(d) || !kv.second.is_arr() || !kv.second[0].is_num()) continue;
     const double v = kv.second[0].as_num();
     if (v == 0 || v == 1 || v == 2) { s.pabil[d] = int8_t(v); s.pabil_at[d] = int64_t(n0(kv.second[1])); }
@@ -334,12 +337,12 @@ bool save_from_json(Save& s, const std::string& text) {
     if (k >= 0 && k < 8 && kv.second.is_num() && kv.second.as_num() > 0) s.skin_at[k] = int64_t(kv.second.as_num());
   }
   for (const auto& kv : o["pskin"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d < 0 || d > kMaxDex || !kv.second.is_arr()) continue;
     s.pskin[d] = int8_t(skin_index(kv.second[0].as_str().c_str()));
     s.pskin_at[d] = int64_t(kv.second[1].as_num(1));
   }
-  for (const auto& kv : o["legends"].items()) { const int d = std::atoi(kv.first.c_str()); if (d > 0 && d <= kMaxDex) s.legends[d] = std::max<int64_t>(1, int64_t(kv.second.as_num(1))); }
+  for (const auto& kv : o["legends"].items()) { const int d = key_dex(kv.first); if (d > 0 && d <= kMaxDex) s.legends[d] = std::max<int64_t>(1, int64_t(kv.second.as_num(1))); }
   for (int t = 0; t < T_COUNT; ++t) if (o["arenas"].has(kTypeId[t])) s.arenas[t] = std::max<int64_t>(1, int64_t(o["arenas"][kTypeId[t]].as_num(1)));
   for (int i = 0; i < IT_COUNT; ++i) if (o["itemsFound"].has(kItems[i].id)) s.items_found[i] = std::max<int64_t>(1, int64_t(o["itemsFound"][kItems[i].id].as_num(1)));
   for (int i = 0; i < kMoveCount; ++i) if (o["evoMoves"].has(kMoves[i].id)) s.evo_moves[i] = std::max<int64_t>(1, int64_t(o["evoMoves"][kMoves[i].id].as_num(1)));
@@ -353,7 +356,7 @@ bool save_from_json(Save& s, const std::string& text) {
     for (int i = 0; i < 2; ++i) mission_read(mi["weekly"][i], s.weekly[i]);
   }
   const Json& prof = o["profile"];
-  for (int i = 0; i < 3; ++i) s.favs[i] = int16_t(prof["favs"][i].as_int(0));
+  for (int i = 0; i < 3; ++i) s.favs[i] = int16_t(form_from_web(int(prof["favs"][i].as_int(0))));
   std::snprintf(s.title, sizeof(s.title), "%s", prof["title"].as_str().c_str());
   const Json& st = o["stats"];
   SaveStats& S = s.stats;
@@ -365,18 +368,18 @@ bool save_from_json(Save& s, const std::string& text) {
   S.judge_bosses = n0(st["judgeBosses"]);
   // Atajos y veto: movimientos que existan, sin repetir.
   for (const auto& kv : o["pbind"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d < 0 || d > kMaxDex) continue;
     for (int k = 0; k < 4; ++k) {
       const Json& v = kv.second[k];
       const int mi2 = v.is_str() ? move_index(v.as_str().c_str()) : -1;
       bool dup = false;
       for (int q = 0; q < k; ++q) if (s.pbind[d][q] == mi2 && mi2 >= 0) dup = true;
-      s.pbind[d][k] = int8_t(dup ? -1 : mi2);
+      s.pbind[d][k] = int16_t(dup ? -1 : mi2);
     }
   }
   for (const auto& kv : o["pban"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d < 0 || d > kMaxDex) continue;
     int n = 0;
     for (size_t k = 0; k < kv.second.size() && n < 3; ++k) {
@@ -385,21 +388,21 @@ bool save_from_json(Save& s, const std::string& text) {
       if (mi2 < 0) continue;
       bool dup = false;
       for (int q = 0; q < n; ++q) if (s.pban[d][q] == mi2) dup = true;
-      if (!dup) s.pban[d][n++] = int8_t(mi2);
+      if (!dup) s.pban[d][n++] = int16_t(mi2);
     }
   }
   // Movimiento inicial y partidas por Pokémon.
   for (const auto& kv : o["pstart"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d < 0 || d > kMaxDex || !kv.second.is_str()) continue;
-    s.pstart[d] = int8_t(move_index(kv.second.as_str().c_str()));
+    s.pstart[d] = int16_t(move_index(kv.second.as_str().c_str()));
   }
   for (const auto& kv : o["pused"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d >= 0 && d <= kMaxDex) s.pused[d] = n0(kv.second);
   }
   for (const auto& kv : o["arceusWin"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d >= 0 && d <= kMaxDex && kv.second.is_num() && kv.second.as_num() > 0) s.arceus_win[d] = int64_t(kv.second.as_num());
   }
   s.ngifts = 0;
@@ -410,16 +413,16 @@ bool save_from_json(Save& s, const std::string& text) {
     s.ngifts++;
   }
   for (const auto& kv : o["pmove2"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d < 0 || d > kMaxDex || !kv.second.is_str()) continue;
-    s.pmove2[d] = int8_t(move_index(kv.second.as_str().c_str()));
+    s.pmove2[d] = int16_t(move_index(kv.second.as_str().c_str()));
   }
   for (const auto& kv : o["pfour"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d >= 0 && d <= kMaxDex) s.pfour[d] = n0(kv.second) > 0 ? 1 : 0;
   }
   for (const auto& kv : o["pmega"].items()) {
-    const int d = std::atoi(kv.first.c_str());
+    const int d = key_dex(kv.first);
     if (d >= 0 && d <= kMaxDex) s.pmega[d] = uint8_t(std::min(5, std::max(0, int(n0(kv.second)))));
   }
   return true;

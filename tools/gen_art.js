@@ -33,6 +33,19 @@ const load = f => vm.runInContext(fs.readFileSync(path.join(WEB, f), 'utf8').rep
 for (const f of ['js/core/util.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/core/sprites.js', 'js/data/moves.js',
                  'js/world/tiles.js', 'js/entities/vfx.js', 'js/ui/icons.js']) load(f);
 
+// La web nueva (Gran Actualización, reference/web-gran): de ella salen las formas de los
+// ataques (12 nuevas) y los iconos de los movimientos (176). El suelo, los objetos del
+// mapa y los iconos de la interfaz siguen saliendo de reference/web.
+const GRAN = path.join(ROOT, 'reference', 'web-gran');
+process.env.PS_WEB = GRAN;
+const sandboxN = require('./lib/websandbox').create();
+delete process.env.PS_WEB;
+sandboxN.document.createElement = () => new SoftCanvas();
+const N = sandboxN.G;
+for (const f of ['js/core/util.js', 'js/core/i18n.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/core/sprites.js', 'js/data/balance.js', 'js/data/moves.js',
+                 'js/entities/vfx.js', 'js/ui/icons.js'])
+  vm.runInContext(fs.readFileSync(path.join(GRAN, f), 'utf8').replace(/\r\n/g, '\n'), sandboxN, { filename: 'gran/' + f });
+
 // ---------------- PNG ----------------
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(b) { let c = 0xffffffff; for (const x of b) c = CRC[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
@@ -125,16 +138,16 @@ for (let bi = G.Tiles.HW; bi < G.Tiles.HW + 3; bi++) for (const v of [0, 1]) pro
 
 // ---------------- formas de los ataques ----------------
 const vfx = [];
-for (const shape of Object.keys(G.VFX.SHAPES)) {
-  const frames = G.VFX.SHAPES[shape].frames || 1;
-  for (const pal of Object.keys(G.VFX.PAL)) for (let f = 0; f < frames; f++) vfx.push({ name: `${shape}|${pal}|${f}`, cv: G.VFX.sprite(shape, pal, f) });
+for (const shape of Object.keys(N.VFX.SHAPES)) {
+  const frames = N.VFX.SHAPES[shape].frames || 1;
+  for (const pal of Object.keys(N.VFX.PAL)) for (let f = 0; f < frames; f++) vfx.push({ name: `${shape}|${pal}|${f}`, cv: N.VFX.sprite(shape, pal, f) });
 }
 
 // ---------------- iconos ----------------
 const icons = [];
 for (const name of Object.keys(G.Icons.UI)) icons.push({ name, cv: G.Icons.canvas(name) });
 for (const t of Object.keys(G.U.TYPE_NAME)) icons.push({ name: 'type:' + t, cv: G.Icons.canvas('type:' + t) });
-for (const m of G.Moves.ALL) icons.push({ name: 'move:' + m.id, cv: G.Icons.canvas('move:' + m.id) });
+for (const m of N.Moves.ALL) icons.push({ name: 'move:' + m.id, cv: N.Icons.canvas('move:' + m.id) });
 
 // Megapiedras (del port): cada una con su dibujo, por número de mega (kMegas).
 const MEGAS = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets-src', 'megas', 'megas.json'), 'utf8')).megas;

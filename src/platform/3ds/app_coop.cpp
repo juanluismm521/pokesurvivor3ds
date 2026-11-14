@@ -91,7 +91,7 @@ RunConfig::Member App::my_member() const {
   // Su naturaleza, habilidad y MT (core/mons.h): todas las consolas simulan las de todos.
   m.nature = int8_t(autotest ? auto_nature : nature_of(*s_, m.dex));
   m.abil = int16_t(autotest ? auto_abil : abil_of(*s_, m.dex).id);
-  m.taught = autotest ? 0 : tm_taught_bits(*s_, m.dex);
+  m.taught = autotest ? TmBits{} : tm_taught_bits(*s_, m.dex);
   if (std::strcmp(s_->name, "Jugador") != 0) { std::memcpy(m.name, s_->name, sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0; }
   else console_name(m.name, sizeof(m.name));
   return m;

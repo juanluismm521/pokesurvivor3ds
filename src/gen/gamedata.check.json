@@ -1,13 +1,13 @@
 {
- "pokemon": 966,
- "movimientos": 103,
+ "pokemon": 1082,
+ "movimientos": 176,
  "objetos": 11,
  "mejoras": 14,
  "biomas": 25,
  "arenas": 19,
- "logros": 130,
+ "logros": 149,
  "misiones": 16,
- "traducciones": 1441,
- "duraciones": 50601,
- "sumaDex": 1088251
+ "traducciones": 3512,
+ "duraciones": 56804,
+ "sumaDex": 1273718
 }
