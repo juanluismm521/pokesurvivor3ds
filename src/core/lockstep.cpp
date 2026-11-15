@@ -59,6 +59,7 @@ static void put_member(W& w, const RunConfig::Member& m) {
   w.u8(uint8_t(m.nature));
   w.u16(uint16_t(m.abil));
   for (int k = 0; k < 2; ++k) { w.u32(uint32_t(m.taught.w[k])); w.u32(uint32_t(m.taught.w[k] >> 32)); }
+  w.u8(m.aura ? 1 : 0);   // (aura de maestro)
 }
 static void get_member(R& r, RunConfig::Member& m) {
   m.dex = int(r.u16()); m.shiny = r.u8() != 0;
@@ -71,6 +72,7 @@ static void get_member(R& r, RunConfig::Member& m) {
   m.nature = int8_t(r.u8());
   m.abil = int16_t(r.u16());
   for (int k = 0; k < 2; ++k) { m.taught.w[k] = uint64_t(r.u32()); m.taught.w[k] |= uint64_t(r.u32()) << 32; }
+  m.aura = r.u8() != 0;
   if (m.nature < -1 || m.nature >= kNatureCount) m.nature = -1;
   if (m.abil < -1 || m.abil >= kAbilCount) m.abil = -1;
   if (m.dex >= 1 && m.dex <= kMaxDex) m.taught = m.taught & kDexTms[m.dex];   // (sólo MT que aprende de verdad)

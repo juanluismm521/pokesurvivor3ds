@@ -2,6 +2,7 @@
 // la web (db.js: newSave). En la SD se guarda como JSON (save_json.cpp) para
 // que algún día se pueda vincular con la cuenta web.
 #pragma once
+#include "core/mastery.h"
 #include <cstdint>
 
 #include "core/gamedata.h"
@@ -63,6 +64,9 @@ struct Save {
   int64_t gift_at[kMaxGifts] = {};
   int ngifts = 0;
   int32_t pused[kMaxDex + 1] = {};       // partidas jugadas con cada Pokémon
+  // Maestría (web, 13-11-2026; core/mastery.h): puntos y estadísticas de cada Pokémon
+  int32_t mastery[kMaxDex + 1] = {};
+  PStat pstat[kMaxDex + 1] = {};
   int32_t t1 = 0, t10 = 0;               // tickets
   int32_t pity[11] = {};                 // por banner: 0 «Todas» (del port), 1-9 regiones, 10 Noche Espectral (Halloween)
   // Halloween (web, 25-10-2026): caramelos (bag.candy), disfraces comprados

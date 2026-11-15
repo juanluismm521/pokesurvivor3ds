@@ -2,6 +2,7 @@
 #include "platform/3ds/crash3ds.h"
 #include "platform/3ds/app.h"
 #include "platform/3ds/hw3ds.h"
+#include "core/mastery.h"
 #include "core/gift.h"
 #include "core/update.h"
 #include "core/halloween.h"
@@ -244,6 +245,7 @@ void App::start_run() {
   // Halloween (core/halloween.h): lo que sea al empezar vale toda la partida.
   cfg.hw = hw3ds::on() ? 1 : 0;
   cfg.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(cfg.dex) : -1) : skin_worn(*s_, cfg.dex));
+  cfg.aura = autotest ? auto_aura : mastery_has(s_->mastery[cfg.dex], MT_AURA);
   // Naturaleza, habilidad y MT de tu compañero (core/mons.h). Las pruebas, sin ellas
   // (o las que diga el autotest), salvo con la partida de la SD («real»).
   const bool mine = !autotest || auto_real;
@@ -1290,6 +1292,27 @@ void App::top_detail(int dex, bool shiny, bool own) {
     std::snprintf(b, sizeof(b), "Aún no lo tienes. Consíguelo en el banner de %s o derrotándolo cuando salga shiny.", GEN_NAMES[p->gen - 1]);
     r_->text_wrap(b, 300, 90, 0.38f, C_MUTED, 180, 1);
     return;
+  }
+  // Maestría (core/mastery.h): sus 4 premios y lo que falta para el siguiente
+  {
+    const int32_t pts = s_->mastery[dex];
+    const int lv = mastery_level(pts), nx = mastery_next(pts);
+    const float X = 10, Y = 22, W = 180;
+    C2D_DrawRectSolid(X, Y, 0, W, 40, C2D_Color32(14, 20, 34, 200));
+    C2D_DrawRectSolid(X, Y, 0, 2, 40, lv ? C_GOLD : C2D_Color32(70, 84, 110, 255));
+    r_->text(tr("Maestría"), X + 8, Y + 2, 0.36f, lv ? C_GOLD : C_MUTED);
+    for (int q = 0; q < MT_COUNT; ++q) {   // (una medalla por premio: llenas las conseguidas)
+      const float cx = X + W - 14 - (MT_COUNT - 1 - q) * 15, cy = Y + 9;
+      const bool on = q < lv;
+      C2D_DrawCircleSolid(cx, cy, 0, 6, on ? C2D_Color32(120, 84, 10, 255) : C2D_Color32(40, 48, 66, 255));
+      C2D_DrawCircleSolid(cx, cy, 0, 4.5f, on ? (q == MT_AURA ? C2D_Color32(255, 246, 200, 255) : C_GOLD) : C2D_Color32(60, 70, 92, 255));
+    }
+    const float k = nx < 0 ? 1.0f : float(pts - (nx ? kMasteryTiers[nx - 1].at : 0)) / float(kMasteryTiers[nx].at - (nx ? kMasteryTiers[nx - 1].at : 0));
+    C2D_DrawRectSolid(X + 8, Y + 19, 0, W - 16, 5, C2D_Color32(0, 0, 0, 150));
+    C2D_DrawRectSolid(X + 8, Y + 19, 0, (W - 16) * std::max(0.0f, std::min(1.0f, k)), 5, C_GOLD);
+    if (nx >= 0) std::snprintf(b, sizeof(b), "%d / %d · %s", int(pts), int(kMasteryTiers[nx].at), tr(kMasteryTiers[nx].name));
+    else std::snprintf(b, sizeof(b), tr("%d · ¡Completa! Aura de maestro"), int(pts));
+    r_->text_fit(b, X + 8, Y + 26, W - 16, 0.3f, lv >= MT_TITLE ? C_GOLD : C_TEXT, false);
   }
   for (int k = 0; k < 2; ++k) {
     if (p->types[k] < 0) continue;

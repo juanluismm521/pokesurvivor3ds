@@ -9,6 +9,7 @@
 #include <limits>
 
 #include "core/gamedata.h"
+#include "core/mastery.h"
 #include "core/moves.h"
 #include "core/upgrades.h"
 
@@ -203,18 +204,38 @@ void sanitize(Json& s, bool strict) {
   } else {
     s.remove("led");
   }
-  for (const char* coll : {"owned", "shiny", "dfav", "pused"}) {
+  for (const char* coll : {"owned", "shiny", "dfav", "pused", "mastery", "pstat"}) {
     Json* c = s.get(coll);
     if (!strict || !c || !c->is_obj()) continue;
     auto& it = c->items_mut();
     for (size_t i = it.size(); i-- > 0;) if (!dex_ok(it[i].first)) it.erase(it.begin() + long(i));
   }
   // Favoritos y partidas por Pokémon: números (lo demás fuera).
-  for (const char* coll : {"dfav", "pused"}) {
+  for (const char* coll : {"dfav", "pused", "mastery"}) {
     Json* c = s.get(coll);
+    if (coll[0] == 'm' && !c) continue;   // (la maestría, sólo si la trae: la web vieja no la tenía)
     if (!c || !c->is_obj()) { s.set(coll, Json::object()); continue; }
     auto& it = c->items_mut();
     for (size_t i = it.size(); i-- > 0;) if (!std::isfinite(plus(it[i].second))) it.erase(it.begin() + long(i));
+  }
+  // Estadísticas por Pokémon: números de las claves que existen, sin negativos y con su tope (db.js).
+  {
+    Json* c = s.get("pstat");
+    if (c && !c->is_obj()) { s.remove("pstat"); c = nullptr; }
+    if (c) {
+    auto& it = c->items_mut();
+    for (size_t i = it.size(); i-- > 0;) {
+      if (!it[i].second.is_obj()) { it.erase(it.begin() + long(i)); continue; }
+      auto& f = it[i].second.items_mut();
+      for (size_t q = f.size(); q-- > 0;) {
+        int k = -1;
+        for (int z = 0; z < PS_COUNT; ++z) if (f[q].first == kPStatId[z]) k = z;
+        const double v = plus(f[q].second);
+        if (k < 0 || !std::isfinite(v) || v < 0) { f.erase(f.begin() + long(q)); continue; }
+        f[q].second = Json::num(std::fmin(kPStatMax[k], std::floor(v)));
+      }
+    }
+    }
   }
   // Movimiento inicial (y el segundo de la web): un movimiento que exista de un Pokémon que exista.
   for (const char* key : {"pstart", "pstart2"}) {
@@ -574,6 +595,23 @@ Json merge(const Json& a, const Json& b, int64_t now_ms) {
     if (older["pused"].is_obj() && ru.is_obj())
       for (const auto& kv : older["pused"].items())
         ru.set(kv.first, Json::num(std::fmax(plus0(ru[kv.first.c_str()]), plus0(kv.second))));
+    // Maestría (web, 13-11-2026): el mayor de los dos, de cada Pokémon y de cada estadística (como db.js).
+    if (older["mastery"].is_obj()) {
+      Json& rma = r.ref("mastery");
+      if (!rma.is_obj()) rma = Json::object();
+      for (const auto& kv : older["mastery"].items())
+        rma.set(kv.first, Json::num(std::fmax(plus0(rma[kv.first.c_str()]), plus0(kv.second))));
+    }
+    if (older["pstat"].is_obj()) {
+      Json& rps = r.ref("pstat");
+      if (!rps.is_obj()) rps = Json::object();
+      for (const auto& dv : older["pstat"].items()) {
+        if (!dv.second.is_obj()) continue;
+        Json& mine = rps.ref(dv.first);
+        if (!mine.is_obj()) mine = Json::object();
+        for (const auto& kv : dv.second.items()) mine.set(kv.first, Json::num(std::fmax(plus0(mine[kv.first.c_str()]), plus0(kv.second))));
+      }
+    }
     // Del port: la mejora «Megapiedra» (pmega), el mayor de los dos (la web no
     // la conoce y podría no traerla: así nunca se pierde lo comprado).
     if (older["pmega"].is_obj()) {
@@ -703,7 +741,7 @@ bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
                                   "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin", "regalos",
-                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk", "modeWins"};
+                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk", "modeWins", "mastery", "pstat"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }

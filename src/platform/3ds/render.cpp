@@ -5,6 +5,7 @@
 //   (cartas de nivel, objeto, vínculo), pausa y resumen.
 #include "platform/3ds/render.h"
 #include "core/evo.h"
+#include "core/mastery.h"
 #include "core/power.h"
 #include "core/abilities.h"
 #include "core/mons.h"
@@ -945,6 +946,12 @@ void Renderer::draw_top(Game& g, float eye) {
         }
         if (p.power.def >= 0 && !p.dead)
           dot_ring(x, y, r * 2.1f, r * 0.85f, 2, rgbf(kPowers[p.power.def].color, 0.35f + std::sin(now * 8.3f) * 0.15f));
+        // Aura de maestro (maestría completa con este Pokémon): un brillo dorado que late a sus pies
+        if (p.aura && !p.dead) {
+          const float pu = 0.5f + 0.5f * std::sin(now * 3.1f);
+          ellipse(x, y, r * (2.1f + pu * 0.3f), r * (0.8f + pu * 0.12f), rgbf(0xffd23f, 0.18f + pu * 0.1f));
+          ellipse(x, y - p.body_h * 0.45f, r * 1.7f, p.body_h * 0.55f, rgbf(0xffe680, 0.07f + pu * 0.05f));
+        }
         const float alpha = p.invuln > 0 && !p.dead ? (int(std::floor(p.invuln * 18)) % 2 ? 0.45f : 1) : 1;
         // Transformándose: el Pokémon en blanco brillante.
         // Con su disfraz de Halloween (sus hojas: kSkins), salvo megaevolucionado.
@@ -954,6 +961,17 @@ void Renderer::draw_top(Game& g, float eye) {
           a.shiny = p.anim.shiny && has_shiny(a.dex);
           draw_sprite(a, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
         } else draw_sprite(p.anim, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
+        // …y destellos dorados que suben (web: Aura.masterEmit)
+        if (p.aura && !p.dead) {
+          for (int q = 0; q < 9; ++q) {
+            const float ph = std::fmod(now * 0.55f + q * 0.618f, 1.0f);
+            const float sx = x + std::sin(q * 2.39f + now * 0.8f) * r * 1.5f, sy = y - ph * (p.body_h * 1.25f + 8);
+            const float al = std::sin(ph * kPi);
+            const uint32_t c = q % 3 ? 0xffd23f : 0xfff6c8;
+            C2D_DrawRectSolid(sx - 1, sy - 1, 0, 2, 2, rgbf(c, al));
+            if (q % 3 == 0) { C2D_DrawRectSolid(sx - 3, sy - 0.5f, 0, 6, 1, rgbf(c, al * 0.7f)); C2D_DrawRectSolid(sx - 0.5f, sy - 3, 0, 1, 6, rgbf(c, al * 0.7f)); }
+          }
+        }
         if (p.mega >= 0) {
           const float cy = y - p.body_h * 0.5f;
           if (p.mega_tf > 0) {
@@ -1701,32 +1719,59 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     if (s.victory) {
       // ¡Arceus derrotado! (modo rápido): título, medalla y premio.
       const float pulse = 0.75f + 0.25f * std::sin(float(g.time) * 4);
-      text(s.hw ? "¡HAS DERROTADO AL GRAN GENGAR!" : "¡HAS DERROTADO A ARCEUS!", 160, 70, 0.55f, rgbf(s.hw ? 0xff8a2a : 0xffd25e, pulse), 1);
-      draw_medal(30, 84, 10);
-      draw_medal(290, 84, 10);
-    } else text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 74, 0.6f, rgb(0xffcb3d), 1);
+      text(s.hw ? "¡HAS DERROTADO AL GRAN GENGAR!" : "¡HAS DERROTADO A ARCEUS!", 160, 64, 0.55f, rgbf(s.hw ? 0xff8a2a : 0xffd25e, pulse), 1);
+      draw_medal(30, 76, 10);
+      draw_medal(290, 76, 10);
+    } else text(s.dead ? "Te has debilitado" : "Fin de la partida", 160, 66, 0.6f, rgb(0xffcb3d), 1);
     mmss(s.time, t, sizeof(t));
     std::snprintf(b, sizeof(b), "Tiempo %s · Nivel %d · %d derrotados · %d jefes", t, s.level, s.kills, s.bosses);
-    text_fit(b, 160, 100, 304, 0.38f, rgb(0xeaf2ff), false, 1);
+    text_fit(b, 160, 88, 304, 0.38f, rgb(0xeaf2ff), false, 1);
     if (s.hw && s.candy > 0) std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10 · %d caramelos", s.coins, s.t1, s.t10, s.candy);
     else std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", s.coins, s.t1, s.t10);
-    text_fit(b, 160, 118, 304, 0.4f, rgb(0xffd23f), false, 1);
+    text_fit(b, 160, 104, 304, 0.4f, rgb(0xffd23f), false, 1);
     if (g.cfg.diff > 0) std::snprintf(b, sizeof(b), tr("tiempo %d · derrotados %d · jefes %d · recogidas %d · %s ×%.1f"), s.parts[0], s.parts[1], s.parts[2], s.parts[3], tr(kDiffName[g.cfg.diff % DF_COUNT]), double(kDiffModes[g.cfg.diff % DF_COUNT].reward));
     else std::snprintf(b, sizeof(b), "tiempo %d · derrotados %d · jefes %d · recogidas %d", s.parts[0], s.parts[1], s.parts[2], s.parts[3]);
-    text(b, 160, 136, 0.32f, rgb(0x8fa3c4), 1);
+    text(b, 160, 120, 0.32f, rgb(0x8fa3c4), 1);
+    // (lo que haya de lo de abajo, una línea cada uno: como mucho 4 caben antes de los botones)
+    float yy = 134;
+    auto line = [&](const char* str, float sc, uint32_t col, bool shadow) {
+      if (yy > 190) return;
+      text_fit(str, 160, yy, 304, sc, rgb(col), shadow, 1);
+      yy += 15;
+    };
     if (s.judge_time >= 0) {
       mmss(s.judge_time, t, sizeof(t));
       std::snprintf(b, sizeof(b), s.hw ? "Ante Gengar: %s · %d legendarios · daño %d" : "Ante Arceus: %s · %d legendarios · daño %d", t, s.judge_bosses,
                     int(jsround(float(s.judge_dmg))));
-      text_fit(b, 160, 152, 304, 0.36f, rgb(0xffd25e), false, 1);
+      line(b, 0.36f, 0xffd25e, false);
+    }
+    // Maestría (core/mastery.h): lo ganado con tu Pokémon y, si llega, su premio
+    if (s.m_dex >= 1 && s.m_gained > 0) {
+      const Mon* mm = mon_by_dex(s.m_dex);
+      const int nx = mastery_next(s.m_after);
+      char nm[64];
+      std::snprintf(nm, sizeof(nm), tr("Maestría de %s"), mm ? tr(mm->name) : "?");
+      if (nx >= 0) {
+        std::snprintf(b, sizeof(b), "%s: +%d · %d / %d", nm, int(s.m_gained), int(s.m_after), int(kMasteryTiers[nx].at));
+      } else {
+        std::snprintf(b, sizeof(b), tr("%s: +%d · %d · ¡Completa!"), nm, int(s.m_gained), int(s.m_after));
+      }
+      line(b, 0.36f, 0xf2c14e, false);
+      for (int q = 0; q < MT_COUNT; ++q) {
+        if (!(s.m_got & (1u << q))) continue;
+        char rw[96];
+        mastery_reward_text(q, mm ? mm->name : "?", rw, sizeof(rw));
+        std::snprintf(b, sizeof(b), "%s %s", tr("¡Premio de maestría!"), tr(rw));
+        line(b, 0.4f, 0xffe680, true);
+      }
     }
     if (s.victory) {
       std::snprintf(b, sizeof(b), "Premio: +%d Pokémonedas · +%d tickets ×10 · Medalla de Arceus", s.win_coins, s.win_t10);
-      text_fit(b, 160, 168, 304, 0.36f, rgb(0x5fe08a), true, 1);
+      line(b, 0.36f, 0x5fe08a, true);
     } else if (s.unlocked > 0) {
       std::snprintf(b, sizeof(b), tr("¡Has desbloqueado la dificultad %s!"), tr(kDiffName[s.unlocked % DF_COUNT]));
-      text_fit(b, 160, 168, 304, 0.42f, rgb(kDiffColor[s.unlocked % DF_COUNT]), true, 1);
-    } else if (s.record) text("¡Nuevo récord de tiempo!", 160, 168, 0.42f, rgb(0x5fe08a), 1);
+      line(b, 0.42f, kDiffColor[s.unlocked % DF_COUNT], true);
+    } else if (s.record) line("¡Nuevo récord de tiempo!", 0.42f, 0x5fe08a, false);
     if (s.ncaught) {
       char sh[96] = "Shinies:";
       for (int i = 0; i < s.ncaught && i < 4; ++i) {
@@ -1734,7 +1779,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         std::snprintf(one, sizeof(one), " %s%s", mon_by_dex(s.caught_dex[i])->name, s.caught_new[i] ? "" : " (+300)");
         std::strncat(sh, one, sizeof(sh) - std::strlen(sh) - 1);
       }
-      text_fit(sh, 160, 184, 304, 0.36f, rgb(0x9ae6ff), true, 1);
+      line(sh, 0.36f, 0x9ae6ff, true);
     }
     text(g.nplayers > 1 ? "A o B: volver al menú" : "A: otra partida · B: menú", 160, 206, 0.45f, rgb(0xeaf2ff), 1);
     text(g.nplayers > 1 ? "Arriba, los ataques de cada uno (L/R)" : "Arriba, el daño de cada ataque", 160, 224, 0.32f, rgb(0x8fa3c4), 1);

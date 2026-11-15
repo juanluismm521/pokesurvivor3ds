@@ -348,6 +348,7 @@ class App {
   float gift_t_ = 0;          // (autotest «menu»: como B en el resumen)
   bool auto_real = false;   // (autotest «real»: con la partida guardada de la SD, como un jugador)
   bool auto_skin = false;
+  bool auto_aura = false;   // autotest «aura»: con el aura de maestro
   bool menu_hw_ = false;          // el fondo del menú está en modo Halloween (backdrop_init)
   float hw_check_t_ = 0;        // (autotest «disfraz»: el compañero con su disfraz de Halloween, si tiene)
   static int skin_for_dex(int dex) { for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].dex == dex) return k; return -1; }        // autotest "ganar": Sentencia rápida acelerada (capturas de la victoria)

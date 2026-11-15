@@ -94,6 +94,7 @@ static bool in_type_pool(const Player& p, int id) {
 // Un jugador al empezar: Pokémon, atajos, vetos y mejora "Repertorio".
 static void init_player(Game& g, Player& p, const RunConfig& c) {
   player_init(g, p, c.dex, c.shiny, c);
+  p.aura = c.aura;
   p.skin = int8_t(c.skin >= 0 && c.skin < kSkinCount && kSkins[c.skin].dex == c.dex ? c.skin : -1);   // (su disfraz, si es suyo)
   // Atajos: movimientos con hueco fijo, antes de aprender nada.
   for (int i = 0; i < 4; ++i) if (c.pbind[i] >= 0 && c.pbind[i] < kMaxMoves) p.bind[c.pbind[i]] = int8_t(i);
@@ -179,6 +180,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
       pc.pstart = m.pstart;
       pc.pmove2 = m.pmove2;
       pc.skin = m.skin;
+      pc.aura = m.aura;
       pc.nature = m.nature;
       pc.abil = m.abil;
       pc.taught = m.taught;

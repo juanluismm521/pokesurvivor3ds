@@ -175,6 +175,7 @@ void won(Game& g) {
   const bool no_bond = r.idx >= 4 && r.n >= r.idx;
   r.n++;
   riftboss_reset(g);
+  g.rifts_won++;
   progress_event(g, EV_RIFT, r.type);
   pickups_pull_all(g);
   char b[96];

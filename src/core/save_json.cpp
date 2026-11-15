@@ -256,6 +256,20 @@ std::string save_to_json(const Save& s) {
   }
   o.set("pstart", std::move(pst));
   o.set("pused", std::move(pus));
+  // Maestría (web, 13-11-2026): puntos y estadísticas de cada Pokémon (sólo los que tienen)
+  Json mas = Json::object(), pss = Json::object();
+  for (int d = 0; d <= kMaxDex; ++d) {
+    if (s.mastery[d] > 0) mas.set(dex_key(d), Json::num(s.mastery[d]));
+    const PStat& q = s.pstat[d];
+    bool any = false;
+    for (double v : q.v) if (v > 0) any = true;
+    if (!any) continue;
+    Json e = Json::object();
+    for (int k = 0; k < PS_COUNT; ++k) if (q.v[k] > 0) e.set(kPStatId[k], Json::num(q.v[k]));
+    pss.set(dex_key(d), std::move(e));
+  }
+  if (mas.size()) o.set("mastery", std::move(mas));   // (sólo si hay: si no, la partida de la web queda idéntica)
+  if (pss.size()) o.set("pstat", std::move(pss));
   // Del port (la web no lo conoce y lo deja tal cual): la mejora «Megapiedra».
   Json pmg = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) if (s.pmega[d] > 0) pmg.set(dex_key(d), Json::num(s.pmega[d]));
@@ -408,6 +422,19 @@ bool save_from_json(Save& s, const std::string& text) {
   for (const auto& kv : o["pused"].items()) {
     const int d = key_dex(kv.first);
     if (d >= 0 && d <= kMaxDex) s.pused[d] = n0(kv.second);
+  }
+  for (const auto& kv : o["mastery"].items()) {
+    const int d = key_dex(kv.first);
+    if (d >= 0 && d <= kMaxDex && kv.second.is_num() && std::isfinite(kv.second.as_num()))
+      s.mastery[d] = int32_t(std::fmin(2e9, std::fmax(0.0, std::floor(kv.second.as_num()))));
+  }
+  for (const auto& kv : o["pstat"].items()) {
+    const int d = key_dex(kv.first);
+    if (d < 0 || d > kMaxDex || !kv.second.is_obj()) continue;
+    for (int k = 0; k < PS_COUNT; ++k) {
+      const Json& v = kv.second[kPStatId[k]];
+      if (v.is_num() && std::isfinite(v.as_num())) s.pstat[d].v[k] = std::fmin(kPStatMax[k], std::fmax(0.0, std::floor(v.as_num())));
+    }
   }
   for (const auto& kv : o["arceusWin"].items()) {
     const int d = key_dex(kv.first);

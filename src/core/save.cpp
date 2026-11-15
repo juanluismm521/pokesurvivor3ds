@@ -97,6 +97,21 @@ void save_end_run(Game& g) {
     for (int k = d - 1; k >= 0; --k) if (s.mode_wins[k] <= 0) s.mode_wins[k] = 1;
     if (d + 1 < DF_COUNT && !had) r.unlocked = int8_t(d + 1);
   }
+  // Maestría (web: Mastery.addRun / addStats), para el Pokémon con el que empezó.
+  // (El desafío semanal no cuenta.)
+  if (!g.cfg.weekly && pl.start_dex >= 1 && pl.start_dex <= kMaxDex) {
+    const int d = pl.start_dex;
+    const int32_t before = s.mastery[d], gained = mastery_run_points(pl.kills, g.time);
+    const int32_t after = int32_t(std::min<int64_t>(2000000000, int64_t(before) + gained));
+    if (gained > 0) s.mastery[d] = after;
+    r.m_dex = int16_t(d); r.m_before = before; r.m_after = after; r.m_gained = gained;
+    for (int t = 0; t < MT_COUNT; ++t) if (before < kMasteryTiers[t].at && after >= kMasteryTiers[t].at) r.m_got |= uint8_t(1u << t);
+    const int ew = g.eterna_wins > 0 ? 1 : 0;
+    const double run[PS_COUNT] = {1, g.time, double(pl.kills), r.judge_time >= 0 ? 1.0 : 0.0, g.time,
+                                  r.judge_time >= 0 ? r.judge_dmg : 0.0, double(std::max(0, pl.bosses - g.rifts_won - ew)),
+                                  double(g.rifts_won), double(ew)};
+    pstat_add(s.pstat[d], run);
+  }
   s.t1 += r.diff_t1; s.t10 += r.diff_t10;   // (los tickets de más de la dificultad)
   progress_event(g, EV_RUNEND, pl.level, pl.coins, float(g.time));
   g.dirty = true;

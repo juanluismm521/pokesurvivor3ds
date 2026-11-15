@@ -407,6 +407,7 @@ void App::start_ficha_demo() {
   const int n = tm_learnable(*s_, dex, l);
   for (int i = 0; i < n && i < 2; ++i) { s_->tms[l[i]] += 1; s_->tms_known.set(l[i]); }
   for (int k = 0; k < kSkinCount; ++k) if (kSkins[k].sell && kSkins[k].dex == dex && !s_->skin_at[k]) s_->skin_at[k] = now_ms();
+  if (s_->mastery[dex] < 31250) s_->mastery[dex] = 31250;   // (la maestría, a medias: foto y título)
   open_ficha(dex, FT_MOVES);
 }
 

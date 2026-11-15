@@ -66,6 +66,11 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   Sentencia de las Tablas (espirales de tablas de todos los tipos). A los 5 y 7 minutos de pelea
   giran por la sala las **Aspas Doradas**: ¡muévete por los huecos! Como mucho hay 30
   legendarios a la vez en la sala. En el modo rápido Arceus se puede vencer como siempre.
+- **Maestría Pokémon:** cada partida suma puntos al Pokémon con el que juegas (1 por cada 6
+  derrotados y 25 por minuto aguantado). A los 10 000, 25 000, 50 000 y 100 000 llegan la foto, el
+  título «Maestro de…», el marco y el **aura de maestro** (destellos dorados en la partida). Se ve
+  en la ficha de la Colección y en el resumen, y se sincroniza con la web, junto con las
+  estadísticas de cada Pokémon.
 
 ## 0.50.6 — 2026-11-14
 Sincronización con pokesurvivor.com al día con su Gran Actualización (13-11):

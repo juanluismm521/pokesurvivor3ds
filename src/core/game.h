@@ -124,6 +124,7 @@ struct Player {
   bool four_told = false;       // (ya se le ha explicado lo de las 4 cartas)
   int candy = 0;                // caramelos de Halloween de esta partida
   int8_t skin = -1;             // disfraz (índice de kSkins; -1 ninguno)
+  bool aura = false;            // aura de maestro (maestría completa con su Pokémon: sólo se ve)
   // Naturaleza, habilidad y MT (core/mons.h, core/abilities.h): `mon` apunta a
   // mon_buf, su Pokémon con la naturaleza aplicada (y a mega_buf durante la mega).
   int8_t nature = -1;
@@ -438,6 +439,10 @@ struct RunSummary {
   bool victory = false;         // modo rápido: ¡has derrotado a Arceus!
   int win_coins = 0, win_t10 = 0;   // su recompensa
   int candy = 0;                    // caramelos de Halloween
+  // Maestría (core/mastery.h): la de tu Pokémon antes y después, y los premios nuevos (bits de MasteryTier)
+  int16_t m_dex = -1;
+  int32_t m_before = 0, m_after = 0, m_gained = 0;
+  uint8_t m_got = 0;
   int diff_t1 = 0, diff_t10 = 0;    // tickets de más por la dificultad
   int8_t unlocked = -1;             // dificultad desbloqueada al vencer a Eternatus
   bool hw = false;                  // partida de Halloween (el gran Gengar en vez de Arceus)
@@ -474,6 +479,9 @@ struct RunConfig {
   // Halloween (core/halloween.h): la partida es del evento (mapa de noche, caramelos,
   // el gran Gengar). En grupo lo decide el anfitrión.
   uint8_t hw = 0;
+  // Desafío semanal (core/weekly.h): misma semilla y Pokémon para todos esa semana; no suma maestría.
+  uint8_t weekly = 0;
+  bool aura = false;                     // aura de maestro (maestría 100 000 con su Pokémon)
   int8_t skin = -1;                      // disfraz puesto (índice de kSkins; -1 ninguno)
   // Tienda Kecleon (core/mons.h): naturaleza, habilidad y MT aprendidas de tu Pokémon
   // (-1 / 0: ni naturaleza ni habilidad, como antes; las pruebas lo dejan así).
@@ -500,6 +508,7 @@ struct RunConfig {
     bool immortal = false;
     bool test_stone = false;   // pruebas: empieza con su megapiedra puesta
     int8_t skin = -1;          // su disfraz de Halloween (índice de kSkins; -1 ninguno)
+    bool aura = false;         // su aura de maestro
     int8_t nature = -1;        // su naturaleza (kNatures; -1: neutra)
     int16_t abil = -1;         // su habilidad (kAbils; -1: ninguna)
     TmBits taught = {};       // sus MT aprendidas (bit = kTms)
@@ -537,6 +546,7 @@ struct Game {
   // noche; si no, los de siempre (que van turnándose con los de las arenas, como la web).
   int run_biome(int i) const { i = i < 0 ? 0 : i; return hw ? kBiomeHw + i % 3 : i % kBiomeHw; }
   int candy_dropped = 0;        // caramelos soltados (los que van con el tiempo: candy_take)
+  int rifts_won = 0;            // legendarios de grieta vencidos en esta partida (maestría)
   int eterna_wins = 0;          // Eternatus vencido en esta partida (stats.eternaWins y la dificultad siguiente)
   int pending_levels = 0;
   Save* save = nullptr;

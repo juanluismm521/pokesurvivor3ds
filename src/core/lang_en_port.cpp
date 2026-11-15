@@ -1063,6 +1063,16 @@ const Tr kLangEnPort[] = {
     {"¡Muchas gracias!", "Thank you very much!"},
     {"¡Robustez!", "Sturdy!"},
     {"¡{x} ha aprendido {x}!", "{x} learned {x}!"},
+    // Maestría (core/mastery.h)
+    {"Maestría", "Mastery"},
+    {"Maestría de %s", "%s mastery"},
+    {"Foto de maestría", "Mastery picture"}, {"Título de maestro", "Master title"}, {"Marco de maestría", "Mastery frame"}, {"Aura de maestro", "Master aura"},
+    {"Foto de maestría de %s", "%s mastery picture"},
+    {"Título «Maestro de %s»", "\"%s Master\" title"}, {"Título «Maestro de {x}»", "\"{x} Master\" title"},
+    {"Marco de maestría de %s", "%s mastery frame"},
+    {"Aura de maestro para %s", "Master aura for %s"},
+    {"%s: +%d · %d · ¡Completa!", "%s: +%d · %d · Complete!"}, {"{x}: +{x} · {x} · ¡Completa!", "{x}: +{x} · {x} · Complete!"},
+    {"%d · ¡Completa! Aura de maestro", "%d · Complete! Master aura"}, {"{x} · ¡Completa! Aura de maestro", "{x} · Complete! Master aura"},
 };
 const int kLangEnPortCount = int(sizeof(kLangEnPort) / sizeof(kLangEnPort[0]));
 

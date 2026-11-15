@@ -88,6 +88,7 @@ RunConfig::Member App::my_member() const {
   m.test_stone = autotest && auto_mega;
   // Su disfraz de Halloween (pruebas: «disfraz» en el autotest, si lo tiene).
   m.skin = int8_t(autotest ? (auto_skin ? skin_for_dex(m.dex) : -1) : skin_worn(*s_, m.dex));
+  m.aura = autotest ? auto_aura : mastery_has(s_->mastery[m.dex], MT_AURA);
   // Su naturaleza, habilidad y MT (core/mons.h): todas las consolas simulan las de todos.
   m.nature = int8_t(autotest ? auto_nature : nature_of(*s_, m.dex));
   m.abil = int16_t(autotest ? auto_abil : abil_of(*s_, m.dex).id);

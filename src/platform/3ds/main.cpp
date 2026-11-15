@@ -93,6 +93,7 @@ struct Autotest {
   bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra una MT y una Menta y enseña la Mochila (capturas)
   bool ficha_demo = false;    // "ficha": la ficha de tu compañero: naturaleza, habilidad y MT (capturas)
   char abil[40] = "", nature[16] = "";   // "… habilidad=static naturaleza=bold": las de la partida
+  bool aura = false;          // "… aura": con el aura de maestro (maestría completa)
   bool skin = false;          // "… disfraz": el compañero con su disfraz de Halloween           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
   bool gacha100 = false;      // "gacha100": tirada ×100 y su resumen (capturas)
@@ -185,6 +186,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "halloween")) a.hw = 1;
       else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
       else if (!std::strcmp(w, "disfraz")) a.skin = true;
+      else if (!std::strcmp(w, "aura")) a.aura = true;
       else if (!std::strcmp(w, "arranque")) a.boot = true;
       else return false;
       return true;
@@ -201,6 +203,7 @@ void read_autotest(Autotest& a) {
     else if (!std::strcmp(w, "halloween")) a.hw = 1;
     else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
     else if (!std::strcmp(w, "disfraz")) a.skin = true;
+    else if (!std::strcmp(w, "aura")) a.aura = true;
   }
   std::fclose(f);
   std::snprintf(path, sizeof(path), "%s/autotest.log", kDir);
@@ -520,6 +523,7 @@ int main(int argc, char** argv) {
     app.auto_win = at.win;
     app.auto_real = at.real;
     app.auto_skin = at.skin;
+    app.auto_aura = at.aura;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
     app.auto_coop_time = int(at.warp);
@@ -546,6 +550,7 @@ int main(int argc, char** argv) {
     app.auto_mode = at.quick ? 1 : 0;
     app.auto_win = at.win;
     app.auto_skin = at.skin;
+    app.auto_aura = at.aura;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;
