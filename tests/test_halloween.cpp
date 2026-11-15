@@ -324,13 +324,13 @@ TEST_CASE("halloween: banner Noche Espectral (Fantasma de todas las regiones, sh
   CHECK(s->pity[kGachaSpooky] < kPity5);
 }
 
-TEST_CASE("4 cartas: con 8 movimientos o desde el nivel 25, y al menos 2 pasivas (3 desde el 40)") {
+TEST_CASE("4 cartas siempre (web 13-11); con la mejora, desde el nivel 25 o con 8 movimientos, al menos 2 pasivas (3 desde el 40)") {
   for (uint32_t seed = 1; seed <= 30; ++seed) {
     auto g = run(false, seed, 25);
     Player& p = g->players[0];
     p.level = kFourLevel;
     levelup_offer(*g, p);
-    CHECK(p.ncards == 3);                         // (sin la mejora, 3 como siempre)
+    CHECK(p.ncards == 4);                         // (sin la mejora, también 4: como la web)
     p.four_up = true;
     levelup_offer(*g, p);
     REQUIRE(p.ncards == 4);

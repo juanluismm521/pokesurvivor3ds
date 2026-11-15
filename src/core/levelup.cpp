@@ -127,13 +127,13 @@ int candidates(Game& g, Player& p, Cand* out) {
 bool levelup_four(const Player& p) { return p.four_up && (p.nmoves >= kFourMoves || p.level >= kFourLevel); }
 int levelup_min_passive(const Player& p) { return !levelup_four(p) ? 0 : p.level >= kMorePassiveLevel ? 3 : 2; }
 
-// 3 cartas distintas (o 4: levelup_four), elegidas por peso. Si hay una evolución
+// 4 cartas distintas (web, 13-11-2026: antes 3; el port ya daba 4 con su mejora), elegidas por peso. Si hay una evolución
 // lista, sale siempre. Con 4, primero las pasivas que tocan y luego el resto.
 void levelup_offer(Game& g, Player& p) {
   Cand pool[kMaxMoves + 32];   // movimientos nuevos + mejoras + estadísticas
   int n = candidates(g, p, pool);
   p.ncards = 0;
-  const int want = levelup_four(p) ? 4 : 3;
+  const int want = 4;
   int need_stat = levelup_min_passive(p);
   int used[4], nu = 0;
   for (int i = 0; i < n; ++i) {
@@ -170,9 +170,9 @@ void levelup_offer(Game& g, Player& p) {
     if (c.c.type == CT_STAT && need_stat > 0) need_stat--;
   }
   // La primera vez, se explica (sólo a quien juega en esta consola).
-  if (want == 4 && !p.four_told) {
+  if (levelup_four(p) && !p.four_told) {
     p.four_told = true;
-    if (&p == &g.players[g.local]) g.say("¡Ahora eliges entre 4 cartas! Al menos 2 son pasivas: poder, velocidad, defensa, recarga…", 5);
+    if (&p == &g.players[g.local]) g.say("¡Más pasivas! Desde ahora, al menos 2 de las 4 cartas son pasivas: poder, velocidad, defensa, recarga…", 5);
   }
 }
 

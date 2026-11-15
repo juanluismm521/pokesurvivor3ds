@@ -1730,7 +1730,7 @@ void App::in_upgrades(const UiIn& in) {
         save_now();
         char b[96];
         std::snprintf(b, sizeof(b), "%s · Más pasivas a niveles altos", mon_by_dex(up_dex_)->name);
-        g_notices.push(b, "Desde el nivel 25: 4 cartas, al menos 2 pasivas", -1);
+        g_notices.push(b, "Desde el nivel 25: al menos 2 cartas pasivas de 4", -1);
       }
       return;
     }
@@ -1866,7 +1866,7 @@ void App::bottom_upgrades() {
       const int ic = r_->ui_icon[13];   // (cartas)
       if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), 10, y + 1, 0, nullptr, 2, 2);
       r_->text_fit("Más pasivas a niveles altos", 38, y + 1, 228, 0.38f, C_TEXT, true);   // (largo: hasta el precio)
-      r_->text_fit("Nivel 25: 4 cartas, 2 pasivas", 38, y + 13, 168, 0.28f, C_MUTED);
+      r_->text_fit("Nivel 25: 2 de 4 cartas, pasivas", 38, y + 13, 168, 0.28f, C_MUTED);
       C2D_DrawRectSolid(210, y + 18, 0, 4, 4, got ? C_GOLD : C2D_Color32(60, 70, 96, 255));
       if (got) r_->text("Máx.", 308, y + 4, 0.36f, C_MUTED, 2);
       else {
@@ -2522,7 +2522,7 @@ void App::draw_top(float eye) {
         }
         if (scene == SC_UPGRADES && cur_ < UP_COUNT) r_->text_wrap(kUpgrades[cur_].unit, 200, 44, 0.42f, C_GOLD, 340, 1);
         else if (scene == SC_UPGRADES && cur_ == four_row())
-          r_->text_wrap("Desde el nivel 25 (o con 8 movimientos) eliges entre 4 cartas, y al menos 2 son pasivas: poder, velocidad, defensa, recarga… Desde el 40, al menos 3.",
+          r_->text_wrap("Desde el nivel 25 (o con 8 movimientos), al menos 2 de las 4 cartas son pasivas: poder, velocidad, defensa, recarga… Desde el 40, al menos 3.",
                         200, 40, 0.38f, C_GOLD, 360, 1);
         else if (scene == SC_UPGRADES && cur_ == UP_COUNT && has_mega(up_dex_)) {
           // (sus megas: con dos, X e Y o normal y Z)

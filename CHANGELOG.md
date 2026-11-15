@@ -45,6 +45,9 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   jefes aguantan según el minuto de la partida, los jefes llegan en los minutos 2, 6, 10, 14 y
   18, las mejoras de nivel se suman en vez de multiplicarse, las mejoras permanentes dan menos
   y un golpe nunca te quita más del 30 % de la vida.
+- **Siempre 4 cartas al subir de nivel**, como en la web (antes 3). La mejora del port «Más
+  pasivas a niveles altos» se queda con lo suyo: desde el nivel 25 (o con 8 movimientos) al menos
+  2 de las 4 son pasivas, y desde el 40, al menos 3.
 - **Cartas de nivel nuevas:** Ojo Crítico, Golpe Brutal, Cazador (más daño a jefes), Esquiva,
   Racha de suerte, Bolsa de monedas y Poder rápido (menos recarga de la megaevolución).
 - **Vínculos:** los movimientos unidos ya no pegan cada uno entero: entre todos hacen ×1,6

@@ -1073,6 +1073,12 @@ const Tr kLangEnPort[] = {
     {"Aura de maestro para %s", "Master aura for %s"},
     {"%s: +%d · %d · ¡Completa!", "%s: +%d · %d · Complete!"}, {"{x}: +{x} · {x} · ¡Completa!", "{x}: +{x} · {x} · Complete!"},
     {"%d · ¡Completa! Aura de maestro", "%d · Complete! Master aura"}, {"{x} · ¡Completa! Aura de maestro", "{x} · Complete! Master aura"},
+    // 4 cartas para todos (web, 13-11-2026): la mejora del port asegura las pasivas
+    {"¡Nivel %d! Elige una mejora (%d pasivas)", "Level %d! Choose an upgrade (%d passive)"}, {"¡Nivel {x}! Elige una mejora ({x} pasivas)", "Level {x}! Choose an upgrade ({x} passive)"},
+    {"¡Más pasivas! Desde ahora, al menos 2 de las 4 cartas son pasivas: poder, velocidad, defensa, recarga…", "More passives! From now on, at least 2 of the 4 cards are passive: power, speed, defense, cooldown…"},
+    {"Desde el nivel 25: al menos 2 cartas pasivas de 4", "From level 25: at least 2 passive cards out of 4"},
+    {"Nivel 25: 2 de 4 cartas, pasivas", "Level 25: 2 of 4 cards passive"},
+    {"Desde el nivel 25 (o con 8 movimientos), al menos 2 de las 4 cartas son pasivas: poder, velocidad, defensa, recarga… Desde el 40, al menos 3.", "From level 25 (or with 8 moves), at least 2 of the 4 cards are passive: power, speed, defense, cooldown… From level 40, at least 3."},
     // Desafío semanal (core/weekly.h)
     {"Desafío semanal", "Weekly challenge"}, {"DESAFÍO SEMANAL", "WEEKLY CHALLENGE"},
     {"Desafío semanal: %s", "Weekly challenge: %s"}, {"Desafío semanal: {x}", "Weekly challenge: {x}"},

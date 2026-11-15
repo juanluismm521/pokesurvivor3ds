@@ -1543,7 +1543,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text(names, 160, 116, 0.4f, rgb(0xeaf2ff), 1);
   } else if (g.state == ST_LEVELUP) {
     const bool four = p.ncards > 3;
-    if (four) std::snprintf(b, sizeof(b), "¡Nivel %d! 4 cartas (%d pasivas)", p.level, levelup_min_passive(p));
+    if (levelup_min_passive(p) > 0) std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora (%d pasivas)", p.level, levelup_min_passive(p));
     else std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora", p.level);
     text_fit(b, 160, four ? 68 : 74, 300, four ? 0.44f : 0.5f, rgb(0xffcb3d), true, 1);
     const float ch = card_h(p.ncards);
