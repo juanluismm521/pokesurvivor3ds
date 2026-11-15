@@ -47,6 +47,7 @@ struct Bot {
     }
     if (g.state == ST_CHOICE) {
       if (me.choice == CH_ITEM) { in.cmd = CMD_ITEM; in.arg = rng.next() < 0.5f ? 1 : 0; }
+      if (me.choice == CH_EVO) { in.cmd = CMD_EVO; in.arg = int8_t(rng.next() * (me.evo_nopts + 1)); }
       else if (me.choice == CH_BOND) {
         int8_t loose[4]; int nl, grow;
         const int mode = player_bond_options(me, loose, nl, grow);

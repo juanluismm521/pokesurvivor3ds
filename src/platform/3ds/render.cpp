@@ -4,6 +4,7 @@
 //   Abajo (320×240, táctil): vida, nivel, reloj, movimientos y las elecciones
 //   (cartas de nivel, objeto, vínculo), pausa y resumen.
 #include "platform/3ds/render.h"
+#include "core/evo.h"
 #include "core/abilities.h"
 #include "core/mons.h"
 #include "core/stats.h"
@@ -136,6 +137,18 @@ void Renderer::preload_run(Game& g) {
     for (int s = 0; s < 2; ++s) {
       const int k = mega_index(p.dex, s);
       if (k >= 0 && kMegas[k].own_sprite) sprites.get(kMegas[k].sprite, p.shiny && has_shiny(kMegas[k].sprite));
+    }
+  }
+  // A lo que pueden evolucionar en la partida (core/evo.h): para que la elección y el cambio no esperen.
+  for (int i = 0; i < g.nplayers; ++i) {
+    const Player& p = g.players[i];
+    if (!p.active) continue;
+    int16_t a[8], b[8];
+    const int na = evo_next(p.dex, a, 8);
+    for (int k = 0; k < na && k < 4; ++k) {
+      sprites.get(a[k], p.shiny && has_shiny(a[k]));
+      const int nb = evo_next(a[k], b, 8);
+      for (int q = 0; q < nb && q < 2; ++q) sprites.get(b[q], p.shiny && has_shiny(b[q]));
     }
   }
   for (int t = 0; t < g.ncast; ++t)
@@ -1407,6 +1420,44 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       text_fit2(item_desc(it, p.dex), 54, y + 22, 250, 0.32f, rgb(0xb7c4dc));
     }
     text("A: quedarte con el elegido", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
+  } else if (g.state == ST_CHOICE && p.choice == CH_EVO) {
+    // ¿Evolucionar? Cada opción con su sprite y sus tipos; la última, mantener su aspecto.
+    std::snprintf(b, sizeof(b), tr("¡%s puede evolucionar!"), mon_by_dex(p.dex)->name);
+    text_fit(b, 160, 40, 300, 0.5f, rgb(0xffe14d), true, 1);
+    text_fit(tr("Sus stats suben igual. Si evoluciona, cambian su aspecto y sus tipos."), 160, 56, 300, 0.32f, rgb(0xb7c4dc), false, 1);
+    const int nc = p.evo_nopts + 1;
+    const float ch = evo_card_h(nc);
+    static Animator an[4];
+    for (int i = 0; i < nc; ++i) {
+      const bool keep = i == p.evo_nopts;
+      const int dex = keep ? p.dex : p.evo_opts[i];
+      const Mon& m = *mon_by_dex(dex);
+      const float y = kEvoTop + i * ch;
+      const bool sel = i == card_cursor;
+      if (sel) C2D_DrawRectSolid(8, y - 1, 0, 304, ch - 2, rgb(keep ? 0x8fa3c4 : 0xffd23f));
+      C2D_DrawRectSolid(10, y + 1, 0, 300, ch - 6, sel ? C2D_Color32(58, 64, 96, 255) : C2D_Color32(30, 40, 62, 255));
+      if (an[i].dex != dex) an[i].init(dex, 1, p.shiny && has_shiny(dex));
+      an[i].update(1);
+      draw_sprite(an[i], 34, y + ch - 10, 0, 1);
+      if (keep) std::snprintf(b, sizeof(b), "%s", tr("Mantener su aspecto"));
+      else std::snprintf(b, sizeof(b), tr("Evolucionar a %s"), m.name);
+      text_fit(b, 64, y + 4, 240, 0.44f, C2D_Color32(240, 244, 255, 255), true);
+      // Sus tipos (si evoluciona) y lo que sube.
+      float tx = 64;
+      if (!keep) for (int k = 0; k < 2; ++k) if (m.types[k] >= 0) {
+        const char* tn = tr(kTypeName[m.types[k]]);
+        const float w = text_width(tn, 0.3f) + 8;
+        C2D_DrawRectSolid(tx, y + 19, 0, w, 10, rgb(kTypeColor[m.types[k]]));
+        text(tn, tx + w / 2, y + 19, 0.3f, C2D_Color32(255, 255, 255, 255), 1, false);
+        tx += w + 3;
+      }
+      if (keep) text_fit(tr("Sigue igual, con la fuerza de su evolución."), 64, y + 19, 240, 0.3f, rgb(0xb7c4dc));
+      else if (ch >= 46) {
+        std::snprintf(b, sizeof(b), "Vida %d · Ataque %d · Velocidad %d", int(m.hp), int(std::lround(m.atk * 100)), int(m.spd));
+        text_fit(tr(b), 64, y + 31, 240, 0.3f, rgb(0xb7c4dc));
+      }
+    }
+    text(tr("A: elegir"), 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_CHOICE && p.choice == CH_BOND) {
     int8_t loose[4]; int nl, grow;
     const int mode = player_bond_options(p, loose, nl, grow);

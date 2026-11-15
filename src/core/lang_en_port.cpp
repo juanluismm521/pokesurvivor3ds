@@ -14,7 +14,13 @@ namespace ps {
 
 const Tr kLangEnPort[] = {
     // ---------------- iguales en inglés (para que no se toquen a trozos) ----------------
-    {"Surf", "Surf"}, {"-1% recarga", "-1% cooldown"}, {"-5% de recarga en todos los movimientos.", "-5% cooldown on all moves."},
+    {"Surf", "Surf"}, {"¡%s puede evolucionar!", "%s can evolve!"},
+    {"Sus stats suben igual. Si evoluciona, cambian su aspecto y sus tipos.", "Its stats go up either way. If it evolves, its look and types change."},
+    {"Mantener su aspecto", "Keep its look"}, {"Evolucionar a %s", "Evolve into %s"},
+    {"Sigue igual, con la fuerza de su evolución.", "It stays as it is, with its evolution's strength."},
+    {"Vida {x} · Ataque {x} · Velocidad {x}", "HP {x} · Attack {x} · Speed {x}"}, {"A: elegir", "A: choose"},
+    {"¡{x} se hace más fuerte!", "{x} gets stronger!"}, {"¡{x} ha evolucionado en {x}!", "{x} evolved into {x}!"},
+    {"{x} mantiene su aspecto y se hace más fuerte", "{x} keeps its look and gets stronger"}, {"-1% recarga", "-1% cooldown"}, {"-5% de recarga en todos los movimientos.", "-5% cooldown on all moves."},
     {"Normal", "Normal"}, {"Todas", "All"}, {"Todas las regiones", "All regions"}, {"Pokémon", "Pokémon"}, {"Gacha", "Gacha"}, {"Shiny", "Shiny"}, {"shiny", "shiny"},
     {"PokéSurvivor", "PokéSurvivor"}, {"PokéSurvivor 3DS", "PokéSurvivor 3DS"}, {"Auto", "Auto"}, {"No", "No"},
     {"English", "English"}, {"Español", "Español"}, {"New 3DS", "New 3DS"}, {"Arceus", "Arceus"}, {"Pokédex", "Pokédex"},

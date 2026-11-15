@@ -1,6 +1,7 @@
 // game.cpp — flujo de la partida y paso principal (game.js de la web).
 //   estados: ui (menús), playing, levelup, paused, choice (objeto o vínculo), over
 #include "core/game.h"
+#include "core/evo.h"
 #include "core/halloween.h"
 #include "core/orbs.h"
 
@@ -641,6 +642,7 @@ static void apply_cmd(Game& g, int i, const Input& in) {
     case CMD_QUIT: g.leave(i); break;
     case CMD_MEGA: mega_start(g, p); break;
     case CMD_ORB: orb_use(g, p, in.arg); break;
+    case CMD_EVO: evo_choose(g, p, in.arg); break;
     default: break;
   }
 }
@@ -763,6 +765,9 @@ void Game::step(const Input* inputs) {
   if (state != ST_PLAYING && state != ST_CHOICE) return;
   music = int8_t(judgment_active(*this) ? int(MU_JUDGMENT) : rift.arena ? int(MU_RIFT) : boss_alive() ? int(MU_BOSS) : int(MU_FOREST) + biome % 3);
   maybe_level_up(*this);
+  // Evolución en plena partida (core/evo.h): cuando ya no quedan cartas por elegir.
+  if (state == ST_PLAYING && pending_levels <= 0 && !rift.arena && !judgment_cinematic(*this))
+    for (int i = 0; i < nplayers; ++i) if (players[i].active) evo_update(*this, players[i]);
   for (int i = 0; i < nplayers; ++i) if (players[i].active && players[i].bonds > 0) offer_bond(*this, players[i]);
 }
 

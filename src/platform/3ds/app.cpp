@@ -754,6 +754,15 @@ void App::in_run(const UiIn& in) {
     if (in.rep & (KEY_DUP | KEY_DDOWN)) r_->card_cursor ^= 1;
     if (in.tap && in.ty >= 96 && in.ty < 204) { r_->card_cursor = (in.ty - 96) / 54; gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; }
     else if (in.down & KEY_A) { gi.cmd = CMD_ITEM; gi.arg = r_->card_cursor == 1; }
+  } else if (g.state == ST_CHOICE && me.choice == CH_EVO) {
+    // ¿Evolucionar? (core/evo.h) Una carta por opción y la última, mantener su aspecto.
+    const int nc = me.evo_nopts + 1;
+    if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + nc - 1) % nc;
+    if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % nc;
+    const float ch = Renderer::evo_card_h(nc);
+    const bool touched = in.tap && in.ty >= Renderer::kEvoTop && in.ty < Renderer::kEvoTop + ch * nc;
+    if (touched) r_->card_cursor = clamp(int((in.ty - Renderer::kEvoTop) / ch), 0, nc - 1);
+    if (touched || (in.down & KEY_A)) { gi.cmd = CMD_EVO; gi.arg = int8_t(clamp(r_->card_cursor, 0, nc - 1)); }
   } else if (g.state == ST_CHOICE && me.choice == CH_BOND) {
     int8_t loose[4]; int nl, grow;
     const int mode = player_bond_options(me, loose, nl, grow);

@@ -43,7 +43,7 @@ constexpr int kMaxHazards = 160;
 // Órdenes de la interfaz. Todo lo que cambia la partida entra como orden en
 // la entrada del jugador (y no llamando al juego desde la interfaz): así, en
 // el cooperativo, basta con mandar las entradas de cada paso.
-enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA, CMD_ORB };   // (CMD_ORB: arg = hueco)
+enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA, CMD_ORB, CMD_EVO };   // (CMD_ORB: arg = hueco · CMD_EVO: arg = opción)
 
 struct Input {
   float ax = 0, ay = 0;     // movimiento (-1..1), ya normalizado si hace falta
@@ -80,7 +80,7 @@ struct Card {
 };
 
 // Elección que tiene abierta un jugador (la partida se para para todos).
-enum Choice : int8_t { CH_NONE, CH_ITEM, CH_BOND };
+enum Choice : int8_t { CH_NONE, CH_ITEM, CH_BOND, CH_EVO };
 
 struct Player {
   bool active = false;
@@ -158,6 +158,18 @@ struct Player {
   float guard_t = 0, rest_t = 0, zzz_t = 0;
   float screen_t[2] = {}, screen_k[2] = {};
   float dodge = 0, crit_dmg = 0, boss_mul = 1, power_cd = 1;
+  // Evolución en plena partida (core/evo.h): con quién empezó, su línea, la etapa, de quién
+  // tiene ahora los stats y, mientras eliges (choice == CH_EVO), las opciones.
+  int16_t start_dex = 0;
+  bool start_shiny = false;
+  int16_t evo_line[4] = {};
+  int8_t evo_nline = 0, evo_stage = 0;
+  int16_t evo_stat[8] = {};
+  int8_t evo_nstat = 0;
+  bool evo_half = false, evo_solo = false, evo_pending_half = false;
+  int16_t evo_lv_prev = 0;
+  int16_t evo_opts[3] = {}, evo_all[8] = {};
+  int8_t evo_nopts = 0, evo_nall = 0;
   int8_t item = IT_NONE;
   float sash_t = -999;          // (segundos de partida)
   float bell_heal = 0;

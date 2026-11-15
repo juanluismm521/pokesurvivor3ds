@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "core/abilities.h"
+#include "core/evo.h"
 #include "core/game.h"
 #include "core/mons.h"
 #include "core/orbs.h"
@@ -55,6 +56,8 @@ void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) 
   p.four_up = cfg.four_up;
   for (auto& b : p.bind) b = -1;
   for (int s = 0; s < 4; ++s) for (int j = 0; j < 4; ++j) p.slots[s][j] = -1;
+  // Empieza con los stats del primero de su línea (core/evo.h); antes de la habilidad, que los usa.
+  evo_begin(g, p);
   // Su habilidad (abilities.h): lo que hace al empezar, con las mejoras ya puestas.
   abil_setup(g, p, cfg.abil);
 }

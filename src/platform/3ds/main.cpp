@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "core/game.h"
+#include "core/evo.h"
 #include "core/i18n.h"
 #include "core/save_io.h"
 #include "core/settings.h"
@@ -358,11 +359,21 @@ int main(int argc, char** argv) {
     p.cards[0] = Card(); p.cards[0].type = CT_NEW; p.cards[0].move = int16_t(longest);
     p.cards[1] = Card(); p.cards[1].type = CT_UP; p.cards[1].move = 0;
     p.cards[2] = Card(); p.cards[2].type = CT_STAT; p.cards[2].stat = LS_DEF;
-    for (int k = 0; k < 3 && aptMainLoop(); ++k) {
-      if (k == 0) { g->state = ST_LEVELUP; p.picked = false; }
+    for (int k = 0; k < 5 && aptMainLoop(); ++k) {
+      // (3 y 4: la elección de evolución, con Charmander y con Eevee: core/evo.h)
+      if (k >= 3) {
+        RunConfig c2; c2.dex = k == 3 ? 4 : 133; c2.seed = 2; c2.judged = 1;
+        g->start_run(c2);
+        Player& q = g->players[0];
+        q.level = k == 3 ? 16 : 20;
+        evo_update(*g, q);
+        r.preload_run(*g);
+        r.card_cursor = 0;
+      } else if (k == 0) { g->state = ST_LEVELUP; p.picked = false; }
       else if (k == 1) { p.level = 30; p.four_up = true; levelup_offer(*g, p); g->state = ST_LEVELUP; p.picked = false; }   // (las 4 cartas, con 2 pasivas)
       else { g->state = ST_CHOICE; p.choice = CH_ITEM; p.item_cur = IT_MEGA_A; p.item_next = IT_SHELLBELL; }
       for (int f = 0; f < 240 && aptMainLoop(); ++f) {
+        r.sprites.poll();   // (los sprites de la elección de evolución)
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
         C2D_TargetClear(top, C2D_Color32(16, 22, 34, 255));
         C2D_TargetClear(bottom, C2D_Color32(16, 22, 34, 255));

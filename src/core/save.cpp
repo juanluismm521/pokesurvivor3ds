@@ -75,7 +75,7 @@ void save_end_run(Game& g) {
   s.coins += r.coins;
   // (los tickets ya se guardaron al cogerlos)
   s.stats.runs++;
-  if (pl.dex >= 0 && pl.dex <= kMaxDex) s.pused[pl.dex]++;   // para "más usados" en la colección
+  if (pl.start_dex >= 0 && pl.start_dex <= kMaxDex) s.pused[pl.start_dex]++;   // para "más usados" en la colección
   s.stats.total_kills += pl.kills;
   s.stats.best_time = std::max(s.stats.best_time, int32_t(std::floor(g.time)));
   s.stats.best_level = std::max(s.stats.best_level, int32_t(pl.level));
@@ -84,7 +84,7 @@ void save_end_run(Game& g) {
   // Medalla de Arceus (modo rápido): para el Pokémon con el que le has ganado (en
   // grupo, cada consola la suya) y su premio de tickets ×10.
   if (r.victory) {
-    const int dex = g.players[g.local].dex;
+    const int dex = g.players[g.local].start_dex;   // (con el que empezó, aunque haya evolucionado)
     if (dex >= 1 && dex <= kMaxDex && s.arceus_win[dex] <= 0) s.arceus_win[dex] = g.now_ms > 0 ? g.now_ms : 1;
     s.t10 += r.win_t10;
   }

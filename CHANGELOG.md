@@ -29,6 +29,12 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 - **Modo rápido:** todo llega antes en la misma proporción (y la experiencia también), para
   que siga siendo la misma partida en menos tiempo.
 - 92 MT en la Tienda Kecleon (antes 58); las 8 del día son las mismas para todos.
+- **Evolución en plena partida, a los niveles de los juegos:** Charmander puede evolucionar al
+  16 y Charmeleon al 36 (los que evolucionan con piedra, intercambio o amistad, al 20 y al 40).
+  Eliges evolucionar (cambian su aspecto y sus tipos) o mantener su aspecto: sus stats suben
+  igual. Eevee, entre 3 de sus evoluciones al azar. Todos empiezan con la fuerza del primero de
+  su línea (Charizard, con la de Charmander) y la ganan al subir; los que no evolucionan, al 65 %,
+  y suben en los niveles 20 y 40.
 
 ## 0.50.6 — 2026-11-14
 Sincronización con pokesurvivor.com al día con su Gran Actualización (13-11):

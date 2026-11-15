@@ -66,6 +66,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   g->start_run(cfg);
   Player& p = g->players[0];
   const float hp0 = p.max_hp, spd0 = p.base_spd, atk0 = p.base_atk;
+  const int mhp0 = p.mon->hp;   // (empieza con la fuerza del primero de su línea: core/evo.h)
   CHECK(!mega_ready(p));                // sin la piedra, nada
   player_equip(*g, p, IT_MEGA_A);
   const float am = p.atk_mul, sm = p.spd_mul, cm = p.cd_mul, dr = p.dmg_reduce, rf = p.regen_flat;
@@ -76,7 +77,7 @@ TEST_CASE("megas: megaevolucionar, recarga y volver a la normal") {
   CHECK(p.mon->name == d.mon.name);   // (su copia, con su naturaleza: Player::mega_buf)
   CHECK(p.base_spd == d.mon.spd);
   CHECK(p.base_atk == doctest::Approx(d.mon.atk));
-  CHECK(p.max_hp == doctest::Approx(hp0 + (d.mon.hp - mon_by_dex(94)->hp)));
+  CHECK(p.max_hp == doctest::Approx(hp0 + (d.mon.hp - mhp0)));
   CHECK(p.anim.dex == d.sprite);
   CHECK(p.invuln >= kMegaTransform - 0.01f);
   CHECK(!mega_ready(p));                // ya está
@@ -133,10 +134,9 @@ TEST_CASE("megas: la vida máxima vuelve a la de antes (aunque subas vida en med
   g->start_run(cfg);
   Player& p = g->players[0];
   const float before = p.max_hp;
+  const float dhp = float(kMegas[mega_index(6, 0)].mon.hp - p.mon->hp);
   player_equip(*g, p, IT_MEGA_A);
   mega_start(*g, p);
-  const float dhp = float(kMegas[mega_index(6, 0)].mon.hp - mon_by_dex(6)->hp);
-  CHECK(dhp == 0);
   CHECK(p.max_hp == doctest::Approx(before + dhp));
   player_add_max_hp(p, 20);                     // (una carta de vida en plena mega)
   for (int i = 0; i < int(kMegaTime * 60) + 5; ++i) mega_update(*g, p, 1.0f / 60);

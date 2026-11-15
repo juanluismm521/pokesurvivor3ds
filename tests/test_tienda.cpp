@@ -128,13 +128,14 @@ TEST_CASE("tienda: naturaleza y habilidad elegidas, y lo que cambian") {
   mon_with_nature(*mon_by_dex(25), timid, m);
   CHECK(m.pa == doctest::Approx(mon_by_dex(25)->pa * 0.9));
   CHECK(m.atk == doctest::Approx(std::max(m.pa, m.sa)));
-  // En la partida: la velocidad exacta y el ataque con su naturaleza.
+  // En la partida: la velocidad exacta y el ataque con su naturaleza (empieza con los stats
+  // del primero de su línea, core/evo.h: Pichu y Machop).
   auto g1 = run_with(25, -1, timid), g2 = run_with(25, -1, -1);
-  CHECK(g1->players[0].base_spd == doctest::Approx(mon_by_dex(25)->spd * 1.1));
-  CHECK(g2->players[0].base_spd == doctest::Approx(float(mon_by_dex(25)->spd)));
-  const float pa68 = mon_by_dex(68)->pa;
+  CHECK(g1->players[0].base_spd == doctest::Approx(mon_by_dex(172)->spd * 1.1));
+  CHECK(g2->players[0].base_spd == doctest::Approx(float(mon_by_dex(172)->spd)));
+  const float pa68 = mon_by_dex(68)->pa, pa66 = mon_by_dex(66)->pa;
   auto g3 = run_with(68, -1, adamant);   // Machamp, Firme: más ataque físico
-  CHECK(g3->players[0].mon->pa == doctest::Approx(pa68 * 1.1));
+  CHECK(g3->players[0].mon->pa == doctest::Approx(pa66 * 1.1));
   CHECK(g3->players[0].mon != mon_by_dex(68));   // (su copia: kDex no se toca)
   CHECK(mon_by_dex(68)->pa == pa68);
   // Habilidad: Cápsula a otra de las suyas; la oculta, con la Oculta.
