@@ -34,6 +34,31 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 0.51 · ¡Gran Actualización!", 0, nullptr, nullptr},
+    {nullptr, NI_STAR, "Eternatus Eternamax",
+     "En el minuto 20 (13 en el modo rápido) el cielo se tiñe de rojo: tres fases, núcleos con láseres y el Rayo Eternamax. Si ganas, un poder."},
+    {nullptr, NI_Y, "Poderes con Y",
+     "Al vencer a Eternatus: Megaevolución sin piedra, Dinamax, Pulsera Z o Teracristal para el resto de la partida."},
+    {nullptr, NI_GENGAR, "Legendarios en 3 fases",
+     "Los de la grieta sacan todo su poder a 2/3 y se enfurecen a 1/3. Su ataque definitivo: ¡escóndete detrás de una roca o un árbol!"},
+    {nullptr, NI_HOME, "La Sala del Origen",
+     "La Sentencia, en un salón de mármol entre las nubes. Arceus aprende Hiperrayo, Gravedad, Premonición… y giran las Aspas Doradas."},
+    {nullptr, NI_BOOK, "Los 1025 y formas regionales",
+     "Llegan Miraidon, Zarude, Pecharunt… y 57 formas regionales (Vulpix de Alola, Growlithe de Hisui…). 46 megas con sprite propio."},
+    {nullptr, NI_UP, "Evoluciona en la partida",
+     "A sus niveles de verdad: Charmander al 16, Charmeleon al 36. Tú eliges si cambia de aspecto; sus stats suben igual."},
+    {nullptr, NI_FAST, "Tres dificultades",
+     "Normal, Difícil y Pesadilla, en los dos modos, con más premio. Vence a Eternatus para desbloquear la siguiente."},
+    {nullptr, NI_HEART, "Maestría Pokémon",
+     "Cada partida suma puntos a tu Pokémon: foto, título, marco y el aura de maestro dorada. Se ve en la Colección."},
+    {nullptr, NI_TICKET, "Desafío semanal",
+     "En Jugar: el mismo Pokémon, mapa y condición para todos esa semana. Un intento; aguanta 3 minutos y ganas un ticket ×10."},
+    {nullptr, NI_BOND, "73 ataques nuevos",
+     "Terremoto, Surf, Trueno, Tijera X, Protección, Danza Lluvia… y 39 ataques exclusivos con su carta dorada."},
+    {nullptr, NI_CARDS, "Siempre 4 cartas",
+     "Al subir de nivel eliges entre 4 cartas. Con «Más pasivas a niveles altos», al menos 2 son pasivas desde el nivel 25."},
+    {nullptr, NI_ORB, "Pantalla táctil renovada",
+     "Insignia de nivel, tipos, vida con color, minimapa enmarcado y ataques en tarjetas del color de su tipo."},
     {"Versión 0.50 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
     {nullptr, NI_KECLEON, "Tienda Kecleon",
      "Mentas, Cápsulas Habilidad y 8 MT nuevas cada día, por Pokémonedas. Pulsa R en el menú; lo que compras va a tu Mochila."},
@@ -154,7 +179,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.5.0";
+constexpr const char* kNewsVersion = "0.51.0";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 
