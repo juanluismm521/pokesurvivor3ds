@@ -16,7 +16,8 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 - **Arreglos:** la Tienda Kecleon volvía a enseñar las MT de hoy (con 92 MT se borraba la lista);
   la Pokédex enseña el número de verdad de las formas regionales y las ordena al final de su
   región; las cartas pasivas nuevas (Golpe Brutal, Esquiva, Poder rápido) tienen su icono; las
-  descripciones largas (Protección) ya no se salen de la carta.
+  descripciones largas (Protección) ya no se salen de la carta; en las arenas de Eternatus y de la
+  Sentencia el minimapa dice dónde estás (antes, «Grieta»); Eternatus llega sin tirón.
 - **Pantalla táctil renovada:** insignia de nivel con el color de tu Pokémon, sus tipos, la vida
   en verde, amarillo o rojo según lo que te queda (y latiendo cuando estás en las últimas), el
   reloj en su cápsula, el minimapa enmarcado, los ataques en tarjetas del color de su tipo y las

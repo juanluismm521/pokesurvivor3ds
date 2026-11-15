@@ -142,6 +142,8 @@ void Renderer::preload_run(Game& g) {
       if (k >= 0 && kMegas[k].own_sprite) sprites.get(kMegas[k].sprite, p.shiny && has_shiny(kMegas[k].sprite));
     }
   }
+  // Eternatus Eternamax (su sprite es grande: cargado ya, para que su llegada no dé un tirón)
+  sprites.get(kSpriteEternamax, false);
   // A lo que pueden evolucionar en la partida (core/evo.h): para que la elección y el cambio no esperen.
   for (int i = 0; i < g.nplayers; ++i) {
     const Player& p = g.players[i];
@@ -1884,7 +1886,9 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     corners(MX - 2, MY - 2, MW + 4, MH + 4, rgbf(0xffd23f, 0.85f));
     const u32 strip = C2D_Color32(8, 12, 22, 170);
     C2D_DrawRectangle(MX, MY, 0, MW, 11, C2D_Color32(6, 10, 20, 215), C2D_Color32(6, 10, 20, 215), C2D_Color32(6, 10, 20, 140), C2D_Color32(6, 10, 20, 140));
-    text(g.world.biome_name(), MX + 3, MY + 1, 0.32f, rgb(0xb7c4dc), 0, false);
+    // (en las arenas de Eternatus y de la Sentencia, su nombre: el bioma de debajo es el de la grieta)
+    text(g.eterna.st != 0 ? "Arena de Eternatus" : judgment_active(g) ? "Sala del Origen" : g.world.biome_name(), MX + 3, MY + 1, 0.32f,
+         rgb(g.eterna.st != 0 ? 0xff6a8a : judgment_active(g) ? 0xffd25e : 0xb7c4dc), 0, false);
     if (g.time < 8 && legend_t <= 0) text("Toca el mapa: qué es cada cosa", MX + MW - 3, MY + 1, 0.32f, rgb(0x9ae6ff), 2, false);
     else {
       if (g.hw) std::snprintf(b, sizeof(b), "%d derrotados · %d monedas · %d caramelos", p.kills, p.coins, p.candy);

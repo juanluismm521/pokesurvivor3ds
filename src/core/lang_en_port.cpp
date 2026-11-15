@@ -1085,6 +1085,7 @@ const Tr kLangEnPort[] = {
     {"Quedarte tu megapiedra", "Keep your Mega Stone"},
     {"Sigues con tu megapiedra y su megaevolución se recarga 5 s antes.", "You keep your Mega Stone and its Mega Evolution recharges 5 s sooner."},
     {"Te quedas tu megapiedra: su megaevolución recarga 5 s antes", "You keep your Mega Stone: its Mega Evolution recharges 5 s sooner"},
+    {"Arena de Eternatus", "Eternatus arena"}, {"Sala del Origen", "Hall of Origin"},
     // Novedades de la 0.51
     {"Versión 0.51 · ¡Gran Actualización!", "Version 0.51 · Big Update!"},
     {"Eternatus Eternamax", "Eternamax Eternatus"},
