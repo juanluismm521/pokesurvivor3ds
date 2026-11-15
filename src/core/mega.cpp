@@ -75,7 +75,7 @@ int mega_stone_for(Game& g, const Player& p, int id) {
 
 bool mega_ready(const Player& p) {
   // (con el poder Megaevolución de Eternatus, sin piedra: la primera mega de su Pokémon)
-  if (p.power_mega) return !p.dead && p.mega < 0 && mega_index(p.dex, 0) >= 0;
+  if (p.power_mega) return !p.dead && p.mega < 0 && mega_index(p.dex, p.power_mega_slot) >= 0;
   return !p.dead && p.mega < 0 && p.mega_cd <= 0 && is_mega_stone(p.item) && mega_index(p.dex, p.item - IT_MEGA_A) >= 0;
 }
 
@@ -103,7 +103,7 @@ MegaBoost mega_boost(int k) {
 
 void mega_start(Game& g, Player& p) {
   if (!mega_ready(p) || (g.state != ST_PLAYING && g.state != ST_CHOICE)) return;
-  const int k = mega_index(p.dex, p.power_mega ? 0 : p.item - IT_MEGA_A);
+  const int k = mega_index(p.dex, p.power_mega ? p.power_mega_slot : p.item - IT_MEGA_A);
   const MegaDef& d = kMegas[k];
   const MegaBoost mb = mega_boost(k);
   p.mega = int8_t(k);

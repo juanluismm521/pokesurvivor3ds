@@ -949,11 +949,28 @@ void Renderer::draw_top(Game& g, float eye) {
         }
         if (p.power.def >= 0 && !p.dead)
           dot_ring(x, y, r * 2.1f, r * 0.85f, 2, rgbf(kPowers[p.power.def].color, 0.35f + std::sin(now * 8.3f) * 0.15f));
+        const float bh_s = p.body_h * 0.5f;   // (su alto en la pantalla: el mundo va a la mitad)
+        // Poderes de Eternatus en marcha (core/power.h): lo que se ve a sus pies, detrás del sprite
+        const bool pw_on = p.power_on && !p.dead;
+        if (pw_on && p.epower == PWK_DYNA) {   // Dinamax: aura roja enorme que late
+          const float pu = 0.5f + 0.5f * std::sin(now * 4);
+          ellipse(x, y, r * (3.2f + pu * 0.5f), r * (1.2f + pu * 0.2f), rgbf(0xff2a4a, 0.28f));
+          ellipse(x, y - bh_s * 0.5f, r * 2.6f, bh_s * 0.62f, rgbf(0xff3a5a, 0.10f + pu * 0.06f));
+          dot_ring(x, y, r * (3.4f + pu * 0.5f), r * (1.3f + pu * 0.2f), 2, rgbf(0xff6a80, 0.7f));
+        } else if (pw_on && p.epower == PWK_Z) {   // Pulsera Z: anillo dorado que gira
+          const float pu = 0.5f + 0.5f * std::sin(now * 6);
+          ellipse(x, y, r * 2.4f, r * 0.9f, rgbf(0xffd23f, 0.22f + pu * 0.1f));
+          dot_ring(x, y, r * 2.6f, r * 1.0f, 2, rgbf(0xffe680, 0.85f), now * 3, now * 3 + kTau * 0.8f);
+        } else if (pw_on && p.epower == PWK_TERA) {   // Teracristal: brillo de cristal del color de su tipo
+          const uint32_t tc = p.mon && p.mon->types[0] >= 0 ? kTypeColor[p.mon->types[0]] : 0x7fe8ff;
+          ellipse(x, y, r * 2.4f, r * 0.9f, rgbf(mix(tc, 0xffffff, 0.4f), 0.3f));
+          ellipse(x, y - bh_s * 0.5f, r * 2.0f, bh_s * 0.6f, rgbf(mix(tc, 0xbff4ff, 0.5f), 0.14f));
+        }
         // Aura de maestro (maestría completa con este Pokémon): un brillo dorado que late a sus pies
         if (p.aura && !p.dead) {
           const float pu = 0.5f + 0.5f * std::sin(now * 3.1f);
           ellipse(x, y, r * (2.1f + pu * 0.3f), r * (0.8f + pu * 0.12f), rgbf(0xffd23f, 0.18f + pu * 0.1f));
-          ellipse(x, y - p.body_h * 0.45f, r * 1.7f, p.body_h * 0.55f, rgbf(0xffe680, 0.07f + pu * 0.05f));
+          ellipse(x, y - bh_s * 0.45f, r * 1.7f, bh_s * 0.55f, rgbf(0xffe680, 0.07f + pu * 0.05f));
         }
         const float alpha = p.invuln > 0 && !p.dead ? (int(std::floor(p.invuln * 18)) % 2 ? 0.45f : 1) : 1;
         // Transformándose: el Pokémon en blanco brillante.
@@ -964,11 +981,37 @@ void Renderer::draw_top(Game& g, float eye) {
           a.shiny = p.anim.shiny && has_shiny(a.dex);
           draw_sprite(a, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
         } else draw_sprite(p.anim, x, y, p.mega_tf > 0 ? 1 : p.flash > 0 ? 2 : 0, alpha);
+        // Poderes, por encima del sprite: las nubes del Dinamax y la corona de cristal del Teracristal
+        if (pw_on && p.epower == PWK_DYNA) {
+          const float hy = y - bh_s - 6;
+          for (int q = 0; q < 6; ++q) {   // (nubes rojas que giran sobre su cabeza)
+            const float a = now * 1.6f + q * kTau / 6;
+            const float cx = x + std::cos(a) * r * 2.2f, cy = hy + std::sin(a) * 5;
+            C2D_DrawCircleSolid(cx, cy, 0, 5 + (q % 2) * 1.5f, rgbf(0xb01030, 0.85f));
+            C2D_DrawCircleSolid(cx - 1, cy - 1, 0, 3 + (q % 2), rgbf(0xff5a70, 0.85f));
+          }
+        } else if (pw_on && p.epower == PWK_TERA) {
+          const uint32_t tc = p.mon && p.mon->types[0] >= 0 ? kTypeColor[p.mon->types[0]] : 0x7fe8ff;
+          const float hy = y - bh_s - 4 + std::sin(now * 3) * 1.5f;
+          // Corona: cinco cristales en abanico (el del centro, el más alto), con su brillo
+          for (int q = -2; q <= 2; ++q) {
+            const float cx = x + q * 6, h = q == 0 ? 14.0f : std::abs(q) == 1 ? 10.0f : 7.0f, w = 3.5f;
+            const u32 c1 = rgb(mix(tc, 0xffffff, 0.25f)), c2 = rgb(mix(tc, 0x000000, 0.2f));
+            C2D_DrawTriangle(cx - w, hy, c1, cx + w, hy, c2, cx, hy - h, rgb(0xffffff), 0);
+            C2D_DrawTriangle(cx - w, hy, c2, cx + w, hy, c1, cx, hy + 3, c2, 0);
+          }
+          for (int q = 0; q < 6; ++q) {   // (destellos de cristal)
+            const float a = now * 2 + q * kTau / 6, al = 0.5f + 0.5f * std::sin(now * 7 + q);
+            const float sx = x + std::cos(a) * r * 1.8f, sy = y - bh_s * 0.5f + std::sin(a) * bh_s * 0.45f;
+            C2D_DrawRectSolid(sx - 2, sy - 0.5f, 0, 4, 1, rgbf(0xffffff, al));
+            C2D_DrawRectSolid(sx - 0.5f, sy - 2, 0, 1, 4, rgbf(0xffffff, al));
+          }
+        }
         // …y destellos dorados que suben (web: Aura.masterEmit)
         if (p.aura && !p.dead) {
           for (int q = 0; q < 9; ++q) {
             const float ph = std::fmod(now * 0.55f + q * 0.618f, 1.0f);
-            const float sx = x + std::sin(q * 2.39f + now * 0.8f) * r * 1.5f, sy = y - ph * (p.body_h * 1.25f + 8);
+            const float sx = x + std::sin(q * 2.39f + now * 0.8f) * r * 1.5f, sy = y - ph * (bh_s * 1.25f + 8);
             const float al = std::sin(ph * kPi);
             const uint32_t c = q % 3 ? 0xffd23f : 0xfff6c8;
             C2D_DrawRectSolid(sx - 1, sy - 1, 0, 2, 2, rgbf(c, al));
@@ -1684,16 +1727,26 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     text(tr("¡Elige tu poder!"), 160, 38, 0.52f, rgb(0xff5a7a), 1, true);
     text_fit(tr("Para el resto de la partida · se usa con Y"), 160, 55, 300, 0.32f, rgb(0xb7c4dc), false, 1);
     const int nc = p.npower_opts;
-    const float ch = evo_card_h(nc);
+    const float ch = power_card_h(nc);
     for (int i = 0; i < nc; ++i) {
-      const PowerInfo& pi = kPowerInfo[p.power_opts[i]];
-      const float y = kEvoTop + i * ch;
+      const int kind = p.power_opts[i];
+      const PowerInfo& pi = kPowerInfo[kind];
+      const float y = kEvoTop + i * ch, hh = ch - 4;
       const bool sel = i == card_cursor;
-      if (sel) C2D_DrawRectSolid(8, y - 1, 0, 304, ch - 2, rgb(pi.color));
-      C2D_DrawRectSolid(10, y + 1, 0, 300, ch - 6, sel ? C2D_Color32(58, 64, 96, 255) : C2D_Color32(30, 40, 62, 255));
-      C2D_DrawRectSolid(14, y + 5, 0, 6, ch - 14, rgb(pi.color));
-      text(tr(pi.name), 26, y + 3, 0.44f, rgb(pi.color), 0, true);
-      text_fit2(tr(pi.desc), 26, y + 16, 280, 0.29f, rgb(0xd5def0));
+      if (sel) rrect(7, y - 2, 306, hh + 4, rgbf(pi.color, 0.25f + 0.12f * std::sin(float(g.time) * 4)));
+      rgrad(10, y, 300, hh, rgb(mix(sel ? 0x2c3a5e : 0x1e2840, pi.color, sel ? 0.22f : 0.1f)), rgb(sel ? 0x1a2440 : 0x121a2e));
+      rframe(10, y, 300, hh, sel ? rgb(pi.color) : rgb(mix(0x2a3450, pi.color, 0.3f)));
+      C2D_DrawRectSolid(11, y + 2, 0, 3, hh - 4, rgb(pi.color));
+      // (la Megaevolución, con el nombre de su mega: con dos, X e Y, se ve cuál es cada una)
+      const char* name = tr(pi.name);
+      char nm[48];
+      if (kind == PWK_MEGA || kind == PWK_MEGA_B) {
+        const int mk = mega_index(p.dex, kind == PWK_MEGA_B ? 1 : 0);
+        if (mk >= 0) { std::snprintf(nm, sizeof(nm), "%s", kMegas[mk].mon.name); name = nm; }
+      }
+      text_fit(name, 20, y + 1, 286, 0.42f, rgb(pi.color), true, 0);
+      if (nc > 4) text_fit(tr(pi.desc), 20, y + 13, 286, 0.29f, rgb(0xd5def0));   // (con 5, una línea)
+      else text_fit2(tr(pi.desc), 20, y + 14, 286, 0.29f, rgb(0xd5def0), 9);
     }
     text(tr("A: elegir"), 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_CHOICE && p.choice == CH_EVO) {

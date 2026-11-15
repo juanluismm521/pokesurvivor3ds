@@ -336,7 +336,8 @@ class App {
   bool auto_hold_over = false;
   int auto_mode = 0;            // autotest "… rapido": modo rápido
   int auto_diff = 0;
-  int auto_weekly = -2;         // autotest "… semanal[=condición]": el desafío (-1 el de esta semana; si no, con esa condición)
+  int auto_weekly = -2;
+  int auto_power = -1;          // autotest "… poder=dinamax|z|tera|mega": empieza con ese poder de Eternatus         // autotest "… semanal[=condición]": el desafío (-1 el de esta semana; si no, con esa condición)
   bool weekly_run_ = false;     // la próxima partida es el desafío semanal (Jugar)
   Weekly weekly_now() const;    // el desafío de esta semana            // autotest "… dificil" / "pesadilla"
   bool auto_win = false;

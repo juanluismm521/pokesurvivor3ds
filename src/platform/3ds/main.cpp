@@ -94,7 +94,8 @@ struct Autotest {
   bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra una MT y una Menta y enseña la Mochila (capturas)
   bool ficha_demo = false;    // "ficha": la ficha de tu compañero: naturaleza, habilidad y MT (capturas)
   char abil[40] = "", nature[16] = "";   // "… habilidad=static naturaleza=bold": las de la partida
-  int weekly = -2;            // "… semanal" (el de esta semana) o "semanal=noche" (con esa condición: id de la web o «noche»)
+  int weekly = -2;
+  int power = -1;             // "… poder=dinamax" (z, tera, mega): con ese poder de Eternatus desde el principio            // "… semanal" (el de esta semana) o "semanal=noche" (con esa condición: id de la web o «noche»)
   bool aura = false;          // "… aura": con el aura de maestro (maestría completa)
   bool skin = false;          // "… disfraz": el compañero con su disfraz de Halloween           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
@@ -189,6 +190,10 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
       else if (!std::strcmp(w, "disfraz")) a.skin = true;
       else if (!std::strcmp(w, "aura")) a.aura = true;
+      else if (!std::strncmp(w, "poder=", 6)) {
+        const char* id = w + 6;
+        a.power = !std::strcmp(id, "dinamax") ? PWK_DYNA : !std::strcmp(id, "z") ? PWK_Z : !std::strcmp(id, "tera") ? PWK_TERA : !std::strcmp(id, "mega") ? PWK_MEGA : -1;
+      }
       else if (!std::strcmp(w, "semanal")) a.weekly = -1;
       else if (!std::strncmp(w, "semanal=", 8)) {
         a.weekly = -1;
@@ -375,7 +380,7 @@ int main(int argc, char** argv) {
     p.cards[0] = Card(); p.cards[0].type = CT_NEW; p.cards[0].move = int16_t(longest);
     p.cards[1] = Card(); p.cards[1].type = CT_UP; p.cards[1].move = 0;
     p.cards[2] = Card(); p.cards[2].type = CT_STAT; p.cards[2].stat = LS_DEF;
-    for (int k = 0; k < 7 && aptMainLoop(); ++k) {
+    for (int k = 0; k < 8 && aptMainLoop(); ++k) {
       // (3 y 4: la elección de evolución, con Charmander y con Eevee: core/evo.h; 5: el poder de
       // Eternatus con Charizard, que tiene mega: core/power.h)
       if (k == 6) {   // (en plena partida, con pasivas: las chapitas de encima del minimapa)
@@ -386,10 +391,10 @@ int main(int argc, char** argv) {
         for (const auto& x : lsn) q.stats_taken[x[0]] = uint8_t(x[1]);
         q.level = 14;
         g->state = ST_PLAYING;
-      } else if (k == 5) {
+      } else if (k == 5 || k == 7) {
         RunConfig c3; c3.dex = 6; c3.seed = 2; c3.judged = 1;
         g->start_run(c3);
-        player_equip(*g, g->players[0], IT_MEGA_A);   // (con su piedra: «Megaevolución +»)
+        if (k == 7) player_equip(*g, g->players[0], IT_MEGA_A);   // (con su piedra: «Megaevolución +»; sin ella, X e Y)
         power_offer(*g, g->players[0]);
         r.card_cursor = 1;
       } else if (k >= 3) {
@@ -543,6 +548,7 @@ int main(int argc, char** argv) {
     app.auto_skin = at.skin;
     app.auto_aura = at.aura;
     app.auto_weekly = at.weekly;
+    app.auto_power = at.power;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
     app.auto_coop_time = int(at.warp);
@@ -571,6 +577,7 @@ int main(int argc, char** argv) {
     app.auto_skin = at.skin;
     app.auto_aura = at.aura;
     app.auto_weekly = at.weekly;
+    app.auto_power = at.power;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;

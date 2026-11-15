@@ -115,7 +115,20 @@ TEST_CASE("poder de Eternatus: con la megapiedra puesta, Megaevolución + (o cam
   power_offer(*g, p);   // sin piedra: la Megaevolución de Eternatus
   REQUIRE(p.choice == CH_POWER);
   CHECK(p.power_opts[0] == PWK_MEGA);
+  CHECK(p.power_opts[1] == PWK_MEGA_B);   // (Charizard: X e Y, eliges)
   p.choice = CH_NONE; g->state = ST_PLAYING;
+  {
+    std::unique_ptr<Game> y(new Game());
+    y->start_run(c);
+    Player& q = y->pl();
+    power_offer(*y, q);
+    power_choose(*y, q, 1);
+    CHECK(q.epower == PWK_MEGA);
+    CHECK(q.power_mega_slot == 1);
+    power_start(*y, q);
+    REQUIRE(q.mega >= 0);
+    CHECK(q.mega == mega_index(6, 1));
+  }
   player_equip(*g, p, IT_MEGA_A);
   power_offer(*g, p);   // con su piedra: Megaevolución +
   REQUIRE(p.choice == CH_POWER);
@@ -140,6 +153,6 @@ TEST_CASE("poder de Eternatus: con la megapiedra puesta, Megaevolución + (o cam
   player_equip(*h, q, IT_MEGA_A);
   power_offer(*h, q);
   power_choose(*h, q, 1);
-  CHECK(q.epower == PWK_DYNA);
+  CHECK(q.epower == PWK_DYNA);   // (con la piedra, sin X ni Y: Megaevolución +, Dinamax…)
   CHECK_FALSE(q.mega_plus);
 }

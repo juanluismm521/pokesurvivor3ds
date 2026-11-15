@@ -1089,6 +1089,11 @@ const Tr kLangEnPort[] = {
     {"Arena de Eternatus", "Eternatus arena"}, {"Sala del Origen", "Hall of Origin"},
     {"Formas regionales", "Regional forms"},
     {"Alola", "Alola"}, {"Galar", "Galar"}, {"Hisui", "Hisui"}, {"Paldea", "Paldea"},
+    {"40 s con su mega, sin megapiedra. Recarga 90 s.", "40 s with its Mega, no Mega Stone needed. Recharge 90 s."},
+    {"12 s gigante: doble de vida, +40 % de daño y aplastas lo que pisas. Recarga 80 s.", "12 s giant: double HP, +40% damage and you crush what you step on. Recharge 80 s."},
+    {"15 s: una Z gigante rueda y, al acabar, el movimiento Z arrasa todo. Recarga 60 s.", "15 s: a giant Z rolls and, at the end, the Z-Move wipes everything. Recharge 60 s."},
+    {"30 s: tus ataques de tu tipo pegan un 80 % más. Recarga 75 s.", "30 s: your moves of your type hit 80% harder. Recharge 75 s."},
+    {"Tu mega dura 10 s más, recarga 5 s antes y pega un 10 % más.", "Your Mega lasts 10 s longer, recharges 5 s sooner and hits 10% harder."},
     // Novedades de la 1.0
     {"Subes de nivel como antes", "You level up like before"},
     {"Menos pantallas de cartas y cada una cuenta más. Los enemigos tienen menos vida: la partida es igual de dura.", "Fewer card screens and each one matters more. Enemies have less HP: runs are just as tough."},

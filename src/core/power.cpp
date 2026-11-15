@@ -10,11 +10,12 @@
 namespace ps {
 
 const PowerInfo kPowerInfo[PWK_COUNT] = {
-    {"Megaevolución", "40 s con su mega: sus tipos y mucha más fuerza, sin megapiedra. Recarga 90 s.", 40, 90, 0xff8ad8},
-    {"Dinamax", "12 s gigante: doble de vida, +40 % de daño, cada golpe salpica a los de alrededor y aplastas lo que pisas. Recarga 80 s.", 12, 80, 0xff3a5a},
-    {"Pulsera Z", "Onda expansiva al usarlo y, durante 15 s, una gran Z de tu tipo rueda hacia los enemigos. Al acabar, el movimiento Z arrasa la pantalla. Recarga 60 s.", 15, 60, 0xffd23f},
-    {"Teracristal", "30 s con corona de cristal: tus ataques de tu tipo pegan un 80 % más. Recarga 75 s.", 30, 75, 0x7fe8ff},
-    {"Megaevolución +", "Ya tienes tu megapiedra: su megaevolución dura 10 s más, se recarga 5 s antes y pega un 10 % más.", 0, 0, 0xff8ad8},
+    {"Megaevolución", "40 s con su mega, sin megapiedra. Recarga 90 s.", 40, 90, 0xff8ad8},
+    {"Dinamax", "12 s gigante: doble de vida, +40 % de daño y aplastas lo que pisas. Recarga 80 s.", 12, 80, 0xff3a5a},
+    {"Pulsera Z", "15 s: una Z gigante rueda y, al acabar, el movimiento Z arrasa todo. Recarga 60 s.", 15, 60, 0xffd23f},
+    {"Teracristal", "30 s: tus ataques de tu tipo pegan un 80 % más. Recarga 75 s.", 30, 75, 0x7fe8ff},
+    {"Megaevolución +", "Tu mega dura 10 s más, recarga 5 s antes y pega un 10 % más.", 0, 0, 0xff8ad8},
+    {"Megaevolución", "40 s con su mega, sin megapiedra. Recarga 90 s.", 40, 90, 0xff8ad8},
 };
 // (medido con build-bal/ps_powers el 15-11-2026, 40 partidas por opción, daño por segundo con la piedra:
 // sólo la piedra 1,019; + Megaevolución + 1,145; + Dinamax 1,103; + Z 1,204; + Teracristal 1,157)
@@ -88,7 +89,10 @@ void power_offer(Game& g, Player& p) {
   // llevas, puedes quedártela (su mega recarga 5 s antes) o cambiarla por otro poder.
   const bool stone = is_mega_stone(p.item) && mega_index(p.dex, p.item - IT_MEGA_A) >= 0;
   if (stone) p.power_opts[p.npower_opts++] = PWK_KEEP;
-  else if (mega_index(p.dex, 0) >= 0) p.power_opts[p.npower_opts++] = PWK_MEGA;
+  else if (mega_index(p.dex, 0) >= 0) {   // (con dos megas, X e Y: las dos, y eliges)
+    p.power_opts[p.npower_opts++] = PWK_MEGA;
+    if (mega_index(p.dex, 1) >= 0) p.power_opts[p.npower_opts++] = PWK_MEGA_B;
+  }
   p.power_opts[p.npower_opts++] = PWK_DYNA;
   p.power_opts[p.npower_opts++] = PWK_Z;
   p.power_opts[p.npower_opts++] = PWK_TERA;
@@ -109,6 +113,8 @@ void power_choose(Game& g, Player& p, int pick) {
     return;
   }
   p.epower = p.power_opts[pick];
+  p.power_mega_slot = 0;
+  if (p.epower == PWK_MEGA_B) { p.epower = PWK_MEGA; p.power_mega_slot = 1; }
   p.power_on = false; p.power_cd = 0;
   std::snprintf(b, sizeof(b), "¡Poder: %s! Pulsa Y para usarlo", kPowerInfo[p.epower].name);
   say_to(g, p, b, 3.4f);

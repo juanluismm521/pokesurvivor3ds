@@ -179,7 +179,8 @@ struct Player {
   int8_t epower = -1;
   bool power_on = false, power_mega = false, splashing = false;
   float power_t = 0, power_cd = 0, power_hp = 0, z_t = 0;
-  int8_t power_opts[4] = {}, npower_opts = 0;
+  int8_t power_opts[6] = {}, npower_opts = 0;
+  int8_t power_mega_slot = 0;   // la mega del poder Megaevolución (0: la primera; 1: la segunda, X/Y)
   int8_t item = IT_NONE;
   float sash_t = -999;          // (segundos de partida)
   float bell_heal = 0;

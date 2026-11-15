@@ -279,6 +279,7 @@ void App::start_run() {
   r_->sprites.async = false;   // precarga: todo en el momento
   g_->start_run(cfg, autotest && !auto_real ? nullptr : s_);
   g_->debug_immortal = autotest && auto_immortal_;
+  if (autotest && auto_power >= 0) { Player& ap = g_->pl(); ap.epower = int8_t(auto_power); ap.power_cd = 0; }   // (capturas de los poderes)
   g_->debug_win = autotest && auto_win;   // (capturas y pruebas de la victoria: Game::debug_win)
   apply_settings();
   r_->preload_run(*g_);
@@ -788,7 +789,7 @@ void App::in_run(const UiIn& in) {
     const int nc = me.npower_opts > 0 ? me.npower_opts : 1;
     if (in.rep & KEY_DUP) r_->card_cursor = (r_->card_cursor + nc - 1) % nc;
     if (in.rep & KEY_DDOWN) r_->card_cursor = (r_->card_cursor + 1) % nc;
-    const float ch = Renderer::evo_card_h(nc);
+    const float ch = Renderer::power_card_h(nc);
     const bool touched = in.tap && in.ty >= Renderer::kEvoTop && in.ty < Renderer::kEvoTop + ch * nc;
     if (touched) r_->card_cursor = clamp(int((in.ty - Renderer::kEvoTop) / ch), 0, nc - 1);
     if (touched || (in.down & KEY_A)) { gi.cmd = CMD_POWER; gi.arg = int8_t(clamp(r_->card_cursor, 0, nc - 1)); }

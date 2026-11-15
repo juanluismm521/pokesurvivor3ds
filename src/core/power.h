@@ -23,7 +23,8 @@ struct Enemy;
 // la Megaevolución de Eternatus tu mega mejora para el resto de la partida: dura g_mp_time s más,
 // recarga g_mp_cd s antes y pega ×g_mp_atk más (10 s, 5 s y ×1,10) (no es un poder: Y sigue siendo la mega). Medido
 // con el bot (tests/powers_main.cpp) para que valga lo mismo que llevar la mega y otro poder.
-enum PowerKind : int8_t { PWK_NONE = -1, PWK_MEGA, PWK_DYNA, PWK_Z, PWK_TERA, PWK_KEEP, PWK_COUNT };
+// PWK_MEGA_B: la segunda mega de los que tienen dos (Charizard X e Y, Mewtwo X e Y…): se elige cuál.
+enum PowerKind : int8_t { PWK_NONE = -1, PWK_MEGA, PWK_DYNA, PWK_Z, PWK_TERA, PWK_KEEP, PWK_MEGA_B, PWK_COUNT };
 extern float g_mp_time, g_mp_cd, g_mp_atk;
 struct PowerInfo { const char* name; const char* desc; float dur, cd; uint32_t color; };
 extern const PowerInfo kPowerInfo[PWK_COUNT];

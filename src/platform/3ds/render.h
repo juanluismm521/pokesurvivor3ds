@@ -62,6 +62,7 @@ struct Renderer {
   // Elegir evolución (pantalla de abajo): dónde empiezan las cartas y su alto.
   static constexpr float kEvoTop = 72;
   static float evo_card_h(int n) { return n <= 2 ? 64.0f : n == 3 ? 46.0f : 36.0f; }
+  static float power_card_h(int n) { return n <= 4 ? 38.0f : 30.0f; }   // (los poderes de Eternatus: hasta 5)
   void begin_frame(Game& g);        // reparte el pintado del suelo
   // eye: 0 sin 3D; con 3D, -k para el ojo izquierdo y +k para el derecho.
   void draw_top(Game& g, float eye = 0);
