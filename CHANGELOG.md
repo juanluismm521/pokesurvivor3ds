@@ -24,6 +24,13 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   Furioso (Espiral Infinita, Noche Oscura, Remolino Infinito, que te arrastra) y, al final, el
   Rayo Eternamax: rompe el Núcleo Eterno a tiempo y queda aturdido; si no, ¡a los círculos! Si
   caes, se acaba la partida; si ganas, ticket ×10, 600 monedas y un poder.
+- **Los legendarios de la grieta pelean de verdad:** tres fases (a 2/3 de vida sacan todo su
+  poder y a 1/3 se enfurecen), cinco o seis ataques que se mueven por la arena según sus tipos
+  (Llamarada, Surf, Psíquico, Ventisca, Bola Sombra…) y el suyo propio en los más famosos
+  (Aerochorro de Lugia, Fuego Sagrado de Ho-Oh, Onda Mental de Mewtwo…). En la tercera fase, su
+  ataque definitivo: ¡escóndete detrás de una columna, un árbol o una roca! Las grietas se abren
+  ahora a su hora (minutos 4, 8, 12, 16 y 25; antes en el modo rápido) y la vida del legendario
+  se ajusta al daño que le haces. La última sólo da vínculo si te dejaste alguna.
 - **Poderes** para el resto de la partida tras vencer a Eternatus (se usan con Y): Megaevolución
   sin megapiedra (si tu Pokémon tiene mega), Dinamax (gigante: doble de vida, +40 % de daño y
   aplastas lo que pisas), Pulsera Z (una gran Z rueda hacia los enemigos y el movimiento Z

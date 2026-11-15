@@ -661,6 +661,37 @@ void Renderer::draw_top(Game& g, float eye) {
     }
   }
 
+  // --- el legendario de la grieta: anillos con huecos, torbellinos, orbes y su ataque definitivo ---
+  if (g.rboss.on) {
+    const auto& rb = g.rboss;
+    const u32 tc = kTypeColor[rb.type];
+    for (int i = 0; i < rb.nth; ++i) {
+      const auto& t = rb.th[i];
+      if (t.kind == 1) {   // anillo (P_RING): puntos por el arco menos en los huecos
+        const float step = std::fmax(0.05f, 10 / std::fmax(t.R, 1.0f));
+        for (float a = 0; a < kTau; a += step) {
+          bool gap = false;
+          for (int q = 0; q < t.ngaps; ++q) gap = gap || std::fabs(std::remainder(a - t.gaps[q], kTau)) < 0.34f;
+          if (gap) continue;
+          const float x = v.sx(t.x + std::cos(a) * t.R), y = v.sy(t.y + std::sin(a) * t.R);
+          C2D_DrawRectSolid(x - 2, y - 2, 0, 4, 4, rgbf(tc, 0.9f));
+          C2D_DrawRectSolid(x - 1, y - 1, 0, 2, 2, rgbf(0xffffff, 0.7f));
+        }
+      } else {   // torbellino / orbe
+        const float x = v.sx(t.x), y = v.sy(t.y), r = t.r * 0.5f;
+        ellipse(x, y, r, r * 0.7f, rgbf(tc, t.kind == 8 ? 0.6f : 0.3f));
+        dot_ring(x, y, r, r * 0.7f, 1, rgbf(0xffffff, 0.6f), now * 6, now * 6 + 4);
+        if (t.kind == 8) C2D_DrawCircleSolid(x, y - 4, 0, r * 0.6f, rgbf(0xffffff, 0.75f));
+      }
+    }
+    if (rb.state == 4 && !rb.ult_done) {   // carga el definitivo: cuenta atrás alrededor y las coberturas que salvan
+      const float k = clamp(rb.ult_t / 4.6f, 0.0f, 1.0f);
+      const float cx = v.sx(g.rift.ax), cy = v.sy(g.rift.ay);
+      dot_ring(cx, cy, 30 + k * 220, (30 + k * 220) * 0.7f, 2, rgbf(tc, 0.35f + 0.4f * k));
+      C2D_DrawRectSolid(0, 0, 0, TOP_W, TOP_H, rgbf(tc, 0.05f + 0.12f * k));
+    }
+  }
+
   // --- campos en el suelo ---
   for (const Field& f : g.fields) {
     if (!cam.sees(f.x, f.y, 60)) continue;
@@ -1238,8 +1269,11 @@ void Renderer::draw_top(Game& g, float eye) {
     }
     if (g.rift.arena) {
       char t[16]; mmss(rift_time_left(g), t, sizeof(t));
-      std::snprintf(b, sizeof(b), "GRIETA · %s", t);
+      if (g.rboss.on) std::snprintf(b, sizeof(b), tr("GRIETA · %s · FASE %d"), t, int(g.rboss.phase));
+      else std::snprintf(b, sizeof(b), "GRIETA · %s", t);
       text(b, 200, info_y, 0.4f, rgb(0xd9c2ff), 1); info_y += 12;
+      if (g.rboss.on && g.rboss.cast_name[0]) { text(tr(g.rboss.cast_name), 200, info_y, 0.34f, rgb(kTypeColor[g.rboss.type]), 1); info_y += 11; }
+      if (g.rboss.on && g.rboss.state == 4) { text(tr("¡Escóndete detrás de una columna, un árbol o una roca!"), 200, info_y, 0.36f, rgb(0xffe14d), 1); info_y += 11; }
     }
     if (g.events.cur == EVN_HORDE || g.events.cur == EVN_GOLD) {
       const int left = std::max(0, int(std::ceil(g.events.cur_dur - g.events.cur_t)));

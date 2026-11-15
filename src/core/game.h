@@ -629,13 +629,29 @@ struct Game {
     int16_t dex = 0; bool shiny = false; int8_t type = 0; int back_biome = 0;
     float at = 0; int8_t phase = 0; float end_t = 0; int32_t boss_id = 0;
     float check_t = 30; bool asked = false; float down_t = 0; int misses = 0;
+    int n = 0;                  // grietas ganadas en la partida
+    int8_t next_i = 0, idx = 0; // la siguiente del calendario y la de ahora
+    float cal_t0 = 0, floor_hp = 0; bool cal_done = true;   // calibrar su vida a los 6 s (la anterior, de suelo)
     bool zone = false; float zone_x = 0, zone_y = 0, zone_r = 0;   // dónde estaba la última arena (leftBehind)
   } rift;
 
+  // El legendario de la grieta (core/riftboss.cpp)
+  struct RiftBossState {
+    bool on = false, landed = false, boom = false, cdone = false, ult_done = false;
+    int32_t boss_id = 0;
+    int8_t type = T_NORMAL, cat = CAT_PHYSICAL, phase = 1, next = 0, state = 0, last = -1, cast = -1, cn = 0, nkit = 0, nbag = 0, nth = 0;
+    struct KM { int8_t pat; const char* name; } kit[6] = {};
+    int8_t bag[6] = {};
+    float dmg = 0, st = 0, cd = 0, ct = 0, wind = 0, k = 1, ang = 0, tx = 0, ty = 0, jx = 0, jy = 0, spin = 0, dir = 1, emit = 0;
+    float wall_off = 0, pull_t = 0, touch_cd = 0, side_t = 0, side = 1, ult_t = 0;
+    char cast_name[40] = {};
+    struct Threat { int8_t kind = 0, ngaps = 0; bool hit = false; float x = 0, y = 0, R = 0, r = 0, a = 0, t = 0, life = 0, cd = 0; float gaps[3] = {}; } th[8];
+  } rboss;
+
   // Eternatus Eternamax (core/eterna.cpp)
   struct EternaState {
-    int8_t st = 0;              // 0 nada, 1 llegando, 2 pelea, 3 ganada
-    bool happened = false;
+    int8_t st = 0;              // 0 nada, 1 llegando, 2 pelea, 3 ganada (o se retira)
+    bool happened = false, won = false;
     float t = 0, ft = 0, wall_t = -1;
     int8_t phase = 0; bool enraged = false;
     int32_t tx = 0, ty = 0; float cx = 0, cy = 0, back_x = 0, back_y = 0; int back_biome = 0;
@@ -813,6 +829,11 @@ void rift_update(Game& g, float dt);
 float rift_time_left(const Game& g);
 // Fin de la partida (game.cpp): el resumen y, con partida guardada, lo que se guarda.
 void game_end_run(Game& g, bool dead);
+// riftboss.cpp (el legendario de la grieta pelea de verdad: kit por tipo, 3 fases, ataque definitivo)
+void riftboss_arm(Game& g, Enemy& e, float dmg);
+void riftboss_update(Game& g, Enemy& e, float dt);
+void riftboss_reset(Game& g);
+bool riftboss_on(const Game& g);
 // eterna.cpp (Eternatus Eternamax, el minuto 20 / el 13 en el modo rápido)
 void eterna_reset(Game& g);
 void eterna_update(Game& g, float dt);

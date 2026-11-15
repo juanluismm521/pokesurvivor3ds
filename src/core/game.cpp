@@ -142,6 +142,7 @@ void Game::start_run(const RunConfig& c, Save* s) {
   next_enemy_id = next_proj_id = next_pickup_id = 1;
   spawner_reset(*this);
   rift_reset(*this);
+  riftboss_reset(*this);
   eterna_reset(*this);
   eterna_wins = 0;
   judgment_reset(*this);

@@ -171,6 +171,7 @@ TEST_CASE("cooperativo: hasta la Sentencia con 3 bots (Eternatus en medio), sin 
     if ((step & 255) == 0) REQUIRE(all_finite(*g));
   }
   CHECK(max_en <= kMaxEnemies);
+  MESSAGE("t=" << g->time << " eterna=" << int(g->eterna.st) << " fase " << int(g->eterna.phase) << " grieta=" << g->rift.arena << " estado=" << int(g->state));
   CHECK(judged);
   CHECK(levels > 5);
   // Todos al mismo nivel (es del equipo).

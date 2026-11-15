@@ -384,7 +384,7 @@ void begin(Game& g) {
 void won(Game& g) {
   auto& s = E(g);
   if (s.st != 2) return;
-  s.st = 3; s.t = 0;
+  s.st = 3; s.t = 0; s.won = true;
   g.hazards.clear();
   for (int i = g.projectiles.n - 1; i >= 0; --i) if (!g.projectiles[i].friendly) g.projectiles.remove_ordered(i);
   for (Enemy& e : g.enemies) if (e.ecore && !e.dead) enemy_die(g, e);
@@ -402,6 +402,7 @@ void won(Game& g) {
 
 void finish(Game& g) {
   auto& s = E(g);
+  const bool won = s.won;
   s.st = 0;
   g.world.set_arena(false);
   g.world.set_biome(s.back_biome, true);
@@ -413,7 +414,7 @@ void finish(Game& g) {
   g.views_snap();
   g.flash(RED, 0.8f);
   // El poder para el resto de la partida (core/power.h): cada uno elige el suyo.
-  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) power_offer(g, g.players[i]);
+  if (won) for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active) power_offer(g, g.players[i]);
 }
 
 void hurt_pct(Game& g, Player& p, float k, int type) {
@@ -428,6 +429,14 @@ void fight(Game& g, float dt) {
   if (s.stun_t > 0) s.stun_t -= dt;
   if (s.ult == 1) s.ult_t += dt;
   if (!s.enraged && s.ft >= 300) { s.enraged = true; g.say("¡Eternatus se ha enfurecido del todo! Acaba con él ya", 3.4f); }
+  // Si llega la hora de la Sentencia y sigue en pie, Eternatus se retira (sin premio): la
+  // Sentencia no espera. (Pasa si nadie cae y nadie puede con él: en las pruebas, con bots inmortales.)
+  if (game_teq(g) >= kJudgmentAt - 5) {
+    g.say("Eternatus se retira… ¡llega la Sentencia!", 3);
+    for (int i = g.enemies.n - 1; i >= 0; --i) if (g.enemies[i].eterna || g.enemies[i].ecore) g.enemies.remove_ordered(i);
+    s.st = 3; s.t = 4.4f;
+    return;
+  }
   Enemy* e = boss(g);
   // Todos dentro de la arena (y de las nubes)
   const float R = TS * 13.6f;

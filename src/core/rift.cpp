@@ -1,6 +1,7 @@
 // rift.cpp — grietas y arena del legendario (rift.js de la web).
-// De vez en cuando se abre una GRIETA cerca del jugador. Dura 45 s; si entras,
-// te lleva a una arena cerrada contra un Pokémon LEGENDARIO.
+// A horas fijas (web, 13-11-2026: minutos 4, 8, 12, 16 y 25; en el modo rápido, antes, por el
+// tiempo equivalente) se abre una GRIETA cerca del jugador. Dura 60 s; si entras, te lleva a una
+// arena cerrada contra un Pokémon LEGENDARIO, que pelea en 3 fases (core/riftboss.cpp).
 //   ganas    tickets y monedas, y un VÍNCULO (fusiona movimientos)
 //   pierdes  vuelves sin premio, con algo de vida; la partida sigue
 // Mientras dura la arena, los enemigos del mapa se guardan y no salen nuevos.
@@ -15,8 +16,9 @@ namespace ps {
 namespace {
 // Cada vez que no sale, la siguiente es más probable (20 %, 40 %...): como
 // mucho 2,5 min sin grieta. Desde 2 min antes de la Sentencia ya no se abren.
-constexpr float CHECK = 30, CHANCE = 0.2f, TTL = 45;
-constexpr float ARENA_R = 11, ARENA_TIME = 120, FROM = 75;
+constexpr float TTL = 60;
+constexpr float ARENA_R = 11, ARENA_TIME = 120, CAL_T = 6;
+constexpr float kSched[5] = {240, 480, 720, 960, 1500};   // (segundos de tiempo equivalente)
 constexpr float TS = kTS;
 
 void stash(Game& g) {
@@ -94,12 +96,14 @@ bool is_one_of(const Mon& m, std::initializer_list<int> ts) {
 void spawn_legend(Game& g) {
   Game::RiftState& r = g.rift;
   const Mon& mon = *mon_by_dex(r.dex);
-  const float t = float(g.time);
+  const float t = game_teq(g);
   EnemyDef def;
   def.dex = mon.dex;
-  def.hp = float(jsround((3200 + t * 9) * coop_scale_hp(g.team_size()) * (g.team_size() > 1 ? 1.4f : 1)));
+  // (web, 13-11-2026: difficulty.js legendHp / legendDmg; el n.º de grieta, de 0 a 4)
+  def.hp = float(jsround(diff_legend_hp(g.cfg.diff, r.idx, t, g.team_size(), 0, r.floor_hp)));
+  r.cal_t0 = r.at; r.cal_done = false;   // (a los 6 s se ajusta al daño que le hacéis)
   def.spd = float(jsround(clamp(48 + (mon.spd - 78) * 0.6f, 48.0f, 105.0f)));
-  def.dmg = float(jsround(36 + t / 20));
+  def.dmg = float(jsround(diff_legend_dmg(g.cfg.diff, t)));
   def.xp = float(jsround(500 + t * 1.2f));
   def.behavior = is_one_of(mon, {T_PSYCHIC, T_ELECTRIC, T_GHOST, T_FAIRY, T_FIRE, T_WATER, T_ICE, T_DRAGON}) ? BH_RANGED : BH_CHARGER;
   def.shot_dmg = float(jsround(18 + t / 40)); def.shot_cd = 0.9f; def.range = 300;
@@ -110,6 +114,7 @@ void spawn_legend(Game& g) {
   e->flying = false;
   if (r.shiny) enemy_make_shiny(g, *e);
   r.boss_id = e->id;
+  riftboss_arm(g, *e, def.dmg);   // (pelea en 3 fases con su kit: core/riftboss.cpp)
   char b[96];
   std::snprintf(b, sizeof(b), "¡%s%s te esperaba en la grieta!", mon.name, e->shiny ? " shiny" : "");
   g.say(b, 3.2f);
@@ -166,6 +171,10 @@ void won(Game& g) {
   Game::RiftState& r = g.rift;
   if (!r.arena || r.phase != 0) return;
   r.phase = 1; r.end_t = 5;
+  // La última (la del minuto 25) sólo da vínculo si te has dejado alguna de las anteriores.
+  const bool no_bond = r.idx >= 4 && r.n >= r.idx;
+  r.n++;
+  riftboss_reset(g);
   progress_event(g, EV_RIFT, r.type);
   pickups_pull_all(g);
   char b[96];
@@ -173,6 +182,7 @@ void won(Game& g) {
   g.say(b, 3.4f);
   g.sfx(SFX_LEGEND);
   // Un vínculo para cada uno (en la web, cada consola al suyo).
+  if (no_bond) { g.say("Ya ganaste todas las grietas: ésta no da vínculo", 3); return; }
   for (int i = 0; i < g.nplayers; ++i) {
     Player& pl = g.players[i];
     if (!pl.active) continue;
@@ -186,6 +196,7 @@ void lost(Game& g) {
   Game::RiftState& r = g.rift;
   if (!r.arena || r.phase != 0) return;
   r.phase = 2; r.end_t = 1.2f;
+  riftboss_reset(g);
   g.say("La grieta os ha expulsado…", 2.6f);
   g.sfx(SFX_BACK);
 }
@@ -211,11 +222,22 @@ void finish(Game& g) {
 
 void arena_tick(Game& g, float dt) {
   Game::RiftState& r = g.rift;
-  r.at += dt;
+  // (el reloj de la arena se para mientras el legendario llega, cambia de fase o carga su definitivo)
+  const int8_t rs = g.rboss.state;
+  if (!g.rboss.on || rs == 1 || rs == 2 || rs == 5) r.at += dt;
   if (r.phase == 0) {
     keep_inside(g);
     Enemy* boss = g.enemy_by_id(r.boss_id);
     if (!boss || boss->dead) { won(g); return; }
+    // Su vida, al daño que le hacéis de verdad (los 6 primeros segundos; legendHp)
+    if (!r.cal_done && r.at - r.cal_t0 >= CAL_T) {
+      r.cal_done = true;
+      const double dps = std::fmax(0.0f, boss->max_hp - boss->hp) / (r.at - r.cal_t0);
+      const float hp = float(jsround(diff_legend_hp(g.cfg.diff, r.idx, game_teq(g), g.team_size(), dps, r.floor_hp)));
+      const float frac = boss->hp / boss->max_hp;
+      boss->max_hp = hp; boss->hp = std::fmax(1.0f, float(jsround(hp * frac)));
+      r.floor_hp = hp;
+    }
     bool all_down = true;
     for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && !g.players[i].dead) all_down = false;
     r.down_t = all_down ? r.down_t + dt : 0;
@@ -244,14 +266,14 @@ void rift_update(Game& g, float dt) {
       if (q.active && !q.dead && dist2(q.x, q.y, r.x, r.y - 10) < 30 * 30) enter(g);
     }
     (void)pl;
-  } else if (!r.arena && !eterna_on(g) && g.time > FROM && g.time < judgment_at(g) - 120) {
-    r.check_t -= dt;
-    if (r.check_t <= 0) {
-      r.check_t = CHECK;
-      if (g.boss_alive()) return;           // con un jefe vivo no cuenta como intento
-      if (g.rng.next() < CHANCE * (1 + r.misses)) { r.misses = 0; open_rift(g); }
-      else r.misses++;
-    }
+  // (no, si ya casi toca la Sentencia: con el reloj adelantado)
+  } else if (!r.arena && r.next_i < 5 && game_teq(g) >= kSched[r.next_i] && game_teq(g) < kJudgmentAt - 150 && !judgment_active(g) &&
+             !eterna_on(g) && !(game_teq(g) > 1080 && !g.eterna.happened)) {
+    // (las que ya pasaron, se saltan: p. ej. con el reloj adelantado)
+    while (r.next_i + 1 < 5 && game_teq(g) >= kSched[r.next_i + 1]) r.next_i++;
+    r.idx = r.next_i;
+    r.next_i++;
+    open_rift(g);
   }
   if (r.arena) arena_tick(g, dt);
 }

@@ -66,6 +66,13 @@ int main(int argc, char** argv) {
                   e ? e->hp : 0.0f, e ? e->max_hp : 0.0f, gg.pl().hp, gg.pl().max_hp);
       last_st = gg.eterna.st; last_ph = gg.eterna.phase;
     }
+    static int rb_ph = 0; static bool rb_on = false;
+    if (gg.rboss.on != rb_on || (gg.rboss.on && gg.rboss.phase != rb_ph)) {
+      const Enemy* e = gg.enemy_by_id(gg.rboss.boss_id);
+      std::printf("[grieta] t=%.0f %s · fase %d · %s · vida %.0f/%.0f · grietas ganadas %d\n", gg.time, gg.rboss.on ? "pelea" : "fin", gg.rboss.phase,
+                  e ? mon_by_dex(e->dex)->name : "-", e ? e->hp : 0.0f, e ? e->max_hp : 0.0f, gg.rift.n);
+      rb_on = gg.rboss.on; rb_ph = gg.rboss.phase;
+    }
     static double nx = 0;
     if (gg.eterna.st == 2 && gg.time >= nx) {
       nx = gg.time + 20;

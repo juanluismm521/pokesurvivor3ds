@@ -144,7 +144,7 @@ void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, fl
     e.ky += ny * knock;
   }
   // (la vida de Eternatus no baja del suelo de su fase: eterna.cpp cambia de fase)
-  if (e.eterna && e.floor_k > 0 && e.hp < e.max_hp * e.floor_k) e.hp = e.max_hp * e.floor_k;
+  if ((e.eterna || e.legend) && e.floor_k > 0 && e.hp < e.max_hp * e.floor_k) e.hp = e.max_hp * e.floor_k;
   if (e.hp <= 0) enemy_die(g, e);
 }
 
@@ -559,6 +559,7 @@ static constexpr float JUDGE_DOT = 1.5f;
 
 static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
   if (e.eterna || e.ecore) { eterna_enemy_update(g, e, dt); return; }
+  if (e.legend && g.rboss.on && e.id == g.rboss.boss_id) { riftboss_update(g, e, dt); return; }
   if (e.crush_t > 0) e.crush_t -= dt;
   if (e.arceus) {   // (el blanco de Arceus: va donde está él y nada más)
     e.x = g.judg.ax; e.y = g.judg.ay;
