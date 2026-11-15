@@ -17,10 +17,17 @@
 
 namespace ps {
 
-float xp_for(int level) {
-  // (×2 y luego ×4 el 2026-10-10: se subía de nivel demasiado rápido. 14-11-2026: un tercio,
-  // se sube 3 veces más rápido.)
+// (herramienta de equilibrio, tests/levels_main.cpp: multiplica lo que cuesta cada nivel)
+float g_bal_xp_k = 1;
+
+// La de la web (×2 y luego ×4 el 2026-10-10; el 13-11-2026, un tercio: 3 veces más rápido).
+float xp_for_web(int level) {
   return float(std::floor((8 + level * 6 + std::pow(double(level), 1.75) * 1.6) * 4 / 3));
+}
+// La del port (el dueño, 15-11-2026: «sube demasiado rápido de nivel»): como antes de la Gran
+// Actualización, kPortXpCost veces la de la web. La dificultad se compensa en core/diff (port_hp_k).
+float xp_for(int level) {
+  return float(std::floor(xp_for_web(level) * kPortXpCost * g_bal_xp_k));
 }
 
 void player_init(Game& g, Player& p, int dex, bool shiny, const RunConfig& cfg) {

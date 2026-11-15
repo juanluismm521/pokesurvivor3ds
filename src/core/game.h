@@ -765,7 +765,9 @@ bool player_mono_type(const Player& p, int type);
 float player_spd(Game& g, const Player& p);
 float player_reduction(const Player& p);
 float player_regen(const Player& p);
-float xp_for(int level);
+float xp_for(int level);       // lo que cuesta cada nivel en el port (kPortXpCost × la de la web)
+float xp_for_web(int level);   // la de la web (casos dorados)
+constexpr float kPortXpCost = 3;
 int player_bond_options(const Player& p, int8_t* loose, int& nloose, int& grow_slot);
 void player_fuse(Game& g, Player& p, const int* move_idx, int n, int grow_slot);
 // enemy.cpp

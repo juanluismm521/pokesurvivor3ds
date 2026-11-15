@@ -76,6 +76,13 @@ float Animator::progress() const {
 
 void Animator::start(int anim, bool o) {
   cur = int8_t(anim_name(dex, anim, shiny));
+  // Reposo de un solo fotograma (Miraidon y otros de los sprites de la web): parecía congelado;
+  // se mueve con su animación de andar.
+  if (cur == A_IDLE) {
+    const AnimMeta* mi = anim_meta(dex, A_IDLE, shiny);
+    const AnimMeta* mw = anim_meta(dex, A_WALK, shiny);
+    if (mi && mi->n <= 1 && mw && mw->n > 1 && anim_name(dex, A_WALK, shiny) == A_WALK) cur = A_WALK;
+  }
   frame = 0; t = 0;
   once = o; done = false;
 }

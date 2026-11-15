@@ -124,7 +124,8 @@ class App {
   void draw_bottom();
   bool quit = false;
   bool autotest = false;
-  bool no_gifts = false;     // (autotest: no abre los regalos del servidor)
+  bool no_gifts = false;
+  static constexpr int kGenForms = 10;   // la sección «Formas regionales» de la colección (después de las 9 generaciones)     // (autotest: no abre los regalos del servidor)
   uint32_t start_ms = 0;   // lo que tardó en empezar la última partida
   Scene scene = SC_MENU;
   Input pending_input;          // entrada de la partida de este fotograma

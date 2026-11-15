@@ -42,5 +42,10 @@ double diff_legend_hp(int mode, int idx, double t, int players, double dps = 0, 
 double diff_legend_dmg(int mode, double t);
 double diff_eterna_hp(int mode, int players);
 double diff_judge_hp(int mode, int players);
+// Del port (el dueño, 15-11-2026: «se sube demasiado rápido de nivel»): se sube de nivel como antes
+// de la Gran Actualización (3 veces más despacio que la web) y, para que la partida siga igual de
+// dura, los enemigos, los jefes y Eternatus tienen esta parte de la vida de la web en el segundo t.
+double port_hp_k(double t);
+extern float g_bal_hp_a, g_bal_hp_p;   // (la curva: herramienta de equilibrio tests/levels_main.cpp)
 
 }  // namespace ps

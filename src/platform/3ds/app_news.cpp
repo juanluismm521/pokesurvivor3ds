@@ -25,7 +25,7 @@ enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_C
                          NI_ORB, NI_TICKET, NI_BOOK, NI_FRIENDS,
                          // (Halloween y lo de la 0.25-0.26: cada novedad con su dibujo)
                          NI_CANDY, NI_PUMPKIN, NI_GENGAR, NI_KECLEON, NI_COSTUME, NI_CARDS, NI_HEALORB, NI_LUMORB,
-                         // (la 0.51: el Pokémon de cada novedad, en pequeño)
+                         // (la 1.0: el Pokémon de cada novedad, en pequeño)
                          NI_M_ETERNA, NI_M_ARCEUS, NI_M_LUGIA, NI_M_MIRAIDON, NI_M_CHARMELEON };
 struct NewsMon { int16_t dex; float scale; };
 const NewsMon kNewsMon[5] = {{kSpriteEternamax, 0.42f}, {493, 0.72f}, {249, 0.68f}, {1008, 0.72f}, {5, 1.0f}};
@@ -38,7 +38,9 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
-    {"Versión 0.51 · ¡Gran Actualización!", 0, nullptr, nullptr},
+    {"Versión 1.0 · ¡Gran Actualización!", 0, nullptr, nullptr},
+    {nullptr, NI_UP, "Subes de nivel como antes",
+     "Menos pantallas de cartas y cada una cuenta más. Los enemigos tienen menos vida: la partida es igual de dura."},
     {nullptr, NI_M_ETERNA, "Eternatus Eternamax",
      "En el minuto 20 (13 en el modo rápido) el cielo se tiñe de rojo: tres fases, núcleos con láseres y el Rayo Eternamax. Si ganas, un poder."},
     {nullptr, NI_Y, "Poderes con Y",
@@ -50,7 +52,7 @@ const NewsItem kNews[] = {
     {nullptr, NI_M_MIRAIDON, "Los 1025 y formas regionales",
      "Llegan Miraidon, Zarude, Pecharunt… y 57 formas regionales (Vulpix de Alola, Growlithe de Hisui…). 46 megas con sprite propio."},
     {nullptr, NI_M_CHARMELEON, "Evoluciona en la partida",
-     "A sus niveles de verdad: Charmander al 16, Charmeleon al 36. Al evolucionar gana los stats base de su evolución."},
+     "En proporción a los juegos: Charmander al 10 y Charmeleon al 22 (16 y 36 allí). Al evolucionar gana sus stats base."},
     {nullptr, NI_FAST, "Tres dificultades",
      "Normal, Difícil y Pesadilla, en los dos modos, con más premio. Vence a Eternatus para desbloquear la siguiente."},
     {nullptr, NI_HEART, "Maestría Pokémon",
@@ -62,7 +64,9 @@ const NewsItem kNews[] = {
     {nullptr, NI_CARDS, "Siempre 4 cartas",
      "Al subir de nivel eliges entre 4 cartas. Con «Más pasivas a niveles altos», al menos 2 son pasivas desde el nivel 25."},
     {nullptr, NI_ORB, "Pantalla táctil renovada",
-     "Insignia de nivel, tipos, vida con color, minimapa enmarcado y ataques en tarjetas del color de su tipo."},
+     "Menú nuevo, insignia de nivel, vida con color, tus pasivas con su número y ataques en tarjetas de su tipo."},
+    {nullptr, NI_BOOK, "Formas regionales",
+     "Tienen su propia sección en la Colección, después de las 9 generaciones: Alola, Galar, Hisui y Paldea."},
     {"Versión 0.50 · ¡Tienda Kecleon!", 0, nullptr, nullptr},
     {nullptr, NI_KECLEON, "Tienda Kecleon",
      "Mentas, Cápsulas Habilidad y 8 MT nuevas cada día, por Pokémonedas. Pulsa R en el menú; lo que compras va a tu Mochila."},
@@ -183,7 +187,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "0.51.0";
+constexpr const char* kNewsVersion = "1.0.0";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

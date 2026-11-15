@@ -206,7 +206,7 @@ void App::go(Scene sc) {
     iris_mask_ = mask;
     if (g_->state != ST_UI) { g_->state = ST_UI; backdrop_init(); }
   }
-  if (sc == SC_DEX) { gen_ = mon_by_dex(s_->partner) ? mon_by_dex(s_->partner)->gen : 1; view_shiny_ = false; dex_moves_ = false; }
+  if (sc == SC_DEX) { gen_ = mon_by_dex(s_->partner) ? (mon_by_dex(s_->partner)->reg > 0 ? kGenForms : mon_by_dex(s_->partner)->gen) : 1; view_shiny_ = false; dex_moves_ = false; }
   // Mejoras: siempre las de tu compañero de ahora (antes se quedaba el último
   // que se miró aquí y, si habías elegido otro, salía el de antes).
   if (sc == SC_UPGRADES) up_dex_ = s_->partner;
@@ -399,8 +399,8 @@ void App::draw_mon(int dex, bool shiny, float x, float y, float scale, int mode,
   Animator a;
   a.init(dex, scale, shiny);
   a.dir = int8_t(dir);
-  // Idle animado con el reloj de la interfaz.
-  const AnimMeta* m = anim_meta(dex, A_IDLE, a.shiny);
+  // Idle animado con el reloj de la interfaz (o andar, si su reposo es de un fotograma: Animator::start).
+  const AnimMeta* m = anim_meta(dex, a.cur, a.shiny);
   if (m) {
     float total = 0;
     for (int i = 0; i < m->n; ++i) total += kAnimDur[m->dur + i];
@@ -412,7 +412,7 @@ void App::draw_mon(int dex, bool shiny, float x, float y, float scale, int mode,
   if (mode == 3) {
     SpriteSet* s = r_->sprites.get(dex, false);
     C2D_Image img; int ox, oy, w, h;
-    if (m && s && r_->sprites.frame(s, A_IDLE, std::min<int>(dir, m->r - 1), a.frame, img, ox, oy, w, h)) {
+    if (m && s && r_->sprites.frame(s, a.cur, std::min<int>(dir, m->r - 1), a.frame, img, ox, oy, w, h)) {
       C2D_ImageTint tint;
       C2D_PlainImageTint(&tint, C2D_Color32(20, 26, 44, 220), 1.0f);
       C2D_DrawImageAt(img, std::floor(x - m->ax * scale + ox * scale), std::floor(y - m->ay * scale + oy * scale), 0, &tint, scale, scale);
@@ -489,6 +489,7 @@ void App::update(const UiIn& in0, float dt) {
       for (int j = 0; j < n; ++j) if (list[j] == s_->partner) cur_ = j;
       scroll_ = cur_ / 6 > 3 ? cur_ / 6 - 3 : 0;
     }
+    if (mode_demo_ == 2 && t0 < 10 && news_t_ >= 10) { gen_ = kGenForms; cur_ = 0; scroll_ = 0; }   // (y las formas regionales)
     // (la dificultad: Normal, luego Difícil y Pesadilla, que está bloqueada si no se ha vencido a Eternatus)
     if (mode_demo_ == 1) st_->diff = news_t_ < 5 ? 0 : news_t_ < 10 ? 1 : 2;
     if (mode_demo_ == 1 && t0 < 5 && news_t_ >= 5 && s_->mode_wins[0] <= 0) s_->mode_wins[0] = 1;   // (Difícil, desbloqueada para la captura)
@@ -1181,7 +1182,10 @@ void App::bottom_menu() {
     const float cx = x + w / 2, cy = y + 15;
     C2D_DrawCircleSolid(cx, cy, 0, 11, rgb(mix(0x0c1220, ac, 0.35f)));
     const int ic = IC[i] ? r_->icons.find(IC[i]) : -1;
-    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), cx - 8 * 1.25f, cy - 8 * 1.25f, 0, nullptr, 1.25f, 1.25f);
+    if (ic >= 0) {   // (centrado en su disco: los iconos miden 12 px)
+      const float iw = r_->icons.sub(ic).width * 1.5f, ih = r_->icons.sub(ic).height * 1.5f;
+      C2D_DrawImageAt(r_->icons.image(ic), std::round(cx - iw / 2), std::round(cy - ih / 2), 0, nullptr, 1.5f, 1.5f);
+    }
     else {   // (Salir: una puerta con su flecha)
       C2D_DrawRectSolid(cx - 6, cy - 7, 0, 8, 14, rgb(0xb7c4dc));
       C2D_DrawRectSolid(cx - 5, cy - 6, 0, 6, 12, rgb(0x3a4560));
@@ -1211,11 +1215,16 @@ bool App::update_bar() const {
 // ---------------- colección ----------------
 
 // Pokémon de la generación que pasan el filtro (todos, tengo, me faltan, shiny, rareza 5..1).
+// Formas regionales (sección de la colección después de las 9 generaciones): nombre y color de cada región
+const char* const kRegionName[5] = {"", "Alola", "Galar", "Hisui", "Paldea"};
+const uint32_t kRegionColor[5] = {0, 0xff9a4d, 0x7fb8ff, 0xc9a26a, 0xff6b9a};
+
 int dex_list(const Save& s, int gen, int filter, int16_t* out) {
   int n = 0;
   for (int i = 0; i < kDexCount; ++i) {
     const Mon& p = kDex[i];
-    if (p.gen != gen) continue;
+    // (las formas regionales, en su sección: la última, después de las 9 generaciones)
+    if (gen == App::kGenForms ? p.reg <= 0 : (p.gen != gen || p.reg > 0)) continue;
     const bool own = s.owns(p.dex), sh = s.owns_shiny(p.dex);
     if (filter == 1 && !own) continue;
     if (filter == 2 && own) continue;
@@ -1223,11 +1232,11 @@ int dex_list(const Save& s, int gen, int filter, int16_t* out) {
     if (filter >= 4 && p.rarity != 9 - filter) continue;
     out[n++] = p.dex;
   }
-  // En orden de la Pokédex nacional; las formas regionales, al final de su región (y en su orden)
+  // En orden de la Pokédex nacional (las formas regionales: por región, Alola, Galar, Hisui y Paldea)
   std::stable_sort(out, out + n, [](int16_t a, int16_t b) {
     const Mon* x = mon_by_dex(a); const Mon* y = mon_by_dex(b);
-    const bool fx = a > kNationalDex, fy = b > kNationalDex;
-    if (fx != fy) return !fx;
+    const int rx = x ? x->reg : 0, ry = y ? y->reg : 0;
+    if (rx != ry) return rx < ry;
     const int nx = x && x->num > 0 ? x->num : a, ny = y && y->num > 0 ? y->num : b;
     return nx != ny ? nx < ny : a < b;
   });
@@ -1251,8 +1260,8 @@ void App::in_dex(const UiIn& in) {
     return;
   }
   const int cols = 6;
-  if (in.down & KEY_L) { gen_ = gen_ == 1 ? 9 : gen_ - 1; cur_ = 0; scroll_ = 0; }
-  if (in.down & KEY_R) { gen_ = gen_ == 9 ? 1 : gen_ + 1; cur_ = 0; scroll_ = 0; }
+  if (in.down & KEY_L) { gen_ = gen_ == 1 ? kGenForms : gen_ - 1; cur_ = 0; scroll_ = 0; }
+  if (in.down & KEY_R) { gen_ = gen_ == kGenForms ? 1 : gen_ + 1; cur_ = 0; scroll_ = 0; }
   if (in.down & KEY_START) { filter_ = (filter_ + 1) % 9; cur_ = 0; scroll_ = 0; }
   if (in.rep & KEY_DLEFT) cur_ = std::max(0, cur_ - 1);
   if (in.rep & KEY_DRIGHT) cur_ = std::min(n - 1, cur_ + 1);
@@ -1310,14 +1319,30 @@ void App::bottom_dex() {
   const int n = dex_list(*s_, gen_, filter_, list);
   if (dex_moves_ && n) { bottom_ficha(list[std::min(cur_, n - 1)]); return; }
   int have = 0, total = 0;
-  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { total++; if (s_->owns(kDex[i].dex)) have++; }
   char b[96];
+  if (gen_ == kGenForms) {   // Formas regionales: su cabecera y la leyenda de las regiones
+    for (int i = 0; i < kDexCount; ++i) if (kDex[i].reg > 0) { total++; if (s_->owns(kDex[i].dex)) have++; }
+    std::snprintf(b, sizeof(b), "%s %d/%d", tr("Formas regionales"), have, total);
+    header(b);
+    float lx = 160 - 150;
+    std::snprintf(b, sizeof(b), "L/R · START: %s ·", tr(FILTERS[filter_]));
+    r_->text(b, lx, 25, 0.32f, C_MUTED, 0, false);
+    lx += r_->text_width(b, 0.32f) + 6;
+    for (int r = 1; r <= 4; ++r) {
+      const char* rn = tr(kRegionName[r]);
+      C2D_DrawRectSolid(lx, 29, 0, 7, 7, rgb(kRegionColor[r]));
+      r_->text(rn, lx + 9, 25, 0.32f, rgb(kRegionColor[r]), 0, false);
+      lx += r_->text_width(rn, 0.32f) + 16;
+    }
+  } else {
+  for (int i = 0; i < kDexCount; ++i) if (kDex[i].gen == gen_) { total++; if (s_->owns(kDex[i].dex)) have++; }
   // Con la región completa, su Amuleto Iris (shiny al 2 % en su banner).
   std::snprintf(b, sizeof(b), "%s %d/%d%s", GEN_NAMES[gen_ - 1], have, total, have >= total ? " · Amuleto Iris" : "");
   header(b);
   if (have >= total) std::snprintf(b, sizeof(b), "L/R generación · START: %s · shiny al 2 %% en su banner", tr(FILTERS[filter_]));
   else std::snprintf(b, sizeof(b), "L/R generación · START: %s · Amuleto Iris: faltan %d", tr(FILTERS[filter_]), total - have);
   r_->text_fit(b, 160, 25, 308, 0.34f, C_MUTED, false, 1);
+  }
   for (int i = 0; i < 24; ++i) {
     const int k = scroll_ * 6 + i;
     if (k >= n) break;
@@ -1325,6 +1350,14 @@ void App::bottom_dex() {
     const float x = 4 + (i % 6) * 52, y = 42 + (i / 6) * 44;
     const bool own = s_->owns(dex);
     C2D_DrawRectSolid(x, y, 0, 50, 42, k == cur_ ? C_SEL : C_PANEL);
+    {   // Formas regionales: un toque del color de su región (degradado de abajo y su filo)
+      const Mon* rm = mon_by_dex(dex);
+      if (rm && rm->reg > 0 && rm->reg < 5) {
+        const uint32_t rc = kRegionColor[rm->reg];
+        C2D_DrawRectangle(x, y + 22, 0, 50, 20, rgbf(rc, 0), rgbf(rc, 0), rgbf(rc, own ? 0.35f : 0.15f), rgbf(rc, own ? 0.35f : 0.15f));
+        C2D_DrawRectSolid(x, y + 40, 0, 50, 2, rgb(rc));
+      }
+    }
     const bool sh = s_->owns_shiny(dex);
     draw_mon(dex, view_shiny_ && sh, x + 25, y + 36, 1, own ? 0 : 3);
     {   // (su número de la Pokédex nacional: las formas regionales, el de su especie)

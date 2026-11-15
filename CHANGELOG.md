@@ -5,8 +5,18 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
-## 0.51.0 — en preparación (sin publicar)
-**La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor). Por ahora:
+## 1.0.0 — en preparación (sin publicar)
+**La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor): la 1.0.
+- **Se sube de nivel como antes** (3 veces más despacio que en la web nueva): menos pantallas de
+  cartas y cada una cuenta más. Para que la partida siga igual de dura, los enemigos, los jefes y
+  Eternatus tienen menos vida (medido con el bot, en los dos modos).
+- **Tus pasivas a la vista:** abajo, sobre el minimapa, una chapita por cada carta pasiva que
+  llevas (daño, crítico, velocidad, recarga…) con cuántas veces la has cogido (dorada si ya está
+  al máximo).
+- **Formas regionales en su sección de la Colección**, después de las 9 generaciones: por
+  regiones (Alola, Galar, Hisui y Paldea), cada una con su color.
+- Los Pokémon cuyo sprite no tiene animación de reposo (Miraidon y otros) ya no se ven
+  congelados: se mueven con su animación de andar.
 - **Menú principal renovado** (pantalla de abajo): tus números en tarjetas (runs, mejor tiempo,
   mejor nivel, Pokémon), monedas y tickets en cápsulas y botones con su icono y su color.
 - **Al vencer a Eternatus con tu megapiedra puesta** puedes quedártela (su megaevolución recarga
@@ -71,12 +81,13 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 - **Modo rápido:** todo llega antes en la misma proporción (y la experiencia también), para
   que siga siendo la misma partida en menos tiempo.
 - 92 MT en la Tienda Kecleon (antes 58); las 8 del día son las mismas para todos.
-- **Evolución en plena partida, a los niveles de los juegos:** Charmander puede evolucionar al
-  16 y Charmeleon al 36 (los que evolucionan con piedra, intercambio o amistad, al 20 y al 40).
-  Eliges evolucionar (cambian su aspecto, sus tipos y sus stats base, que pasan a ser los de la
-  evolución) o mantener su aspecto (y sus stats). Eevee, entre 3 de sus evoluciones al azar. Todos empiezan con la fuerza del primero de
-  su línea (Charizard, con la de Charmander) y la ganan al subir; los que no evolucionan, al 65 %,
-  y suben en los niveles 20 y 40.
+- **Evolución en plena partida, en proporción a los niveles de los juegos:** como aquí se sube de
+  nivel más despacio, Charmander evoluciona al 10 y Charmeleon al 22 (16 y 36 en los juegos), en
+  el mismo momento de la partida que en la web. Los que evolucionan con piedra, intercambio o
+  amistad, al 12 y al 25. Eliges evolucionar (cambian su aspecto, sus tipos y sus stats base, que
+  pasan a ser los de la evolución) o mantener su aspecto (y sus stats). Eevee, entre 3 de sus
+  evoluciones al azar. Todos empiezan con la fuerza del primero de su línea (Charizard, con la de
+  Charmander) y la ganan al subir; los que no evolucionan, al 65 %, y suben en los niveles 12 y 25.
 - **La Sentencia de Arceus, en la Sala del Origen:** un suelo de mármol con anillos dorados
   flotando entre las nubes del cielo. Arceus aprende ataques nuevos según dura la pelea:
   Velocidad Extrema (cruza la sala embistiendo), Premonición (donde estabas hace un momento),

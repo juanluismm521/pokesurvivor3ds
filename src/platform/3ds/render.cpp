@@ -1895,6 +1895,26 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       else std::snprintf(b, sizeof(b), "%d derrotados · %d monedas", p.kills, p.coins);
       text(b, MX + MW - 3, MY + 1, 0.32f, rgb(0xffd23f), 2, false);
     }
+    // Las pasivas que llevas (cartas de nivel): su icono y cuántas veces la has cogido
+    {
+      static int ls_icon[LS_COUNT];
+      static bool ls_init = false;
+      if (!ls_init) { for (int s = 0; s < LS_COUNT; ++s) ls_icon[s] = icons.find(kLevelStats[s].icon); ls_init = true; }
+      float cx = MX + 2;
+      const float cy = MY + 13;
+      for (int s = 0; s < LS_COUNT; ++s) {
+        if (p.stats_taken[s] <= 0 || kLevelStats[s].max == 0) continue;   // (las de un solo uso, como la Baya Zidra, no)
+        std::snprintf(b, sizeof(b), "%d", int(p.stats_taken[s]));
+        const float w = 17 + text_width(b, 0.3f);
+        if (cx + w > MX + MW - 2) break;
+        const bool full = kLevelStats[s].max > 0 && p.stats_taken[s] >= kLevelStats[s].max;
+        rrect(cx, cy, w, 13, C2D_Color32(6, 10, 20, 200));
+        rframe(cx, cy, w, 13, full ? rgbf(0xffd23f, 0.8f) : C2D_Color32(70, 90, 130, 200));
+        if (ls_icon[s] >= 0) C2D_DrawImageAt(icons.image(ls_icon[s]), cx + 1, cy + 0.5f, 0);
+        text(b, cx + 14, cy, 0.3f, full ? rgb(0xffd23f) : rgb(0xeaf2ff), 0, false);
+        cx += w + 2;
+      }
+    }
     {
       // Abajo del todo, a lo ancho: el objeto que llevas y lo que hace. Encima,
       // a la izquierda clima y poder de altar; a la derecha, los vínculos.

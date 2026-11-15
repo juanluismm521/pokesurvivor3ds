@@ -45,6 +45,11 @@ double diff_legend_hp(int mode, int idx, double t, int players, double dps, doub
 }
 double diff_legend_dmg(int mode, double t) { return diff_curve(DC_DMG, t) * 1.1 * mk(mode).dmg; }
 double diff_eterna_hp(int mode, int players) { return diff_curve(DC_SINGLE, 1200) * double(kDiffEternaS) * double(kDiffEternaK) * std::max(1, players) * mk(mode).hp; }
+// (medido con el bot, tests/levels_main.cpp, el 15-11-2026: con esta curva, 80 partidas en normal y 60
+// en rápido dan los mismos jefes, el mismo Eternatus y el mismo daño recibido que el ritmo de la web)
+float g_bal_hp_a = 1.2f, g_bal_hp_p = 0.3f;
+double port_hp_k(double t) { return 1.0 / (1.0 + double(g_bal_hp_a) * std::pow(std::min(1.0, std::max(0.0, t) / 1200.0), double(g_bal_hp_p))); }
+
 double diff_judge_hp(int mode, int players) { return diff_curve(DC_SINGLE, 1800) * 3 * std::max(1, players) * mk(mode).hp; }
 
 }  // namespace ps

@@ -18,12 +18,18 @@ namespace ps {
 struct Game;
 struct Player;
 
-constexpr int kEvoLv1 = 20, kEvoLv2 = 40;   // las que no son por nivel (y los que no evolucionan)
+// Al ritmo del port (se sube 3 veces más despacio que en la web: core/player.cpp, kPortXpCost) se
+// llega a cada nivel más tarde; para que se evolucione en el mismo momento de la partida que con el
+// ritmo de la web, el nivel de los juegos ×kEvoPace (medido con el bot: el nivel que tienes con un
+// ritmo frente al otro en el mismo minuto). Charmander: 16 → 10; Charmeleon: 36 → 22.
+constexpr float kEvoPace = 0.62f;
+constexpr int kEvoLv1 = 12, kEvoLv2 = 25;   // las que no son por nivel (y los que no evolucionan): 20 y 40 de la web
+int evo_level_real(int from, int to);             // nivel en los juegos
 constexpr float kEvoSolo[3] = {0.65f, 0.82f, 1.0f};
 
 int evo_next(int dex, int16_t* out, int max);   // a quién evoluciona (los que existen)
 int evo_prev(int dex);                            // de quién viene (0: de nadie)
-int evo_level(int from, int to);                  // nivel en los juegos (0: no es por nivel)
+int evo_level(int from, int to);                  // nivel en la partida (0: no es por nivel)
 
 void evo_begin(Game& g, Player& p);               // al empezar la partida
 int evo_due_level(const Player& p);               // nivel de la siguiente etapa (0: no hay más)

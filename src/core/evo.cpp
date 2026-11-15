@@ -1,6 +1,7 @@
 // evo.cpp — ver evo.h. (_dc6cc1a de la web: begin, due, step, choose)
 #include "core/evo.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -20,9 +21,13 @@ int evo_prev(int dex) {
   for (int i = 0; i < kEvoCount; ++i) if (kEvos[i].to == dex && mon_by_dex(kEvos[i].from)) return kEvos[i].from;
   return 0;
 }
-int evo_level(int from, int to) {
+int evo_level_real(int from, int to) {
   for (int i = 0; i < kEvoCount; ++i) if (kEvos[i].from == from && kEvos[i].to == to) return kEvos[i].lvl;
   return 0;
+}
+int evo_level(int from, int to) {
+  const int l = evo_level_real(from, to);
+  return l > 0 ? std::max(2, int(std::lround(l * kEvoPace))) : 0;
 }
 
 namespace {
@@ -136,7 +141,7 @@ Step next_step(const Player& p) {
   if (p.evo_half) {
     s.kind = 1; s.n = p.evo_nstat;
     for (int i = 0; i < s.n; ++i) s.list[i] = p.evo_stat[i];
-    s.lvl = std::max(kEvoLv2, p.evo_lv_prev + 10);
+    s.lvl = std::max(kEvoLv2, p.evo_lv_prev + 6);
     return s;
   }
   if (k < p.evo_nline) {

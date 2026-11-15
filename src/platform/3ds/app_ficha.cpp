@@ -62,7 +62,7 @@ void App::open_ficha(int dex, int tab) {
   go(SC_DEX);
   const Mon* m = mon_by_dex(dex);
   if (!m || !s_->owns(dex)) return;
-  gen_ = m->gen;
+  gen_ = m->reg > 0 ? kGenForms : m->gen;
   filter_ = 0;
   static int16_t list[256];
   const int n = dex_list(*s_, gen_, filter_, list);

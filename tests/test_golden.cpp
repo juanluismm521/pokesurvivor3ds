@@ -156,7 +156,7 @@ TEST_CASE("dorado: tabla de tipos") {
 
 TEST_CASE("dorado: experiencia, escalado y apuntado") {
   const Json& g = golden();
-  for (size_t l = 0; l < g["xpFor"].size(); ++l) CHECK(xp_for(int(l) + 1) == float(g["xpFor"][l].as_num()));
+  for (size_t l = 0; l < g["xpFor"].size(); ++l) CHECK(xp_for_web(int(l) + 1) == float(g["xpFor"][l].as_num()));
   // Equilibrio (difficulty.js de la web nueva)
   REQUIRE(g["diff"].size() > 0);
   for (size_t i = 0; i < g["diff"].size(); ++i) {

@@ -48,7 +48,11 @@ struct Bot {
     }
     if (g.state == ST_CHOICE) {
       if (me.choice == CH_ITEM) { in.cmd = CMD_ITEM; in.arg = rng.next() < 0.5f ? 1 : 0; }
-      if (me.choice == CH_POWER) { in.cmd = CMD_POWER; in.arg = int8_t(rng.next() * me.npower_opts); }
+      if (me.choice == CH_POWER) {   // (un poder de verdad: «quedarte la megapiedra» no lo es)
+        int pick = int(rng.next() * me.npower_opts);
+        if (me.power_opts[pick] == PWK_KEEP && me.npower_opts > 1) pick = pick == 0 ? 1 : 0;
+        in.cmd = CMD_POWER; in.arg = int8_t(pick);
+      }
       if (me.choice == CH_EVO) { in.cmd = CMD_EVO; in.arg = int8_t(rng.next() * (me.evo_nopts + 1)); }
       else if (me.choice == CH_BOND) {
         int8_t loose[4]; int nl, grow;

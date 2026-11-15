@@ -360,7 +360,7 @@ void begin(Game& g) {
   // Eternatus Eternamax (vida: difficulty.js eternaHp)
   EnemyDef d;
   d.dex = 890;
-  d.hp = float(jsround(diff_eterna_hp(g.cfg.diff, g.team_size())));
+  d.hp = float(jsround(diff_eterna_hp(g.cfg.diff, g.team_size()) * port_hp_k(kEternaAt)));
   d.spd = 0; d.dmg = 0; d.xp = float(jsround(1500 + game_teq(g) * 1.5f)); d.behavior = BH_CHASE;
   Enemy* e = enemy_spawn(g, d, s.cx, s.cy - TS * 3, Scale3(), true);
   if (e) {

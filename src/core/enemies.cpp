@@ -237,12 +237,12 @@ void enemies_roll_run(Game& g) {
 // sino de las curvas de core/diff.h; los de un tramo viejo aguantan y pegan menos.
 Scale3 enemies_scale(const Game& g, float t, const EnemyDef* d) {
   const bool old = d && d->ti >= 0 && d->ti < enemies_tier_at(t);
-  const double hp = diff_mob_hp(g.cfg.diff, t, g.team_size()) * (d ? d->hp_f : 1) * (old ? 0.6 : 1);
+  const double hp = diff_mob_hp(g.cfg.diff, t, g.team_size()) * (d ? d->hp_f : 1) * (old ? 0.6 : 1) * port_hp_k(t);
   const double dmg = diff_mob_dmg(g.cfg.diff, t) * (d ? d->dmg_f : 1) * (old ? 0.75 : 1);
   return {float(d && d->hp > 0 ? hp / d->hp : hp), float(d && d->dmg > 0 ? dmg / d->dmg : dmg), 1 + std::fmin(0.35f, t / 1400)};
 }
 Scale3 enemies_boss_scale(const Game& g, float t, const EnemyDef& b) {
-  return {float(diff_boss_hp(g.cfg.diff, b.idx, t, g.team_size()) / b.hp), float(diff_boss_dmg(g.cfg.diff, t) / b.dmg), 1};
+  return {float(diff_boss_hp(g.cfg.diff, b.idx, t, g.team_size()) * port_hp_k(t) / b.hp), float(diff_boss_dmg(g.cfg.diff, t) / b.dmg), 1};
 }
 float enemies_xp_of(const Game& g, float t, const EnemyDef* d) {
   (void)g;
