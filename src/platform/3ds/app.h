@@ -97,7 +97,7 @@ class App {
   float shop_scroll_ = 0;
   char shop_say_[96] = {};
   float shop_say_t_ = 0, shop_cheer_t_ = 0, shop_t0_ = 0;
-  int shop_learn_[64] = {};
+  int shop_learn_[kMaxTms] = {};   // (por MT: ¡92 desde la Gran Actualización!)
   int shop_today_[8] = {};
   int shop_ntoday_ = 0;
   char shop_day_[12] = "";
@@ -124,6 +124,7 @@ class App {
   void draw_bottom();
   bool quit = false;
   bool autotest = false;
+  bool no_gifts = false;     // (autotest: no abre los regalos del servidor)
   uint32_t start_ms = 0;   // lo que tardó en empezar la última partida
   Scene scene = SC_MENU;
   Input pending_input;          // entrada de la partida de este fotograma

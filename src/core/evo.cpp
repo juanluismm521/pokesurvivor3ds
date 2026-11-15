@@ -246,13 +246,18 @@ void evo_choose(Game& g, Player& p, int pick) {
   int16_t to[8]; int n;
   if (pick >= 0 && pick < p.evo_nopts) { to[0] = p.evo_opts[pick]; n = 1; }
   else { n = p.evo_nall; for (int i = 0; i < n; ++i) to[i] = p.evo_all[i]; }
-  if (half) set_half(p, p.evo_stat, p.evo_nstat, to, n);
-  else set_stats(p, to, n);
-  p.evo_half = half;
-  p.evo_nstat = int8_t(n);
-  for (int i = 0; i < n; ++i) p.evo_stat[i] = to[i];
   char b[160];
-  if (pick >= 0 && pick < p.evo_nopts) {
+  // Evolucionar: sus stats base pasan a ser los de su evolución (el dueño, 15-11-2026). Mantener
+  // el aspecto: se queda como está (y en la siguiente etapa podrá evolucionar).
+  const bool evolve = pick >= 0 && pick < p.evo_nopts;
+  if (evolve) {
+    if (half) set_half(p, p.evo_stat, p.evo_nstat, to, n);
+    else set_stats(p, to, n);
+    p.evo_half = half;
+    p.evo_nstat = int8_t(n);
+    for (int i = 0; i < n; ++i) p.evo_stat[i] = to[i];
+  }
+  if (evolve) {
     const char* from = mon_by_dex(p.dex)->name;
     std::snprintf(b, sizeof(b), "¡%s ha evolucionado en %s!", from, mon_by_dex(to[0])->name);
     become(g, p, to[0]);
@@ -260,7 +265,7 @@ void evo_choose(Game& g, Player& p, int pick) {
   } else {
     push_away(g, p, false);
     g.sfx(SFX_LEVELUP);
-    std::snprintf(b, sizeof(b), "%s mantiene su aspecto y se hace más fuerte", mon_by_dex(p.dex)->name);
+    std::snprintf(b, sizeof(b), "%s mantiene su aspecto", mon_by_dex(p.dex)->name);
     say_to(g, p, b, 3.2f);
   }
   p.choice = CH_NONE;

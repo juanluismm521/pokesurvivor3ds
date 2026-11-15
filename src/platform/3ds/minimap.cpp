@@ -19,11 +19,6 @@ inline u16 to565(uint32_t c) {
   const u32 r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
   return u16(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
 }
-// Mezcla dos colores 0xRRGGBB (k = cuánto de b).
-uint32_t mix(uint32_t a, uint32_t b, float k) {
-  auto ch = [&](int s) { return uint32_t(std::lround(((a >> s) & 255) * (1 - k) + ((b >> s) & 255) * k)) << s; };
-  return ch(16) | ch(8) | ch(0);
-}
 const uint32_t kMate[4] = {0xffcb3d, 0x5fc8ff, 0x7ee07a, 0xff8ad8};
 const u32 kBlack = C2D_Color32(0, 0, 0, 255);
 

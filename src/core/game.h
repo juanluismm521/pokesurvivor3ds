@@ -160,6 +160,7 @@ struct Player {
   float guard_t = 0, rest_t = 0, zzz_t = 0;
   float screen_t[2] = {}, screen_k[2] = {};
   float dodge = 0, crit_dmg = 0, boss_mul = 1, power_cd_k = 1;
+  float mega_cut = 0;           // segundos menos de recarga de la mega (quedarte la megapiedra tras Eternatus)
   // Evolución en plena partida (core/evo.h): con quién empezó, su línea, la etapa, de quién
   // tiene ahora los stats y, mientras eliges (choice == CH_EVO), las opciones.
   int16_t start_dex = 0;

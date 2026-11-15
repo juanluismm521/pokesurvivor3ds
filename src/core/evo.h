@@ -7,7 +7,7 @@
 //   - si ya está evolucionado (Charizard), toma solo los stats del siguiente de la línea al
 //     nivel en que evoluciona en los juegos (Charmeleon al 16, Charizard al 36);
 //   - si puede evolucionar (Charmander), a ese nivel eliges: evolucionar (cambian su aspecto y
-//     sus tipos) o mantener su aspecto. Sus stats suben igual. Con varias (Eevee), 3 al azar;
+//     sus tipos y sus stats base pasan a ser los de la evolución) o mantener su aspecto (y sus stats). Con varias (Eevee), 3 al azar;
 //   - si no evoluciona nunca, empieza al 65 % y sube al 82 % y al 100 % (niveles 20 y 40).
 // Las que no son por nivel (piedra, intercambio, amistad…): niveles 20 y 40, como la web.
 #pragma once

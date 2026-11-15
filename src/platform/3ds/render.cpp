@@ -68,40 +68,6 @@ void quad(float x, float y, float angle, float u0, float u1, float v0, float v1,
   C2D_DrawTriangle(ax, ay, c, cx, cy, c, dx, dy, c, 0);
 }
 
-// ---- pantalla de abajo: piezas (rectángulos con las esquinas recortadas, degradados) ----
-uint32_t mix(uint32_t a, uint32_t b, float t) {
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  auto ch = [&](int s) { const float x = float((a >> s) & 255), y = float((b >> s) & 255); return uint32_t(x + (y - x) * t) << s; };
-  return ch(16) | ch(8) | ch(0);
-}
-// Relleno con las 4 esquinas recortadas un píxel (parece redondeado a este tamaño)
-void rrect(float x, float y, float w, float h, u32 c) {
-  C2D_DrawRectSolid(x + 1, y, 0, w - 2, h, c);
-  C2D_DrawRectSolid(x, y + 1, 0, 1, h - 2, c);
-  C2D_DrawRectSolid(x + w - 1, y + 1, 0, 1, h - 2, c);
-}
-// Degradado vertical, también con las esquinas recortadas
-void rgrad(float x, float y, float w, float h, u32 top, u32 bot) {
-  C2D_DrawRectangle(x + 1, y, 0, w - 2, h, top, top, bot, bot);
-  C2D_DrawRectangle(x, y + 1, 0, 1, h - 2, top, top, bot, bot);
-  C2D_DrawRectangle(x + w - 1, y + 1, 0, 1, h - 2, top, top, bot, bot);
-}
-// Marco de 1 px (con las esquinas recortadas)
-void rframe(float x, float y, float w, float h, u32 c) {
-  C2D_DrawRectSolid(x + 1, y, 0, w - 2, 1, c);
-  C2D_DrawRectSolid(x + 1, y + h - 1, 0, w - 2, 1, c);
-  C2D_DrawRectSolid(x, y + 1, 0, 1, h - 2, c);
-  C2D_DrawRectSolid(x + w - 1, y + 1, 0, 1, h - 2, c);
-}
-// Esquinas doradas (marcos importantes)
-void corners(float x, float y, float w, float h, u32 c) {
-  const float L = 5;
-  C2D_DrawRectSolid(x, y, 0, L, 1, c); C2D_DrawRectSolid(x, y, 0, 1, L, c);
-  C2D_DrawRectSolid(x + w - L, y, 0, L, 1, c); C2D_DrawRectSolid(x + w - 1, y, 0, 1, L, c);
-  C2D_DrawRectSolid(x, y + h - 1, 0, L, 1, c); C2D_DrawRectSolid(x, y + h - L, 0, 1, L, c);
-  C2D_DrawRectSolid(x + w - L, y + h - 1, 0, L, 1, c); C2D_DrawRectSolid(x + w - 1, y + h - L, 0, 1, L, c);
-}
-
 float step_alpha(float k) { return k > 0.66f ? 1 : k > 0.33f ? 0.66f : 0.33f; }
 
 void bar(float x, float y, float w, float h, float frac, u32 col, u32 bg = C2D_Color32(0, 0, 0, 140)) {
@@ -280,7 +246,7 @@ float Renderer::text_fit(const char* s, float x, float y, float maxw, float size
   return text_width(t.c_str(), sz);
 }
 
-int Renderer::text_fit2(const char* s, float x, float y, float maxw, float size, u32 color) {
+int Renderer::text_fit2(const char* s, float x, float y, float maxw, float size, u32 color, float gap) {
   std::string t = i18n_lang() != LANG_ES ? tr(s) : s;
   if (text_width(t.c_str(), size) <= maxw) { text(t.c_str(), x, y + 4, size, color, 0, false); return 1; }
   // La primera línea: hasta el último espacio que quepa.
@@ -293,7 +259,7 @@ int Renderer::text_fit2(const char* s, float x, float y, float maxw, float size,
   }
   if (cut == 0) { text_fit(t.c_str(), x, y + 4, maxw, size, color); return 1; }
   text(t.substr(0, cut).c_str(), x, y, sz, color, 0, false);
-  text_fit(t.substr(cut + 1).c_str(), x, y + 10, maxw, sz, color);
+  text_fit(t.substr(cut + 1).c_str(), x, y + gap, maxw, sz, color);
   return 2;
 }
 
@@ -1634,7 +1600,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     const bool four = p.ncards > 3;
     if (levelup_min_passive(p) > 0) std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora (%d pasivas)", p.level, levelup_min_passive(p));
     else std::snprintf(b, sizeof(b), "¡Nivel %d! Elige una mejora", p.level);
-    text_fit(b, 160, four ? 68 : 74, 300, four ? 0.44f : 0.5f, rgb(0xffcb3d), true, 1);
+    text_fit(b, 160, four ? 56 : 74, 300, four ? 0.44f : 0.5f, rgb(0xffcb3d), true, 1);
     const float ch = card_h(p.ncards);
     for (int i = 0; i < p.ncards; ++i) {
       const Card& c = p.cards[i];
@@ -1682,11 +1648,12 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       }
       const float isz = four ? 24.0f : 28.0f;
       if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 17, y + (ch - 2 - isz) / 2, 0, nullptr, isz / icons.sub(ic).width, isz / icons.sub(ic).width);
-      const float tw = std::fmax(text_width(tag, 0.34f), fit[0] ? text_width(fit, 0.3f) : 0);
-      text_fit(title, 50, y + (four ? 1 : 3), 254 - tw - 6, four ? 0.42f : 0.45f, C2D_Color32(240, 244, 255, 255), true);
-      text(tag, 304, y + (four ? 2 : 4), 0.34f, rgb(col), 2);
-      if (fit[0]) text(fit, 304, y + (four ? 12 : 14), 0.3f, rgb(0xff8a8a), 2);
-      text_fit2(desc ? desc : "", 50, y + (four ? 14 : 18), 256, 0.32f, rgb(0xb7c4dc));
+      // Arriba a la derecha, su etiqueta (y si rinde menos, al lado, en rojo); la descripción, a lo ancho
+      const float tagw = text_width(tag, 0.32f), fitw = fit[0] ? text_width(fit, 0.28f) + 6 : 0;
+      text_fit(title, 50, y + 1, 254 - tagw - fitw - 6, four ? 0.42f : 0.45f, C2D_Color32(240, 244, 255, 255), true);
+      text(tag, 304, y + 3, 0.32f, rgb(col), 2);
+      if (fit[0]) text(fit, 304 - tagw - 6, y + 4, 0.28f, rgb(0xff8a8a), 2);
+      text_fit2(desc ? desc : "", 50, y + (four ? 15 : 18), 254, 0.32f, rgb(0xb7c4dc), four ? 9 : 10);
     }
     const int left = 1 + p.reroll_bonus - p.rerolls;
     std::snprintf(b, sizeof(b), "A: elegir · Y: cambiar cartas (%d)", left > 0 ? left : 0);
@@ -1731,7 +1698,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     // ¿Evolucionar? Cada opción con su sprite y sus tipos; la última, mantener su aspecto.
     std::snprintf(b, sizeof(b), tr("¡%s puede evolucionar!"), mon_by_dex(p.dex)->name);
     text_fit(b, 160, 40, 300, 0.5f, rgb(0xffe14d), true, 1);
-    text_fit(tr("Sus stats suben igual. Si evoluciona, cambian su aspecto y sus tipos."), 160, 56, 300, 0.32f, rgb(0xb7c4dc), false, 1);
+    text_fit(tr("Si evoluciona, tiene sus stats base, su aspecto y sus tipos."), 160, 56, 300, 0.32f, rgb(0xb7c4dc), false, 1);
     const int nc = p.evo_nopts + 1;
     const float ch = evo_card_h(nc);
     static Animator an[4];
@@ -1758,7 +1725,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         text(tn, tx + w / 2, y + 19, 0.3f, C2D_Color32(255, 255, 255, 255), 1, false);
         tx += w + 3;
       }
-      if (keep) text_fit(tr("Sigue igual, con la fuerza de su evolución."), 64, y + 19, 240, 0.3f, rgb(0xb7c4dc));
+      if (keep) text_fit(tr("Sigue igual: no cambia ni de aspecto ni de stats."), 64, y + 19, 240, 0.3f, rgb(0xb7c4dc));
       else if (ch >= 46) {
         std::snprintf(b, sizeof(b), "Vida %d · Ataque %d · Velocidad %d", int(m.hp), int(std::lround(m.atk * 100)), int(m.spd));
         text_fit(tr(b), 64, y + 31, 240, 0.3f, rgb(0xb7c4dc));
@@ -2049,14 +2016,33 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       std::snprintf(b, sizeof(b), "%sNv%d", m0.evolved ? "★" : "", m0.lvl);
       text(b, x + S / 2, y + S - 12, 0.3f, rgb(m0.evolved ? 0xffd23f : 0xeaf2ff), 1);
     }
-    if (p.nslots) {   // el nombre del activo, en su cápsula
+    if (p.nslots) {   // el nombre del activo, en su cápsula, con su categoría (físico / especial / estado)
       const MoveInst& m = p.moves[p.slots[p.active_slot][0]];
-      const float nw = std::fmin(200.0f, text_width(m.name(), 0.36f)) + 22;
+      const float nw = std::fmin(200.0f, text_width(m.name(), 0.36f)) + 34;
       const uint32_t mc = kTypeColor[m.type()];
-      rrect(160 - nw / 2, kSlotY + S + 3, nw, 13, rgb(mix(0x0e1424, mc, 0.22f)));
-      rframe(160 - nw / 2, kSlotY + S + 3, nw, 13, rgbf(mc, 0.6f));
-      C2D_DrawCircleSolid(160 - nw / 2 + 7, kSlotY + S + 9.5f, 0, 3, rgb(mc));
-      text_fit(m.name(), 164, kSlotY + S + 3, 200, 0.36f, rgb(mix(mc, 0xffffff, 0.35f)), true, 1);
+      const float px = 160 - nw / 2, py = kSlotY + S + 3;
+      rrect(px, py, nw, 13, rgb(mix(0x0e1424, mc, 0.22f)));
+      rframe(px, py, nw, 13, rgbf(mc, 0.6f));
+      // El icono de su categoría, como en los juegos: físico, una explosión naranja; especial,
+      // anillos sobre azul; de estado, dos rayas sobre gris
+      const int cat = m.cat();
+      const float bx = px + 2, by = py + 2, bw = 18, bh = 9, cx = bx + bw / 2, cy = by + bh / 2;
+      rrect(bx, by, bw, bh, rgb(cat == CAT_PHYSICAL ? 0xd8572a : cat == CAT_SPECIAL ? 0x3d5fc4 : 0x8a8f9c));
+      if (cat == CAT_PHYSICAL) {
+        for (int q = 0; q < 8; ++q) {
+          const float a = q * kTau / 8 + 0.2f, l = q % 2 ? 2.6f : 4.2f;
+          C2D_DrawLine(cx, cy, rgb(0xffe08a), cx + std::cos(a) * l, cy + std::sin(a) * l, rgb(0xffe08a), 1.2f, 0);
+        }
+        C2D_DrawCircleSolid(cx, cy, 0, 1.6f, rgb(0xffffff));
+      } else if (cat == CAT_SPECIAL) {
+        C2D_DrawCircleSolid(cx, cy, 0, 3.8f, rgb(0xeaf2ff));
+        C2D_DrawCircleSolid(cx, cy, 0, 2.6f, rgb(0x3d5fc4));
+        C2D_DrawCircleSolid(cx, cy, 0, 1.3f, rgb(0xeaf2ff));
+      } else {
+        C2D_DrawRectSolid(cx - 4, cy - 2, 0, 8, 1.2f, rgb(0xffffff));
+        C2D_DrawRectSolid(cx - 4, cy + 1, 0, 8, 1.2f, rgb(0xffffff));
+      }
+      text_fit(m.name(), 170, py, 200, 0.36f, rgb(mix(mc, 0xffffff, 0.35f)), true, 1);
     }
     // --- esferas: dos casillas a cada lado (A usa la elegida, B cambia; tocar la usa) ---
     if (orb_count(p) > 0) {
@@ -2131,17 +2117,17 @@ int Renderer::check_texts(FILE* log) {
   for (int i = 0; i < kMoveCount; ++i) {
     const MoveDef& d = kMoves[i];
     chk(fits1(d.name, 254 - tagw - 6), "carta", d.name);
-    chk(fits2(d.desc, 256), "carta", d.desc);
+    chk(fits2(d.desc, 254), "carta", d.desc);
     MoveInst m = move_instance(i);
     for (int l = 1; l < move_max_lvl(); ++l) {
       const char* u = move_next_up_text(m);
-      if (u) chk(fits2(u, 256), "carta", u);
+      if (u) chk(fits2(u, 254), "carta", u);
       move_level_up(m);
     }
     if (d.evo_name) {
       std::snprintf(b, sizeof(b), "%s → %s", d.name, d.evo_name);
       chk(fits1(b, 254 - text_width("EVOLUCIÓN", 0.34f) - 6), "carta", b);
-      chk(fits2(kEvoMods[d.kind].text, 256), "carta", kEvoMods[d.kind].text);
+      chk(fits2(kEvoMods[d.kind].text, 254), "carta", kEvoMods[d.kind].text);
       std::snprintf(b, sizeof(b), "%s Nv.5", d.evo_name);
       chk(fits1(b, 118), "pausa", b);
     }
@@ -2149,7 +2135,7 @@ int Renderer::check_texts(FILE* log) {
     chk(fits1(b, 118), "pausa", b);
     chk(fits1(d.name, 150), "atajos", d.name);
   }
-  for (int i = 0; i < LS_COUNT; ++i) chk(fits2(kLevelStats[i].desc, 256), "carta", kLevelStats[i].desc);
+  for (int i = 0; i < LS_COUNT; ++i) chk(fits2(kLevelStats[i].desc, 254), "carta", kLevelStats[i].desc);
   const float whow = text_width("El que llevas", 0.34f);
   for (int i = 0; i < IT_COUNT; ++i) {
     chk(fits1(item_name(i, 1), 250 - whow - 6), "objeto", item_name(i, 1));

@@ -339,6 +339,7 @@ int main(int argc, char** argv) {
     std::fflush(at.log);
   }
   if (at.log) { std::fprintf(at.log, "datos al arrancar: %s · Pikachu: vida %d\n", datos_boot.c_str(), int(mon_by_dex(25)->hp)); std::fflush(at.log); }
+  app.no_gifts = at.on;   // (con cualquier autotest, sin los regalos de verdad del servidor: tapan las capturas)
   if (at.tour) { app.start_tour(); at.on = false; }
   if (at.news) { app.start_news_demo(at.dex); at.on = false; }
   if (at.gacha100) { app.start_gacha_demo(at.gacha_all); at.on = false; }

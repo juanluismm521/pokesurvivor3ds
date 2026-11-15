@@ -24,7 +24,11 @@ namespace {
 enum NewsIcon : int8_t { NI_STONE, NI_Y, NI_UP, NI_STAR, NI_HEART, NI_HOME, NI_CLOUD, NI_ITEM, NI_WEB, NI_COIN, NI_BOND, NI_FAST,
                          NI_ORB, NI_TICKET, NI_BOOK, NI_FRIENDS,
                          // (Halloween y lo de la 0.25-0.26: cada novedad con su dibujo)
-                         NI_CANDY, NI_PUMPKIN, NI_GENGAR, NI_KECLEON, NI_COSTUME, NI_CARDS, NI_HEALORB, NI_LUMORB };
+                         NI_CANDY, NI_PUMPKIN, NI_GENGAR, NI_KECLEON, NI_COSTUME, NI_CARDS, NI_HEALORB, NI_LUMORB,
+                         // (la 0.51: el Pokémon de cada novedad, en pequeño)
+                         NI_M_ETERNA, NI_M_ARCEUS, NI_M_LUGIA, NI_M_MIRAIDON, NI_M_CHARMELEON };
+struct NewsMon { int16_t dex; float scale; };
+const NewsMon kNewsMon[5] = {{kSpriteEternamax, 0.42f}, {493, 0.72f}, {249, 0.68f}, {1008, 0.72f}, {5, 1.0f}};
 
 struct NewsItem {
   const char* head;    // si no es null: título de sección (versión)
@@ -35,18 +39,18 @@ struct NewsItem {
 
 const NewsItem kNews[] = {
     {"Versión 0.51 · ¡Gran Actualización!", 0, nullptr, nullptr},
-    {nullptr, NI_STAR, "Eternatus Eternamax",
+    {nullptr, NI_M_ETERNA, "Eternatus Eternamax",
      "En el minuto 20 (13 en el modo rápido) el cielo se tiñe de rojo: tres fases, núcleos con láseres y el Rayo Eternamax. Si ganas, un poder."},
     {nullptr, NI_Y, "Poderes con Y",
      "Al vencer a Eternatus: Megaevolución sin piedra, Dinamax, Pulsera Z o Teracristal para el resto de la partida."},
-    {nullptr, NI_GENGAR, "Legendarios en 3 fases",
+    {nullptr, NI_M_LUGIA, "Legendarios en 3 fases",
      "Los de la grieta sacan todo su poder a 2/3 y se enfurecen a 1/3. Su ataque definitivo: ¡escóndete detrás de una roca o un árbol!"},
-    {nullptr, NI_HOME, "La Sala del Origen",
+    {nullptr, NI_M_ARCEUS, "La Sala del Origen",
      "La Sentencia, en un salón de mármol entre las nubes. Arceus aprende Hiperrayo, Gravedad, Premonición… y giran las Aspas Doradas."},
-    {nullptr, NI_BOOK, "Los 1025 y formas regionales",
+    {nullptr, NI_M_MIRAIDON, "Los 1025 y formas regionales",
      "Llegan Miraidon, Zarude, Pecharunt… y 57 formas regionales (Vulpix de Alola, Growlithe de Hisui…). 46 megas con sprite propio."},
-    {nullptr, NI_UP, "Evoluciona en la partida",
-     "A sus niveles de verdad: Charmander al 16, Charmeleon al 36. Tú eliges si cambia de aspecto; sus stats suben igual."},
+    {nullptr, NI_M_CHARMELEON, "Evoluciona en la partida",
+     "A sus niveles de verdad: Charmander al 16, Charmeleon al 36. Al evolucionar gana los stats base de su evolución."},
     {nullptr, NI_FAST, "Tres dificultades",
      "Normal, Difícil y Pesadilla, en los dos modos, con más premio. Vence a Eternatus para desbloquear la siguiente."},
     {nullptr, NI_HEART, "Maestría Pokémon",
@@ -250,6 +254,12 @@ void App::bottom_news() {
       case NI_CANDY: case NI_PUMPKIN: case NI_CARDS: {
         const int ic = r_->ui_icon[n.icon == NI_CANDY ? 16 : n.icon == NI_PUMPKIN ? 17 : 13];
         if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), ix - 12, iy - 12 + bob, 0, nullptr, 2, 2);
+        break;
+      }
+      case NI_M_ETERNA: case NI_M_ARCEUS: case NI_M_LUGIA: case NI_M_MIRAIDON: case NI_M_CHARMELEON: {
+        const NewsMon& nm = kNewsMon[n.icon - NI_M_ETERNA];
+        C2D_DrawEllipseSolid(ix - 12, iy + 7 + bob, 0, 24, 7, C2D_Color32(0, 0, 0, 70));
+        draw_mon(nm.dex, false, ix, iy + 13 + bob, nm.scale);
         break;
       }
       case NI_GENGAR: case NI_KECLEON: case NI_COSTUME: {

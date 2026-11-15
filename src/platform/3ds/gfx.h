@@ -17,6 +17,36 @@ class World;
 inline u32 rgb(uint32_t c, uint8_t a = 255) { return C2D_Color32((c >> 16) & 255, (c >> 8) & 255, c & 255, a); }
 inline u32 rgbf(uint32_t c, float a) { return rgb(c, uint8_t(a <= 0 ? 0 : a >= 1 ? 255 : a * 255)); }
 
+// ---- piezas de la interfaz: rectángulos con las esquinas recortadas, degradados, marcos ----
+inline uint32_t mix(uint32_t a, uint32_t b, float t) {
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  auto ch = [&](int s) { const float x = float((a >> s) & 255), y = float((b >> s) & 255); return uint32_t(x + (y - x) * t) << s; };
+  return ch(16) | ch(8) | ch(0);
+}
+inline void rrect(float x, float y, float w, float h, u32 c) {
+  C2D_DrawRectSolid(x + 1, y, 0, w - 2, h, c);
+  C2D_DrawRectSolid(x, y + 1, 0, 1, h - 2, c);
+  C2D_DrawRectSolid(x + w - 1, y + 1, 0, 1, h - 2, c);
+}
+inline void rgrad(float x, float y, float w, float h, u32 top, u32 bot) {
+  C2D_DrawRectangle(x + 1, y, 0, w - 2, h, top, top, bot, bot);
+  C2D_DrawRectangle(x, y + 1, 0, 1, h - 2, top, top, bot, bot);
+  C2D_DrawRectangle(x + w - 1, y + 1, 0, 1, h - 2, top, top, bot, bot);
+}
+inline void rframe(float x, float y, float w, float h, u32 c) {
+  C2D_DrawRectSolid(x + 1, y, 0, w - 2, 1, c);
+  C2D_DrawRectSolid(x + 1, y + h - 1, 0, w - 2, 1, c);
+  C2D_DrawRectSolid(x, y + 1, 0, 1, h - 2, c);
+  C2D_DrawRectSolid(x + w - 1, y + 1, 0, 1, h - 2, c);
+}
+inline void corners(float x, float y, float w, float h, u32 c) {
+  const float L = 5;
+  C2D_DrawRectSolid(x, y, 0, L, 1, c); C2D_DrawRectSolid(x, y, 0, 1, L, c);
+  C2D_DrawRectSolid(x + w - L, y, 0, L, 1, c); C2D_DrawRectSolid(x + w - 1, y, 0, 1, L, c);
+  C2D_DrawRectSolid(x, y + h - 1, 0, L, 1, c); C2D_DrawRectSolid(x, y + h - L, 0, 1, L, c);
+  C2D_DrawRectSolid(x + w - L, y + h - 1, 0, L, 1, c); C2D_DrawRectSolid(x + w - 1, y + h - L, 0, 1, L, c);
+}
+
 // ---------------- atlas (props, vfx, iconos) ----------------
 class Atlas {
  public:

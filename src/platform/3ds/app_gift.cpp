@@ -25,6 +25,7 @@ const u32 kConfetti[6] = {C2D_Color32(255, 210, 94, 255), C2D_Color32(95, 200, 2
 }  // namespace
 
 void App::apply_gifts(const std::string& json) {
+  if (autotest || no_gifts) return;   // (las capturas de las pruebas, sin los regalos de verdad del servidor)
   static Gift all[kMaxGiftsFile];
   const int n = gift_parse(json, kUpdateKey, all, kMaxGiftsFile);
   const cloud3ds::Account& acc = cloud3ds::account();

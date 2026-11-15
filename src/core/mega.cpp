@@ -158,7 +158,7 @@ void mega_end(Game& g, Player& p) {
   p.mega = -1;
   p.mega_t = p.mega_tf = 0;
   p.mega_dhp = 0;
-  p.mega_cd = kMegaCooldown * p.power_cd_k;   // (carta «Poder rápido»)
+  p.mega_cd = std::fmax(5.0f, kMegaCooldown * p.power_cd_k - p.mega_cut);   // (carta «Poder rápido»; Eternatus: −5 s)
   g.fx.burst(p.x, p.y - p.body_h * 0.5f, 0xc47bff, 12, 120);
 }
 

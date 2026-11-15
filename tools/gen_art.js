@@ -146,6 +146,8 @@ for (const shape of Object.keys(N.VFX.SHAPES)) {
 // ---------------- iconos ----------------
 const icons = [];
 for (const name of Object.keys(G.Icons.UI)) icons.push({ name, cv: G.Icons.canvas(name) });
+// Los de la web nueva que la vieja no tenía (cartas de nivel nuevas: Golpe Brutal, Esquiva, Poder rápido…)
+for (const name of Object.keys(N.Icons.UI)) if (!G.Icons.UI[name]) icons.push({ name, cv: N.Icons.canvas(name) });
 for (const t of Object.keys(G.U.TYPE_NAME)) icons.push({ name: 'type:' + t, cv: G.Icons.canvas('type:' + t) });
 for (const m of N.Moves.ALL) icons.push({ name: 'move:' + m.id, cv: N.Icons.canvas('move:' + m.id) });
 

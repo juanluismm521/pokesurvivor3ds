@@ -19,7 +19,11 @@ struct Player;
 struct MoveInst;
 struct Enemy;
 
-enum PowerKind : int8_t { PWK_NONE = -1, PWK_MEGA, PWK_DYNA, PWK_Z, PWK_TERA, PWK_COUNT };
+// PWK_KEEP (del port, el dueño 15-11-2026): si ya llevas tu megapiedra, en vez de la Megaevolución
+// de Eternatus puedes quedártela y su mega recarga kKeepMegaCut s antes (no es un poder: Y sigue
+// siendo la mega).
+enum PowerKind : int8_t { PWK_NONE = -1, PWK_MEGA, PWK_DYNA, PWK_Z, PWK_TERA, PWK_KEEP, PWK_COUNT };
+constexpr float kKeepMegaCut = 5;
 struct PowerInfo { const char* name; const char* desc; float dur, cd; uint32_t color; };
 extern const PowerInfo kPowerInfo[PWK_COUNT];
 extern const char* const kZMoveName[18];   // el movimiento Z de cada tipo

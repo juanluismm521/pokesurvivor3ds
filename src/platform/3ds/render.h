@@ -43,8 +43,8 @@ struct Renderer {
   bool old_3ds = false;          // pinta el suelo más despacio (menos filas por fotograma)
   int card_cursor = 0;
   // Cartas de nivel: 3 de 44 px o 4 más juntas (levelup_four). Para dibujar y para los toques.
-  static float card_h(int n) { return n > 3 ? 32 : 40; }
-  static float card_y(int i, int n) { return n > 3 ? 84 + i * 35 : 92 + i * 44; }
+  static float card_h(int n) { return n > 3 ? 36 : 40; }
+  static float card_y(int i, int n) { return n > 3 ? 74 + i * 38 : 92 + i * 44; }
   int bond_first = -1;   // vínculo: el primer movimiento ya elegido (índice en moves), -1 ninguno
   uint32_t world_seed = 0, terrain_gen = 0;
   // Índices de imágenes de los atlas (buscados al cargar).
@@ -82,7 +82,7 @@ struct Renderer {
   float text_fit(const char* s, float x, float y, float maxw, float size, u32 color, bool shadow = false, int align = 0);
   // Igual, pero si no cabe en una línea lo parte en dos (letra pequeña, la
   // segunda a y + 10). Devuelve cuántas líneas ha usado.
-  int text_fit2(const char* s, float x, float y, float maxw, float size, u32 color);
+  int text_fit2(const char* s, float x, float y, float maxw, float size, u32 color, float gap = 10);
   // Autotest "textos": cuántos textos no caben (y los apunta en `log`).
   int check_texts(FILE* log);
   // Megapiedra de la mega `k` (kMegas), con su dibujo ("stone:k" en el atlas de

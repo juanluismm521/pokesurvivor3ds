@@ -1091,72 +1091,115 @@ void App::bottom_mode() {
 }
 
 void App::bottom_menu() {
-  header("PokéSurvivor");
+  // Fondo: degradado de azul noche con un toque del color de tu compañero
+  const Mon* pm = mon_by_dex(s_->partner);
+  const uint32_t tcol = pm && pm->types[0] >= 0 ? kTypeColor[pm->types[0]] : 0x4fd1ff;
+  C2D_DrawRectangle(0, 0, 0, BW, 240, rgb(mix(0x182238, tcol, 0.12f)), rgb(mix(0x182238, tcol, 0.12f)), rgb(0x0a0e18), rgb(0x0a0e18));
+  // Cabecera: el nombre del juego y lo que tienes, en cápsulas
+  C2D_DrawRectangle(0, 0, 0, BW, 24, C2D_Color32(8, 12, 22, 250), C2D_Color32(8, 12, 22, 250), C2D_Color32(8, 12, 22, 200), C2D_Color32(8, 12, 22, 200));
+  C2D_DrawRectSolid(0, 24, 0, BW, 1, rgbf(0xffd23f, 0.35f));
+  r_->text("PokéSurvivor", 8, 4, 0.48f, C_GOLD);
   char b[128];
-  const int t1i = r_->icons.find("ticket"), t10i = r_->icons.find("ticket10");
-  if (t1i >= 0) C2D_DrawImageAt(r_->icons.image(t1i), 8, 28, 0);
-  std::snprintf(b, sizeof(b), "%d", int(s_->t1));
-  r_->text(b, 24, 27, 0.4f, C_TEXT);
-  if (t10i >= 0) C2D_DrawImageAt(r_->icons.image(t10i), 60, 28, 0);
-  std::snprintf(b, sizeof(b), "%d", int(s_->t10));
-  r_->text(b, 76, 27, 0.4f, C_TEXT);
+  auto pill = [&](float rx, const char* icon, const char* txt, u32 col) -> float {   // (de derecha a izquierda)
+    const float w = r_->text_width(txt, 0.38f) + 24;
+    rrect(rx - w, 4, w, 16, C2D_Color32(28, 38, 62, 255));
+    rframe(rx - w, 4, w, 16, C2D_Color32(58, 76, 112, 255));
+    const int ic = icon ? r_->icons.find(icon) : -1;
+    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), rx - w + 4, 6, 0);
+    r_->text(txt, rx - 4, 4, 0.38f, col, 2);
+    return rx - w - 4;
+  };
+  float rx = BW - 4;
+  std::snprintf(b, sizeof(b), "%d", int(s_->coins)); rx = pill(rx, "coin", b, C_TEXT);
+  std::snprintf(b, sizeof(b), "%d", int(s_->t10)); rx = pill(rx, "ticket10", b, C_TEXT);
+  std::snprintf(b, sizeof(b), "%d", int(s_->t1)); rx = pill(rx, "ticket", b, C_TEXT);
   // Halloween: los caramelos (sólo durante el evento; fuera de él no se ven, aunque
   // te queden: el dueño, 07-11-2026).
-  const bool hw = hw3ds::on();
-  if (hw) {
-    const int ci = r_->ui_icon[16];
-    if (ci >= 0) C2D_DrawImageAt(r_->icons.image(ci), 112, 28, 0);
-    std::snprintf(b, sizeof(b), "%d", int(s_->candy));
-    r_->text(b, 128, 27, 0.4f, C2D_Color32(255, 138, 42, 255));
-  }
-  std::snprintf(b, sizeof(b), "Pokémon %d / %d", s_->owned_count(), kDexCount);
-  r_->text(b, 312, 27, 0.4f, C_MUTED, 2);
+  if (hw3ds::on()) { std::snprintf(b, sizeof(b), "%d", int(s_->candy)); rx = pill(rx, "candy", b, C2D_Color32(255, 138, 42, 255)); }
   if (update_bar()) {
     // La versión nueva: buscando, bajando (con su barra) o lista para instalar.
     const int st = prog3ds::state();
     const bool ready = st == prog3ds::ST_READY;
     const float k = ready ? 0.6f + std::sin(t_ * 4) * 0.4f : 1;
-    C2D_DrawRectSolid(6, 40, 0, 308, 20, ready ? rgbf(0x1f5a32, 0.95f) : C2D_Color32(24, 34, 60, 240));
-    C2D_DrawRectSolid(6, 40, 0, 3, 20, ready ? rgbf(0x5fe08a, k) : C_GOLD);
+    rrect(6, 36, 308, 22, ready ? rgbf(0x1f5a32, 0.95f) : C2D_Color32(24, 34, 60, 240));
+    C2D_DrawRectSolid(7, 37, 0, 3, 20, ready ? rgbf(0x5fe08a, k) : C_GOLD);
     const UpdateEntry& e = prog3ds::latest();
     if (st == prog3ds::ST_DOWNLOADING) {
       const float p = prog3ds::pct() / 100.0f;
       std::snprintf(b, sizeof(b), "Bajando %s · %d %%", e.version.c_str(), prog3ds::pct());
-      r_->text_fit(b, 14, 42, 204, 0.4f, C_TEXT, false, 0);
-      C2D_DrawRectSolid(222, 47, 0, 84, 7, C2D_Color32(0, 0, 0, 160));
-      C2D_DrawRectSolid(222, 47, 0, 84 * p, 7, C_GOLD);
+      r_->text_fit(b, 14, 39, 204, 0.4f, C_TEXT, false, 0);
+      C2D_DrawRectSolid(222, 44, 0, 84, 7, C2D_Color32(0, 0, 0, 160));
+      C2D_DrawRectSolid(222, 44, 0, 84 * p, 7, C_GOLD);
     } else if (ready) {
       if (prog3ds::pending_back()) std::snprintf(b, sizeof(b), "Anterior lista: al salir");
       else std::snprintf(b, sizeof(b), "¡%s lista! Al salir", e.version.c_str());
-      r_->text_fit(b, 14, 42, 236, 0.4f, rgbf(0xb8ffcf, 1), false, 0);
-      r_->text("START", 306, 44, 0.32f, rgbf(0x5fe08a, k), 2);
+      r_->text_fit(b, 14, 39, 236, 0.4f, rgbf(0xb8ffcf, 1), false, 0);
+      r_->text("START", 306, 41, 0.32f, rgbf(0x5fe08a, k), 2);
     } else {
-      r_->text("Buscando versión nueva…", 160, 42, 0.4f, C_MUTED, 1);
+      r_->text("Buscando versión nueva…", 160, 39, 0.4f, C_MUTED, 1);
     }
   } else {
+    // Tus números: partidas, mejor tiempo, mejor nivel, Pokémon (y medallas de Arceus)
     char tt[16]; mmss(float(s_->stats.best_time), tt, sizeof(tt));
     const int medals = s_->arceus_medals();
-    if (medals > 0) {   // (con medallas de Arceus: se ven en la lista principal)
-      std::snprintf(b, sizeof(b), "Runs %d · Mejor %s · Nivel %d · Arceus ×%d", int(s_->stats.runs), tt, int(s_->stats.best_level), medals);
-      const float w = r_->text_width(b, 0.34f);
-      r_->text_fit(b, 160, 46, 290, 0.34f, C_MUTED, false, 1);
-      r_->draw_medal(160 + std::fmin(w, 290.0f) / 2 + 9, 52, 4.5f);
-    } else {
-      std::snprintf(b, sizeof(b), "Runs %d · Mejor tiempo %s · Mejor nivel %d", int(s_->stats.runs), tt, int(s_->stats.best_level));
-      r_->text(b, 160, 46, 0.34f, C_MUTED, 1);
+    struct St { const char* icon; char v[24]; const char* lbl; } st[4];
+    std::snprintf(st[0].v, sizeof(st[0].v), "%d", int(s_->stats.runs)); st[0].icon = "flag"; st[0].lbl = "Runs";
+    std::snprintf(st[1].v, sizeof(st[1].v), "%s", tt); st[1].icon = "clock"; st[1].lbl = "Mejor tiempo";
+    std::snprintf(st[2].v, sizeof(st[2].v), "%d", int(s_->stats.best_level)); st[2].icon = "up"; st[2].lbl = "Mejor nivel";
+    std::snprintf(st[3].v, sizeof(st[3].v), "%d/%d", s_->owned_count(), kDexCount); st[3].icon = "ball"; st[3].lbl = "Pokémon";
+    for (int k = 0; k < 4; ++k) {
+      const float x = 8 + k * 77, y = 31, w = 73;
+      rgrad(x, y, w, 28, C2D_Color32(30, 40, 66, 235), C2D_Color32(18, 24, 42, 235));
+      rframe(x, y, w, 28, C2D_Color32(52, 68, 102, 255));
+      const int ic = r_->icons.find(st[k].icon);
+      if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), x + 4, y + 7, 0, nullptr, 1.15f, 1.15f);
+      r_->text_fit(st[k].v, x + 24, y + 1, w - 27, 0.44f, C_TEXT, false, 0);
+      r_->text_fit(tr(st[k].lbl), x + 24, y + 16, w - 27, 0.28f, C_MUTED, false, 0);
+    }
+    if (medals > 0) {   // (las medallas de Arceus, en la esquina de «Runs»)
+      r_->draw_medal(8 + 73 - 8, 31 + 8, 4.5f);
+      std::snprintf(b, sizeof(b), "×%d", medals);
+      r_->text(b, 8 + 73 - 15, 31 + 1, 0.28f, C_GOLD, 2, false);
     }
   }
+  // Los botones: tarjetas con su icono y su color (Jugar, siempre destacado)
   const int pend = progress_pending(*s_, now_ms());
   static const char* const L[9] = {"Jugar", "En grupo", "Pokémon", "Mejoras", "Gacha", "Misiones", "Ajustes", "Créditos", "Salir"};
+  static const char* const IC[9] = {"ball", "friends", "ball2", "up", "ticket10", "trophy", "gear", "heart", nullptr};
+  static const uint32_t AC[9] = {0x5fe08a, 0x5fc8ff, 0xff6b6b, 0xffcb3d, 0xc47bff, 0xff9a4d, 0x9fb0cc, 0xff8ad8, 0x8a96b0};
   for (int i = 0; i < 9; ++i) {
-    const float x = menu_x(i), y = menu_y(i);
-    button(x, y, 96, 46, L[i], i == cur_);
+    const float x = menu_x(i), y = menu_y(i), w = 96, h = 46;
+    const bool sel = i == cur_;
+    const uint32_t ac = AC[i];
+    if (sel) rrect(x - 3, y - 3, w + 6, h + 6, rgbf(ac, 0.18f + 0.12f * std::sin(t_ * 4)));
+    C2D_DrawRectSolid(x - 1, y + 2, 0, w + 2, h, C2D_Color32(0, 0, 0, 110));
+    const float ka = i == 0 ? 0.42f : sel ? 0.34f : 0.14f;
+    rgrad(x, y, w, h, rgb(mix(0x1c2438, ac, ka)), rgb(mix(0x0e1424, ac, ka * 0.4f)));
+    C2D_DrawRectSolid(x + 1, y + 1, 0, w - 2, 1, rgbf(0xffffff, sel ? 0.22f : 0.1f));
+    rframe(x, y, w, h, sel ? rgb(0xffd23f) : rgb(mix(0x2a3450, ac, 0.45f)));
+    // Icono, sobre un disco de su color
+    const float cx = x + w / 2, cy = y + 15;
+    C2D_DrawCircleSolid(cx, cy, 0, 11, rgb(mix(0x0c1220, ac, 0.35f)));
+    const int ic = IC[i] ? r_->icons.find(IC[i]) : -1;
+    if (ic >= 0) C2D_DrawImageAt(r_->icons.image(ic), cx - 8 * 1.25f, cy - 8 * 1.25f, 0, nullptr, 1.25f, 1.25f);
+    else {   // (Salir: una puerta con su flecha)
+      C2D_DrawRectSolid(cx - 6, cy - 7, 0, 8, 14, rgb(0xb7c4dc));
+      C2D_DrawRectSolid(cx - 5, cy - 6, 0, 6, 12, rgb(0x3a4560));
+      C2D_DrawRectSolid(cx + 1, cy - 1, 0, 6, 2, rgb(0xeaf2ff));
+      C2D_DrawTriangle(cx + 9, cy, rgb(0xeaf2ff), cx + 5, cy - 4, rgb(0xeaf2ff), cx + 5, cy + 4, rgb(0xeaf2ff), 0);
+    }
+    r_->text_fit(L[i], cx, y + 28, w - 8, 0.44f, sel || i == 0 ? rgb(0xffffff) : C_TEXT, true, 1);
     if (i == 5 && pend) { std::snprintf(b, sizeof(b), "%d", pend); C2D_DrawCircleSolid(x + 86, y + 8, 0, 7, C2D_Color32(255, 95, 109, 255)); r_->text(b, x + 86, y + 1, 0.34f, C_TEXT, 1, false); }
   }
   // Abajo: novedades (con un punto si hay sin ver) y el cambio a shiny.
-  r_->text("SELECT: ¡Novedades!", 10, 226, 0.34f, C_GOLD, 0);
-  if (news_unseen()) C2D_DrawCircleSolid(14 + r_->text_width("SELECT: ¡Novedades!", 0.34f), 228, 0, 3, C2D_Color32(255, 95, 109, 255));
-  if (s_->owns_shiny(s_->partner)) r_->text("Y: normal / shiny", 310, 226, 0.32f, C_MUTED, 2);
+  {
+    const float w = r_->text_width("SELECT: ¡Novedades!", 0.34f) + 12;
+    rrect(6, 222, w, 15, C2D_Color32(40, 32, 12, 230));
+    rframe(6, 222, w, 15, rgbf(0xffd23f, 0.55f));
+    r_->text("SELECT: ¡Novedades!", 12, 223, 0.34f, C_GOLD, 0);
+    if (news_unseen()) C2D_DrawCircleSolid(6 + w, 223, 0, 3.5f, C2D_Color32(255, 95, 109, 255));
+  }
+  if (s_->owns_shiny(s_->partner)) r_->text("Y: normal / shiny", 312, 224, 0.32f, C_MUTED, 2);
 }
 
 // ¿Se ve la barra de la versión nueva en el menú? (buscando, bajando o lista)
@@ -1180,6 +1223,14 @@ int dex_list(const Save& s, int gen, int filter, int16_t* out) {
     if (filter >= 4 && p.rarity != 9 - filter) continue;
     out[n++] = p.dex;
   }
+  // En orden de la Pokédex nacional; las formas regionales, al final de su región (y en su orden)
+  std::stable_sort(out, out + n, [](int16_t a, int16_t b) {
+    const Mon* x = mon_by_dex(a); const Mon* y = mon_by_dex(b);
+    const bool fx = a > kNationalDex, fy = b > kNationalDex;
+    if (fx != fy) return !fx;
+    const int nx = x && x->num > 0 ? x->num : a, ny = y && y->num > 0 ? y->num : b;
+    return nx != ny ? nx < ny : a < b;
+  });
   return n;
 }
 namespace {
@@ -1276,7 +1327,10 @@ void App::bottom_dex() {
     C2D_DrawRectSolid(x, y, 0, 50, 42, k == cur_ ? C_SEL : C_PANEL);
     const bool sh = s_->owns_shiny(dex);
     draw_mon(dex, view_shiny_ && sh, x + 25, y + 36, 1, own ? 0 : 3);
-    std::snprintf(b, sizeof(b), "%03d", dex);
+    {   // (su número de la Pokédex nacional: las formas regionales, el de su especie)
+      const Mon* lm = mon_by_dex(dex);
+      std::snprintf(b, sizeof(b), "%03d", lm && lm->num > 0 ? int(lm->num) : dex);
+    }
     r_->text(b, x + 2, y + 1, 0.28f, C2D_Color32(255, 255, 255, 150), 0, false);
     // Tienes el shiny: la estrellita (como en la web). Tu compañero: punto dorado.
     const int si = r_->ui_icon[7];
@@ -1343,7 +1397,7 @@ void App::top_detail(int dex, bool shiny, bool own) {
     if (own && any) r_->text(sk >= 0 ? "X: quitar el disfraz" : "X: ponerle el disfraz", 110, 4, 0.34f, C2D_Color32(255, 160, 80, 255), 1);
   }
   char b[128];
-  std::snprintf(b, sizeof(b), "Nº %03d · %s", p->dex, GEN_NAMES[p->gen - 1]);
+  std::snprintf(b, sizeof(b), "Nº %03d · %s", p->num > 0 ? int(p->num) : int(p->dex), GEN_NAMES[p->gen - 1]);
   r_->text(b, 300, 10, 0.38f, C_MUTED, 1);
   r_->text(own ? p->name : "???", 300, 24, 0.66f, C_TEXT, 1);
   std::snprintf(b, sizeof(b), "%s %s", std::string(size_t(p->rarity), '*').c_str(), kRarityName[p->rarity]);

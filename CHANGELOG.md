@@ -7,6 +7,16 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 
 ## 0.51.0 — en preparación (sin publicar)
 **La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor). Por ahora:
+- **Menú principal renovado** (pantalla de abajo): tus números en tarjetas (runs, mejor tiempo,
+  mejor nivel, Pokémon), monedas y tickets en cápsulas y botones con su icono y su color.
+- **Al vencer a Eternatus con tu megapiedra puesta** puedes quedártela (su megaevolución recarga
+  5 s antes) o cambiarla por otro poder. La Megaevolución de Eternatus sale si aún no la has
+  encontrado. Las megapiedras se siguen encontrando como siempre (con la mejora «Megapiedra»).
+- Abajo, junto al ataque elegido, su categoría: físico, especial o de estado.
+- **Arreglos:** la Tienda Kecleon volvía a enseñar las MT de hoy (con 92 MT se borraba la lista);
+  la Pokédex enseña el número de verdad de las formas regionales y las ordena al final de su
+  región; las cartas pasivas nuevas (Golpe Brutal, Esquiva, Poder rápido) tienen su icono; las
+  descripciones largas (Protección) ya no se salen de la carta.
 - **Pantalla táctil renovada:** insignia de nivel con el color de tu Pokémon, sus tipos, la vida
   en verde, amarillo o rojo según lo que te queda (y latiendo cuando estás en las últimas), el
   reloj en su cápsula, el minimapa enmarcado, los ataques en tarjetas del color de su tipo y las
@@ -62,8 +72,8 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 - 92 MT en la Tienda Kecleon (antes 58); las 8 del día son las mismas para todos.
 - **Evolución en plena partida, a los niveles de los juegos:** Charmander puede evolucionar al
   16 y Charmeleon al 36 (los que evolucionan con piedra, intercambio o amistad, al 20 y al 40).
-  Eliges evolucionar (cambian su aspecto y sus tipos) o mantener su aspecto: sus stats suben
-  igual. Eevee, entre 3 de sus evoluciones al azar. Todos empiezan con la fuerza del primero de
+  Eliges evolucionar (cambian su aspecto, sus tipos y sus stats base, que pasan a ser los de la
+  evolución) o mantener su aspecto (y sus stats). Eevee, entre 3 de sus evoluciones al azar. Todos empiezan con la fuerza del primero de
   su línea (Charizard, con la de Charmander) y la ganan al subir; los que no evolucionan, al 65 %,
   y suben en los niveles 20 y 40.
 - **La Sentencia de Arceus, en la Sala del Origen:** un suelo de mármol con anillos dorados

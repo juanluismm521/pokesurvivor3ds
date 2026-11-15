@@ -14,6 +14,7 @@ const PowerInfo kPowerInfo[PWK_COUNT] = {
     {"Dinamax", "12 s gigante: doble de vida, +40 % de daño, cada golpe salpica a los de alrededor y aplastas lo que pisas. Recarga 80 s.", 12, 80, 0xff3a5a},
     {"Pulsera Z", "Onda expansiva al usarlo y, durante 15 s, una gran Z de tu tipo rueda hacia los enemigos. Al acabar, el movimiento Z arrasa la pantalla. Recarga 60 s.", 15, 60, 0xffd23f},
     {"Teracristal", "30 s con corona de cristal: tus ataques de tu tipo pegan un 80 % más. Recarga 75 s.", 30, 75, 0x7fe8ff},
+    {"Quedarte tu megapiedra", "Sigues con tu megapiedra y su megaevolución se recarga 5 s antes.", 0, 0, 0xc47bff},
 };
 
 namespace {
@@ -80,7 +81,11 @@ const char* const kZMoveName[T_COUNT] = {
 void power_offer(Game& g, Player& p) {
   if (p.epower >= 0) return;   // (ya tiene uno: en una partida sólo hay un Eternatus)
   p.npower_opts = 0;
-  if (mega_index(p.dex, 0) >= 0) p.power_opts[p.npower_opts++] = PWK_MEGA;
+  // La Megaevolución, si tu Pokémon tiene mega y aún no has encontrado su megapiedra; si ya la
+  // llevas, puedes quedártela (su mega recarga 5 s antes) o cambiarla por otro poder.
+  const bool stone = is_mega_stone(p.item) && mega_index(p.dex, p.item - IT_MEGA_A) >= 0;
+  if (stone) p.power_opts[p.npower_opts++] = PWK_KEEP;
+  else if (mega_index(p.dex, 0) >= 0) p.power_opts[p.npower_opts++] = PWK_MEGA;
   p.power_opts[p.npower_opts++] = PWK_DYNA;
   p.power_opts[p.npower_opts++] = PWK_Z;
   p.power_opts[p.npower_opts++] = PWK_TERA;
@@ -91,9 +96,17 @@ void power_offer(Game& g, Player& p) {
 void power_choose(Game& g, Player& p, int pick) {
   if (p.choice != CH_POWER) return;
   if (pick < 0 || pick >= p.npower_opts) pick = 0;
+  char b[120];
+  if (p.power_opts[pick] == PWK_KEEP) {
+    p.mega_cut += kKeepMegaCut;
+    p.mega_cd = std::fmax(0.0f, p.mega_cd - kKeepMegaCut);
+    say_to(g, p, "Te quedas tu megapiedra: su megaevolución recarga 5 s antes", 3.4f);
+    p.choice = CH_NONE;
+    if (g.state == ST_CHOICE && !g.anyone_choosing()) g.state = ST_PLAYING;
+    return;
+  }
   p.epower = p.power_opts[pick];
   p.power_on = false; p.power_cd = 0;
-  char b[120];
   std::snprintf(b, sizeof(b), "¡Poder: %s! Pulsa Y para usarlo", kPowerInfo[p.epower].name);
   say_to(g, p, b, 3.4f);
   p.choice = CH_NONE;

@@ -47,9 +47,9 @@ TEST_CASE("evolución: Charmander elige al 16 y al 36; si evoluciona, cambia de 
   CHECK(evo_due_level(p) == 36);
   p.level = 36; evo_update(*g, p);
   REQUIRE(p.choice == CH_EVO);
-  evo_choose(*g, p, 1);              // mantener su aspecto: sigue siendo Charmeleon con la fuerza de Charizard
+  evo_choose(*g, p, 1);              // mantener su aspecto: sigue siendo Charmeleon, con sus stats
   CHECK(p.dex == 5);
-  CHECK(p.mon->hp == mon_by_dex(6)->hp);
+  CHECK(p.mon->hp == mon_by_dex(5)->hp);
   CHECK(p.mon->types[1] == mon_by_dex(5)->types[1]);
   CHECK(evo_due_level(p) == 0);
 }
