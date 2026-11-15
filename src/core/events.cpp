@@ -227,7 +227,7 @@ void events_update(Game& g, float dt) {
     if (ev.cur != EVN_LOST && ev.cur_t >= ev.cur_dur) end_event(g);
   }
   if (g.lost.on) lost_tick(g, dt);
-  if (g.rift.arena || judgment_active(g)) return;
+  if (in_arena(g) || judgment_active(g)) return;
 
   if (ev.thieves < 2) {
     ev.thief_t -= dt;

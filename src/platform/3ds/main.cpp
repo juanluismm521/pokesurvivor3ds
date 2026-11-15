@@ -19,6 +19,7 @@
 
 #include "core/game.h"
 #include "core/evo.h"
+#include "core/power.h"
 #include "core/i18n.h"
 #include "core/save_io.h"
 #include "core/settings.h"
@@ -359,9 +360,15 @@ int main(int argc, char** argv) {
     p.cards[0] = Card(); p.cards[0].type = CT_NEW; p.cards[0].move = int16_t(longest);
     p.cards[1] = Card(); p.cards[1].type = CT_UP; p.cards[1].move = 0;
     p.cards[2] = Card(); p.cards[2].type = CT_STAT; p.cards[2].stat = LS_DEF;
-    for (int k = 0; k < 5 && aptMainLoop(); ++k) {
-      // (3 y 4: la elección de evolución, con Charmander y con Eevee: core/evo.h)
-      if (k >= 3) {
+    for (int k = 0; k < 6 && aptMainLoop(); ++k) {
+      // (3 y 4: la elección de evolución, con Charmander y con Eevee: core/evo.h; 5: el poder de
+      // Eternatus con Charizard, que tiene mega: core/power.h)
+      if (k == 5) {
+        RunConfig c3; c3.dex = 6; c3.seed = 2; c3.judged = 1;
+        g->start_run(c3);
+        power_offer(*g, g->players[0]);
+        r.card_cursor = 1;
+      } else if (k >= 3) {
         RunConfig c2; c2.dex = k == 3 ? 4 : 133; c2.seed = 2; c2.judged = 1;
         g->start_run(c2);
         Player& q = g->players[0];

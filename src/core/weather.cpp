@@ -78,7 +78,7 @@ void weather_update(Game& g, float dt) {
   if (w.kind >= 0) {
     w.t += dt;
     if (w.t >= w.dur) w.kind = WX_NONE;
-  } else if (g.time > FROM && !g.rift.arena && !judgment_active(g)) {
+  } else if (g.time > FROM && !in_arena(g) && !judgment_active(g)) {
     w.check_t -= dt;
     if (w.check_t <= 0) {
       w.check_t = CHECK;

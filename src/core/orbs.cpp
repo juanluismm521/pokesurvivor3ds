@@ -181,7 +181,7 @@ void treasure_update(Game& g, float dt) {
   Game::Treasure& t = g.treasure;
   if (!t.on) return;
   t.t += dt;
-  if (g.rift.arena || judgment_active(g)) { t.on = false; return; }   // (en una arena no)
+  if (in_arena(g) || judgment_active(g)) { t.on = false; return; }   // (en una arena no)
   if (t.t > kTreasureTime) {   // (si no se recoge a tiempo, se apaga)
     t.on = false;
     g.say("El tesoro de la Luminosfera se ha apagado", 2.5f);

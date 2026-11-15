@@ -123,6 +123,9 @@ void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, fl
     show_hurt(g, e, d, color, dir_x, dir_y, eff);
     return;
   }
+  // Eternatus inmune (fase 2 hasta romper los núcleos, cargando el Rayo Eternamax)
+  if (e.immune) { e.flash = 0.04f; g.fx.dmg_text(e.x, e.y - e.body_h - 4, "INMUNE", 0xd68aff); return; }
+  if (e.vuln_t > 0) amount *= 1.5f;   // (aturdido tras romper el Núcleo Eterno)
   if (e.boss) e.rd += float(d);
   // Escudo: absorbe primero.
   if (e.shield > 0) {
@@ -140,6 +143,8 @@ void enemy_hurt(Game& g, Enemy& e, float amount, uint32_t color, float dir_x, fl
     e.kx += nx * knock;
     e.ky += ny * knock;
   }
+  // (la vida de Eternatus no baja del suelo de su fase: eterna.cpp cambia de fase)
+  if (e.eterna && e.floor_k > 0 && e.hp < e.max_hp * e.floor_k) e.hp = e.max_hp * e.floor_k;
   if (e.hp <= 0) enemy_die(g, e);
 }
 
@@ -553,6 +558,8 @@ void enemy_strike(Enemy& e, const Player& pl) {
 static constexpr float JUDGE_DOT = 1.5f;
 
 static void enemy_update(Game& g, Enemy& e, float dt, const Player& pl) {
+  if (e.eterna || e.ecore) { eterna_enemy_update(g, e, dt); return; }
+  if (e.crush_t > 0) e.crush_t -= dt;
   if (e.arceus) {   // (el blanco de Arceus: va donde está él y nada más)
     e.x = g.judg.ax; e.y = g.judg.ay;
     e.kx = e.ky = 0;
@@ -890,11 +897,11 @@ void enemies_update(Game& g, float dt) {
     }
     // Jefe lejísimos de todos (salió junto a un compañero que aún volvía de la
     // grieta, o se quedó atrás): a los 4 s vuelve a salir cerca, fuera de la vista.
-    if (e.boss && !e.judge && !g.rift.arena) {
+    if (e.boss && !e.judge && !in_arena(g)) {
       e.lag_t = dist2(e.x, e.y, near.x, near.y) > BOSS_FAR * BOSS_FAR ? e.lag_t + dt : 0;
       if (e.lag_t > 4) { e.lag_t = 0; spawner_ahead(g, e, near); }
     }
-    if (e.boss || e.shiny || e.arceus || g.rift.arena) continue;
+    if (e.boss || e.shiny || e.arceus || in_arena(g)) continue;
     // Rezagados: los que se quedan atrás mientras corres y llevan un rato FUERA
     // DE LA VISTA vuelven a salir por delante de ti.
     const float d2 = dist2(e.x, e.y, near.x, near.y);

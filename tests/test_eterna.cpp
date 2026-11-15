@@ -1,0 +1,79 @@
+// Eternatus Eternamax (core/eterna.cpp) y los poderes (core/power.h).
+#include <doctest/doctest.h>
+
+#include <memory>
+
+#include "core/bot.h"
+#include "core/game.h"
+#include "core/power.h"
+
+using namespace ps;
+
+namespace {
+// Juega con el bot desde el segundo `from` hasta que se cumpla `until` (o `secs` de partida).
+template <class F>
+void play(Game& g, Bot& bot, float secs, F until) {
+  for (int k = 0; k < int(secs * 60) && !until(); ++k) {
+    Input in;
+    bot.decide(g, in, 0);
+    g.step(&in);
+  }
+}
+}  // namespace
+
+TEST_CASE("Eternatus: llega en el minuto 20 (13 en el rápido), sus tres fases y el poder al ganarle") {
+  for (int mode = 0; mode < 2; ++mode) {
+    CAPTURE(mode);
+    std::unique_ptr<Game> a(new Game()), b(new Game());
+    RunConfig c; c.dex = 6; c.seed = 21; c.judged = 1; c.mode = uint8_t(mode);
+    for (Game* g : {a.get(), b.get()}) {
+      g->start_run(c);
+      g->debug_immortal = true;
+      g->debug_win = true;   // (todo cae deprisa)
+      g->time = (mode == MODE_QUICK ? kEternaAtQuick : kEternaAt) - 2;
+    }
+    Bot ba, bb; ba.init(3); bb.init(3);
+    Game& g = *a;
+    play(g, ba, 1, [&] { return false; });
+    CHECK(g.eterna.st == 0);
+    play(g, ba, 5, [&] { return g.eterna.st != 0; });
+    REQUIRE(g.eterna.st != 0);
+    CHECK(g.time < (mode == MODE_QUICK ? kEternaAtQuick : kEternaAt) + 1);
+    int max_phase = 0;
+    bool immune = false, ult = false, cores = false;
+    play(g, ba, 240, [&] {
+      max_phase = std::max(max_phase, int(g.eterna.phase));
+      if (const Enemy* e = g.enemy_by_id(g.eterna.boss_id)) immune = immune || e->immune;
+      ult = ult || g.eterna.ult > 0;
+      for (const Enemy& e : g.enemies) cores = cores || e.ecore;
+      return g.eterna.st == 0 && g.eterna.happened;
+    });
+    CHECK(max_phase == 3);
+    CHECK(immune);
+    CHECK(cores);
+    CHECK(ult);
+    CHECK(g.eterna.st == 0);
+    CHECK(g.eterna_wins == 1);
+    // El bot elige un poder y lo usa: dura y se recarga.
+    play(g, ba, 30, [&] { return g.pl().power_on; });
+    CHECK(g.pl().epower >= 0);
+    CHECK(g.pl().power_on);
+    play(g, ba, 60, [&] { return !g.pl().power_on; });
+    CHECK(!g.pl().power_on);
+    CHECK(g.pl().power_cd > 0);
+  }
+}
+
+TEST_CASE("Eternatus: la partida es la misma en dos consolas (determinista)") {
+  std::unique_ptr<Game> a(new Game()), b(new Game());
+  RunConfig c; c.dex = 445; c.seed = 33; c.judged = 1;
+  for (Game* g : {a.get(), b.get()}) { g->start_run(c); g->debug_immortal = true; g->debug_win = true; g->time = kEternaAt - 1; }
+  Bot ba, bb; ba.init(8); bb.init(8);
+  for (int k = 0; k < 60 * 90; ++k) {
+    Input i1, i2;
+    ba.decide(*a, i1, 0); bb.decide(*b, i2, 0);
+    a->step(&i1); b->step(&i2);
+    if ((k & 127) == 0) REQUIRE(a->state_hash() == b->state_hash());
+  }
+  CHECK(a->eterna.happened);
+}

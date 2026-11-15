@@ -152,7 +152,7 @@ TEST_CASE("cooperativo: dos consolas con las mismas entradas no se separan") {
   CHECK(lockstep_pair(5, 4, 6 * 60, false) == -1);        // 4 jugadores que pueden caer
 }
 
-TEST_CASE("cooperativo: 31 min con 3 bots, hasta la Sentencia, sin errores ni topes") {
+TEST_CASE("cooperativo: hasta la Sentencia con 3 bots (Eternatus en medio), sin errores ni topes") {
   std::unique_ptr<Game> g(new Game());
   g->debug_immortal = true;
   g->start_run(coop_cfg(44, 3));
@@ -160,7 +160,8 @@ TEST_CASE("cooperativo: 31 min con 3 bots, hasta la Sentencia, sin errores ni to
   for (int i = 0; i < 3; ++i) bots[i].init(44 + i);
   int max_en = 0, levels = 0, last_level = 1;
   bool judged = false;
-  for (int step = 0; g->state != ST_OVER && g->time < 31 * 60 && step < 31 * 60 * 60 * 3; ++step) {
+  // (Eternatus, en el minuto 20, para el reloj de la Sentencia mientras dura: hasta 40 min)
+  for (int step = 0; g->state != ST_OVER && !g->judg.phase && g->time < 40 * 60 && step < 40 * 60 * 60 * 3; ++step) {
     Input in[3];
     for (int i = 0; i < 3; ++i) bots[i].decide(*g, in[i], i);
     g->step(in);

@@ -6,6 +6,7 @@
 
 #include "core/game.h"
 #include "core/mega.h"
+#include "core/power.h"
 
 namespace ps {
 
@@ -47,6 +48,7 @@ struct Bot {
     }
     if (g.state == ST_CHOICE) {
       if (me.choice == CH_ITEM) { in.cmd = CMD_ITEM; in.arg = rng.next() < 0.5f ? 1 : 0; }
+      if (me.choice == CH_POWER) { in.cmd = CMD_POWER; in.arg = int8_t(rng.next() * me.npower_opts); }
       if (me.choice == CH_EVO) { in.cmd = CMD_EVO; in.arg = int8_t(rng.next() * (me.evo_nopts + 1)); }
       else if (me.choice == CH_BOND) {
         int8_t loose[4]; int nl, grow;
@@ -59,7 +61,7 @@ struct Bot {
       return true;
     }
     if (g.state == ST_PAUSED) { in.cmd = CMD_PAUSE; return true; }
-    if (g.state == ST_PLAYING && mega_ready(me)) in.cmd = CMD_MEGA;   // (megaevoluciona en cuanto puede)
+    if (g.state == ST_PLAYING && (mega_ready(me) || power_ready(me))) in.cmd = CMD_MEGA;   // (megaevoluciona en cuanto puede)
     else if (g.state == ST_PLAYING && me.orb_cd <= 0 && rng.next() < 0.004f) {   // (una esfera de vez en cuando)
       for (int k = 0; k < 4; ++k) if (me.orb_id[k] >= 0) { in.cmd = CMD_ORB; in.arg = int8_t(k); break; }
     }

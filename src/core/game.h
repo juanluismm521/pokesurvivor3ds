@@ -43,7 +43,7 @@ constexpr int kMaxHazards = 160;
 // Órdenes de la interfaz. Todo lo que cambia la partida entra como orden en
 // la entrada del jugador (y no llamando al juego desde la interfaz): así, en
 // el cooperativo, basta con mandar las entradas de cada paso.
-enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA, CMD_ORB, CMD_EVO };   // (CMD_ORB: arg = hueco · CMD_EVO: arg = opción)
+enum Cmd : int8_t { CMD_NONE, CMD_CARD, CMD_REROLL, CMD_ITEM, CMD_BOND, CMD_PAUSE, CMD_SKIP, CMD_QUIT, CMD_MEGA, CMD_ORB, CMD_EVO, CMD_POWER };   // (CMD_ORB: arg = hueco · CMD_EVO: arg = opción)
 
 struct Input {
   float ax = 0, ay = 0;     // movimiento (-1..1), ya normalizado si hace falta
@@ -80,7 +80,7 @@ struct Card {
 };
 
 // Elección que tiene abierta un jugador (la partida se para para todos).
-enum Choice : int8_t { CH_NONE, CH_ITEM, CH_BOND, CH_EVO };
+enum Choice : int8_t { CH_NONE, CH_ITEM, CH_BOND, CH_EVO, CH_POWER };
 
 struct Player {
   bool active = false;
@@ -157,7 +157,7 @@ struct Player {
   // cartas de nivel nuevas (esquiva, daño de los críticos, daño a jefes, más monedas).
   float guard_t = 0, rest_t = 0, zzz_t = 0;
   float screen_t[2] = {}, screen_k[2] = {};
-  float dodge = 0, crit_dmg = 0, boss_mul = 1, power_cd = 1;
+  float dodge = 0, crit_dmg = 0, boss_mul = 1, power_cd_k = 1;
   // Evolución en plena partida (core/evo.h): con quién empezó, su línea, la etapa, de quién
   // tiene ahora los stats y, mientras eliges (choice == CH_EVO), las opciones.
   int16_t start_dex = 0;
@@ -170,6 +170,12 @@ struct Player {
   int16_t evo_lv_prev = 0;
   int16_t evo_opts[3] = {}, evo_all[8] = {};
   int8_t evo_nopts = 0, evo_nall = 0;
+  // Poder de Eternatus (core/power.h): cuál (-1 ninguno), si está en marcha, lo que queda,
+  // la recarga y, mientras eliges (choice == CH_POWER), las opciones.
+  int8_t epower = -1;
+  bool power_on = false, power_mega = false, splashing = false;
+  float power_t = 0, power_cd = 0, power_hp = 0, z_t = 0;
+  int8_t power_opts[4] = {}, npower_opts = 0;
   int8_t item = IT_NONE;
   float sash_t = -999;          // (segundos de partida)
   float bell_heal = 0;
@@ -288,6 +294,13 @@ struct Enemy {
   float rd = 0;                 // jefes: daño recibido hace poco (bossDps = rd / 6)
   float stun_t = 0;             // aturdido: quieto y sin atacar
   float shred_t = 0;            // Triturar: recibe un 25 % más mientras dura
+  float crush_t = 0;            // Dinamax: aplastado hace poco (no se le repite cada fotograma)
+  // Eternatus Eternamax y sus núcleos (core/eterna.cpp)
+  bool eterna = false, ecore = false, ult = false, immune = false, dropped = false;
+  float floor_k = 0;            // su vida no baja de este tanto (fase)
+  float vuln_t = 0;             // aturdido tras romper el Núcleo Eterno: +50 % de daño
+  int8_t slot = -1;
+  float home_x = 0, home_y = 0;
   float sleep_t = 0;            // dormido (Soporesfera): quieto, sin atacar ni hacer daño al tocarte
   float skill_cd = 0;
   int32_t minions[8];
@@ -390,6 +403,10 @@ struct Hazard {
   bool pure = false, hit = false;
   bool boom = false;            // la explosión de un kamikaze (Humedad la aguanta)
   uint32_t color = 0;
+  // Zona que lo cubre todo (radio r) menos unos círculos (Noche Oscura, Rayo Eternamax)
+  bool safe = false;
+  int8_t nspots = 0;
+  float sx[3] = {}, sy[3] = {}, sr[3] = {};
 };
 
 // ---------------- eventos de partida ----------------
@@ -518,6 +535,7 @@ struct Game {
   // noche; si no, los de siempre (que van turnándose con los de las arenas, como la web).
   int run_biome(int i) const { i = i < 0 ? 0 : i; return hw ? kBiomeHw + i % 3 : i % kBiomeHw; }
   int candy_dropped = 0;        // caramelos soltados (los que van con el tiempo: candy_take)
+  int eterna_wins = 0;          // Eternatus vencido en esta partida (stats.eternaWins y la dificultad siguiente)
   int pending_levels = 0;
   Save* save = nullptr;
   int64_t now_ms = 0;           // reloj de la consola (lo pone la plataforma)
@@ -611,6 +629,22 @@ struct Game {
     float check_t = 30; bool asked = false; float down_t = 0; int misses = 0;
     bool zone = false; float zone_x = 0, zone_y = 0, zone_r = 0;   // dónde estaba la última arena (leftBehind)
   } rift;
+
+  // Eternatus Eternamax (core/eterna.cpp)
+  struct EternaState {
+    int8_t st = 0;              // 0 nada, 1 llegando, 2 pelea, 3 ganada
+    bool happened = false;
+    float t = 0, ft = 0, wall_t = -1;
+    int8_t phase = 0; bool enraged = false;
+    int32_t tx = 0, ty = 0; float cx = 0, cy = 0, back_x = 0, back_y = 0; int back_biome = 0;
+    int32_t boss_id = 0, core_ids[4] = {}, ucore_id = 0;
+    int8_t cast = -1, last = -1, cn = 0, side = -1; bool cdone = false;
+    float ct = 0, wind = 0, cd = 0, emit = 0, spin = 0, cdir = 1;
+    struct Pool { float x, y, wait, t; } pools[12]; int npools = 0;
+    float pool_cd = 0, cloud_cd = 0, laser_cd = 0, touch_cd = 0, pull_t = 0, pull_delay = 0;
+    int8_t ult = 0; float ult_t = 0, stun_t = 0;
+    char b_title[32] = {}, b_sub[48] = {}, b_info[140] = {}; float b_t = -1;
+  } eterna;
 
   struct JudgmentState {
     int8_t phase = 0;           // 0 nada, 1 animación, 2 pelea
@@ -775,6 +809,17 @@ inline bool rift_left_behind(const Game& g, const Player& p) {
 void rift_reset(Game& g);
 void rift_update(Game& g, float dt);
 float rift_time_left(const Game& g);
+// eterna.cpp (Eternatus Eternamax, el minuto 20 / el 13 en el modo rápido)
+void eterna_reset(Game& g);
+void eterna_update(Game& g, float dt);
+void eterna_enemy_update(Game& g, Enemy& e, float dt);
+bool eterna_on(const Game& g);
+bool eterna_intro(const Game& g);
+int eterna_barrier(const Game& g);          // barrera de láseres: 1 encendida, -1 avisando, 0 apagada
+float eterna_cloud_r(const Game& g);        // radio de las nubes rojas (0: sin nubes)
+const char* eterna_cast_name(const Game& g);
+// En una arena (grieta o Eternatus): no salen enemigos, ni eventos, ni grietas…
+inline bool in_arena(const Game& g) { return g.rift.arena || g.eterna.st != 0; }
 // judgment.cpp
 constexpr float kJudgmentAt = 30 * 60;
 constexpr float kJudgmentAtQuick = 20 * 60;   // modo rápido

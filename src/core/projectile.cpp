@@ -39,7 +39,7 @@ Enemy* nearest_enemy(Game& g, float x, float y, float max_dist) {
   float bd = max_dist * max_dist;
   const bool shield = judgment_shielded(g);   // (con legendarios vivos, a Arceus no se le apunta)
   for (Enemy& e : g.enemies) {
-    if (e.dead || (e.arceus && shield)) continue;
+    if (e.dead || (e.arceus && shield) || e.immune) continue;   // (Eternatus inmune: a sus núcleos)
     const float d = dist2(x, y, e.x, e.y);
     if (d < bd) { bd = d; best = &e; }
   }

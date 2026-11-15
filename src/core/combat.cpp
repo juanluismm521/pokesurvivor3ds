@@ -8,6 +8,7 @@
 #include "core/abilities.h"
 #include "core/game.h"
 #include "core/stats.h"
+#include "core/power.h"
 
 namespace ps {
 
@@ -70,7 +71,7 @@ float arc_k(const Game& g, const Enemy& e) { return e.arceus ? judgment_dmg_k(g)
 // Habilidad de quien pega (abilities.h): × al daño, crítico, estados (Potencia
 // Bruta los quita, Dicha los dobla) y lo que hace al golpear.
 void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float dy, float knock, const MoveInst& m) {
-  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat()) * arc_k(g, e) * abil_out(g, p, &m, &e);
+  const float k = type_k(g, m.type(), e) * stats_taken(e.mon, m.cat()) * arc_k(g, e) * abil_out(g, p, &m, &e) * power_out_k(p, &m);
   const bool crit = is_crit(g, p);
   const float sk = abil_status_k(p);
   dmg *= k * (crit ? crit_mul(p) : 1) * (e.shred_t > 0 ? 1.25f : 1) * hunt_k(p, e);
@@ -83,6 +84,7 @@ void hit(Game& g, Player& p, Enemy& e, float dmg, uint32_t col, float dx, float 
   if (m.get(MS_SLOW) > 0 && sk > 0) enemy_apply_slow(e, std::fmin(0.8f, m.get(MS_SLOW) * sk));
   if (m.get(MS_SHRED) > 0 && !e.dead) e.shred_t = m.get(MS_SHRED);   // Triturar
   if (p.abil >= 0) abil_after_hit(g, p, e, &m);
+  power_after_hit(g, p, e, dmg);
 }
 
 // (m es siempre uno de p.moves)
@@ -1388,7 +1390,7 @@ void combat_resolve(Game& g, float dt) {
       const bool crit = is_crit(g, pl) || (srcm && srcm->get(MS_CRITUP) > 0 && g.rng.next() < srcm->get(MS_CRITUP));
       const float sk = abil_status_k(pl);
       const float kk = (p->mtype >= 0 ? type_k(g, p->mtype, *e) : 1) * stats_taken(e->mon, p->mcat) * (crit ? crit_mul(pl) : 1) * (e->shred_t > 0 ? 1.25f : 1) * hunt_k(pl, *e) * arc_k(g, *e) *
-                       abil_out(g, pl, srcm, e);
+                       abil_out(g, pl, srcm, e) * power_out_k(pl, srcm);
       const float dvx = p->vx != 0 ? p->vx : (e->x - pl.x), dvy = p->vy != 0 ? p->vy : (e->y - pl.y);
       const int eff = crit ? EFF_CRIT : p->mtype >= 0 ? type_label(type_mult(p->mtype, e->types)) : EFF_NONE;
       const float dmg = p->dmg * kk;

@@ -5,6 +5,7 @@
 //   (cartas de nivel, objeto, vínculo), pausa y resumen.
 #include "platform/3ds/render.h"
 #include "core/evo.h"
+#include "core/power.h"
 #include "core/abilities.h"
 #include "core/mons.h"
 #include "core/stats.h"
@@ -583,6 +584,15 @@ void Renderer::draw_top(Game& g, float eye) {
   for (const Hazard& h : g.hazards) {
     if (h.hit) continue;
     const float k = std::fmin(1.0f, h.t / h.delay);
+    if (h.safe) {
+      // Todo rojo menos los círculos: los círculos, claros y con su borde que parpadea.
+      for (int i = 0; i < h.nspots; ++i) {
+        const float x = v.sx(h.sx[i]), y = v.sy(h.sy[i]), r = h.sr[i] * 0.5f;
+        ellipse(x, y, r, r * 0.75f, rgbf(0xfff0f4, 0.28f + 0.1f * std::sin(now * 8)));
+        dot_ring(x, y, r, r * 0.75f, 2, rgbf(0xffffff, k > 0.6f && blink ? 1.0f : 0.75f));
+      }
+      continue;
+    }
     if (!h.beam) {
       const float x = v.sx(h.x), y = v.sy(h.y), r = h.r * 0.5f;
       ellipse(x, y, r, r * 0.75f, rgbf(h.color, 0.16f));
@@ -616,6 +626,39 @@ void Renderer::draw_top(Game& g, float eye) {
     const int left = std::max(0, int(std::ceil(kTreasureTime - g.treasure.t)));
     std::snprintf(tb, sizeof(tb), "%d s", left);
     text(tb, x, y - 30, 0.36f, left <= 10 ? rgb(0xff7a6a) : rgb(0xffe680), 1);
+  }
+
+  // --- Eternatus Eternamax: charcos de Tóxico, nubes rojas y la barrera de láseres ---
+  if (eterna_on(g)) {
+    const auto& es = g.eterna;
+    for (int i = 0; i < es.npools; ++i) {
+      const auto& q = es.pools[i];
+      if (q.t < q.wait) continue;
+      const float a = std::fmin(1.0f, (q.t - q.wait) / 0.25f) * std::fmin(1.0f, (q.wait + 7 - q.t) / 0.8f);
+      const float x = v.sx(q.x), y = v.sy(q.y);
+      ellipse(x, y, 25, 19, rgbf(0x9a3fd0, 0.55f * a));
+      ellipse(x, y, 17, 12, rgbf(0x6a1f9a, 0.6f * a));
+      dot_ring(x, y, 23, 17, 1, rgbf(0xd68aff, 0.8f * a));
+    }
+    const float cr = eterna_cloud_r(g);
+    if (cr > 0) {
+      // (el borde de las nubes: una cortina roja que late)
+      dot_ring(v.sx(es.cx), v.sy(es.cy), cr * 0.5f, cr * 0.5f, 3, rgbf(0xff2a4a, 0.55f + std::sin(now * 4) * 0.2f));
+      dot_ring(v.sx(es.cx), v.sy(es.cy), cr * 0.5f + 4, cr * 0.5f + 4, 2, rgbf(0xb0153a, 0.45f));
+    }
+    const int bar_on = eterna_barrier(g);
+    if (es.phase == 2 && bar_on != 0) {
+      for (int k = 0; k < 4; ++k) {
+        const Enemy* a = g.enemy_by_id(es.core_ids[k]);
+        const Enemy* b2 = g.enemy_by_id(es.core_ids[(k + 1) & 3]);
+        if (!a || a->dead || !b2 || b2->dead) continue;
+        const float x0 = v.sx(a->x), y0 = v.sy(a->y - 26), x1 = v.sx(b2->x), y1 = v.sy(b2->y - 26);
+        if (bar_on == 1) {
+          C2D_DrawLine(x0, y0, rgbf(0xff2a4a, 0.5f), x1, y1, rgbf(0xff2a4a, 0.5f), 5, 0);
+          C2D_DrawLine(x0, y0, rgbf(0xffd6e0, 0.95f), x1, y1, rgbf(0xffd6e0, 0.95f), 2, 0);
+        } else if (blink) C2D_DrawLine(x0, y0, rgbf(0xff2a4a, 0.45f), x1, y1, rgbf(0xff2a4a, 0.45f), 1, 0);
+      }
+    }
   }
 
   // --- campos en el suelo ---
@@ -775,8 +818,23 @@ void Renderer::draw_top(Game& g, float eye) {
           const uint32_t c = e.ai.fury ? 0xff4a4a : e.shiny ? 0x9ae6ff : gold ? 0xffd23f : 0xffd95e;
           ellipse(x, y, r * 1.6f, r * 0.6f, rgbf(c, (gold && !e.boss ? 0.32f : 0.22f) + std::sin(e.bob * 0.5f) * 0.06f));
         }
+        if (e.ecore) {   // núcleo de Eternatus: un rombo rojo que late, con su vida
+          const float yy = v.sy(e.y - 26) + std::sin(e.bob) * 1.5f, pk = 0.5f + std::sin(e.bob * 2) * 0.5f;
+          ellipse(x, y, 11, 3.5f, C2D_Color32(0, 0, 0, uint8_t(77 * alpha)));
+          ellipse(x, y, 17, 6, rgbf(0xff2a4a, (0.25f + pk * 0.25f) * alpha));
+          const float s = e.ult ? 13 : 10;
+          C2D_DrawTriangle(x, yy - s, rgbf(0x2a0010, alpha), x - s * 0.8f, yy, rgbf(0x2a0010, alpha), x + s * 0.8f, yy, rgbf(0x2a0010, alpha), 0);
+          C2D_DrawTriangle(x, yy + s, rgbf(0x2a0010, alpha), x - s * 0.8f, yy, rgbf(0x2a0010, alpha), x + s * 0.8f, yy, rgbf(0x2a0010, alpha), 0);
+          const u32 c = rgbf(e.flash > 0 ? 0xffffff : 0xe8243f, alpha), hi = rgbf(pk > 0.5f ? 0xffe14d : 0xff9a3d, alpha);
+          C2D_DrawTriangle(x, yy - s + 2, c, x - s * 0.8f + 2, yy, c, x + s * 0.8f - 2, yy, c, 0);
+          C2D_DrawTriangle(x, yy + s - 2, c, x - s * 0.8f + 2, yy, c, x + s * 0.8f - 2, yy, c, 0);
+          C2D_DrawRectSolid(x - 2, yy - 2, 0, 4, 4, hi);
+          if (!e.dead && e.hp < e.max_hp) bar(x - 9, yy + s + 3, 18, 2, e.hp / e.max_hp, rgb(0xe04aff));
+          break;
+        }
         const float sr = (shadow_size(e.dex) == 0 ? 5 : shadow_size(e.dex) == 1 ? 8 : 12) * e.scale;
         ellipse(x, y, sr, sr * 0.42f, C2D_Color32(0, 0, 0, uint8_t(87 * alpha)));
+        if (e.eterna && !e.dead) ellipse(x, y, r * 1.8f, r * 0.7f, rgbf(e.vuln_t > 0 ? 0xffffff : e.immune ? 0xe04aff : 0xff2a4a, 0.25f + std::sin(e.bob) * 0.08f));
         const float lift = ((e.flying && !e.boss) ? 1 + std::sin(e.bob) * 1.5f : 0) + e.jump_lift;
         draw_sprite(e.anim, x, v.sy(e.y - lift), e.flash > 0 ? 1 : 0, alpha);
         if (e.dead) break;
@@ -1151,7 +1209,10 @@ void Renderer::draw_top(Game& g, float eye) {
   if (!judgment_cinematic(g)) {
     const Enemy* boss = nullptr;
     for (const Enemy& e : g.enemies) if (e.boss && !e.dead) { boss = &e; break; }
-    if (boss) {
+    if (boss && boss->eterna) {
+      bar(60, 5, 280, 9, boss->hp / boss->max_hp, rgb(boss->immune ? 0xe04aff : 0xff2a4a));
+      text("ETERNATUS ETERNAMAX", 200, 4, 0.36f, rgb(0xffd6e0), 1, true);
+    } else if (boss) {
       bar(80, 6, 240, 7, boss->hp / boss->max_hp, rgb(0xffcb3d));
       text(mon_by_dex(boss->dex)->name, 200, 4, 0.36f, C2D_Color32(32, 22, 10, 255), 1, false);
     } else if (g.judg.phase == 2 && g.judg.open && g.judg.ahp_max > 0) {
@@ -1165,6 +1226,16 @@ void Renderer::draw_top(Game& g, float eye) {
     }
     char b[96];
     float info_y = boss ? 16 : (g.judg.phase == 2 && g.judg.open && g.judg.ahp_max > 0) ? 19 : 6;
+    if (eterna_on(g) && g.eterna.st == 2) {
+      const auto& es = g.eterna;
+      const Enemy* eb = g.enemy_by_id(es.boss_id);
+      static const char* const PH[4] = {"", "DESPERTAR", "ESCUDO DINAMAX", "ETERNAMAX FURIOSO"};
+      const char* st = es.ult == 1 ? "ROMPE EL NÚCLEO ETERNO" : es.stun_t > 0 ? "ATURDIDO: RECIBE MÁS DAÑO" : eb && eb->immune ? "INMUNE: ROMPE LOS NÚCLEOS" : PH[es.phase & 3];
+      char t[16]; mmss(es.ft, t, sizeof(t));
+      std::snprintf(b, sizeof(b), "FASE %d · %s · %s", int(es.phase), tr(st), t);
+      text_fit(b, 200, info_y, 380, 0.38f, rgb(es.enraged ? 0xff5a5a : 0xffd6e0), true, 1); info_y += 12;
+      if (const char* cn = eterna_cast_name(g)) { text(tr(cn), 200, info_y, 0.34f, rgb(0xff8a9a), 1); info_y += 11; }
+    }
     if (g.rift.arena) {
       char t[16]; mmss(rift_time_left(g), t, sizeof(t));
       std::snprintf(b, sizeof(b), "GRIETA · %s", t);
@@ -1225,6 +1296,13 @@ void Renderer::draw_top(Game& g, float eye) {
     }
     for (const Enemy& e : g.enemies) {
       if (e.dead) continue;
+      // Los jefes del mapa, con su distancia (web, 13-11-2026); los núcleos de Eternatus, también.
+      if (e.ecore) { edge(e.x, e.y - 26, 0xff2a4a, e.ult ? tr("Núcleo Eterno") : tr("Núcleo")); continue; }
+      if (e.boss && !e.judge && !e.arceus) {
+        std::snprintf(b, sizeof(b), "%s · %d m", e.eterna ? "ETERNATUS" : mon_by_dex(e.dex)->name, int(dist(pl.x, pl.y, e.x, e.y) / 32));
+        edge(e.x, e.y - e.body_h * 0.5f, e.eterna ? 0xff2a4a : 0xffcb3d, b);
+        continue;
+      }
       if (e.behavior == BH_THIEF) edge(e.x, e.y - 10, 0xffd23f, mon_by_dex(e.dex)->name);
       else if (e.shiny) edge(e.x, e.y - 10, 0x9ae6ff, "shiny");
     }
@@ -1262,6 +1340,19 @@ void Renderer::draw_top(Game& g, float eye) {
                         lines > 1 ? W + 12 : text_width(g.banner, sz) + 16, h, C2D_Color32(10, 14, 28, uint8_t(150 * a)));
       if (lines == 1) text(g.banner, 200, 74, sz, rgbf(0xffcb3d, a), 1);
       else text_wrap(g.banner, 200, 74, sz, rgbf(0xffcb3d, a), W, 1);
+    }
+  }
+
+  // --- Eternatus: el cielo rojo y el cartel de cada fase ---
+  if (eterna_on(g)) {
+    C2D_DrawRectSolid(0, 0, 0, TOP_W, TOP_H, rgbf(0x7a1030, 0.16f + 0.04f * std::sin(now * 1.7f)));
+    const auto& es = g.eterna;
+    if (es.b_t >= 0 && es.b_t < 3.4f && es.b_title[0]) {
+      const float a = std::fmin(1.0f, std::fmin(es.b_t * 4, (3.4f - es.b_t) * 2));
+      C2D_DrawRectSolid(0, 72, 0, TOP_W, 70, C2D_Color32(20, 0, 8, uint8_t(170 * a)));
+      text(tr(es.b_title), 200, 78, 0.5f, rgbf(0xffd6e0, a), 1, true);
+      text_fit(tr(es.b_sub), 200, 94, 380, 0.7f, rgbf(0xff2a4a, a), true, 1);
+      text_fit(tr(es.b_info), 200, 122, 390, 0.34f, rgbf(0xffffff, a), true, 1);
     }
   }
 
@@ -1420,6 +1511,23 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       text_fit2(item_desc(it, p.dex), 54, y + 22, 250, 0.32f, rgb(0xb7c4dc));
     }
     text("A: quedarte con el elegido", 160, 226, 0.34f, rgb(0x8fa3c4), 1);
+  } else if (g.state == ST_CHOICE && p.choice == CH_POWER) {
+    // ¡Has vencido a Eternatus! Un poder para el resto de la partida (core/power.h).
+    text(tr("¡Elige tu poder!"), 160, 38, 0.52f, rgb(0xff5a7a), 1, true);
+    text_fit(tr("Para el resto de la partida · se usa con Y"), 160, 55, 300, 0.32f, rgb(0xb7c4dc), false, 1);
+    const int nc = p.npower_opts;
+    const float ch = evo_card_h(nc);
+    for (int i = 0; i < nc; ++i) {
+      const PowerInfo& pi = kPowerInfo[p.power_opts[i]];
+      const float y = kEvoTop + i * ch;
+      const bool sel = i == card_cursor;
+      if (sel) C2D_DrawRectSolid(8, y - 1, 0, 304, ch - 2, rgb(pi.color));
+      C2D_DrawRectSolid(10, y + 1, 0, 300, ch - 6, sel ? C2D_Color32(58, 64, 96, 255) : C2D_Color32(30, 40, 62, 255));
+      C2D_DrawRectSolid(14, y + 5, 0, 6, ch - 14, rgb(pi.color));
+      text(tr(pi.name), 26, y + 3, 0.44f, rgb(pi.color), 0, true);
+      text_fit2(tr(pi.desc), 26, y + 16, 280, 0.29f, rgb(0xd5def0));
+    }
+    text(tr("A: elegir"), 160, 226, 0.34f, rgb(0x8fa3c4), 1);
   } else if (g.state == ST_CHOICE && p.choice == CH_EVO) {
     // ¿Evolucionar? Cada opción con su sprite y sus tipos; la última, mantener su aspecto.
     std::snprintf(b, sizeof(b), tr("¡%s puede evolucionar!"), mon_by_dex(p.dex)->name);
@@ -1612,6 +1720,26 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
           }
           ly -= 11;
         }
+      }
+      // El poder de Eternatus (core/power.h): listo (Y), en marcha o en recarga.
+      if (p.epower >= 0) {
+        const PowerInfo& pi = kPowerInfo[p.epower];
+        C2D_DrawRectSolid(MX, ly, 0, MW, 11, strip);
+        if (p.power_on) {
+          const float k = clamp((p.epower == PWK_MEGA ? p.mega_t : p.power_t) / pi.dur, 0.0f, 1.0f);
+          C2D_DrawRectSolid(MX + 2, ly + 2, 0, (MW - 4) * k, 7, rgbf(pi.color, 0.75f));
+          std::snprintf(b, sizeof(b), "%s · %d s", tr(pi.name), int(std::ceil(p.epower == PWK_MEGA ? p.mega_t : p.power_t)));
+          text(b, MX + MW / 2, ly + 1, 0.32f, rgb(0xffffff), 1);
+        } else if (p.power_cd > 0) {
+          const float k = 1 - clamp(p.power_cd / (pi.cd * p.power_cd_k), 0.0f, 1.0f);
+          C2D_DrawRectSolid(MX + 2, ly + 2, 0, (MW - 4) * k, 7, rgbf(pi.color, 0.35f));
+          std::snprintf(b, sizeof(b), tr("%s: recarga %d s"), tr(pi.name), int(std::ceil(p.power_cd)));
+          text(b, MX + MW / 2, ly + 1, 0.32f, rgb(0xc9bde8), 1, false);
+        } else {
+          std::snprintf(b, sizeof(b), tr("Y: ¡%s!"), tr(pi.name));
+          text(b, MX + MW / 2, ly + 1, 0.32f, rgbf(pi.color, 0.6f + 0.4f * std::sin(float(g.time) * 6)), 1);
+        }
+        ly -= 11;
       }
       const float row0 = ly;
       if (g.weather.kind >= 0 && weather_level(g) > 0) {

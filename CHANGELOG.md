@@ -17,6 +17,19 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   Descanso, Reflejo y Pantalla Luz, Doble Equipo, Explosión, Día Soleado, Danza Lluvia…
 - **Ataques exclusivos:** 39 Pokémon tienen el suyo (Tacleada de Voltios, Onda Certera, Sentencia
   de Arceus…): su carta dorada sale desde el nivel 10.
+- **Eternatus Eternamax, el jefe del minuto 20** (en el modo rápido, del 13): el cielo se tiñe de
+  rojo y te lleva a su arena. Tres fases: Despertar (Rayo Infinito, Bomba Lodo con charcos de
+  Tóxico, Energía Dinamax), Escudo Dinamax (es inmune hasta que rompes 4 núcleos unidos por una
+  barrera de láseres que se apaga a ratos, y las nubes rojas cierran la arena) y Eternamax
+  Furioso (Espiral Infinita, Noche Oscura, Remolino Infinito, que te arrastra) y, al final, el
+  Rayo Eternamax: rompe el Núcleo Eterno a tiempo y queda aturdido; si no, ¡a los círculos! Si
+  caes, se acaba la partida; si ganas, ticket ×10, 600 monedas y un poder.
+- **Poderes** para el resto de la partida tras vencer a Eternatus (se usan con Y): Megaevolución
+  sin megapiedra (si tu Pokémon tiene mega), Dinamax (gigante: doble de vida, +40 % de daño y
+  aplastas lo que pisas), Pulsera Z (una gran Z rueda hacia los enemigos y el movimiento Z
+  arrasa la pantalla) y Teracristal (tus ataques de tu tipo pegan un 80 % más).
+- **Flechas de los jefes:** cuando no los ves, una flecha en el borde dice dónde están y a
+  cuántos metros (también los núcleos de Eternatus).
 - **Equilibrio nuevo, el de la web:** se sube de nivel 3 veces más rápido, los enemigos y los
   jefes aguantan según el minuto de la partida, los jefes llegan en los minutos 2, 6, 10, 14 y
   18, las mejoras de nivel se suman en vez de multiplicarse, las mejoras permanentes dan menos

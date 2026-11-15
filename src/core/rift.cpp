@@ -244,7 +244,7 @@ void rift_update(Game& g, float dt) {
       if (q.active && !q.dead && dist2(q.x, q.y, r.x, r.y - 10) < 30 * 30) enter(g);
     }
     (void)pl;
-  } else if (!r.arena && g.time > FROM && g.time < judgment_at(g) - 120) {
+  } else if (!r.arena && !eterna_on(g) && g.time > FROM && g.time < judgment_at(g) - 120) {
     r.check_t -= dt;
     if (r.check_t <= 0) {
       r.check_t = CHECK;

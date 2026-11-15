@@ -7,6 +7,7 @@
 
 #include "core/abilities.h"
 #include "core/evo.h"
+#include "core/power.h"
 #include "core/game.h"
 #include "core/mons.h"
 #include "core/orbs.h"
@@ -487,6 +488,7 @@ void player_add_buff(Player& p, int stat, float amount, float dur, int max_stack
 void player_update(Game& g, Player& p, const Input& in, float dt) {
   p.anim.update(dt);
   mega_update(g, p, dt);   // (también caído: la mega se acaba al caer)
+  power_update(g, p, dt);  // el poder de Eternatus (core/power.h)
   orbs_update(g, p, dt);
   if (p.dead) return;
   if (p.invuln > 0) p.invuln -= dt;
@@ -546,7 +548,7 @@ void player_update(Game& g, Player& p, const Input& in, float dt) {
   const bool ranged = m && (m->kind() == K_PROJECTILE || m->kind() == K_BEAM);
   Enemy* threat = nearest_enemy(g, p.x, p.y, p.r + 24);
   Enemy* boss = nullptr;
-  for (Enemy& e : g.enemies) if (e.boss && !e.dead && dist(p.x, p.y, e.x, e.y) < 330) { boss = &e; break; }
+  for (Enemy& e : g.enemies) if (e.boss && !e.dead && !e.immune && dist(p.x, p.y, e.x, e.y) < 330) { boss = &e; break; }
   Enemy* tg = ranged ? (boss ? boss : threat) : (threat ? threat : boss);
   if (!tg) tg = nearest_enemy(g, p.x, p.y, 520);
   p.target_enemy = 0; p.target_prop = nullptr; p.has_target = false;

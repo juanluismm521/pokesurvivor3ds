@@ -115,6 +115,10 @@ struct SkinDef {
   bool sell;           // se vende en la Tienda Kecleon (el sombrero de Kecleon, no)
 };
 constexpr int kSkinSpriteBase = 3900;
+// Sprites especiales de la web (assets-src/extra): 3800 = Eternatus Eternamax.
+constexpr int kExtraSpriteBase = 3800, kSpriteEternamax = 3800;
+extern const SpriteMeta kExtraSpriteMeta[];
+extern const int kExtraSpriteCount;
 extern const SkinDef kSkins[];
 extern const int kSkinCount;
 extern const SpriteMeta kSkinSpriteMeta[];      // mismo orden que kSkins

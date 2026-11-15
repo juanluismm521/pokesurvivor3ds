@@ -87,6 +87,20 @@ def main():
         jobs.append((w['id'], str(m['id'])))
     json.dump(MJ, open(mf, 'w'), ensure_ascii=False, indent=1)
 
+    # Sprites especiales (del port: 3800 + i, assets-src/extra/extra.json): Eternatus Eternamax…
+    EXTRA = [(200890, 'eternamax', 'Eternatus Eternamax')]
+    xf = os.path.join(ROOT, 'assets-src', 'extra', 'extra.json')
+    extra = []
+    for i, (wid, slug, name) in enumerate(EXTRA):
+        mm = meta.get(str(wid))
+        if not mm:
+            continue
+        extra.append({'id': 3800 + i, 'web': wid, 'slug': slug, 'name': name,
+                      'sprite': {'s': mm.get('s', 1), 'sh': bool(mm.get('sh')), 'a': mm['a'], **({'sa': mm['sa']} if mm.get('sa') else {})}})
+        jobs.append((wid, str(3800 + i)))
+    os.makedirs(os.path.dirname(xf), exist_ok=True)
+    json.dump({'_': 'Sprites especiales de la web (3800 + i): tools/fetch_gran.py', 'extra': extra}, open(xf, 'w'), ensure_ascii=False, indent=1)
+
     urls = []
     for wid, folder in jobs:
         mm = meta.get(str(wid))

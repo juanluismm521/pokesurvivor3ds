@@ -2,6 +2,7 @@
 //   estados: ui (menús), playing, levelup, paused, choice (objeto o vínculo), over
 #include "core/game.h"
 #include "core/evo.h"
+#include "core/power.h"
 #include "core/halloween.h"
 #include "core/orbs.h"
 
@@ -141,6 +142,8 @@ void Game::start_run(const RunConfig& c, Save* s) {
   next_enemy_id = next_proj_id = next_pickup_id = 1;
   spawner_reset(*this);
   rift_reset(*this);
+  eterna_reset(*this);
+  eterna_wins = 0;
   judgment_reset(*this);
   treasure = Treasure();
   events_reset(*this);
@@ -188,6 +191,8 @@ void Game::start_run(const RunConfig& c, Save* s) {
   music = MU_FOREST;
   state = ST_PLAYING;
   if (c.demo_time) time = c.demo_time;
+  // (con el reloj adelantado más allá de Eternatus, no sale: grabaciones y pruebas de la Sentencia)
+  if (c.demo_time && game_teq(*this) >= kEternaAt) eterna.happened = true;
   if (c.demo_level) {
     Player& team = pl();
     while (team.level < c.demo_level) pending_levels += player_gain_xp(team, (team.xp_next - team.xp) / std::fmax(0.01f, team.xp_mul) + 0.01f);
@@ -383,7 +388,7 @@ void Game::pick_item(Player& p, bool take_new) {
     if (is_mega_stone(got) && &p == &players[local]) say_to(*this, p, "¡Megapiedra! Pulsa Y para megaevolucionar", 3.2f);
   }
   // Sin la piedra (o con la otra: de la X a la Y), la mega de ahora se acaba.
-  if (p.mega >= 0 && (!is_mega_stone(p.item) || kMegas[p.mega].slot != p.item - IT_MEGA_A)) mega_end(*this, p);
+  if (p.mega >= 0 && !p.power_on && (!is_mega_stone(p.item) || kMegas[p.mega].slot != p.item - IT_MEGA_A)) mega_end(*this, p);
   p.choice = CH_NONE;
   if (state == ST_CHOICE && !anyone_choosing()) state = ST_PLAYING;
   after_choice(*this, p);
@@ -403,7 +408,7 @@ static void after_choice(Game& g, Player& p) {
 // Vínculo de un legendario: eliges qué movimientos se fusionan. Si ahora no se
 // puede (no hay dos sueltos), se guarda hasta que aprendas otro movimiento.
 static void offer_bond(Game& g, Player& p) {
-  if (p.bonds <= 0 || p.dead || (g.state != ST_PLAYING && g.state != ST_CHOICE) || g.rift.arena || p.choice != CH_NONE) return;
+  if (p.bonds <= 0 || p.dead || (g.state != ST_PLAYING && g.state != ST_CHOICE) || in_arena(g) || p.choice != CH_NONE) return;
   int8_t loose[4];
   int nl, grow;
   if (!player_bond_options(p, loose, nl, grow)) return;
@@ -640,7 +645,8 @@ static void apply_cmd(Game& g, int i, const Input& in) {
       break;
     case CMD_SKIP: if (i == 0) g.skip_judgment(); break;   // (en grupo, el anfitrión)
     case CMD_QUIT: g.leave(i); break;
-    case CMD_MEGA: mega_start(g, p); break;
+    case CMD_MEGA: if (power_ready(p)) power_start(g, p); else mega_start(g, p); break;
+    case CMD_POWER: power_choose(g, p, in.arg); break;
     case CMD_ORB: orb_use(g, p, in.arg); break;
     case CMD_EVO: evo_choose(g, p, in.arg); break;
     default: break;
@@ -723,7 +729,7 @@ void Game::step(const Input* inputs) {
   time += dt;
 
   const int b = int(std::floor(time / 240));
-  if (b != biome && !rift.arena && !judgment_active(*this)) {
+  if (b != biome && !in_arena(*this) && !judgment_active(*this)) {
     biome = b;
     world.set_biome(run_biome(b));
     sfx(SFX_BIOME);
@@ -755,6 +761,7 @@ void Game::step(const Input* inputs) {
   for (int i = 0; i < nplayers; ++i) if (players[i].active) interact_update(*this, players[i], dt);
   interact_bigchests(*this, dt);
   rift_update(*this, dt);
+  eterna_update(*this, dt);
   treasure_update(*this, dt);
   judgment_update(*this, dt);
   events_update(*this, dt);
@@ -763,10 +770,10 @@ void Game::step(const Input* inputs) {
   if (coop) { coop_tick(*this, dt); sync_team(*this); }
 
   if (state != ST_PLAYING && state != ST_CHOICE) return;
-  music = int8_t(judgment_active(*this) ? int(MU_JUDGMENT) : rift.arena ? int(MU_RIFT) : boss_alive() ? int(MU_BOSS) : int(MU_FOREST) + biome % 3);
+  music = int8_t(judgment_active(*this) ? int(MU_JUDGMENT) : eterna_on(*this) ? int(MU_JUDGMENT) : rift.arena ? int(MU_RIFT) : boss_alive() ? int(MU_BOSS) : int(MU_FOREST) + biome % 3);
   maybe_level_up(*this);
   // Evolución en plena partida (core/evo.h): cuando ya no quedan cartas por elegir.
-  if (state == ST_PLAYING && pending_levels <= 0 && !rift.arena && !judgment_cinematic(*this))
+  if (state == ST_PLAYING && pending_levels <= 0 && !in_arena(*this) && !judgment_cinematic(*this))
     for (int i = 0; i < nplayers; ++i) if (players[i].active) evo_update(*this, players[i]);
   for (int i = 0; i < nplayers; ++i) if (players[i].active && players[i].bonds > 0) offer_bond(*this, players[i]);
 }

@@ -56,8 +56,24 @@ int main(int argc, char** argv) {
   std::unique_ptr<Game> g(new Game());
   int frame = 0;
   double next = every;
+  int last_st = 0, last_ph = 0;
   SimHook hook = [&](Game& gg) {
     if (dir && gg.time >= next) { dump(gg, dir, frame++); next += every; }
+    // Eternatus: cuándo empieza cada fase y cómo acaba
+    if (gg.eterna.st != last_st || gg.eterna.phase != last_ph) {
+      const Enemy* e = gg.enemy_by_id(gg.eterna.boss_id);
+      std::printf("[eternatus] t=%.0f s · estado %d · fase %d · vida %.0f/%.0f · jugador %.0f/%.0f\n", gg.time, gg.eterna.st, gg.eterna.phase,
+                  e ? e->hp : 0.0f, e ? e->max_hp : 0.0f, gg.pl().hp, gg.pl().max_hp);
+      last_st = gg.eterna.st; last_ph = gg.eterna.phase;
+    }
+    static double nx = 0;
+    if (gg.eterna.st == 2 && gg.time >= nx) {
+      nx = gg.time + 20;
+      const Enemy* e = gg.enemy_by_id(gg.eterna.boss_id);
+      const Player& q = gg.pl();
+      std::printf("  · t=%.0f vida %.0f · jugador %.0f/%.0f en (%.0f,%.0f), Eternatus en (%.0f,%.0f) · daño hecho %.0f · enemigos %d\n", gg.time, e ? e->hp : 0.0f, q.hp, q.max_hp,
+                  q.x - gg.eterna.cx, q.y - gg.eterna.cy, e ? e->x - gg.eterna.cx : 0.0f, e ? e->y - gg.eterna.cy : 0.0f, q.dmg_dealt, gg.enemies.n);
+    }
   };
   const SimStats s = sim_run(*g, seed, dex, secs, imm, &hook);
   const Player& p = g->pl();
@@ -65,6 +81,7 @@ int main(int argc, char** argv) {
               s.seconds, s.level, s.kills, s.bosses, s.coins, p.hp, p.max_hp, p.dmg_dealt);
   std::printf("enemigos %d (máx %d) · proyectiles máx %d · suelo %d · grietas %d · cartas %d · %s\n",
               g->enemies.n, s.max_enemies, s.max_proj, g->pickups.n, s.rifts, s.cards, s.dead ? "cae" : "vivo");
+  std::printf("Eternatus vencido %d · poder %d · evolución %d (dex %d)\n", g->eterna_wins, int(p.epower), int(p.evo_stage), int(p.dex));
   for (int i = 0; i < p.nmoves; ++i) std::printf("  mov %s nv%d%s\n", p.moves[i].name(), p.moves[i].lvl, p.moves[i].evolved ? " (evolucionado)" : "");
   return 0;
 }

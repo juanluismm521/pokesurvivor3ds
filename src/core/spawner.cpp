@@ -123,7 +123,7 @@ void spawner_reset(Game& g) {
 void spawner_update(Game& g, float dt) {
   // En la arena de la grieta no sale nada más (y el reloj de jefes espera).
   // En la Sentencia de Arceus, sólo sus legendarios.
-  if (g.rift.arena || judgment_active(g)) return;
+  if (in_arena(g) || judgment_active(g)) return;
   // (t = tiempo equivalente: en el modo rápido todo llega antes, ver game_teq)
   const float t = game_teq(g);
 

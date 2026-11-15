@@ -20,6 +20,10 @@ Hazard* hazard_add(Game& g) {
 }
 
 bool hazard_inside(const Hazard& h, float x, float y, float r) {
+  if (h.safe) {   // todo menos los círculos
+    for (int i = 0; i < h.nspots; ++i) if (dist2(x, y, h.sx[i], h.sy[i]) < h.sr[i] * h.sr[i]) return false;
+    return dist2(x, y, h.x, h.y) < (h.r + r) * (h.r + r);
+  }
   if (!h.beam) return dist2(x, y, h.x, h.y) < (h.r + r * 0.6f) * (h.r + r * 0.6f);
   const float ca = std::cos(h.angle), sa = std::sin(h.angle);
   const float px = x - h.x, py = y - h.y;
@@ -30,7 +34,11 @@ bool hazard_inside(const Hazard& h, float x, float y, float r) {
 
 static void detonate(Game& g, const Hazard& h) {
   const bool near = g.camera.sees(h.x, h.y, 120);
-  if (h.pillar) {
+  if (h.safe) {
+    g.flash(h.color, 0.45f);
+    for (int i = 0; i < h.nspots; ++i) g.fx.ring(h.sx[i], h.sy[i], 4, h.sr[i], 0xffffff, 0.4f, 4);
+    if (near || true) { g.sfx(SFX_BOSS); g.camera.kick(0.9f); }
+  } else if (h.pillar) {
     // Pilar de luz que cae del cielo.
     g.fx.beam(h.x, h.y, -kPi / 2, 420, h.r * 1.1f, h.color, T_ELECTRIC, SH_NONE);
     g.fx.ring(h.x, h.y, 4, h.r * 1.3f, 0xfff3c8, 0.4f, 5);

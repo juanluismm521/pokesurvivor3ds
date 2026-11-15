@@ -261,7 +261,18 @@ const skinMeta = SKINS.map(k => {
   if (k.sprite.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(k.sprite.sa[a]))) + '},'); }
   return `  {${k.sprite.s}, ${!!k.sprite.sh}, false, ${alt}, ${arr(ANIMS.map(a => animMeta(k.sprite.a[a])))}},`;
 });
+// Sprites especiales (del port: assets-src/extra, tools/fetch_gran.py): Eternatus Eternamax…
+const EXTRA_FILE = path.join(ROOT, 'assets-src', 'extra', 'extra.json');
+const EXTRA = fs.existsSync(EXTRA_FILE) ? JSON.parse(fs.readFileSync(EXTRA_FILE, 'utf8')).extra : [];
+const extraMeta = EXTRA.map((k, i) => {
+  if (k.id !== 3800 + i) fail('extra.json: número desordenado ' + k.slug);
+  let alt = -1;
+  if (k.sprite.sa) { alt = altRows.length; altRows.push('  {' + arr(ANIMS.map(a => animMeta(k.sprite.sa[a]))) + '},'); }
+  return `  {${k.sprite.s}, ${!!k.sprite.sh}, true, ${alt}, ${arr(ANIMS.map(a => animMeta(k.sprite.a[a])))}},`;
+});
 w('const SpriteMeta kSpriteMeta[] = {'); metaRows.forEach(w); w('};');
+w('const SpriteMeta kExtraSpriteMeta[] = {'); extraMeta.forEach(w); if (!extraMeta.length) w('  {}'); w('};');
+w(`const int kExtraSpriteCount = ${EXTRA.length};`);
 w('const ShinyAlt kShinyAlt[] = {'); altRows.forEach(w); if (!altRows.length) w('  {}'); w('};');
 w(`const uint8_t kAnimDur[] = ${arr(durs)};`);
 

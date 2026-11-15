@@ -201,6 +201,11 @@ def main():
         for m in json.load(open(mf, encoding='utf-8'))['megas']:
             if 'sprite' in m:
                 meta[str(m['id'])] = {k: m['sprite'][k] for k in ('s', 'a', 'sh', 'sa') if k in m['sprite']}
+    # Sprites especiales (del port): 3800 + i (extra.json, tools/fetch_gran.py).
+    xf = os.path.join(ROOT, 'assets-src', 'extra', 'extra.json')
+    if os.path.exists(xf):
+        for k in json.load(open(xf, encoding='utf-8'))['extra']:
+            meta[str(k['id'])] = {x: k['sprite'][x] for x in ('s', 'a', 'sh', 'sa') if x in k['sprite']}
     # Disfraces de Halloween (del port): 3900 + i (skins.json, tools/fetch_skins.py).
     sf = os.path.join(ROOT, 'assets-src', 'skins', 'skins.json')
     if os.path.exists(sf):

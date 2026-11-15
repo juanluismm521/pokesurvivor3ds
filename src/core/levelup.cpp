@@ -99,7 +99,7 @@ int candidates(Game& g, Player& p, Cand* out) {
     if (waiting[s] >= 0) continue;
     if (kLevelStats[s].max && p.stats_taken[s] >= kLevelStats[s].max) continue;
     // Poder rápido: sólo si llevas una megapiedra (en la web, si tienes poder de Eternatus)
-    if (s == LS_PWR && !is_mega_stone(p.item)) continue;
+    if (s == LS_PWR && !is_mega_stone(p.item) && p.epower < 0) continue;
     avail[na++] = int8_t(s);
   }
   int8_t picks[LS_COUNT];
@@ -200,7 +200,7 @@ static void apply_stat(Game& g, Player& p, int s) {
     case LS_CRITD: p.crit_dmg += 0.05f; break;                  // Golpe Brutal
     case LS_HUNT: stack(p.boss_mul, p, s, 0.06f); break;        // Cazador
     case LS_DODGE: p.dodge = std::fmin(0.15f, p.dodge + 0.03f); break;
-    case LS_PWR: stack(p.power_cd, p, s, -0.08f); break;        // Poder rápido (aquí: la megaevolución)
+    case LS_PWR: stack(p.power_cd_k, p, s, -0.08f); break;      // Poder rápido (la mega y el poder de Eternatus)
     case LS_LUCK: stack(p.coin_mul, p, s, 0.1f); break;         // Racha de suerte
     case LS_COIN: p.coins += 60; break;                         // Bolsa de monedas
     default: break;
