@@ -98,7 +98,7 @@ void start(Game& g, int id) {
   g.events.last = int8_t(id);
   if (id == EVN_HORDE) {
     int8_t types[T_COUNT];
-    const int nt = enemies_horde_types(float(g.time), types);
+    const int nt = enemies_horde_types(g, float(g.time), types);
     if (!nt) { start(g, EVN_GOLD); return; }
     const int type = types[int(g.rng.next() * nt)];
     g.events.nhorde = enemies_horde_defs(g, type, float(g.time), g.events.horde);

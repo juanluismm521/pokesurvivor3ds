@@ -6,6 +6,7 @@
 #pragma once
 #include <3ds.h>
 
+#include "core/weekly.h"
 #include "core/gift.h"
 #include "core/bot.h"
 #include "core/gacha.h"
@@ -332,7 +333,10 @@ class App {
   bool auto_bond = false;
   bool auto_hold_over = false;
   int auto_mode = 0;            // autotest "… rapido": modo rápido
-  int auto_diff = 0;            // autotest "… dificil" / "pesadilla"
+  int auto_diff = 0;
+  int auto_weekly = -2;         // autotest "… semanal[=condición]": el desafío (-1 el de esta semana; si no, con esa condición)
+  bool weekly_run_ = false;     // la próxima partida es el desafío semanal (Jugar)
+  Weekly weekly_now() const;    // el desafío de esta semana            // autotest "… dificil" / "pesadilla"
   bool auto_win = false;
   void leave_to_menu();
   void apply_gifts(const std::string& json);   // (core/gift.h: los tuyos, a la pantalla de regalos)

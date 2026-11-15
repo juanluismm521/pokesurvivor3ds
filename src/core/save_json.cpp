@@ -284,6 +284,9 @@ std::string save_to_json(const Save& s) {
   Json aw = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) if (s.arceus_win[d] > 0) aw.set(dex_key(d), Json::num(double(s.arceus_win[d])));
   if (aw.size()) o.set("arceusWin", std::move(aw));
+  // Desafío semanal: la semana del último intento y la del ticket (como la web)
+  if (s.wtry[0]) o.set("wtry", Json::str(s.wtry));
+  if (s.wch[0]) o.set("wch", Json::str(s.wch));
   Json gf = Json::object();
   for (int i = 0; i < s.ngifts && i < Save::kMaxGifts; ++i) if (s.gift_id[i][0]) gf.set(s.gift_id[i], Json::num(double(s.gift_at[i] > 0 ? s.gift_at[i] : 1)));
   if (gf.size()) o.set("regalos", std::move(gf));
@@ -436,6 +439,8 @@ bool save_from_json(Save& s, const std::string& text) {
       if (v.is_num() && std::isfinite(v.as_num())) s.pstat[d].v[k] = std::fmin(kPStatMax[k], std::fmax(0.0, std::floor(v.as_num())));
     }
   }
+  if (o["wtry"].is_str()) std::snprintf(s.wtry, sizeof(s.wtry), "%s", o["wtry"].as_str().c_str());
+  if (o["wch"].is_str()) std::snprintf(s.wch, sizeof(s.wch), "%s", o["wch"].as_str().c_str());
   for (const auto& kv : o["arceusWin"].items()) {
     const int d = key_dex(kv.first);
     if (d >= 0 && d <= kMaxDex && kv.second.is_num() && kv.second.as_num() > 0) s.arceus_win[d] = int64_t(kv.second.as_num());

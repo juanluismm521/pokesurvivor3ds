@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <cstdio>
 
+#include "core/weekly.h"
 #include "core/halloween.h"
 #include "core/abilities.h"
 #include "core/game.h"
@@ -70,7 +71,7 @@ Enemy* enemy_spawn(Game& g, const EnemyDef& def, float x, float y, Scale3 sc, bo
   e->body_h = body_height(def.dex, e->scale);
   e->max_hp = float(jsround(def.hp * sc.hp));
   e->hp = e->max_hp;
-  e->spd = def.spd * sc.spd;
+  e->spd = def.spd * sc.spd * (weekly_is(g, WC_FAST) ? 1.3f : 1.0f);   // (desafío «Enemigos veloces»)
   e->dmg = def.dmg * sc.dmg;
   e->xp = def.xp;
   e->behavior = def.behavior;

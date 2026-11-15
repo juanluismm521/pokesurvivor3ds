@@ -386,6 +386,7 @@ void player_hurt(Game& g, Player& p, float amount, int type, bool pure, int cat)
 }
 
 void player_heal(Game& g, Player& p, float amount) {
+  if (weekly_noheal(g)) return;   // (desafío «Sin curaciones»)
   amount *= abil_heal_mul(p);     // Gula, Recogida
   const float before = p.hp;
   p.hp = std::fmin(p.max_hp, p.hp + amount);

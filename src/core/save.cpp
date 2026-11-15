@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "core/game.h"
+#include "core/weekly.h"
 
 namespace ps {
 
@@ -96,6 +97,12 @@ void save_end_run(Game& g) {
     s.mode_wins[d] += g.eterna_wins;
     for (int k = d - 1; k >= 0; --k) if (s.mode_wins[k] <= 0) s.mode_wins[k] = 1;
     if (d + 1 < DF_COUNT && !had) r.unlocked = int8_t(d + 1);
+  }
+  // Desafío semanal: ticket ×10 si aguantas 3 minutos (una vez por semana)
+  if (g.cfg.weekly && g.time >= kWeeklyPrizeT && std::strcmp(s.wch, g.cfg.wk_week) != 0 && g.cfg.wk_week[0]) {
+    std::snprintf(s.wch, sizeof(s.wch), "%s", g.cfg.wk_week);
+    s.t10 += 1;
+    r.wk_prize = true;
   }
   // Maestría (web: Mastery.addRun / addStats), para el Pokémon con el que empezó.
   // (El desafío semanal no cuenta.)

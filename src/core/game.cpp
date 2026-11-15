@@ -1,5 +1,6 @@
 // game.cpp — flujo de la partida y paso principal (game.js de la web).
 //   estados: ui (menús), playing, levelup, paused, choice (objeto o vínculo), over
+#include "core/weekly.h"
 #include "core/game.h"
 #include "core/evo.h"
 #include "core/power.h"
@@ -190,6 +191,20 @@ void Game::start_run(const RunConfig& c, Save* s) {
     // En grupo, en fila (coop.js begin).
     if (nplayers > 1) { players[i].x = (i - (nplayers - 1) / 2.0f) * 34; players[i].y = 0; }
   }
+  // Desafío semanal (core/weekly.h): cañón de cristal, su tiempo y el aviso
+  for (int i = 0; i < nplayers; ++i) {
+    Player& p = players[i];
+    if (weekly_is(*this, WC_GLASS)) { p.max_hp = std::fmax(1.0f, float(jsround(p.max_hp * 0.5f))); p.hp = p.max_hp; p.atk_mul *= 1.3f; }
+    p.nh_hp = p.hp;
+  }
+  if (c.weekly && c.wk_cond >= 0 && c.wk_cond < WC_COUNT) {
+    if (kWeeklyConds[c.wk_cond].wx >= 0) weather_force(*this, kWeeklyConds[c.wk_cond].wx, 3600);
+    Weekly w; w.cond = c.wk_cond; w.no_items = c.wk_items; w.type = c.wk_type;
+    char lb[96], b[128];
+    weekly_label(w, lb, sizeof(lb));
+    std::snprintf(b, sizeof(b), "Desafío semanal: %s", lb);
+    say(b, 3.4f);
+  }
   views_snap(); camera.shake = 0;
   music = MU_FOREST;
   state = ST_PLAYING;
@@ -368,6 +383,11 @@ static void say_to(Game& g, const Player& p, const char* text, float secs) {
 // otro, con cuál te quedas.
 static void offer_item(Game& g, Player& p, int id) {
   if (id < 0 || id >= kItemTotal) return;
+  if (weekly_noitems(g)) {   // desafío «Sin objetos»: monedas en su lugar
+    p.coins += 60;
+    g.fx.dmg_text(p.x, p.y - p.body_h - 6, "+60", 0xffd23f, false);
+    return;
+  }
   id = mega_stone_for(g, p, id);   // (la megapiedra: la de tu Pokémon)
   if (g.state == ST_LEVELUP || p.choice != CH_NONE) { if (p.nlater < 8) p.later_items[p.nlater++] = int8_t(id); return; }
   char b[96];
@@ -377,6 +397,8 @@ static void offer_item(Game& g, Player& p, int id) {
   p.choice = CH_ITEM;
   if (g.state == ST_PLAYING) g.state = ST_CHOICE;
 }
+
+void game_offer_item_for_test(Game& g, Player& p, int id) { offer_item(g, p, id); }   // (pruebas)
 
 void Game::pick_item(Player& p, bool take_new) {
   if (p.choice != CH_ITEM) return;
@@ -776,6 +798,9 @@ void Game::step(const Input* inputs) {
   judgment_update(*this, dt);
   events_update(*this, dt);
   weather_update(*this, dt);
+  // Desafío «Sin curaciones»: la vida no sube de ninguna forma
+  if (weekly_noheal(*this))
+    for (int i = 0; i < nplayers; ++i) { Player& p = players[i]; if (p.hp > p.nh_hp) p.hp = p.nh_hp; p.nh_hp = p.hp; }
   fx.update(dt);
   if (coop) { coop_tick(*this, dt); sync_team(*this); }
 

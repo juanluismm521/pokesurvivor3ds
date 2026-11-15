@@ -67,6 +67,8 @@ struct Save {
   // Maestría (web, 13-11-2026; core/mastery.h): puntos y estadísticas de cada Pokémon
   int32_t mastery[kMaxDex + 1] = {};
   PStat pstat[kMaxDex + 1] = {};
+  // Desafío semanal (core/weekly.h): la semana del último intento (wtry) y la del ticket (wch)
+  char wtry[12] = {}, wch[12] = {};
   int32_t t1 = 0, t10 = 0;               // tickets
   int32_t pity[11] = {};                 // por banner: 0 «Todas» (del port), 1-9 regiones, 10 Noche Espectral (Halloween)
   // Halloween (web, 25-10-2026): caramelos (bag.candy), disfraces comprados

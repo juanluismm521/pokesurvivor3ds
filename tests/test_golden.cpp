@@ -486,3 +486,20 @@ TEST_CASE("dorado: el Pokémon con su naturaleza (monFor)") {
     CHECK(m.atk == doctest::Approx(r[7].as_num()).epsilon(1e-5));
   }
 }
+
+#include "core/weekly.h"
+
+TEST_CASE("dorado: desafío semanal de cada semana (challenge.js)") {
+  const Json& G = golden()["weekly"];
+  REQUIRE(G.size() >= 40);
+  for (const Json& r : G.elems()) {
+    const std::string w = r[0].as_str();
+    const Weekly c = weekly_of(w.c_str());
+    INFO(w);
+    CHECK(c.dex == int(r[1].as_num()));
+    CHECK(std::string(kWeeklyConds[c.cond].id) == r[2].as_str());
+    CHECK(c.seed == uint32_t(r[3].as_num()));
+    CHECK(int(c.no_items) == int(r[4].as_num()));
+    CHECK(std::string(c.type >= 0 ? kTypeId[c.type] : "") == r[5].as_str());
+  }
+}

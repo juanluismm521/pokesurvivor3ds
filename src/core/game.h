@@ -125,6 +125,7 @@ struct Player {
   int candy = 0;                // caramelos de Halloween de esta partida
   int8_t skin = -1;             // disfraz (índice de kSkins; -1 ninguno)
   bool aura = false;            // aura de maestro (maestría completa con su Pokémon: sólo se ve)
+  float nh_hp = 0;              // desafío «Sin curaciones»: la vida nunca sube de aquí
   // Naturaleza, habilidad y MT (core/mons.h, core/abilities.h): `mon` apunta a
   // mon_buf, su Pokémon con la naturaleza aplicada (y a mega_buf durante la mega).
   int8_t nature = -1;
@@ -443,6 +444,7 @@ struct RunSummary {
   int16_t m_dex = -1;
   int32_t m_before = 0, m_after = 0, m_gained = 0;
   uint8_t m_got = 0;
+  bool wk_prize = false;            // desafío semanal: ticket ×10 de esta semana
   int diff_t1 = 0, diff_t10 = 0;    // tickets de más por la dificultad
   int8_t unlocked = -1;             // dificultad desbloqueada al vencer a Eternatus
   bool hw = false;                  // partida de Halloween (el gran Gengar en vez de Arceus)
@@ -481,6 +483,10 @@ struct RunConfig {
   uint8_t hw = 0;
   // Desafío semanal (core/weekly.h): misma semilla y Pokémon para todos esa semana; no suma maestría.
   uint8_t weekly = 0;
+  int8_t wk_cond = -1;                   // su condición (WeeklyCond), sin objetos y el tipo de «todos de tipo X»
+  bool wk_items = false;
+  int8_t wk_type = -1;
+  char wk_week[12] = {};                 // la semana («w2026-47»)
   bool aura = false;                     // aura de maestro (maestría 100 000 con su Pokémon)
   int8_t skin = -1;                      // disfraz puesto (índice de kSkins; -1 ninguno)
   // Tienda Kecleon (core/mons.h): naturaleza, habilidad y MT aprendidas de tu Pokémon
@@ -796,6 +802,10 @@ void spawner_burst(Game& g, int n);
 bool spawner_ahead(Game& g, Enemy& e, Player& p);
 float spawner_rate(const Game& g, float t);
 void enemies_roll_run(Game& g);
+// Desafío semanal (core/weekly.h): las condiciones de esta partida
+inline bool weekly_is(const Game& g, int cond);
+inline bool weekly_noheal(const Game& g);
+inline bool weekly_noitems(const Game& g);
 // (t = tiempo equivalente de la partida: game_teq)
 Scale3 enemies_scale(const Game& g, float t, const EnemyDef* def = nullptr);
 Scale3 enemies_boss_scale(const Game& g, float t, const EnemyDef& boss);
@@ -804,7 +814,7 @@ int behavior_of(const Mon& p);
 EnemyDef enemy_def_for(const Mon& p, int ti);
 int enemies_bag_at(Game& g, float t, const EnemyDef** out, int max);
 int enemies_tier_at(float t);
-int enemies_horde_types(float t, int8_t* out);
+int enemies_horde_types(const Game& g, float t, int8_t* out);
 int enemies_horde_defs(Game& g, int type, float t, EnemyDef* out);
 // hazards.cpp
 Hazard* hazard_add(Game& g);
@@ -921,5 +931,9 @@ void path_clear(Game& g);
 struct KillInfo { const int8_t* types; bool boss; int legend; };
 void progress_kill(Game& g, const Enemy& e);
 void progress_event(Game& g, int ev, int a = 0, int b = 0, float f = 0);
+
+inline bool weekly_is(const Game& g, int cond) { return g.cfg.weekly && g.cfg.wk_cond == cond; }
+inline bool weekly_noheal(const Game& g) { return weekly_is(g, 8 /* WC_NOHEAL */); }
+inline bool weekly_noitems(const Game& g) { return g.cfg.weekly && (g.cfg.wk_items || g.cfg.wk_cond == 2 /* WC_NOITEMS */); }
 
 }  // namespace ps

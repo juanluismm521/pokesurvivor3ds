@@ -136,6 +136,9 @@ void App::start_menu_demo() {
 
 // Autotest "modo": la pantalla de elegir modo con el rápido marcado. "medalla": el
 // menú y la Colección (en la región de tu compañero) para ver la medalla de Arceus.
+// (Jugar, cur_: 0 normal, 1 rápido, 2 el desafío semanal)
+constexpr int kModeWeekly = MODE_COUNT;
+
 void App::start_mode_demo(bool medal) {
   mode_demo_ = medal ? 2 : 1;
   news_t_ = 0;
@@ -254,6 +257,23 @@ void App::start_run() {
   cfg.taught = mine ? tm_taught_bits(*s_, cfg.dex) : TmBits{};
   cfg.judged = autotest ? 1 : s_->stats.judged;
   for (int d = 0; d <= kMaxDex; ++d) if (s_->legends[d]) cfg.legends_beaten[d >> 3] |= uint8_t(1 << (d & 7));
+  // Desafío semanal (core/weekly.h): su Pokémon tal cual (sin mejoras, ni shiny, ni naturaleza,
+  // ni MT, ni disfraz, ni aura), su mapa, en modo normal y dificultad Normal. Gasta el intento.
+  if (weekly_run_ || (autotest && auto_weekly > -2)) {
+    weekly_run_ = false;
+    Weekly w = weekly_now();
+    if (autotest && auto_weekly >= 0) { w.cond = int8_t(auto_weekly); if (w.cond == WC_MONO && w.type < 0) w.type = T_FIRE; }
+    RunConfig wc;
+    wc.dex = w.dex; wc.seed = w.seed; wc.mode = MODE_NORMAL; wc.diff = 0;
+    wc.weekly = 1; wc.wk_cond = w.cond; wc.wk_items = w.no_items; wc.wk_type = w.type;
+    std::snprintf(wc.wk_week, sizeof(wc.wk_week), "%s", w.week);
+    wc.abil = int16_t(abil_of(*s_, w.dex).id);
+    wc.hw = cfg.hw;
+    wc.judged = cfg.judged;
+    std::memcpy(wc.legends_beaten, cfg.legends_beaten, sizeof(wc.legends_beaten));
+    cfg = wc;
+    if (!autotest) { std::snprintf(s_->wtry, sizeof(s_->wtry), "%s", w.week); save_now(); }
+  }
   const u64 t0 = svcGetSystemTick();
   g_->now_ms = now_ms();
   r_->sprites.async = false;   // precarga: todo en el momento
@@ -472,7 +492,8 @@ void App::update(const UiIn& in0, float dt) {
     // (la dificultad: Normal, luego Difícil y Pesadilla, que está bloqueada si no se ha vencido a Eternatus)
     if (mode_demo_ == 1) st_->diff = news_t_ < 5 ? 0 : news_t_ < 10 ? 1 : 2;
     if (mode_demo_ == 1 && t0 < 5 && news_t_ >= 5 && s_->mode_wins[0] <= 0) s_->mode_wins[0] = 1;   // (Difícil, desbloqueada para la captura)
-    if (news_t_ > 14) quit = true;
+    if (mode_demo_ == 1 && news_t_ >= 14) cur_ = kModeWeekly;   // (y el desafío semanal)
+    if (news_t_ > (mode_demo_ == 1 ? 20 : 14)) quit = true;
     if (scene == SC_MODE || scene == SC_DEX) return;   // (sin tocar nada)
   }
   if (rooms_demo_) {
@@ -973,9 +994,17 @@ const ModeInfo kModes[MODE_COUNT] = {
 };
 }  // namespace
 
+Weekly App::weekly_now() const {
+  char day[16], week[16];
+  period_ids(now_ms(), day, sizeof(day), week, sizeof(week));
+  return weekly_of(week);
+}
+
+
 void App::in_mode(const UiIn& in) {
-  if (in.rep & (KEY_DUP | KEY_DDOWN)) cur_ ^= 1;
-  cur_ = clamp(cur_, 0, MODE_COUNT - 1);
+  if (in.rep & KEY_DUP) cur_ = (cur_ + kModeWeekly) % (kModeWeekly + 1);
+  if (in.rep & KEY_DDOWN) cur_ = (cur_ + 1) % (kModeWeekly + 1);
+  cur_ = clamp(cur_, 0, int(kModeWeekly));
   // Dificultad: izquierda / derecha (o L / R, o tocar las flechas); las bloqueadas no se eligen.
   int dd = 0;
   if (in.rep & (KEY_DLEFT | KEY_L)) dd = -1;
@@ -987,11 +1016,18 @@ void App::in_mode(const UiIn& in) {
     if (nd != st_->diff) { st_->diff = nd; settings_write(dir_, *st_); audio::play("select"); }
   }
   int pick = -1;
-  for (int i = 0; i < MODE_COUNT; ++i) if (in_rect(&in, 12, 30 + i * 82, 296, 76)) pick = i;
+  for (int i = 0; i <= kModeWeekly; ++i) if (in_rect(&in, 12, 28 + i * 56, 296, 52)) pick = i;
   if (in.down & KEY_A) pick = cur_;
   if (in.down & KEY_B) { go(SC_MENU); return; }
   if (pick < 0) return;
   cur_ = pick;
+  if (pick == kModeWeekly) {   // el desafío: un intento por semana
+    const Weekly w = weekly_now();
+    if (!std::strcmp(s_->wtry, w.week)) { audio::play("error"); return; }
+    weekly_run_ = true;
+    start_run();
+    return;
+  }
   if (!s_->mode_unlocked(st_->diff)) { audio::play("error"); return; }
   if (st_->play_mode != pick) { st_->play_mode = pick; settings_write(dir_, *st_); }
   start_run();
@@ -1000,13 +1036,37 @@ void App::in_mode(const UiIn& in) {
 void App::bottom_mode() {
   header("Jugar");
   for (int i = 0; i < MODE_COUNT; ++i) {
-    const float y = 30 + i * 82;
+    const float y = 28 + i * 56;
     const bool sel = i == cur_;
-    C2D_DrawRectSolid(12, y, 0, 296, 76, sel ? C_SEL : C_PANEL);
-    if (sel) C2D_DrawRectSolid(12, y, 0, 3, 76, C_GOLD);
-    r_->text(kModes[i].title, 24, y + 4, 0.6f, sel ? C_GOLD : C_TEXT);
-    r_->text_fit(kModes[i].sub, 300, y + 10, 170, 0.34f, i == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, false, 2);
-    r_->text_wrap(kModes[i].text, 24, y + 32, 0.32f, C_TEXT, 276);
+    C2D_DrawRectSolid(12, y, 0, 296, 52, sel ? C_SEL : C_PANEL);
+    if (sel) C2D_DrawRectSolid(12, y, 0, 3, 52, C_GOLD);
+    r_->text(kModes[i].title, 24, y + 2, 0.55f, sel ? C_GOLD : C_TEXT);
+    r_->text_fit(kModes[i].sub, 300, y + 7, 170, 0.34f, i == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, false, 2);
+    r_->text_wrap(kModes[i].text, 24, y + 24, 0.3f, C_TEXT, 278);
+  }
+  // El desafío semanal: su condición y si te queda el intento de esta semana
+  {
+    const Weekly w = weekly_now();
+    const float y = 28 + kModeWeekly * 56;
+    const bool sel = cur_ == kModeWeekly, used = !std::strcmp(s_->wtry, w.week);
+    const u32 vio = C2D_Color32(0xc4, 0x7b, 0xff, 255);
+    C2D_DrawRectSolid(12, y, 0, 296, 52, sel ? C2D_Color32(52, 40, 92, 255) : C2D_Color32(34, 28, 60, 255));
+    C2D_DrawRectSolid(12, y, 0, sel ? 3 : 2, 52, vio);
+    r_->text(tr("Desafío semanal"), 24, y + 2, 0.55f, sel ? C2D_Color32(0xe2, 0xc4, 0xff, 255) : C_TEXT);
+    r_->text_fit(used ? tr("Ya lo has jugado esta semana") : tr("1 intento esta semana"), 300, y + 7, 130, 0.34f,
+                 used ? C_MUTED : C2D_Color32(0x5f, 0xe0, 0x8a, 255), false, 2);
+    char lb[96], b[160];
+    weekly_label(w, lb, sizeof(lb));
+    const Mon* wm = mon_by_dex(w.dex);
+    std::snprintf(b, sizeof(b), "%s · %s", wm ? tr(wm->name) : "?", tr(lb));
+    r_->text_fit(b, 24, y + 24, 278, 0.36f, C_GOLD, false, 0);
+    r_->text_fit(tr("Todos con el mismo Pokémon y mapa · aguanta 3 min: ticket ×10"), 24, y + 38, 278, 0.3f, C_MUTED, false, 0);
+  }
+  if (cur_ == kModeWeekly) {
+    C2D_DrawRectSolid(12, 196, 0, 296, 24, C_PANEL);
+    r_->text_fit(tr("El desafío se juega siempre en Normal"), 160, 202, 280, 0.36f, C_MUTED, false, 1);
+    r_->text(tr("A: jugar · B: volver"), 160, 226, 0.34f, C_MUTED, 1);
+    return;
   }
   // Dificultad (para los dos modos): < Normal / Difícil / Pesadilla >
   {
@@ -2359,6 +2419,30 @@ void App::draw_top(float eye) {
       case SC_SHOP: top_shop(); break;
       case SC_GIFT: top_gift(); break;
       case SC_MODE: {   // (tu compañero y el reloj de la Sentencia del modo elegido)
+        if (cur_ == kModeWeekly) {   // el desafío de la semana: su Pokémon, su condición y cuánto le queda
+          const Weekly w = weekly_now();
+          const Mon* wm = mon_by_dex(w.dex);
+          C2D_DrawRectSolid(0, 0, 0, TW, TH, C2D_Color32(20, 10, 40, 120));
+          C2D_DrawEllipseSolid(30, 176, 0, 160, 34, rgbf(wm ? kTypeColor[wm->types[0]] : 0xc47bff, 0.32f));
+          draw_mon(w.dex, false, 110, 196, 3);
+          r_->text(tr("DESAFÍO SEMANAL"), 200, 8, 0.62f, C2D_Color32(0xe2, 0xc4, 0xff, 255), 1);
+          char lb[96], b[256];
+          weekly_label(w, lb, sizeof(lb));
+          r_->text_fit(tr(lb), 296, 40, 196, 0.5f, C_GOLD, true, 1);
+          weekly_desc(w, b, sizeof(b));
+          r_->text_wrap(tr(b), 296, 62, 0.36f, C_TEXT, 192, 1);
+          std::snprintf(b, sizeof(b), "%s · %s", wm ? tr(wm->name) : "?", tr("sin mejoras, naturaleza neutra"));
+          r_->text_fit(b, 296, 140, 196, 0.36f, C_MUTED, false, 1);
+          const int64_t left = weekly_ends_in(now_ms());
+          const int dd = int(left / 86400000), hh = int(left / 3600000 % 24);
+          std::snprintf(b, sizeof(b), tr("Termina en %d d %d h"), dd, hh);
+          r_->text(b, 296, 160, 0.4f, C2D_Color32(0xff, 0x9a, 0x4d, 255), 1);
+          const bool prize = !std::strcmp(s_->wch, w.week);
+          r_->text_fit(prize ? tr("Ticket ×10 de esta semana: ¡conseguido!") : tr("Aguanta 3 minutos: ticket ×10"), 296, 180, 196, 0.36f,
+                       prize ? C2D_Color32(0x5f, 0xe0, 0x8a, 255) : C_GOLD, false, 1);
+          r_->text_fit(tr("No suma maestría"), 296, 198, 196, 0.32f, C_MUTED, false, 1);
+          break;
+        }
         const int dex = s_->partner;
         const bool sh = s_->partner_shiny && s_->owns_shiny(dex);
         C2D_DrawEllipseSolid(140, 186, 0, 120, 30, rgbf(sh ? 0x9ae6ff : kTypeColor[mon_by_dex(dex)->types[0]], 0.3f));

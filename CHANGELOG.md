@@ -71,6 +71,11 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   título «Maestro de…», el marco y el **aura de maestro** (destellos dorados en la partida). Se ve
   en la ficha de la Colección y en el resumen, y se sincroniza con la web, junto con las
   estadísticas de cada Pokémon.
+- **Desafío semanal** (en Jugar): cada semana, todos con el mismo Pokémon, el mismo mapa y una
+  condición: siempre llueve, sol abrasador, niebla, nevada, tormenta de arena, enemigos veloces,
+  cañón de cristal, sin curaciones, noche cerrada o todos de un tipo (y a veces sin objetos).
+  Es el mismo que el de la web. Un intento por semana (también cuenta si lo jugaste en la web)
+  y, si aguantas 3 minutos, un ticket ×10.
 
 ## 0.50.6 — 2026-11-14
 Sincronización con pokesurvivor.com al día con su Gran Actualización (13-11):

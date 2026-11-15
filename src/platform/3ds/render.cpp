@@ -6,6 +6,7 @@
 #include "platform/3ds/render.h"
 #include "core/evo.h"
 #include "core/mastery.h"
+#include "core/weekly.h"
 #include "core/power.h"
 #include "core/abilities.h"
 #include "core/mons.h"
@@ -1279,6 +1280,27 @@ void Renderer::draw_top(Game& g, float eye) {
     C2D_DrawRectangle(TOP_W - 50, 0, 0, 50, TOP_H, e0, e1, e0, e1);
   }
 
+  // --- desafío «Noche cerrada»: todo a oscuras menos un círculo alrededor de ti (web: drawNight) ---
+  if (weekly_is(g, WC_NIGHT) && !in_arena(g) && !judgment_active(g)) {
+    const Player& me = g.players[g.local];
+    const float cx = v.sx(me.x), cy = v.sy(me.y - me.body_h * 0.5f);
+    const float R = std::fabs(v.sx(me.x + 230) - v.sx(me.x)) * (1 + std::sin(now * 1.43f) * 0.015f);
+    const float r0 = R * 0.35f, r1 = R * 0.55f, r2 = R, rf = 700;
+    const u32 c0 = C2D_Color32(4, 6, 20, 0), cm = C2D_Color32(4, 6, 20, 55), c1 = C2D_Color32(4, 6, 20, 219);
+    constexpr int N = 40;
+    for (int i = 0; i < N; ++i) {
+      const float a0 = i * kTau / N, a1 = (i + 1) * kTau / N;
+      const float x0 = std::cos(a0), y0 = std::sin(a0), x1 = std::cos(a1), y1 = std::sin(a1);
+      auto band = [&](float ra, u32 ca, float rb, u32 cb) {
+        C2D_DrawTriangle(cx + x0 * ra, cy + y0 * ra, ca, cx + x1 * ra, cy + y1 * ra, ca, cx + x1 * rb, cy + y1 * rb, cb, 0);
+        C2D_DrawTriangle(cx + x0 * ra, cy + y0 * ra, ca, cx + x1 * rb, cy + y1 * rb, cb, cx + x0 * rb, cy + y0 * rb, cb, 0);
+      };
+      band(r0, c0, r1, cm);
+      band(r1, cm, r2, c1);
+      band(r2, c1, rf, c1);
+    }
+  }
+
   // --- avisos en pantalla ---
   if (!judgment_cinematic(g)) {
     const Enemy* boss = nullptr;
@@ -1765,6 +1787,8 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         line(b, 0.4f, 0xffe680, true);
       }
     }
+    if (s.wk_prize) line("¡Desafío semanal superado! +1 ticket ×10", 0.42f, 0xc47bff, true);
+    else if (g.cfg.weekly && !s.victory) line("Desafío semanal: aguanta 3 minutos para el ticket ×10", 0.34f, 0x8fa3c4, false);
     if (s.victory) {
       std::snprintf(b, sizeof(b), "Premio: +%d Pokémonedas · +%d tickets ×10 · Medalla de Arceus", s.win_coins, s.win_t10);
       line(b, 0.36f, 0x5fe08a, true);

@@ -100,6 +100,8 @@ int candidates(Game& g, Player& p, Cand* out) {
     if (kLevelStats[s].max && p.stats_taken[s] >= kLevelStats[s].max) continue;
     // Poder rápido: sólo si llevas una megapiedra (en la web, si tienes poder de Eternatus)
     if (s == LS_PWR && !is_mega_stone(p.item) && p.epower < 0) continue;
+    // Desafío «Sin curaciones»: ni Baya Zidra ni Síntesis
+    if ((s == LS_HEAL || s == LS_RGN) && weekly_noheal(g)) continue;
     avail[na++] = int8_t(s);
   }
   int8_t picks[LS_COUNT];

@@ -404,5 +404,18 @@ loadNew('js/data/shop.js');
   });
 }
 
+// Desafío semanal (challenge.js): Pokémon (número del port), condición, semilla, sin objetos y tipo
+// de varias semanas, antes y después del cambio de la semana 47 de 2026.
+gload('js/systems/challenge.js');
+out.weekly = [];
+for (const w of ['w2026-40', 'w2026-45', 'w2026-46', 'w2026-47', 'w2026-48', 'w2026-52', 'w2027-01', 'w2027-09', 'w2027-30', 'w2028-11']) {
+  const c = N.Challenge.of(w);
+  out.weekly.push([w, pd(c.dex), c.cond.id, c.seed, c.noItems ? 1 : 0, c.type || '']);
+}
+for (let k = 1; k <= 40; ++k) {
+  const w = 'w2027-' + String(k).padStart(2, '0'), c = N.Challenge.of(w);
+  out.weekly.push([w, pd(c.dex), c.cond.id, c.seed, c.noItems ? 1 : 0, c.type || '']);
+}
+
 fs.writeFileSync(path.join(OUT, 'golden.json'), JSON.stringify(out));
 console.log('golden: ' + Object.keys(out).map(k => k + (Array.isArray(out[k]) ? ' ' + out[k].length : '')).join(', '));

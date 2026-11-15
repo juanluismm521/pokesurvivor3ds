@@ -17,6 +17,7 @@
 #include <cstring>
 #include <memory>
 
+#include "core/weekly.h"
 #include "core/game.h"
 #include "core/evo.h"
 #include "core/power.h"
@@ -93,6 +94,7 @@ struct Autotest {
   bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra una MT y una Menta y enseña la Mochila (capturas)
   bool ficha_demo = false;    // "ficha": la ficha de tu compañero: naturaleza, habilidad y MT (capturas)
   char abil[40] = "", nature[16] = "";   // "… habilidad=static naturaleza=bold": las de la partida
+  int weekly = -2;            // "… semanal" (el de esta semana) o "semanal=noche" (con esa condición: id de la web o «noche»)
   bool aura = false;          // "… aura": con el aura de maestro (maestría completa)
   bool skin = false;          // "… disfraz": el compañero con su disfraz de Halloween           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
   bool rooms = false;         // "salas": crear sala y lista con candado (capturas)
@@ -187,6 +189,12 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
       else if (!std::strcmp(w, "disfraz")) a.skin = true;
       else if (!std::strcmp(w, "aura")) a.aura = true;
+      else if (!std::strcmp(w, "semanal")) a.weekly = -1;
+      else if (!std::strncmp(w, "semanal=", 8)) {
+        a.weekly = -1;
+        const char* id = !std::strcmp(w + 8, "noche") ? "night" : w + 8;
+        for (int c = 0; c < WC_COUNT; ++c) if (!std::strcmp(kWeeklyConds[c].id, id)) a.weekly = c;
+      }
       else if (!std::strcmp(w, "arranque")) a.boot = true;
       else return false;
       return true;
@@ -524,6 +532,7 @@ int main(int argc, char** argv) {
     app.auto_real = at.real;
     app.auto_skin = at.skin;
     app.auto_aura = at.aura;
+    app.auto_weekly = at.weekly;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
     app.auto_coop_time = int(at.warp);
@@ -551,6 +560,7 @@ int main(int argc, char** argv) {
     app.auto_win = at.win;
     app.auto_skin = at.skin;
     app.auto_aura = at.aura;
+    app.auto_weekly = at.weekly;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;

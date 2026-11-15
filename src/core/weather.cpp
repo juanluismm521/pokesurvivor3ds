@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "core/weekly.h"
 #include "core/game.h"
 
 namespace ps {
@@ -74,6 +75,10 @@ void weather_clear(Game& g) { g.weather.kind = WX_NONE; }
 
 void weather_update(Game& g, float dt) {
   Game::WeatherState& w = g.weather;
+  // Desafío semanal con tiempo: el suyo, toda la partida (menos en las arenas)
+  if (g.cfg.weekly && g.cfg.wk_cond >= 0 && g.cfg.wk_cond < WC_COUNT && kWeeklyConds[g.cfg.wk_cond].wx >= 0 && !in_arena(g) && !judgment_active(g) &&
+      !eterna_on(g) && w.kind != kWeeklyConds[g.cfg.wk_cond].wx)
+    weather_force(g, kWeeklyConds[g.cfg.wk_cond].wx, 3600);
   Player& pl = g.pl();
   if (w.kind >= 0) {
     w.t += dt;

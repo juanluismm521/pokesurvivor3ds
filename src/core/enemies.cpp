@@ -2,9 +2,11 @@
 // Cada tramo recoge a todos los Pokémon cuyo total de stats base cae en su
 // rango, y al empezar una run se elige al azar un ELENCO de cada tramo.
 // Jefes: Pokémon fuertes NO legendarios, al azar por franjas de poder.
+#include <algorithm>
 #include <cmath>
 #include <initializer_list>
 
+#include "core/weekly.h"
 #include "core/game.h"
 
 namespace ps {
@@ -22,15 +24,27 @@ bool is_plain(int b) { return b == BH_CHASE || b == BH_CHARGER || b == BH_RANGED
 bool is_support(int b) { return b == BH_HEALER || b == BH_SHIELDER || b == BH_SUMMONER; }
 
 // Candidatos de un tramo (sin legendarios ni míticos), en el orden de la Pokédex.
-int candidates(int ti, const Mon** out) {
+int candidates(int ti, const Mon** out, int mono = -1) {
   const Tier& t = kTiers[ti];
   int n = 0;
   for (int i = 0; i < kDexCount; ++i) {
     const Mon& p = kDex[i];
     if (p.rarity < 5 && p.bst >= t.bst0 && p.bst <= t.bst1) out[n++] = &p;
   }
-  return n;
+  if (mono < 0) return n;
+  // Desafío semanal «Todos de tipo X»: sólo los de ese tipo (si hay menos de 3, con
+  // 90 de margen en los stats, como la web)
+  int m = 0;
+  for (int i = 0; i < n; ++i) if (out[i]->types[0] == mono || out[i]->types[1] == mono) out[m++] = out[i];
+  if (m >= 3) return m;
+  m = 0;
+  for (int i = 0; i < kDexCount; ++i) {
+    const Mon& p = kDex[i];
+    if (p.rarity < 5 && (p.types[0] == mono || p.types[1] == mono) && p.bst >= t.bst0 - 90 && p.bst <= t.bst1 + 90) out[m++] = &p;
+  }
+  return m;
 }
+static int mono_of(const Game& g) { return g.cfg.weekly && g.cfg.wk_cond == WC_MONO ? g.cfg.wk_type : -1; }
 
 // U.pickN: n elementos distintos al azar (sacándolos de una copia).
 int pick_n(Game& g, const Mon** src, int nsrc, int n, const Mon** out) {
@@ -111,7 +125,7 @@ EnemyDef enemy_def_for(const Mon& p, int ti) {
 // primero no hay más personalidades (para ir aprendiendo).
 static int cast_for(Game& g, int ti, const Mon** out) {
   static const Mon* all[kMaxDex + 1];
-  const int nall = candidates(ti, all);
+  const int nall = candidates(ti, all, mono_of(g));
   int kinds[3], nk = 0;
   for (int k : {BH_HEALER, BH_SHIELDER, BH_SUMMONER}) {
     for (int i = 0; i < nall; ++i) if (behavior_of(*all[i]) == k) { kinds[nk++] = k; break; }
@@ -150,7 +164,7 @@ void enemies_roll_run(Game& g) {
     ct.n = std::min(n, 8);
     for (int i = 0; i < ct.n; ++i) ct.list[i] = enemy_def_for(*list[i], ti);
     // Halloween (core/halloween.h): en cada tramo, dos Pokémon Fantasma más de su nivel.
-    if (g.hw) {
+    if (g.hw && mono_of(g) < 0) {
       static const Mon* all[kMaxDex + 1];
       static const Mon* ghosts[kMaxDex + 1];
       const int nall = candidates(ti, all);
@@ -184,14 +198,26 @@ void enemies_roll_run(Game& g) {
   g.nbosses = kBossSlotCount;
   for (int s = 0; s < kBossSlotCount; ++s) {
     const BossSlot& slot = kBossSlots[s];
+    const int mono = mono_of(g);
     auto ok = [&](const Mon& p) {
       if (p.leg) return false;
+      if (mono >= 0 && p.types[0] != mono && p.types[1] != mono) return false;
       for (int i = 0; i < nused; ++i) if (used[i] == p.dex) return false;
       return true;
     };
     static const Mon* pool[kMaxDex + 1]; int np = 0;
     for (int i = 0; i < kDexCount; ++i) if (ok(kDex[i]) && kDex[i].bst >= slot.bst0 && kDex[i].bst <= slot.bst1) pool[np++] = &kDex[i];
     if (!np) for (int i = 0; i < kDexCount; ++i) if (ok(kDex[i]) && kDex[i].bst >= 580) pool[np++] = &kDex[i];
+    if (!np && mono >= 0) {   // (los 3 más fuertes de ese tipo)
+      for (int i = 0; i < kDexCount; ++i) if (ok(kDex[i])) pool[np++] = &kDex[i];
+      std::stable_sort(pool, pool + np, [](const Mon* x, const Mon* y) { return x->bst > y->bst; });
+      np = std::min(np, 3);
+    }
+    if (!np) for (int i = 0; i < kDexCount; ++i) if (!kDex[i].leg && kDex[i].bst >= 580) {
+      bool u = false;
+      for (int k = 0; k < nused; ++k) u = u || used[k] == kDex[i].dex;
+      if (!u) pool[np++] = &kDex[i];
+    }
     const Mon& p = *pool[int(g.rng.next() * np)];
     used[nused++] = p.dex;
     EnemyDef& b = g.bosses[s];
@@ -232,9 +258,9 @@ int enemies_tier_at(float t) {
 static bool no_horde(int b) { return b == BH_BOMBER || b == BH_HEALER || b == BH_SHIELDER || b == BH_SUMMONER; }
 
 // Tipos con bastantes Pokémon en el tramo actual para una horda (events.cpp).
-int enemies_horde_types(float t, int8_t* out) {
+int enemies_horde_types(const Game& g, float t, int8_t* out) {
   static const Mon* all[kMaxDex + 1];
-  const int nall = candidates(enemies_tier_at(t), all);
+  const int nall = candidates(enemies_tier_at(t), all, mono_of(g));
   int n = 0;
   for (int ty = 0; ty < T_COUNT; ++ty) {   // (orden de TYPE_COLOR = orden de los tipos)
     int c = 0;
@@ -248,7 +274,7 @@ int enemies_horde_types(float t, int8_t* out) {
 int enemies_horde_defs(Game& g, int type, float t, EnemyDef* out) {
   const int ti = enemies_tier_at(t);
   static const Mon* all[kMaxDex + 1];
-  const int nall = candidates(ti, all);
+  const int nall = candidates(ti, all, mono_of(g));
   static const Mon* pool[kMaxDex + 1]; int np = 0;
   for (int i = 0; i < nall; ++i) if (has_t(*all[i], type) && !no_horde(behavior_of(*all[i]))) pool[np++] = all[i];
   const Mon* pick[4];

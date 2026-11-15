@@ -741,7 +741,7 @@ bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
                                   "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin", "regalos",
-                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk", "modeWins", "mastery", "pstat"};
+                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk", "modeWins", "mastery", "pstat", "wtry", "wch"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }
@@ -773,6 +773,11 @@ Json merge_safe(const Json& a, const Json& b, int64_t now_ms) {
       if ((*src)["modeWins"].is_obj())
         for (const auto& kv : (*src)["modeWins"].items()) if (plus(kv.second) > plus(mw[kv.first.c_str()])) mw.set(kv.first, Json::num(std::floor(plus(kv.second))));
     if (mw.size() || a.has("modeWins") || b.has("modeWins")) r.set("modeWins", mw);
+  }
+  // Desafío semanal: la semana más reciente (un intento por semana entre todos los aparatos)
+  for (const char* k : {"wtry", "wch"}) {
+    const std::string wa = a[k].is_str() ? a[k].as_str() : "", wb = b[k].is_str() ? b[k].as_str() : "";
+    if (!wa.empty() || !wb.empty()) r.set(k, Json::str(wa > wb ? wa : wb));
   }
   // El nombre es el de la cuenta: el de la nube (una consola recién estrenada trae «Jugador»).
   if (b["name"].is_str() && !b["name"].as_str().empty()) r.set("name", b["name"]);
