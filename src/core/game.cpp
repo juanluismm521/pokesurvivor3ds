@@ -607,7 +607,14 @@ void game_end_run(Game& g, bool dead) {
   s.parts[2] = pl.bosses * 80;
   s.parts[3] = pl.coins;
   s.coin_mul = me.coin_mul;
-  s.coins = int(jsround((s.parts[0] + s.parts[1] + s.parts[2] + s.parts[3]) * me.coin_mul));
+  // (la dificultad multiplica el premio: ×1,5 en Difícil y ×2 en Pesadilla, también los tickets)
+  const float rk = kDiffModes[g.cfg.diff < DF_COUNT ? g.cfg.diff : 0].reward;
+  s.coins = int(jsround((s.parts[0] + s.parts[1] + s.parts[2] + s.parts[3]) * me.coin_mul * rk));
+  if (rk > 1) {
+    auto extra = [&](int n) { const float x = n * (rk - 1); return int(std::floor(x)) + (g.rng.next() < x - std::floor(x) ? 1 : 0); };
+    s.diff_t1 = extra(pl.t1); s.diff_t10 = extra(pl.t10);
+    pl.t1 += s.diff_t1; pl.t10 += s.diff_t10;
+  }
   s.level = pl.level; s.kills = pl.kills; s.bosses = pl.bosses; s.t1 = pl.t1; s.t10 = pl.t10;
   if (g.judg.phase == 2) { s.judge_time = g.judg.arena_t; s.judge_bosses = g.judg.downs; s.judge_dmg = g.judg.dealt; s.judge_plate = g.judg.plate; }
   s.candy = pl.candy; s.hw = g.hw;

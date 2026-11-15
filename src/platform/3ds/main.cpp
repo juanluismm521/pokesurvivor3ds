@@ -72,6 +72,7 @@ struct Autotest {
   bool boot = false;          // "… arranque": lo que hace al encender (buscar versión nueva si está activado)
   int prog_state = -1;
   bool quick = false;         // "… rapido": modo rápido (la Sentencia a los 20 min)
+  int diff = 0;               // "… dificil" / "pesadilla"
   bool orbs = false;          // "… esferas": te da esferas al empezar (el bot las usa)
   bool real = false;          // "… real": con la partida guardada de la SD (el premio se guarda de verdad)
   bool to_menu = false;       // "… menu": tras el resumen, B (al menú) y 6 s en el menú
@@ -178,6 +179,8 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else if (!std::strcmp(w, "tesoro")) a.treasure = true;
       else if (!std::strcmp(w, "rapido")) a.quick = true;
+      else if (!std::strcmp(w, "dificil")) a.diff = 1;
+      else if (!std::strcmp(w, "pesadilla")) a.diff = 2;
       else if (!std::strcmp(w, "ganar")) a.win = true;
       else if (!std::strcmp(w, "halloween")) a.hw = 1;
       else if (!std::strcmp(w, "nohalloween")) a.hw = 0;
@@ -538,6 +541,7 @@ int main(int argc, char** argv) {
     app.auto_hold_over = at.end_screen;
     app.auto_real = at.real;
     app.auto_orbs = at.orbs;
+    app.auto_diff = at.diff;
     app.auto_treasure = at.treasure;
     app.auto_mode = at.quick ? 1 : 0;
     app.auto_win = at.win;

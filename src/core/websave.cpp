@@ -703,7 +703,7 @@ bool known_key(const std::string& k) {
   static const char* const K[] = {"v", "name", "created", "updated", "coins", "owned", "shiny", "partner", "partnerShiny", "starter",
                                   "personality", "upgrades", "pupg", "pupgDone", "tickets", "pity", "legends", "arenas", "itemsFound",
                                   "evoMoves", "ach", "missions", "profile", "stats", "led", "pbind", "pban", "dfav", "pused", "pstart", "pmega", "pfour", "pmove2", "arceusWin", "regalos",
-                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk"};
+                                  "skins", "pskin", "pstart2", "bag", "tms", "ptm", "pnat", "pabil", "ptmOn", "ptmOff", "rvk", "modeWins"};
   for (const char* q : K) if (k == q) return true;
   return false;
 }
@@ -727,6 +727,15 @@ Json merge_safe(const Json& a, const Json& b, int64_t now_ms) {
   // que la nube no trae se queda como estaba.
   for (const auto& kv : a.items()) if (!known_key(kv.first)) r.set(kv.first, kv.second);
   for (const auto& kv : b.items()) if (!known_key(kv.first)) r.set(kv.first, kv.second);
+  // Dificultad: las victorias contra Eternatus, el mayor de cada una. (La elegida, «mode», es
+  // de la web: la consola tiene la suya en sus ajustes.)
+  {
+    Json mw = Json::object();
+    for (const Json* src : {&a, &b})
+      if ((*src)["modeWins"].is_obj())
+        for (const auto& kv : (*src)["modeWins"].items()) if (plus(kv.second) > plus(mw[kv.first.c_str()])) mw.set(kv.first, Json::num(std::floor(plus(kv.second))));
+    if (mw.size() || a.has("modeWins") || b.has("modeWins")) r.set("modeWins", mw);
+  }
   // El nombre es el de la cuenta: el de la nube (una consola recién estrenada trae «Jugador»).
   if (b["name"].is_str() && !b["name"].as_str().empty()) r.set("name", b["name"]);
   // Misiones: las del día (y la semana) más reciente, no las de la copia guardada más

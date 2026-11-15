@@ -28,6 +28,7 @@ struct Mission {
 struct SaveStats {
   int32_t runs = 0, best_time = 0, best_level = 0, total_kills = 0, pulls = 0, coins_earned = 0, shinies = 0;
   int32_t bosses_total = 0, rift_wins = 0, evolutions = 0, missions_done = 0, group_runs = 0, best_group_time = 0;
+  int32_t eterna_wins = 0;   // (stats.eternaWins de la web)
   int32_t judged = 0, judge_time = 0, judge_bosses = 0;
 };
 
@@ -98,6 +99,11 @@ struct Save {
   Mission daily[3];
   Mission weekly[2];
   int16_t favs[3] = {};
+  // Dificultad (web, 13-11-2026: «modeWins»): las veces que se ha vencido a Eternatus en cada
+  // una (vencerle en una desbloquea la siguiente). La elegida es de cada consola (Settings::diff;
+  // la de la web, «mode», es suya y no se toca).
+  int32_t mode_wins[3] = {};
+  bool mode_unlocked(int d) const { return d <= 0 || (d < 3 && mode_wins[d - 1] > 0); }
   char title[48] = "";
   SaveStats stats;
 

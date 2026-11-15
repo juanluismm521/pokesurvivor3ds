@@ -1652,7 +1652,8 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     if (s.hw && s.candy > 0) std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10 · %d caramelos", s.coins, s.t1, s.t10, s.candy);
     else std::snprintf(b, sizeof(b), "+%d Pokémonedas · %d tickets · %d ×10", s.coins, s.t1, s.t10);
     text_fit(b, 160, 118, 304, 0.4f, rgb(0xffd23f), false, 1);
-    std::snprintf(b, sizeof(b), "tiempo %d · derrotados %d · jefes %d · recogidas %d", s.parts[0], s.parts[1], s.parts[2], s.parts[3]);
+    if (g.cfg.diff > 0) std::snprintf(b, sizeof(b), tr("tiempo %d · derrotados %d · jefes %d · recogidas %d · %s ×%.1f"), s.parts[0], s.parts[1], s.parts[2], s.parts[3], tr(kDiffName[g.cfg.diff % DF_COUNT]), double(kDiffModes[g.cfg.diff % DF_COUNT].reward));
+    else std::snprintf(b, sizeof(b), "tiempo %d · derrotados %d · jefes %d · recogidas %d", s.parts[0], s.parts[1], s.parts[2], s.parts[3]);
     text(b, 160, 136, 0.32f, rgb(0x8fa3c4), 1);
     if (s.judge_time >= 0) {
       mmss(s.judge_time, t, sizeof(t));
@@ -1663,6 +1664,9 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
     if (s.victory) {
       std::snprintf(b, sizeof(b), "Premio: +%d Pokémonedas · +%d tickets ×10 · Medalla de Arceus", s.win_coins, s.win_t10);
       text_fit(b, 160, 168, 304, 0.36f, rgb(0x5fe08a), true, 1);
+    } else if (s.unlocked > 0) {
+      std::snprintf(b, sizeof(b), tr("¡Has desbloqueado la dificultad %s!"), tr(kDiffName[s.unlocked % DF_COUNT]));
+      text_fit(b, 160, 168, 304, 0.42f, rgb(kDiffColor[s.unlocked % DF_COUNT]), true, 1);
     } else if (s.record) text("¡Nuevo récord de tiempo!", 160, 168, 0.42f, rgb(0x5fe08a), 1);
     if (s.ncaught) {
       char sh[96] = "Shinies:";

@@ -585,6 +585,7 @@ void App::coop_host_start() {
   for (int i = 0; i < nlobby_; ++i) { c.members[i] = lobby_[i].m; coop_nodes_[i] = lobby_[i].node; }
   c.dex = c.members[0].dex; c.shiny = c.members[0].shiny;
   c.mode = uint8_t(room_mode_);   // (normal o rápido: lo eligió quien creó la sala)
+  c.diff = uint8_t(s_->mode_unlocked(st_->diff) ? st_->diff : 0);   // (y su dificultad)
   c.hw = hw3ds::on() ? 1 : 0;     // (Halloween: lo decide el anfitrión al empezar)
   if (autotest) { c.demo_time = uint16_t(auto_coop_time); c.demo_level = uint8_t(auto_level); }   // (para grabar)
   for (int i = 0; i < kMaxPlayers; ++i) start_acked_[i] = i == 0;

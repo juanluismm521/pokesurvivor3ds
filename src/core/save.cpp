@@ -88,6 +88,16 @@ void save_end_run(Game& g) {
     if (dex >= 1 && dex <= kMaxDex && s.arceus_win[dex] <= 0) s.arceus_win[dex] = g.now_ms > 0 ? g.now_ms : 1;
     s.t10 += r.win_t10;
   }
+  // Eternatus vencido: cuenta para la dificultad (y desbloquea la siguiente)
+  if (g.eterna_wins > 0) {
+    s.stats.eterna_wins += g.eterna_wins;
+    const int d = g.cfg.diff < DF_COUNT ? g.cfg.diff : 0;
+    const bool had = s.mode_unlocked(d + 1);
+    s.mode_wins[d] += g.eterna_wins;
+    for (int k = d - 1; k >= 0; --k) if (s.mode_wins[k] <= 0) s.mode_wins[k] = 1;
+    if (d + 1 < DF_COUNT && !had) r.unlocked = int8_t(d + 1);
+  }
+  s.t1 += r.diff_t1; s.t10 += r.diff_t10;   // (los tickets de más de la dificultad)
   progress_event(g, EV_RUNEND, pl.level, pl.coins, float(g.time));
   g.dirty = true;
 }

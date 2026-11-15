@@ -14,7 +14,12 @@ namespace ps {
 
 const Tr kLangEnPort[] = {
     // ---------------- iguales en inglés (para que no se toquen a trozos) ----------------
-    {"Surf", "Surf"}, {"%s: recarga %d s", "%s: recharging %d s"}, {"Y: ¡%s!", "Y: %s!"}, {"{x}: recarga {x} s", "{x}: recharging {x} s"}, {"Y: ¡{x}!", "Y: {x}!"},
+    {"Surf", "Surf"}, {"Difícil", "Hard"}, {"Pesadilla", "Nightmare"}, {"%s · ×%.1f monedas y tickets", "%s · ×%.1f coins and tickets"}, {"{x} · ×{x} monedas y tickets", "{x} · ×{x} coins and tickets"},
+    {"Vence a Eternatus en %s para desbloquearlo", "Defeat Eternatus on %s to unlock it"}, {"Vence a Eternatus en {x} para desbloquearlo", "Defeat Eternatus on {x} to unlock it"},
+    {"A: jugar · < >: dificultad · B: volver", "A: play · < >: difficulty · B: back"},
+    {"¡Has desbloqueado la dificultad %s!", "You unlocked the %s difficulty!"}, {"¡Has desbloqueado la dificultad {x}!", "You unlocked the {x} difficulty!"},
+    {"tiempo %d · derrotados %d · jefes %d · recogidas %d · %s ×%.1f", "time %d · defeated %d · bosses %d · picked up %d · %s ×%.1f"},
+    {"tiempo {x} · derrotados {x} · jefes {x} · recogidas {x} · {x} ×{x}", "time {x} · defeated {x} · bosses {x} · picked up {x} · {x} ×{x}"}, {"%s: recarga %d s", "%s: recharging %d s"}, {"Y: ¡%s!", "Y: %s!"}, {"{x}: recarga {x} s", "{x}: recharging {x} s"}, {"Y: ¡{x}!", "Y: {x}!"},
     {"¡Elige tu poder!", "Choose your power!"}, {"Para el resto de la partida · se usa con Y", "For the rest of the run · use it with Y"},
     {"Megaevolución", "Mega Evolution"}, {"Dinamax", "Dynamax"}, {"Pulsera Z", "Z-Ring"}, {"Teracristal", "Terastal"},
     {"40 s con su mega: sus tipos y mucha más fuerza, sin megapiedra. Recarga 90 s.", "40 s with its Mega: its types and much more strength, no Mega Stone needed. Recharge 90 s."},

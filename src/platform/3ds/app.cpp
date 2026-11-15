@@ -229,6 +229,8 @@ void App::start_run() {
   RunConfig cfg;
   cfg.dex = autotest ? auto_dex_ : s_->partner;
   cfg.mode = uint8_t(autotest ? auto_mode : st_->play_mode);
+  // Dificultad (core/diff.h): la elegida en Jugar, si está desbloqueada
+  cfg.diff = uint8_t(autotest ? auto_diff : (s_->mode_unlocked(st_->diff) ? st_->diff : 0));
   cfg.shiny = autotest ? auto_shiny : s_->partner_shiny && s_->owns_shiny(cfg.dex);
   for (int k = 0; k < UP_COUNT; ++k) cfg.upgrades[k] = autotest ? 0 : s_->pupg[cfg.dex][k];
   cfg.mega_up = autotest ? uint8_t(auto_mega_up_) : s_->pmega[cfg.dex];
@@ -465,6 +467,9 @@ void App::update(const UiIn& in0, float dt) {
       for (int j = 0; j < n; ++j) if (list[j] == s_->partner) cur_ = j;
       scroll_ = cur_ / 6 > 3 ? cur_ / 6 - 3 : 0;
     }
+    // (la dificultad: Normal, luego Difícil y Pesadilla, que está bloqueada si no se ha vencido a Eternatus)
+    if (mode_demo_ == 1) st_->diff = news_t_ < 5 ? 0 : news_t_ < 10 ? 1 : 2;
+    if (mode_demo_ == 1 && t0 < 5 && news_t_ >= 5 && s_->mode_wins[0] <= 0) s_->mode_wins[0] = 1;   // (Difícil, desbloqueada para la captura)
     if (news_t_ > 14) quit = true;
     if (scene == SC_MODE || scene == SC_DEX) return;   // (sin tocar nada)
   }
@@ -969,12 +974,23 @@ const ModeInfo kModes[MODE_COUNT] = {
 void App::in_mode(const UiIn& in) {
   if (in.rep & (KEY_DUP | KEY_DDOWN)) cur_ ^= 1;
   cur_ = clamp(cur_, 0, MODE_COUNT - 1);
+  // Dificultad: izquierda / derecha (o L / R, o tocar las flechas); las bloqueadas no se eligen.
+  int dd = 0;
+  if (in.rep & (KEY_DLEFT | KEY_L)) dd = -1;
+  if (in.rep & (KEY_DRIGHT | KEY_R)) dd = 1;
+  if (in_rect(&in, 12, 196, 60, 22)) dd = -1;
+  if (in_rect(&in, 248, 196, 60, 22)) dd = 1;
+  if (dd) {
+    const int nd = clamp(st_->diff + dd, 0, DF_COUNT - 1);
+    if (nd != st_->diff) { st_->diff = nd; settings_write(dir_, *st_); audio::play("select"); }
+  }
   int pick = -1;
-  for (int i = 0; i < MODE_COUNT; ++i) if (in_rect(&in, 12, 34 + i * 92, 296, 86)) pick = i;
+  for (int i = 0; i < MODE_COUNT; ++i) if (in_rect(&in, 12, 30 + i * 82, 296, 76)) pick = i;
   if (in.down & KEY_A) pick = cur_;
   if (in.down & KEY_B) { go(SC_MENU); return; }
   if (pick < 0) return;
   cur_ = pick;
+  if (!s_->mode_unlocked(st_->diff)) { audio::play("error"); return; }
   if (st_->play_mode != pick) { st_->play_mode = pick; settings_write(dir_, *st_); }
   start_run();
 }
@@ -982,15 +998,34 @@ void App::in_mode(const UiIn& in) {
 void App::bottom_mode() {
   header("Jugar");
   for (int i = 0; i < MODE_COUNT; ++i) {
-    const float y = 34 + i * 92;
+    const float y = 30 + i * 82;
     const bool sel = i == cur_;
-    C2D_DrawRectSolid(12, y, 0, 296, 86, sel ? C_SEL : C_PANEL);
-    if (sel) C2D_DrawRectSolid(12, y, 0, 3, 86, C_GOLD);
-    r_->text(kModes[i].title, 24, y + 6, 0.6f, sel ? C_GOLD : C_TEXT);
-    r_->text_fit(kModes[i].sub, 300, y + 12, 170, 0.34f, i == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, false, 2);
-    r_->text_wrap(kModes[i].text, 24, y + 36, 0.34f, C_TEXT, 276);
+    C2D_DrawRectSolid(12, y, 0, 296, 76, sel ? C_SEL : C_PANEL);
+    if (sel) C2D_DrawRectSolid(12, y, 0, 3, 76, C_GOLD);
+    r_->text(kModes[i].title, 24, y + 4, 0.6f, sel ? C_GOLD : C_TEXT);
+    r_->text_fit(kModes[i].sub, 300, y + 10, 170, 0.34f, i == MODE_QUICK ? C2D_Color32(0xff, 0x9a, 0x4d, 255) : C_MUTED, false, 2);
+    r_->text_wrap(kModes[i].text, 24, y + 32, 0.32f, C_TEXT, 276);
   }
-  r_->text("A: jugar · B: volver", 160, 226, 0.34f, C_MUTED, 1);
+  // Dificultad (para los dos modos): < Normal / Difícil / Pesadilla >
+  {
+    const int d = clamp(st_->diff, 0, DF_COUNT - 1);
+    const bool open = s_->mode_unlocked(d);
+    const u32 col = rgb(kDiffColor[d]);
+    C2D_DrawRectSolid(12, 196, 0, 296, 24, C_PANEL);
+    C2D_DrawRectSolid(12, 196, 0, 296, 2, col);
+    r_->text(d > 0 ? "<" : " ", 30, 199, 0.55f, C_TEXT, 1);
+    r_->text(d < DF_COUNT - 1 ? ">" : " ", 290, 199, 0.55f, C_TEXT, 1);
+    char b[96];
+    if (open) {
+      if (d == 0) std::snprintf(b, sizeof(b), "%s", tr("Normal"));
+      else std::snprintf(b, sizeof(b), tr("%s · ×%.1f monedas y tickets"), tr(kDiffName[d]), double(kDiffModes[d].reward));
+      r_->text_fit(b, 160, 200, 230, 0.42f, col, true, 1);
+    } else {
+      std::snprintf(b, sizeof(b), tr("Vence a Eternatus en %s para desbloquearlo"), tr(kDiffName[d - 1]));
+      r_->text_fit(b, 160, 202, 230, 0.34f, C_MUTED, false, 1);
+    }
+  }
+  r_->text(tr("A: jugar · < >: dificultad · B: volver"), 160, 226, 0.34f, C_MUTED, 1);
 }
 
 void App::bottom_menu() {

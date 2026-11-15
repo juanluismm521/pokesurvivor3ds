@@ -22,6 +22,7 @@ struct Settings {
   // datos nuevos de la web (datos3ds). Desactivado de serie (decisión del dueño).
   char news_seen[16] = "";    // últimas novedades vistas (las de ahora se abren solas una vez)
   int play_mode = 0;          // último modo elegido en Jugar (0 normal, 1 rápido)
+  int diff = 0;               // dificultad elegida en Jugar (core/diff.h; si está desbloqueada)
   char shop_seen[12] = "";    // día (España, AAAAMMDD) de las últimas MT de la Tienda Kecleon vistas
 };
 // ¿Vale como IP o dominio? (letras, cifras, '.', '-'; sin espacios)

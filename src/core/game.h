@@ -438,6 +438,8 @@ struct RunSummary {
   bool victory = false;         // modo rápido: ¡has derrotado a Arceus!
   int win_coins = 0, win_t10 = 0;   // su recompensa
   int candy = 0;                    // caramelos de Halloween
+  int diff_t1 = 0, diff_t10 = 0;    // tickets de más por la dificultad
+  int8_t unlocked = -1;             // dificultad desbloqueada al vencer a Eternatus
   bool hw = false;                  // partida de Halloween (el gran Gengar en vez de Arceus)
   int8_t judge_plate = -1;      // su Tabla (tipo)
   int ncaught = 0;
@@ -809,6 +811,8 @@ inline bool rift_left_behind(const Game& g, const Player& p) {
 void rift_reset(Game& g);
 void rift_update(Game& g, float dt);
 float rift_time_left(const Game& g);
+// Fin de la partida (game.cpp): el resumen y, con partida guardada, lo que se guarda.
+void game_end_run(Game& g, bool dead);
 // eterna.cpp (Eternatus Eternamax, el minuto 20 / el 13 en el modo rápido)
 void eterna_reset(Game& g);
 void eterna_update(Game& g, float dt);

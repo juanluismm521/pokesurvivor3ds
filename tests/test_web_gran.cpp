@@ -258,3 +258,29 @@ TEST_CASE("gran actualización: las formas regionales se guardan con su id de la
   CHECK(mg["owned"].has("500037"));
   CHECK(mg["partner"].as_int() == 500037);
 }
+
+TEST_CASE("gran actualización: dificultad («mode» y «modeWins»): se guarda, se fusiona y se desbloquea") {
+  std::unique_ptr<Save> s(new Save());
+  s->reset();
+  CHECK(s->mode_unlocked(0));
+  CHECK(!s->mode_unlocked(1));
+  s->mode_wins[0] = 2;
+  CHECK(s->mode_unlocked(1));
+  CHECK(!s->mode_unlocked(2));
+  Json j;
+  REQUIRE(j.parse(save_to_json(*s)));
+  CHECK(!j.has("mode"));   // (la elegida en la web es suya: la consola tiene la suya en los ajustes)
+  CHECK(j["modeWins"]["normal"].as_int() == 2);
+  std::unique_ptr<Save> r(new Save());
+  r->reset();
+  REQUIRE(save_from_json(*r, save_to_json(*s)));
+  CHECK(r->mode_wins[0] == 2);
+  // Fusión: las victorias, el mayor de cada una; la elegida en la web, la de la nube.
+  Json a, b;
+  REQUIRE(a.parse(R"({"name":"Ana","created":1,"updated":5,"coins":1,"mode":"hard","modeWins":{"normal":3}})"));
+  REQUIRE(b.parse(R"({"name":"Ana","created":1,"updated":9,"coins":1,"mode":"normal","modeWins":{"normal":1,"hard":1}})"));
+  const Json m = web::merge_safe(a, b, 10);
+  CHECK(m["modeWins"]["normal"].as_int() == 3);
+  CHECK(m["modeWins"]["hard"].as_int() == 1);
+  CHECK(m["mode"].as_str() == "normal");
+}

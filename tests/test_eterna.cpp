@@ -6,6 +6,7 @@
 #include "core/bot.h"
 #include "core/game.h"
 #include "core/power.h"
+#include "core/save.h"
 
 using namespace ps;
 
@@ -76,4 +77,31 @@ TEST_CASE("Eternatus: la partida es la misma en dos consolas (determinista)") {
     if ((k & 127) == 0) REQUIRE(a->state_hash() == b->state_hash());
   }
   CHECK(a->eterna.happened);
+}
+
+TEST_CASE("dificultad: más vida y daño de los enemigos; premio ×1,5 y desbloqueo al vencer a Eternatus") {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig c; c.dex = 25; c.seed = 4; c.judged = 1;
+  g->start_run(c);
+  const Scale3 n = enemies_scale(*g, 300);
+  c.diff = DF_HARD;
+  g->start_run(c);
+  const Scale3 h = enemies_scale(*g, 300);
+  CHECK(h.hp == doctest::Approx(n.hp * 1.4f));
+  CHECK(h.dmg == doctest::Approx(n.dmg * 1.25f));
+  // Premio: ×1,5 en Difícil
+  std::unique_ptr<Save> s(new Save());
+  s->reset();
+  s->mode_wins[0] = 1;
+  std::unique_ptr<Game> w(new Game());
+  w->start_run(c, s.get());
+  w->time = 600; w->pl().kills = 400; w->pl().t1 = 4;
+  w->eterna_wins = 1;
+  game_end_run(*w, false);
+  CHECK(w->summary.coins == int(jsround((600 / 5 + 100) * w->pl().coin_mul * 1.5f)));
+  CHECK(w->summary.diff_t1 == 2);
+  CHECK(s->mode_wins[1] == 1);
+  CHECK(s->mode_unlocked(2));
+  CHECK(w->summary.unlocked == DF_NIGHTMARE);
+  CHECK(s->stats.eterna_wins == 1);
 }

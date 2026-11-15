@@ -28,6 +28,10 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   sin megapiedra (si tu Pokémon tiene mega), Dinamax (gigante: doble de vida, +40 % de daño y
   aplastas lo que pisas), Pulsera Z (una gran Z rueda hacia los enemigos y el movimiento Z
   arrasa la pantalla) y Teracristal (tus ataques de tu tipo pegan un 80 % más).
+- **Tres dificultades, en los dos modos:** Normal, Difícil (enemigos con ×1,4 de vida y ×1,25 de
+  daño; ×1,5 monedas y tickets) y Pesadilla (×2 de vida, ×1,5 de daño; ×2 de premio). Se eligen en
+  Jugar con izquierda/derecha; vence a Eternatus en una para desbloquear la siguiente (se
+  sincroniza con la web).
 - **Flechas de los jefes:** cuando no los ves, una flecha en el borde dice dónde están y a
   cuántos metros (también los núcleos de Eternatus).
 - **Equilibrio nuevo, el de la web:** se sube de nivel 3 veces más rápido, los enemigos y los

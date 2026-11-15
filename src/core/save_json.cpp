@@ -227,7 +227,13 @@ std::string save_to_json(const Save& s) {
   st.set("evolutions", Json::num(S.evolutions)); st.set("missionsDone", Json::num(S.missions_done)); st.set("groupRuns", Json::num(S.group_runs));
   st.set("bestGroupTime", Json::num(S.best_group_time)); st.set("judged", Json::num(S.judged)); st.set("judgeTime", Json::num(S.judge_time));
   st.set("judgeBosses", Json::num(S.judge_bosses));
+  if (S.eterna_wins) st.set("eternaWins", Json::num(S.eterna_wins));
   o.set("stats", std::move(st));
+  {
+    Json mw = Json::object();
+    for (int d = 0; d < DF_COUNT; ++d) if (s.mode_wins[d] > 0) mw.set(kDiffId[d], Json::num(s.mode_wins[d]));
+    if (mw.size()) o.set("modeWins", std::move(mw));
+  }
   Json pb = Json::object(), pn = Json::object();
   for (int d = 0; d <= kMaxDex; ++d) {
     bool any = false;
@@ -366,6 +372,8 @@ bool save_from_json(Save& s, const std::string& text) {
   S.evolutions = n0(st["evolutions"]); S.missions_done = n0(st["missionsDone"]); S.group_runs = n0(st["groupRuns"]);
   S.best_group_time = n0(st["bestGroupTime"]); S.judged = n0(st["judged"]); S.judge_time = n0(st["judgeTime"]);
   S.judge_bosses = n0(st["judgeBosses"]);
+  S.eterna_wins = n0(st["eternaWins"]);
+  for (int d = 0; d < DF_COUNT; ++d) s.mode_wins[d] = n0(o["modeWins"][kDiffId[d]]);
   // Atajos y veto: movimientos que existan, sin repetir.
   for (const auto& kv : o["pbind"].items()) {
     const int d = key_dex(kv.first);
