@@ -7,6 +7,10 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 
 ## 0.51.0 — en preparación (sin publicar)
 **La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor). Por ahora:
+- **Pantalla táctil renovada:** insignia de nivel con el color de tu Pokémon, sus tipos, la vida
+  en verde, amarillo o rojo según lo que te queda (y latiendo cuando estás en las últimas), el
+  reloj en su cápsula, el minimapa enmarcado, los ataques en tarjetas del color de su tipo y las
+  cartas de nivel con su color y la elegida brillando.
 - **Los 1025 Pokémon:** llegan los 59 que faltaban (Miraidon, Zarude, Pecharunt…).
 - **57 formas regionales** como Pokémon nuevos: Vulpix de Alola, Meowth de Galar, Growlithe de
   Hisui, Wooper de Paldea… Salen en el gacha y en la Colección.

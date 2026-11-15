@@ -68,6 +68,40 @@ void quad(float x, float y, float angle, float u0, float u1, float v0, float v1,
   C2D_DrawTriangle(ax, ay, c, cx, cy, c, dx, dy, c, 0);
 }
 
+// ---- pantalla de abajo: piezas (rectángulos con las esquinas recortadas, degradados) ----
+uint32_t mix(uint32_t a, uint32_t b, float t) {
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  auto ch = [&](int s) { const float x = float((a >> s) & 255), y = float((b >> s) & 255); return uint32_t(x + (y - x) * t) << s; };
+  return ch(16) | ch(8) | ch(0);
+}
+// Relleno con las 4 esquinas recortadas un píxel (parece redondeado a este tamaño)
+void rrect(float x, float y, float w, float h, u32 c) {
+  C2D_DrawRectSolid(x + 1, y, 0, w - 2, h, c);
+  C2D_DrawRectSolid(x, y + 1, 0, 1, h - 2, c);
+  C2D_DrawRectSolid(x + w - 1, y + 1, 0, 1, h - 2, c);
+}
+// Degradado vertical, también con las esquinas recortadas
+void rgrad(float x, float y, float w, float h, u32 top, u32 bot) {
+  C2D_DrawRectangle(x + 1, y, 0, w - 2, h, top, top, bot, bot);
+  C2D_DrawRectangle(x, y + 1, 0, 1, h - 2, top, top, bot, bot);
+  C2D_DrawRectangle(x + w - 1, y + 1, 0, 1, h - 2, top, top, bot, bot);
+}
+// Marco de 1 px (con las esquinas recortadas)
+void rframe(float x, float y, float w, float h, u32 c) {
+  C2D_DrawRectSolid(x + 1, y, 0, w - 2, 1, c);
+  C2D_DrawRectSolid(x + 1, y + h - 1, 0, w - 2, 1, c);
+  C2D_DrawRectSolid(x, y + 1, 0, 1, h - 2, c);
+  C2D_DrawRectSolid(x + w - 1, y + 1, 0, 1, h - 2, c);
+}
+// Esquinas doradas (marcos importantes)
+void corners(float x, float y, float w, float h, u32 c) {
+  const float L = 5;
+  C2D_DrawRectSolid(x, y, 0, L, 1, c); C2D_DrawRectSolid(x, y, 0, 1, L, c);
+  C2D_DrawRectSolid(x + w - L, y, 0, L, 1, c); C2D_DrawRectSolid(x + w - 1, y, 0, 1, L, c);
+  C2D_DrawRectSolid(x, y + h - 1, 0, L, 1, c); C2D_DrawRectSolid(x, y + h - L, 0, 1, L, c);
+  C2D_DrawRectSolid(x + w - L, y + h - 1, 0, L, 1, c); C2D_DrawRectSolid(x + w - 1, y + h - L, 0, 1, L, c);
+}
+
 float step_alpha(float k) { return k > 0.66f ? 1 : k > 0.33f ? 0.66f : 0.33f; }
 
 void bar(float x, float y, float w, float h, float frac, u32 col, u32 bg = C2D_Color32(0, 0, 0, 140)) {
@@ -1501,29 +1535,84 @@ void Renderer::draw_top(Game& g, float eye) {
 void Renderer::draw_bottom(Game& g, bool autotest) {
   C2D_TextBufClear(tbuf);
   const Player& p = g.me();
-  C2D_DrawRectSolid(0, 0, 0, BOT_W, BOT_H, C2D_Color32(16, 22, 34, 255));
+  // Fondo: un degradado de azul noche, con el color de tu Pokémon muy suave arriba
+  const uint32_t tcol = p.mon && p.mon->types[0] >= 0 ? kTypeColor[p.mon->types[0]] : 0x4fd1ff;
+  C2D_DrawRectangle(0, 0, 0, BOT_W, BOT_H, rgb(mix(0x182238, tcol, 0.10f)), rgb(mix(0x182238, tcol, 0.10f)), rgb(0x0a0e18), rgb(0x0a0e18));
   char b[128];
+  char t[16];
 
   // --- experiencia, vida y nivel ---
-  bar(0, 0, BOT_W, 5, p.xp / p.xp_next, rgb(0x4fd1ff));
-  text(p.mon ? p.mon->name : "", 8, 8, 0.5f, rgb(0xeaf2ff), 0);
-  std::snprintf(b, sizeof(b), "Nv. %d", p.level);
-  text(b, 8, 26, 0.45f, rgb(0xffcb3d), 0);
-  bar(60, 30, 172, 10, p.hp / p.max_hp, rgb(0xff5f6d));
-  std::snprintf(b, sizeof(b), "%d / %d", int(std::ceil(p.hp)), int(jsround(p.max_hp)));
-  text(b, 146, 29, 0.36f, C2D_Color32(255, 255, 255, 240), 1);
-  char t[16]; mmss(float(g.time), t, sizeof(t));
-  text(t, 312, 6, 0.7f, C2D_Color32(255, 255, 255, 240), 2);
-  // Potenciadores (al lado de la vida).
+  {
+    // Experiencia: a lo ancho, arriba del todo, con su brillo en la punta
+    const float xk = clamp(p.xp / std::fmax(1.0f, p.xp_next), 0.0f, 1.0f);
+    C2D_DrawRectSolid(0, 0, 0, BOT_W, 5, C2D_Color32(4, 8, 16, 220));
+    if (xk > 0) {
+      C2D_DrawRectangle(0, 0, 0, BOT_W * xk, 5, rgb(0x2a7fd4), rgb(0x4fd1ff), rgb(0x2a7fd4), rgb(0x4fd1ff));
+      C2D_DrawRectSolid(0, 0, 0, BOT_W * xk, 1, rgbf(0xffffff, 0.35f));
+      C2D_DrawRectSolid(BOT_W * xk - 2, 0, 0, 2, 5, rgbf(0xeaffff, 0.5f + 0.3f * std::sin(float(g.time) * 5)));
+    }
+    // Insignia del nivel: un círculo con el color de su tipo
+    const float cx = 22, cy = 25;
+    C2D_DrawCircleSolid(cx, cy + 1, 0, 16, C2D_Color32(0, 0, 0, 120));
+    C2D_DrawCircleSolid(cx, cy, 0, 16, rgb(mix(tcol, 0xffffff, 0.15f)));
+    C2D_DrawCircleSolid(cx, cy, 0, 14, rgb(mix(0x101828, tcol, 0.28f)));
+    text("Nv", cx, cy - 13, 0.28f, rgbf(0xffffff, 0.7f), 1, false);
+    std::snprintf(b, sizeof(b), "%d", p.level);
+    text(b, cx, cy - 6, p.level >= 100 ? 0.42f : 0.55f, rgb(0xffcb3d), 1);
+    // Nombre y tipos
+    const char* nm = p.mon ? p.mon->name : "";
+    text(nm, 44, 7, 0.5f, rgb(0xeaf2ff), 0);
+    if (p.mon) {
+      float tx = 48 + text_width(nm, 0.5f);
+      for (int k = 0; k < 2; ++k) {
+        const int ty = p.mon->types[k];
+        if (ty < 0) continue;
+        const float tw = std::fmax(30.0f, text_width(kTypeName[ty], 0.28f) + 8);
+        if (tx + tw > 246) break;
+        rrect(tx, 10, tw, 10, rgb(kTypeColor[ty]));
+        C2D_DrawRectSolid(tx + 1, 10, 0, tw - 2, 1, rgbf(0xffffff, 0.3f));
+        text(kTypeName[ty], tx + tw / 2, 9, 0.28f, rgb(0xffffff), 1, true);
+        tx += tw + 3;
+      }
+    }
+    // Vida: verde, amarilla o roja según lo que queda, con su brillo
+    const float hk = clamp(p.hp / std::fmax(1.0f, p.max_hp), 0.0f, 1.0f);
+    const uint32_t hc = hk > 0.5f ? 0x4fe08a : hk > 0.25f ? 0xffcb3d : 0xff5f6d;
+    const float HX = 44, HY = 26, HW = 180, HH = 11;
+    rrect(HX - 1, HY - 1, HW + 2, HH + 2, C2D_Color32(0, 0, 0, 170));
+    rrect(HX, HY, HW, HH, C2D_Color32(30, 38, 58, 255));
+    if (hk > 0) {
+      rgrad(HX, HY, std::fmax(2.0f, HW * hk), HH, rgb(mix(hc, 0xffffff, 0.25f)), rgb(mix(hc, 0x000000, 0.25f)));
+      C2D_DrawRectSolid(HX + 1, HY + 1, 0, std::fmax(0.0f, HW * hk - 2), 2, rgbf(0xffffff, 0.28f));
+      if (hk < 0.25f) rframe(HX - 1, HY - 1, HW + 2, HH + 2, rgbf(0xff5f6d, 0.5f + 0.5f * std::sin(float(g.time) * 8)));
+    }
+    for (int q = 1; q < 4; ++q) C2D_DrawRectSolid(HX + HW * q / 4, HY + HH - 3, 0, 1, 3, C2D_Color32(0, 0, 0, 90));
+    std::snprintf(b, sizeof(b), "%d / %d", int(std::ceil(p.hp)), int(jsround(p.max_hp)));
+    text(b, HX + HW / 2, HY, 0.34f, C2D_Color32(255, 255, 255, 250), 1, true);
+    // El reloj, en su cápsula
+    mmss(float(g.time), t, sizeof(t));
+    const float TW2 = std::fmax(58.0f, text_width(t, 0.6f) + 22);
+    rgrad(BOT_W - 6 - TW2, 7, TW2, 19, C2D_Color32(36, 46, 72, 245), C2D_Color32(18, 24, 40, 245));
+    rframe(BOT_W - 6 - TW2, 7, TW2, 19, rgbf(0xffffff, 0.12f));
+    C2D_DrawCircleSolid(BOT_W - TW2 + 3, 16.5f, 0, 4.5f, rgb(0xeaf2ff));
+    C2D_DrawCircleSolid(BOT_W - TW2 + 3, 16.5f, 0, 3.2f, C2D_Color32(26, 34, 56, 255));
+    C2D_DrawRectSolid(BOT_W - TW2 + 2.5f, 13.5f, 0, 1, 3.5f, rgb(0xeaf2ff));
+    C2D_DrawRectSolid(BOT_W - TW2 + 2.5f, 16.5f, 0, 2.5f, 1, rgb(0xeaf2ff));
+    text(t, BOT_W - 8, 6, 0.6f, C2D_Color32(255, 255, 255, 245), 2);
+  }
+  // Potenciadores (al lado de la vida), en etiquetas de su color
   {
     static const char* const LBL[BS_COUNT] = {"ATK", "ATK", "AT.E", "VEL", "DEF", "REG"};
     static const uint32_t COL[BS_COUNT] = {0xff6b4d, 0xff6b4d, 0xc47bff, 0x7fe0ff, 0xb0b8c8, 0x5fe08a};
-    float bx = 238;
+    float bx = 230;
     for (int k = 0; k < BS_COUNT; ++k) {
       if (p.buffs[k].n <= 0) continue;
       std::snprintf(b, sizeof(b), "%s×%d", LBL[k], p.buffs[k].n);
-      text(b, bx, 28, 0.34f, rgb(COL[k]), 0);
-      bx += text_width(b, 0.34f) + 4;
+      const float w = text_width(b, 0.3f) + 6;
+      if (bx + w > BOT_W - 4) break;
+      rrect(bx, 28, w, 10, rgbf(COL[k], 0.22f));
+      text(b, bx + 3, 27, 0.3f, rgb(COL[k]), 0, false);
+      bx += w + 3;
     }
   }
 
@@ -1551,8 +1640,6 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       const Card& c = p.cards[i];
       const float y = card_y(i, p.ncards);
       const bool sel = i == card_cursor;
-      C2D_DrawRectSolid(10, y, 0, 300, ch, sel ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(30, 40, 62, 255));
-      if (sel) { C2D_DrawRectSolid(10, y, 0, 3, ch, rgb(0xffcb3d)); }
       const char* title = "";
       const char* desc = "";
       char tag[64] = "";
@@ -1580,8 +1667,21 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         else if (four) { std::snprintf(tag, sizeof(tag), "Pasiva"); col = 0x7dffb0; }
         else std::snprintf(tag, sizeof(tag), "Mejora");
       }
+      // La carta: degradado con un toque de su color, filo de su color a la izquierda y,
+      // la elegida, con el marco dorado y su brillo
+      {
+        const float hh = ch - 2;
+        if (sel) rrect(8, y - 2, 304, hh + 4, rgbf(0xffcb3d, 0.18f + 0.1f * std::sin(float(g.time) * 4)));
+        C2D_DrawRectSolid(11, y + 2, 0, 300, hh, C2D_Color32(0, 0, 0, 100));
+        rgrad(10, y, 300, hh, rgb(mix(sel ? 0x2c3a5e : 0x1e2840, col, sel ? 0.2f : 0.1f)), rgb(sel ? 0x1a2440 : 0x121a2e));
+        C2D_DrawRectSolid(11, y + 1, 0, 298, 1, rgbf(0xffffff, sel ? 0.18f : 0.08f));
+        rframe(10, y, 300, hh, sel ? rgb(0xffcb3d) : rgb(mix(0x2a3450, col, 0.3f)));
+        C2D_DrawRectSolid(11, y + 2, 0, 3, hh - 4, rgb(col));
+        // (el icono, sobre un disco oscuro)
+        C2D_DrawCircleSolid(29, y + hh / 2, 0, std::fmin(four ? 15.0f : 17.0f, hh / 2 - 2), rgb(mix(0x0c1220, col, 0.18f)));
+      }
       const float isz = four ? 24.0f : 28.0f;
-      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 16, y + (ch - isz) / 2, 0, nullptr, isz / icons.sub(ic).width, isz / icons.sub(ic).width);
+      if (ic >= 0) C2D_DrawImageAt(icons.image(ic), 17, y + (ch - 2 - isz) / 2, 0, nullptr, isz / icons.sub(ic).width, isz / icons.sub(ic).width);
       const float tw = std::fmax(text_width(tag, 0.34f), fit[0] ? text_width(fit, 0.3f) : 0);
       text_fit(title, 50, y + (four ? 1 : 3), 254 - tw - 6, four ? 0.42f : 0.45f, C2D_Color32(240, 244, 255, 255), true);
       text(tag, 304, y + (four ? 2 : 4), 0.34f, rgb(col), 2);
@@ -1810,9 +1910,13 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
   } else {
     // --- minimapa (con franjas de información encima) ---
     const float MX = 8, MY = 44, MW = 304, MH = kMapH;
+    // (su marco: sombra, borde azulado y esquinas doradas)
+    C2D_DrawRectSolid(MX - 1, MY + 1, 0, MW + 2, MH + 2, C2D_Color32(0, 0, 0, 110));
+    rframe(MX - 2, MY - 2, MW + 4, MH + 4, C2D_Color32(58, 76, 112, 255));
     minimap.draw(g, *this, MX, MY, MW, MH, float(g.time));
+    corners(MX - 2, MY - 2, MW + 4, MH + 4, rgbf(0xffd23f, 0.85f));
     const u32 strip = C2D_Color32(8, 12, 22, 170);
-    C2D_DrawRectSolid(MX, MY, 0, MW, 11, strip);
+    C2D_DrawRectangle(MX, MY, 0, MW, 11, C2D_Color32(6, 10, 20, 215), C2D_Color32(6, 10, 20, 215), C2D_Color32(6, 10, 20, 140), C2D_Color32(6, 10, 20, 140));
     text(g.world.biome_name(), MX + 3, MY + 1, 0.32f, rgb(0xb7c4dc), 0, false);
     if (g.time < 8 && legend_t <= 0) text("Toca el mapa: qué es cada cosa", MX + MW - 3, MY + 1, 0.32f, rgb(0x9ae6ff), 2, false);
     else {
@@ -1912,8 +2016,19 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
       const float x = x0 + i * (S + GAP), y = kSlotY;
       const bool act = i == p.active_slot;
       const bool bond = p.slot_n[i] > 1;
-      C2D_DrawRectSolid(x, y, 0, S, S, act ? C2D_Color32(52, 70, 110, 255) : C2D_Color32(28, 36, 56, 255));
-      if (act) { C2D_DrawRectSolid(x, y, 0, S, 2, rgb(bond ? 0xff8ad8 : 0xffcb3d)); C2D_DrawRectSolid(x, y + S - 2, 0, S, 2, rgb(bond ? 0xff8ad8 : 0xffcb3d)); }
+      // Tarjeta del color de su tipo: más viva la que está activa (con su brillo alrededor)
+      const uint32_t tc = kTypeColor[p.moves[p.slots[i][0]].type()];
+      const uint32_t edge = bond ? 0xff8ad8 : act ? 0xffcb3d : mix(tc, 0x1c2438, 0.45f);
+      if (act) {
+        const float pu = 0.5f + 0.5f * std::sin(float(g.time) * 4);
+        rrect(x - 3, y - 3, S + 6, S + 6, rgbf(edge, 0.16f + pu * 0.12f));
+      }
+      C2D_DrawRectSolid(x - 1, y + 2, 0, S + 2, S, C2D_Color32(0, 0, 0, 110));
+      rgrad(x, y, S, S, rgb(mix(0x1c2438, tc, act ? 0.42f : 0.2f)), rgb(mix(0x0e1424, tc, act ? 0.14f : 0.06f)));
+      C2D_DrawRectSolid(x + 1, y + 1, 0, S - 2, 1, rgbf(0xffffff, act ? 0.22f : 0.1f));
+      rframe(x, y, S, S, rgb(edge));
+      if (act) rframe(x + 1, y + 1, S - 2, S - 2, rgbf(edge, 0.45f));
+      C2D_DrawRectSolid(x + 1, y + S - 12, 0, S - 2, 11, C2D_Color32(0, 0, 0, 90));   // (la franja del nivel)
       for (int j = 0; j < p.slot_n[i]; ++j) {
         const MoveInst& m = p.moves[p.slots[i][j]];
         const int ic = move_icon[m.def];
@@ -1927,14 +2042,21 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         }
       }
       const MoveInst& m0 = p.moves[p.slots[i][0]];
+      // Su número, en una chapita en la esquina
+      C2D_DrawCircleSolid(x + 1, y + 1, 0, 6, rgb(act ? 0xffcb3d : 0x2a3450));
       std::snprintf(b, sizeof(b), "%d", i + 1);
-      text(b, x + 2, y + 1, 0.3f, C2D_Color32(255, 255, 255, 170), 0);
+      text(b, x + 1, y - 5, 0.3f, act ? rgb(0x1a1408) : C2D_Color32(255, 255, 255, 200), 1, false);
       std::snprintf(b, sizeof(b), "%sNv%d", m0.evolved ? "★" : "", m0.lvl);
       text(b, x + S / 2, y + S - 12, 0.3f, rgb(m0.evolved ? 0xffd23f : 0xeaf2ff), 1);
     }
-    if (p.nslots) {
+    if (p.nslots) {   // el nombre del activo, en su cápsula
       const MoveInst& m = p.moves[p.slots[p.active_slot][0]];
-      text_fit(m.name(), 160, kSlotY + S + 3, 200, 0.36f, rgb(kTypeColor[m.type()]), true, 1);
+      const float nw = std::fmin(200.0f, text_width(m.name(), 0.36f)) + 22;
+      const uint32_t mc = kTypeColor[m.type()];
+      rrect(160 - nw / 2, kSlotY + S + 3, nw, 13, rgb(mix(0x0e1424, mc, 0.22f)));
+      rframe(160 - nw / 2, kSlotY + S + 3, nw, 13, rgbf(mc, 0.6f));
+      C2D_DrawCircleSolid(160 - nw / 2 + 7, kSlotY + S + 9.5f, 0, 3, rgb(mc));
+      text_fit(m.name(), 164, kSlotY + S + 3, 200, 0.36f, rgb(mix(mc, 0xffffff, 0.35f)), true, 1);
     }
     // --- esferas: dos casillas a cada lado (A usa la elegida, B cambia; tocar la usa) ---
     if (orb_count(p) > 0) {
@@ -1945,8 +2067,10 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
         const int id = p.orb_id[i];
         const bool sel = id >= 0 && i == orb_sel;
         const bool fresh = i == p.orb_new && p.orb_new_t > 0;
-        C2D_DrawRectSolid(ox - 1, oy - 1, 0, kOrbS + 2, kOrbS + 2, sel ? rgb(0xffd23f) : fresh ? rgbf(kOrbs[id].col, 0.6f + std::sin(float(g.time) * 10) * 0.4f) : id >= 0 ? rgbf(kOrbs[id].col, 0.6f) : C2D_Color32(40, 52, 80, 120));
-        C2D_DrawRectSolid(ox, oy, 0, kOrbS, kOrbS, C2D_Color32(20, 26, 44, 235));
+        const u32 oc = sel ? rgb(0xffd23f) : fresh ? rgbf(kOrbs[id].col, 0.6f + std::sin(float(g.time) * 10) * 0.4f) : id >= 0 ? rgbf(kOrbs[id].col, 0.6f) : C2D_Color32(48, 60, 90, 140);
+        if (sel) rrect(ox - 3, oy - 3, kOrbS + 6, kOrbS + 6, rgbf(0xffd23f, 0.2f));
+        rgrad(ox, oy, kOrbS, kOrbS, id >= 0 ? rgb(mix(0x1a2240, kOrbs[id].col, 0.18f)) : C2D_Color32(20, 26, 44, 200), C2D_Color32(10, 14, 26, 235));
+        rframe(ox - 1, oy - 1, kOrbS + 2, kOrbS + 2, oc);
         if (id < 0) continue;
         draw_orb(id, ox + kOrbS / 2, oy + kOrbS / 2, kOrbS * 0.32f);
         if (cdk > 0) C2D_DrawRectSolid(ox, oy, 0, kOrbS, kOrbS * cdk, C2D_Color32(0, 0, 0, 120));
