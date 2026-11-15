@@ -66,7 +66,7 @@ float World::fade_k() const {
   return x * x * (3 - 2 * x);
 }
 
-void World::set_arena(bool on, int32_t tx, int32_t ty, float r, int theme) {
+void World::set_arena(bool on, int32_t tx, int32_t ty, float r, int theme, bool bare) {
   terrain_gen_++;   // (el terreno cambia: lo pintado de antes ya no vale)
   if (!on) {
     // Fuera la arena: también se olvidan sus chunks (si no, sus paredes seguían).
@@ -84,7 +84,7 @@ void World::set_arena(bool on, int32_t tx, int32_t ty, float r, int theme) {
       }
     return;
   }
-  arena_.on = true; arena_.tx = tx; arena_.ty = ty; arena_.r = r; arena_.theme = theme;
+  arena_.on = true; arena_.tx = tx; arena_.ty = ty; arena_.r = r; arena_.theme = theme; arena_.bare = bare;
   // Olvida los chunks de esa zona (si se hubieran generado antes).
   const float R = r + 9;
   for (auto& c : cache_) {
@@ -271,7 +271,7 @@ void World::place_props(Chunk& c) {
       // Dentro de la arena: la decoración de su tipo (y nada en el pasillo).
       const double ad = arena_dist(tx, ty);
       if (ad < arena_outer() + 2) {
-        if (!arena_.on || ad >= arena_.r - 1.2 || arena_safe(tx, ty)) continue;
+        if (!arena_.on || ad >= arena_.r - 1.2 || arena_safe(tx, ty) || arena_.bare) continue;   // (la Sala del Origen: limpia)
         const ArenaTheme& th = kArenaThemes[arena_.theme];
         const double hh = H(tx, ty, seed_ + 777);
         int at = -1;

@@ -99,7 +99,8 @@ float player_spd(Game& g, const Player& p) {
   if (p.in_liquid && !steady) { const LiquidFx le = g.world.liquid_effect(p.mon->types); if (le.slow > 0) slow = le.slow; }
   // En la Sentencia, la velocidad tiene tope suave (contra la huida sin fin).
   if (!judgment_active(g)) return s * slow * w;
-  return g.cfg.mode == MODE_QUICK ? judgment_cap_spd_quick(s * slow * w) : judgment_cap_spd(s * slow * w);
+  const float gk = g.judg.grav_t > 0 ? 0.6f : 1.0f;   // (Gravedad de Arceus)
+  return (g.cfg.mode == MODE_QUICK ? judgment_cap_spd_quick(s * slow * w) : judgment_cap_spd(s * slow * w)) * gk;
 }
 
 float player_reduction(const Player& p) { return std::fmin(0.8f, p.dmg_reduce + p.buffs[BS_DEF].n * p.buffs[BS_DEF].amount); }

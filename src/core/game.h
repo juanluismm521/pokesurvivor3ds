@@ -695,6 +695,14 @@ struct Game {
     // Arceus baja la guardia (vida de verdad) y se le puede derrotar.
     bool can_win = false, open = false, won = false;
     float ahp = 0, ahp_max = 0, won_t = 0;
+    // Gran Actualización (web, 13-11-2026): Velocidad Extrema, Premonición, Gravedad, Hiperrayo,
+    // Sentencia de las Tablas y las Aspas Doradas (dos carriles, a los 5 y a los 7 min).
+    float grav_t = 0, last_grav = -99, last_plates = -99;
+    int8_t ex_n = 0, ex_i = 0; bool ex_dash = false, ex_go = false; float ex_t = 0, ex_a = 0, ex_len = 0, ex_sx = 0, ex_sy = 0;
+    float pl_spin = 0, pl_emit = 0; int pl_ti = 0; int8_t rain_n = 0; float rain_t = 0;
+    float hist_t = 0; float hist_x[4][12] = {}, hist_y[4][12] = {}; int8_t hist_n = 0;
+    bool lane_on[2] = {}; float spoke_safe = 0;
+    bool push_on = false; float push_t = 0, push_x0 = 0, push_y0 = 0, push_x1 = 0, push_y1 = 0; int8_t push_pl = 0;
   } judg;
 
   // Campo de distancias del camino (pathing.js), uno por jugador.
@@ -882,8 +890,10 @@ inline float judgment_cap_spd(float s) { return s <= 130 ? s : 130 + (s - 130) *
 // se le puede ganar, y con un Pokémon rápido el de la web quitaba un 30-50 %.
 inline float judgment_cap_spd_quick(float s) { return s <= 170 ? s : 170 + (s - 170) * 0.5f; }
 bool judgment_cinematic(const Game& g);
-// (Gravedad de Arceus: clavado al suelo, sin saltos ni embestidas. Aún no está en el port.)
-inline bool judgment_pinned(const Game&) { return false; }
+// Gravedad de Arceus: clavado al suelo (sin saltos ni embestidas) y más lento.
+inline bool judgment_pinned(const Game& g) { return g.judg.phase == 2 && g.judg.grav_t > 0; }
+// Las Aspas Doradas (para dibujarlas): posiciones de las del carril `lane` (devuelve cuántas).
+int judgment_spokes(const Game& g, int lane, float* xs, float* ys, float* alpha);
 // Arceus en la pelea: qué parte del daño recibe (el 5 %, y cada vez menos) y
 // si le protegen los legendarios (entonces no se le apunta).
 float judgment_dmg_k(const Game& g);

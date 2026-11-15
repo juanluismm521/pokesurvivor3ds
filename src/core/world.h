@@ -71,6 +71,7 @@ struct ArenaInfo {
   int32_t tx = 0, ty = 0;
   float r = 0;
   int theme = 0;           // índice en kArenaThemes
+  bool bare = false;       // sin decoración (la Sala del Origen de la Sentencia, web 13-11-2026)
 };
 
 class World {
@@ -88,7 +89,7 @@ class World {
   static constexpr int32_t kMenuSeed = 4242;   // el mundo del fondo de los menús
   void set_halloween(bool on);
   bool halloween() const { return halloween_; }
-  void set_arena(bool on, int32_t tx = 0, int32_t ty = 0, float r = 0, int theme = 0);
+  void set_arena(bool on, int32_t tx = 0, int32_t ty = 0, float r = 0, int theme = 0, bool bare = false);
   const ArenaInfo& arena() const { return arena_; }
 
   // --- generación (determinista, igual que la web) ---

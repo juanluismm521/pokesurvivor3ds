@@ -59,6 +59,13 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   igual. Eevee, entre 3 de sus evoluciones al azar. Todos empiezan con la fuerza del primero de
   su línea (Charizard, con la de Charmander) y la ganan al subir; los que no evolucionan, al 65 %,
   y suben en los niveles 20 y 40.
+- **La Sentencia de Arceus, en la Sala del Origen:** un suelo de mármol con anillos dorados
+  flotando entre las nubes del cielo. Arceus aprende ataques nuevos según dura la pelea:
+  Velocidad Extrema (cruza la sala embistiendo), Premonición (donde estabas hace un momento),
+  Gravedad (todos más lentos y una lluvia de pilares), Hiperrayo (16 rayos anchos en abanico) y
+  Sentencia de las Tablas (espirales de tablas de todos los tipos). A los 5 y 7 minutos de pelea
+  giran por la sala las **Aspas Doradas**: ¡muévete por los huecos! Como mucho hay 30
+  legendarios a la vez en la sala. En el modo rápido Arceus se puede vencer como siempre.
 
 ## 0.50.6 — 2026-11-14
 Sincronización con pokesurvivor.com al día con su Gran Actualización (13-11):

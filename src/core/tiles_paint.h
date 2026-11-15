@@ -19,6 +19,7 @@ struct ChunkPainter {
   // Pinta las filas de casillas [row0, row1). Devuelve true al terminar.
   bool paint_rows(int row0, int row1, uint32_t* out);
   void paint_all(uint32_t* out) { paint_rows(0, 16, out); }
+  void paint_origin(int row0, int row1, uint32_t* out);   // la Sala del Origen (la Sentencia)
 
   World* w = nullptr;
   int32_t cx = 0, cy = 0;

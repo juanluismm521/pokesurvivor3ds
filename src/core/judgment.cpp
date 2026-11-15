@@ -28,6 +28,7 @@ namespace ps {
 namespace {
 constexpr float ARENA_R = 24;
 constexpr float BOSS_EVERY = 5;
+constexpr int kJudgeAlive = 30;   // (port) legendarios a la vez en la sala, como mucho
 constexpr float TOUCH = 0.4f;
 // Contra la huida sin fin (18-10-2026): velocidad con tope suave (game.h,
 // judgment_cap_spd), legendarios al menos al 80 % de vuestra velocidad, Arceus
@@ -54,7 +55,15 @@ constexpr float HP_GROW = 1.25f, DMG_GROW = 1.15f;   // cada legendario, respect
 // cuánto se enfurece. Ajustado con partidas del bot (tests/test_judgment.cpp).
 constexpr float ARCEUS_HP = 40;
 constexpr float RAGE_CD = 0.65f, RAGE_SPD = 1.15f;
-enum { JC_RAIN, JC_CROSS, JC_NOVA };
+enum { JC_RAIN, JC_CROSS, JC_NOVA, JC_EXTREME, JC_FUTURE, JC_GRAVITY, JC_HYPER, JC_PLATES, JC_SPOKES };
+const char* const kJName[] = {"Sentencia", "Cruz Sagrada", "Onda Divina", "Velocidad Extrema", "Premonición", "Gravedad", "Hiperrayo", "Sentencia de las Tablas", "Aspas Doradas"};
+// Desde qué segundo de la Sentencia sale cada uno (web: extreme 30, future 60, gravity 90, hyper 120, plates 150)
+constexpr float J_EXTREME = 30, J_FUTURE = 60, J_GRAVITY = 90, J_HYPER = 120, J_PLATES = 150;
+// Las Aspas Doradas: dos carriles (radio en casillas, velocidad, sentido, grupos de aspas)
+struct Lane { float at, r, spd; int dir; int ng; int groups[5]; };
+constexpr Lane kLanes[2] = {{300, 19, 230, 1, 5, {3, 2, 3, 1, 2}}, {420, 12, 200, -1, 4, {2, 1, 2, 1, 0}}};
+constexpr float SP_R = 40, SP_HIT = 30, SP_GAP = 120, SP_APPEAR = 2.4f, SP_PCT = 0.35f, SP_SAFE = 1;
+const uint32_t kPlateType[17] = {T_FIRE, T_WATER, T_ELECTRIC, T_GRASS, T_ICE, T_FIGHTING, T_POISON, T_GROUND, T_FLYING, T_PSYCHIC, T_BUG, T_ROCK, T_GHOST, T_DRAGON, T_DARK, T_STEEL, T_FAIRY};
 
 void sample_dps(Game& g, float dt) {
   Game::JudgmentState& j = g.judg;
@@ -130,7 +139,7 @@ void port(Game& g) {
   events_reset(g);
   weather_clear(g);
   const int th = arena_theme_index("judgment");
-  g.world.set_arena(true, j.tx, j.ty, ARENA_R, th);
+  g.world.set_arena(true, j.tx, j.ty, ARENA_R, th, true);   // (la Sala del Origen: sin decoración)
   g.world.set_biome(kArenaBiome0 + th, true);
   j.cx = j.tx * TS + TS / 2; j.cy = j.ty * TS + TS / 2;
   for (int i = 0; i < g.nplayers; ++i) {
@@ -262,6 +271,46 @@ void cast(Game& g, int id, const Player& tg) {
     }
     j.awind = 1.1f;
     j.aanim.play(A_CHARGE, 0.9f);
+  } else if (id == JC_EXTREME) {   // embestidas (1, 2 o 3 según lo que dura) que cruzan la sala
+    j.ex_n = int8_t(j.arena_t >= 480 ? 3 : j.arena_t >= 300 ? 2 : 1); j.ex_i = 0; j.ex_dash = false;
+    j.awind = 99;
+  } else if (id == JC_FUTURE) {     // Premonición: donde estabas hace un momento… y donde estás
+    for (int k = 0; k < g.nplayers && k < 4; ++k) {
+      const Player& p = g.players[k];
+      if (!p.active || p.dead) continue;
+      auto zone = [&](float x, float y) {
+        Hazard* h = H(g);
+        if (h) { h->x = x; h->y = y; h->r = 48; h->delay = 1.6f; h->pct = 0.28f; h->color = 0xff6ad5; }
+      };
+      for (int q = 2; q < j.hist_n && q < 12; q += 2) zone(j.hist_x[k][q], j.hist_y[k][q]);
+      zone(p.x, p.y);
+    }
+    j.awind = 1.6f;
+    j.aanim.play(A_CHARGE, 0.8f);
+  } else if (id == JC_GRAVITY) {    // Gravedad: más lentos y clavados al suelo; luego llueven pilares
+    j.last_grav = j.arena_t;
+    j.grav_t = 4;
+    j.rain_n = 3; j.rain_t = 0.6f;
+    j.awind = 4.1f;
+    g.say("GRAVEDAD", 1.8f);
+    j.aanim.play(A_CHARGE, 0.6f);
+  } else if (id == JC_HYPER) {      // Hiperrayo: 16 rayos anchos en abanico
+    const float a0 = std::atan2(tg.y - j.ay, tg.x - j.ax), dir = g.rng.next() < 0.5f ? 1.0f : -1.0f;
+    for (int i = 0; i < 16; ++i) {
+      Hazard* h = H(g);
+      if (!h) break;
+      h->beam = true; h->x = j.ax; h->y = j.ay; h->angle = a0 - dir * kPi / 4 + dir * i * (kPi / 2) / 16;
+      h->len = 1800; h->w = 90; h->delay = 1.125f + i * 0.07f; h->pct = 0.4f; h->color = 0xff5a00;
+    }
+    j.awind = 1.125f + 16 * 0.07f;
+    j.aanim.play(A_CHARGE, 0.5f);
+  } else if (id == JC_PLATES) {     // Sentencia de las Tablas: espirales de tablas de todos los tipos
+    j.last_plates = j.arena_t;
+    j.awind = 4.2f; j.pl_spin = g.rng.next() * kTau; j.pl_emit = 0; j.pl_ti = 0;
+    j.aanim.play(A_CHARGE, 0.5f);
+  } else if (id == JC_SPOKES) {     // anuncia un carril de Aspas Doradas
+    j.awind = 2.4f;
+    j.aanim.play(A_CHARGE, 0.55f);
   } else {
     // Onda alrededor de él (si estás demasiado cerca).
     Hazard* h = H(g);
@@ -269,12 +318,72 @@ void cast(Game& g, int id, const Player& tg) {
     j.awind = 0.85f;
     j.aanim.play(A_CHARGE, 1.2f);
   }
-  g.fx.ring(j.ax, j.ay, j.ar, j.ar * 3, GOLD, j.awind, 3);
+  g.fx.ring(j.ax, j.ay, j.ar, j.ar * 3, GOLD, std::fmin(j.awind, 2.0f), 3);
+  // (su nombre, sobre él)
+  g.fx.dmg_text(j.ax, j.ay - j.abody_h - 16, kJName[id], id == JC_FUTURE ? 0xff9ae8 : id == JC_GRAVITY ? 0xb48aff : 0xffe680, true);
+}
+
+// Tabla: un disparo del tipo de la tabla (el 9 % de la vida de media)
+void plate_shot(Game& g, float a, int type) {
+  Game::JudgmentState& j = g.judg;
+  float sum = 0; int n = 0;
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && !g.players[i].dead) { sum += g.players[i].max_hp; n++; }
+  Projectile* s = proj_spawn(g);
+  if (!s) return;
+  s->x = j.ax; s->y = j.ay - j.abody_h * 0.5f; s->vx = std::cos(a) * 165; s->vy = std::sin(a) * 165;
+  s->dmg = (n ? sum / n : 200) * 0.09f * kDiffModes[g.cfg.diff].dmg; s->r = 9; s->life = 6; s->friendly = false;
+  s->color = kTypeColor[type]; s->mtype = int8_t(type); s->mcat = CAT_SPECIAL;
+  s->has_vis = true; s->vis_proj = kTypeShape[type]; s->vis_pal = int8_t(type);
+}
+
+// Lluvia de pilares sobre cada uno (la Sentencia y la de Gravedad)
+void rain(Game& g, int n) {
+  for (int k = 0; k < g.nplayers; ++k) {
+    const Player& p = g.players[k];
+    if (!p.active || p.dead) continue;
+    for (int i = 0; i < n; ++i) {
+      const float a = g.rng.next() * kTau, d = i ? g.rng.range(40, 150) : 0;
+      Hazard* h = H(g);
+      if (!h) break;
+      h->x = p.x + std::cos(a) * d; h->y = p.y + std::sin(a) * d * 0.8f; h->r = 44;
+      h->delay = 1.25f + i * 0.09f; h->pct = 0.3f; h->pillar = true;
+    }
+  }
 }
 
 void cast_tick(Game& g, float dt, Player* tg) {
   Game::JudgmentState& j = g.judg;
   j.act += dt;
+  if (j.acast == JC_EXTREME) {
+    if (!j.ex_dash) {
+      if (j.ex_i >= j.ex_n || !tg) { j.acast = -1; j.acd = 1.2f; return; }
+      // Aviso: una franja hasta el borde de la sala, en la dirección de su objetivo
+      const float a = std::atan2(tg->y - j.ay, tg->x - j.ax);
+      const float R = TS * 22.4f, px = j.ax - j.cx, py = j.ay - j.cy, ca = std::cos(a), sa = std::sin(a);
+      const float bq = px * ca + py * sa, disc = bq * bq - (px * px + py * py - R * R);
+      const float len = std::fmax(60.0f, (disc > 0 ? -bq + std::sqrt(disc) : 0) - 10);
+      Hazard* h = H(g);
+      if (h) { h->beam = true; h->x = j.ax; h->y = j.ay; h->angle = a; h->len = len; h->w = j.ar * 2.2f; h->delay = 0.8f; h->pct = 0.25f; }
+      j.ex_dash = true; j.ex_go = false; j.ex_t = 0; j.ex_a = a; j.ex_len = len; j.ex_sx = j.ax; j.ex_sy = j.ay;
+      j.aanim.dir = int8_t(dir_from_angle(a));
+      j.aanim.play(A_CHARGE, 1.6f);
+      return;
+    }
+    j.ex_t += dt;
+    if (j.ex_t < 0.8f) return;
+    const float k = std::fmin(1.0f, (j.ex_t - 0.8f) / 0.22f);
+    if (!j.ex_go) { j.ex_go = true; j.aanim.play(A_ATTACK, 1.6f); g.camera.kick(0.4f); }
+    j.ax = j.ex_sx + std::cos(j.ex_a) * j.ex_len * k; j.ay = j.ex_sy + std::sin(j.ex_a) * j.ex_len * k;
+    if (g.vrng.next() < 0.8f) g.fx.burst(j.ax, j.ay - j.abody_h * 0.5f, GOLD, 2, 60);
+    if (k >= 1) { j.ex_dash = false; j.ex_i++; }
+    return;
+  }
+  if (j.acast == JC_GRAVITY && j.rain_n > 0 && (j.rain_t -= dt) <= 0) { j.rain_n--; j.rain_t = 1.1f; rain(g, 4); }
+  if (j.acast == JC_PLATES && j.act >= 1.2f && j.act < j.awind - 0.2f && (j.pl_emit -= dt) <= 0) {
+    j.pl_emit = 0.13f;
+    j.pl_spin += 0.31f;
+    for (int i = 0; i < 3; ++i) { j.pl_ti++; plate_shot(g, j.pl_spin + i * 2.0944f, int(kPlateType[j.pl_ti % 17])); }
+  }
   if (tg) j.aanim.dir = int8_t(dir_from_angle(std::atan2(tg->y - j.ay, tg->x - j.ax)));
   if (j.act >= j.awind && !j.adone) {
     j.adone = true;
@@ -289,7 +398,26 @@ void cast_tick(Game& g, float dt, Player* tg) {
 void arceus_tick(Game& g, float dt) {
   Game::JudgmentState& j = g.judg;
   Player* tg = target(g);
-  if (j.acast >= 0) { cast_tick(g, dt, tg); return; }
+  if (j.acast >= 0) {
+    cast_tick(g, dt, tg);
+    // (mientras lanza la Sentencia, la Cruz, la Premonición o la Gravedad, te sigue persiguiendo)
+    const int c = j.acast;
+    if (tg && (c == JC_RAIN || c == JC_CROSS || c == JC_FUTURE || c == JC_GRAVITY)) {
+      const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) * (c == JC_GRAVITY ? 1.0f : 0.85f);
+      float dx, dy; norm(tg->x - j.ax, tg->y - j.ay, dx, dy);
+      const float sp = std::fmax(70.0f, player_spd(g, *tg) * k / (j.grav_t > 0 ? 0.6f : 1.0f));
+      j.ax += dx * sp * dt; j.ay += dy * sp * dt;
+    }
+    return;
+  }
+  // Las Aspas Doradas: al llegar su hora, las anuncia
+  for (int l = 0; l < 2; ++l)
+    if (!j.lane_on[l] && j.arena_t >= kLanes[l].at) {
+      j.lane_on[l] = true;
+      g.say(l ? "¡Otro carril de Aspas Doradas, girando al revés!" : "¡Las Aspas Doradas recorren la Sala del Origen! Cruza por los huecos", 3.4f);
+      g.camera.kick(0.5f);
+      if (tg) { cast(g, JC_SPOKES, *tg); return; }
+    }
   if (!tg) { j.aanim.loop(A_IDLE); return; }
   // Más lento que tú al principio; a los ~35 s ya te alcanza.
   const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) + std::fmax(0.0f, j.arena_t - 300) * 0.0015f;
@@ -306,8 +434,93 @@ void arceus_tick(Game& g, float dt) {
   j.acd -= dt;
   if (j.acd <= 0) {
     const float d = dist(j.ax, j.ay, tg->x, tg->y);
-    const int id = d < 210 && g.rng.next() < 0.6f ? JC_NOVA : (j.alast == JC_RAIN ? JC_CROSS : JC_RAIN);
+    int id;
+    if (d < 210 && g.rng.next() < 0.6f) id = JC_NOVA;
+    else {
+      int8_t l[7]; int n = 0;
+      l[n++] = JC_RAIN; l[n++] = JC_CROSS;
+      if (j.arena_t >= J_EXTREME) l[n++] = JC_EXTREME;
+      if (j.arena_t >= J_FUTURE) l[n++] = JC_FUTURE;
+      if (j.arena_t >= J_GRAVITY && j.arena_t - j.last_grav > 20) l[n++] = JC_GRAVITY;
+      if (j.arena_t >= J_HYPER) l[n++] = JC_HYPER;
+      if (j.arena_t >= J_PLATES && j.arena_t - j.last_plates > 14) l[n++] = JC_PLATES;
+      int8_t c[7]; int nc = 0;
+      for (int i = 0; i < n; ++i) if (l[i] != j.alast) c[nc++] = l[i];
+      id = nc ? c[int(g.rng.next() * nc)] : l[int(g.rng.next() * n)];
+    }
     cast(g, id, *tg);
+  }
+}
+
+// ---------------- Aspas Doradas ----------------
+// Ángulos (relativos) de las aspas de un carril: grupos con `gap` px entre aspas y el hueco
+// repartido entre grupos (con pesos para que no sea regular).
+static int spoke_angles(int lane, float R, float* out) {
+  static const float W[6] = {1, 1.3f, 0.85f, 1.15f, 0.95f, 1.2f};
+  const Lane& L = kLanes[lane];
+  float inner = 0, wsum = 0;
+  for (int k = 0; k < L.ng; ++k) { inner += (L.groups[k] - 1) * SP_GAP; wsum += W[k % 6]; }
+  const float free = R * kTau - inner;
+  float pos = 0; int n = 0;
+  for (int k = 0; k < L.ng; ++k) {
+    for (int b = 0; b < L.groups[k]; ++b) { out[n++] = pos / R; if (b < L.groups[k] - 1) pos += SP_GAP; }
+    pos += free * W[k % 6] / wsum;
+  }
+  return n;
+}
+
+int spokes_at(const Game& g, int lane, float* xs, float* ys, float* alpha) {
+  const Game::JudgmentState& j = g.judg;
+  const Lane& L = kLanes[lane];
+  const float dt = j.arena_t - L.at;
+  if (j.phase != 2 || dt < 0) return 0;
+  const float R = L.r * TS;
+  float a[12];
+  const int n = spoke_angles(lane, R, a);
+  const float rot = L.dir * L.spd / R * dt;
+  for (int i = 0; i < n; ++i) { xs[i] = j.cx + std::cos(a[i] + rot) * R; ys[i] = j.cy + std::sin(a[i] + rot) * R; }
+  *alpha = dt < SP_APPEAR ? 0.35f + 0.25f * std::sin(dt * 14) : 1;
+  return n;
+}
+
+static void spokes_tick(Game& g, float dt) {
+  Game::JudgmentState& j = g.judg;
+  if (j.spoke_safe > 0) j.spoke_safe -= dt;
+  if (j.push_on) {   // te echa del carril (en 0,2 s)
+    j.push_t += dt;
+    const float k = std::fmin(1.0f, j.push_t / 0.2f), e = 1 - (1 - k) * (1 - k) * (1 - k);
+    Player& p = g.players[j.push_pl];
+    const float x = j.push_x0 + (j.push_x1 - j.push_x0) * e, y = j.push_y0 + (j.push_y1 - j.push_y0) * e;
+    if (p.active && !p.dead && g.world.is_free(x, y, p.r)) { p.x = x; p.y = y; } else j.push_on = false;
+    if (k >= 1) j.push_on = false;
+  }
+  if (j.spoke_safe > 0) return;
+  for (int i = 0; i < g.nplayers; ++i) {
+    Player& p = g.players[i];
+    if (!p.active || p.dead) continue;
+    const float hit = SP_HIT + p.r * 0.8f, d = dist(p.x, p.y, j.cx, j.cy);
+    for (int l = 0; l < 2; ++l) {
+      const Lane& L = kLanes[l];
+      if (j.arena_t - L.at < SP_APPEAR || std::fabs(d - L.r * TS) > hit + 4) continue;
+      float xs[12], ys[12], al;
+      const int n = spokes_at(g, l, xs, ys, &al);
+      for (int q = 0; q < n; ++q) {
+        if (dist2(xs[q], ys[q], p.x, p.y) >= hit * hit) continue;
+        j.spoke_safe = SP_SAFE;
+        p.invuln = 0;
+        player_hurt(g, p, p.max_hp * SP_PCT * kDiffModes[g.cfg.diff].dmg, T_NONE, true);
+        // fuera del carril (hacia fuera, o hacia dentro si fuera ya no cabe)
+        const float R = L.r * TS, off = SP_R + 10 + p.r;
+        float to = d >= R ? R + off : R - off;
+        if (to > TS * 22.6f - 2) to = R - off;
+        const float dx = d > 0 ? (p.x - j.cx) / d : 1, dy = d > 0 ? (p.y - j.cy) / d : 0;
+        j.push_on = true; j.push_t = 0; j.push_pl = int8_t(i);
+        j.push_x0 = p.x; j.push_y0 = p.y; j.push_x1 = j.cx + dx * to; j.push_y1 = j.cy + dy * to;
+        g.camera.kick(0.55f);
+        g.fx.ring(xs[q], ys[q], 8, 110, GOLD, 0.45f, 5);
+        return;
+      }
+    }
   }
 }
 
@@ -346,6 +559,12 @@ bool is_one_of(const Mon& m, std::initializer_list<int> ts) {
 void spawn_boss(Game& g) {
   Game::JudgmentState& j = g.judg;
   if (j.can_win && j.boss_n >= kQuickLegends) return;   // (modo rápido: sólo esos)
+  // Tope del port: como mucho kJudgeAlive legendarios a la vez en la sala (con la
+  // vida que ganan, en una Sentencia larga se amontonaban más de cien y la consola
+  // no llega). El siguiente espera a que caiga alguno.
+  int alive = 0;
+  for (const Enemy& e : g.enemies) if (e.judge && e.hp > 0) alive++;
+  if (alive >= kJudgeAlive) return;
   const int dex = j.q[j.boss_n % j.nq];
   const Mon* mon = mon_by_dex(dex);
   if (!mon) return;
@@ -386,6 +605,8 @@ void spawn_boss(Game& g) {
   g.sfx(SFX_RIFT);
 }
 }  // namespace
+
+int judgment_spokes(const Game& g, int lane, float* xs, float* ys, float* alpha) { return spokes_at(g, lane, xs, ys, alpha); }
 
 void judgment_reset(Game& g) { g.judg = Game::JudgmentState(); }
 
@@ -520,6 +741,17 @@ void judgment_update(Game& g, float dt) {
     if (j.open && j.ahp > j.ahp_max * 0.12f) j.ahp = j.ahp_max * 0.12f;
   }
   arceus_tick(g, dt);
+  spokes_tick(g, dt);
+  if (j.grav_t > 0) j.grav_t -= dt;
+  // (dónde estaba cada uno: para la Premonición, cada 0,2 s, los últimos 2,4 s)
+  if ((j.hist_t -= dt) <= 0) {
+    j.hist_t = 0.2f;
+    for (int k = 0; k < g.nplayers && k < 4; ++k) {
+      for (int q = 11; q > 0; --q) { j.hist_x[k][q] = j.hist_x[k][q - 1]; j.hist_y[k][q] = j.hist_y[k][q - 1]; }
+      j.hist_x[k][0] = g.players[k].x; j.hist_y[k][0] = g.players[k].y;
+    }
+    if (j.hist_n < 12) j.hist_n++;
+  }
   keep_inside(g);
   j.boss_t -= dt;
   if (j.boss_t <= 0) { j.boss_t = BOSS_EVERY; spawn_boss(g); }

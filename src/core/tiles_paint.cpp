@@ -55,11 +55,112 @@ void ChunkPainter::begin(World& world, int32_t x, int32_t y, int bi) {
     for (int i = -1; i <= N; ++i) terr[(j + 1) * 18 + (i + 1)] = world.terrain_at(tx0 + i, ty0 + j);
 }
 
+// ---------------- Sala del Origen ----------------
+namespace {
+struct RGB { double r, g, b; };
+inline RGB mixc(RGB a, RGB b, double t) { return {a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t}; }
+inline uint32_t packc(RGB c) { return 0xff000000u | (uint32_t(c.b) << 16) | (uint32_t(c.g) << 8) | uint32_t(c.r); }
+const RGB MARBLE{206, 209, 225}, MLIGHT{219, 222, 236}, MDARK{192, 195, 214}, VEIN{184, 188, 210}, JOINT{158, 163, 192};
+const RGB GOLD{232, 184, 74}, GLIGHT{255, 233, 160}, GDARK{170, 120, 36};
+const RGB SKY{20, 22, 60}, SKY2{44, 34, 98}, CLIGHT{248, 243, 255}, CMID{218, 208, 246}, CSHADE{172, 160, 224}, CRIM{255, 228, 178};
+const RGB STAR{255, 255, 255}, STARG{255, 232, 160}, STARB{190, 215, 255};
+const RGB GEMS[12] = {{255, 107, 77}, {79, 168, 255}, {95, 224, 138}, {255, 225, 77}, {179, 123, 255}, {201, 210, 222},
+                      {255, 138, 216}, {127, 208, 255}, {224, 166, 255}, {255, 179, 71}, {154, 230, 107}, {255, 90, 90}};
+
+// El mármol (dx, dy desde el centro; d, la distancia; vein, el ruido de las vetas; R, el radio)
+RGB marble(double dx, double dy, double d, double vein, double R) {
+  const double Tt = 16;
+  const double ang = std::atan2(dy, dx) / kTau + 0.5;
+  if (d > R - 3) return d > R - 1 ? GDARK : GOLD;
+  if (d < Tt * 1.3) return d > Tt * 1.3 - 2 ? GDARK : (dx + dy < -6 ? GLIGHT : GOLD);
+  if (d < Tt * 5) {
+    if (std::fabs(d - Tt * 4.7) < 1.6) return GOLD;
+    if (std::fabs(d - Tt * 4.7) < 2.6) return GDARK;
+    if (std::fabs(d - Tt * 1.8) < 0.9) return GOLD;
+    const double f = std::fmod(ang * 12, 1.0);
+    const int gi = int(std::floor(ang * 12)) % 12;
+    const double a = (d - Tt * 3.5) / 7, b = (f - 0.5) * kTau * d / 12 / 4;
+    if (std::fabs(a) + std::fabs(b) < 1) return std::fabs(a) + std::fabs(b) < 0.45 ? mixc(GEMS[gi], {255, 255, 255}, 0.45) : GEMS[gi];
+    if (std::min(f, 1 - f) * kTau * d / 12 < 1.1 && d > Tt * 1.8) return GOLD;
+    return mixc(MLIGHT, {255, 246, 222}, 0.35);
+  }
+  for (double rr : {Tt * 10, Tt * 16}) {
+    if (std::fabs(d - rr) < 1.6) return GOLD;
+    if (std::fabs(d - rr) < 2.4) return GDARK;
+    if (std::fabs(d - rr - 5) < 0.6 || std::fabs(d - rr + 5) < 0.6) return GDARK;
+  }
+  if (d > Tt * 12.4 && d < Tt * 13.6) {
+    const double a = (d - Tt * 13) / 7, b = (std::fmod(ang * 24, 1.0) - 0.5) * kTau * d / 24 / 5;
+    if (std::fabs(a) + std::fabs(b) < 1) return std::fabs(a) + std::fabs(b) < 0.4 ? GLIGHT : GOLD;
+  }
+  const double ring = Tt * 2;
+  const int ri = int(std::floor(d / ring));
+  const int nseg = std::max(8, int(std::lround((ri + 0.5) * kTau * ring / (Tt * 2.6))));
+  const double sv = ang * nseg;
+  const int si = int(std::floor(sv));
+  if (std::fmod(d, ring) < 1 || std::min(sv - si, si + 1 - sv) * kTau * d / nseg < 0.9) return JOINT;
+  const double h = hash(ri, si, 977);
+  RGB c = h < 0.33 ? MARBLE : mixc(MARBLE, h < 0.66 ? MLIGHT : MDARK, 0.5);
+  if (std::fabs(vein - 0.5) < 0.008) c = mixc(c, VEIN, 0.8);
+  else if (std::fabs(vein - 0.5) < 0.016) c = mixc(c, VEIN, 0.3);
+  const double k = 1 - d / R;
+  if (k > 0.6) c = mixc(c, {255, 248, 230}, (k - 0.6) * 0.5);
+  else if (d > R - Tt * 1.5) c = mixc(c, MDARK, (d - (R - Tt * 1.5)) / (Tt * 1.5) * 0.6);
+  return c;
+}
+
+// El cielo: nubes (ruido) y estrellas
+RGB sky(World& w, int32_t gx, int32_t gy, double cloud, double depth, int32_t seed) {
+  if (cloud > 0.6) {
+    if (cloud < 0.615) return depth < cloud ? CRIM : CSHADE;
+    if (depth < cloud - 0.012) return CLIGHT;
+    if (depth > cloud + 0.02) return CSHADE;
+    return CMID;
+  }
+  (void)w;
+  RGB c = mixc(SKY, SKY2, std::min(1.0, std::max(0.0, (cloud - 0.25) * 2.2)));
+  const double h = hash(gx, gy, seed + 955);
+  if (h > 0.9993) c = hash(gx, gy, seed + 956) < 0.3 ? STARG : STAR;
+  else if (h > 0.9965) c = mixc(c, hash(gx, gy, seed + 957) < 0.5 ? STARB : STAR, 0.55);
+  return c;
+}
+}  // namespace
+
+void ChunkPainter::paint_origin(int row0, int row1, uint32_t* out) {
+  World& world = *w;
+  const ArenaInfo& a = world.arena();
+  const double cxp = a.tx * T + T / 2.0, cyp = a.ty * T + T / 2.0, R = a.r * T;
+  const int32_t gx0 = cx * N * T, gy0 = cy * N * T, seed = world.seed();
+  // (el ruido, una vez cada 4×4 px: en la 3DS vieja el fbm por píxel es caro)
+  double vein = 0, cl = 0, dp = 0;
+  for (int y = row0 * T; y < row1 * T; ++y)
+    for (int x = 0; x < W; ++x) {
+      const int32_t gx = gx0 + x, gy = gy0 + y;
+      const double dx = gx - cxp, dy = gy - cyp, d = std::sqrt(dx * dx + dy * dy);
+      if ((x & 3) == 0) {
+        const int32_t bx = gx & ~3, by = gy & ~3;
+        if (d <= R + 4) vein = world.fbm(bx / 40.0, by / 40.0, seed + 41);
+        if (d >= R - 4) { cl = world.fbm(bx / 90.0, by / 60.0, seed + 950); dp = world.fbm(bx / 90.0, (by - 6) / 60.0, seed + 950); }
+      }
+      RGB c;
+      if (d <= R) c = marble(dx, dy, d, vein, R);
+      else {
+        c = sky(world, gx, gy, cl + 0.12, dp + 0.12, seed);
+        // (la pared lateral de la plataforma, que cae hacia las nubes)
+        if (d < R + 10 && dy > 0) c = mixc({150, 154, 186}, {104, 108, 148}, (d - R) / 10);
+      }
+      out[y * W + x] = packc(c);
+    }
+}
+
 bool ChunkPainter::paint_rows(int row0, int row1, uint32_t* out) {
   World& world = *w;
   const int32_t seed = world.seed();
   const int32_t tx0 = cx * N, ty0 = cy * N;
   const int32_t gx0 = tx0 * T, gy0 = ty0 * T;
+  // La Sentencia en la Sala del Origen (web, 13-11-2026): plataforma de mármol y oro sobre un
+  // mar de nubes con estrellas (world.js).
+  if (world.arena().on && world.arena().theme == arena_theme_index("judgment")) { paint_origin(row0, row1, out); return row1 >= N; }
   // Máscara de tierra: el ruido se evalúa cada 4 px y se interpola.
   if (row0 == 0) {
     const int S = 4, gw = W / S + 3;

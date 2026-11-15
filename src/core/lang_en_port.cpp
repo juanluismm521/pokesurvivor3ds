@@ -14,7 +14,7 @@ namespace ps {
 
 const Tr kLangEnPort[] = {
     // ---------------- iguales en inglés (para que no se toquen a trozos) ----------------
-    {"Surf", "Surf"}, {"GRIETA · %s · FASE %d", "RIFT · %s · PHASE %d"}, {"GRIETA · {x} · FASE {x}", "RIFT · {x} · PHASE {x}"}, {"¡A salvo!", "Safe!"}, {"Eternatus se retira… ¡llega la Sentencia!", "Eternatus retreats… the Judgment is coming!"}, {"Difícil", "Hard"}, {"Pesadilla", "Nightmare"}, {"%s · ×%.1f monedas y tickets", "%s · ×%.1f coins and tickets"}, {"{x} · ×{x} monedas y tickets", "{x} · ×{x} coins and tickets"},
+    {"Surf", "Surf"}, {"GRAVEDAD", "GRAVITY"}, {"GRIETA · %s · FASE %d", "RIFT · %s · PHASE %d"}, {"GRIETA · {x} · FASE {x}", "RIFT · {x} · PHASE {x}"}, {"¡A salvo!", "Safe!"}, {"Eternatus se retira… ¡llega la Sentencia!", "Eternatus retreats… the Judgment is coming!"}, {"Difícil", "Hard"}, {"Pesadilla", "Nightmare"}, {"%s · ×%.1f monedas y tickets", "%s · ×%.1f coins and tickets"}, {"{x} · ×{x} monedas y tickets", "{x} · ×{x} coins and tickets"},
     {"Vence a Eternatus en %s para desbloquearlo", "Defeat Eternatus on %s to unlock it"}, {"Vence a Eternatus en {x} para desbloquearlo", "Defeat Eternatus on {x} to unlock it"},
     {"A: jugar · < >: dificultad · B: volver", "A: play · < >: difficulty · B: back"},
     {"¡Has desbloqueado la dificultad %s!", "You unlocked the %s difficulty!"}, {"¡Has desbloqueado la dificultad {x}!", "You unlocked the {x} difficulty!"},

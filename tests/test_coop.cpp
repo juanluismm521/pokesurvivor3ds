@@ -223,7 +223,7 @@ TEST_CASE("cooperativo: modo rápido hasta la victoria, las consolas no se separ
     CHECK(a->summary.victory); CHECK(b->summary.victory);
     // Los caramelos son del equipo: el invitado ve los mismos (antes, 0 en su pantalla).
     if (hw) { CHECK(a->players[0].candy >= kCandyJudge); CHECK(b->players[1].candy == a->players[0].candy); CHECK(a->summary.candy == b->summary.candy); }
-    CHECK(sa->arceus_win[a->players[0].dex] > 0);
-    CHECK(sb->arceus_win[b->players[1].dex] > 0);
+    CHECK(sa->arceus_win[a->players[0].start_dex] > 0);
+    CHECK(sb->arceus_win[b->players[1].start_dex] > 0);   // (con el que empezó, aunque haya evolucionado)
   }
 }

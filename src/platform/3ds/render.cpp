@@ -692,6 +692,31 @@ void Renderer::draw_top(Game& g, float eye) {
     }
   }
 
+  // --- la Sentencia: las Aspas Doradas (ruedas de oro que giran por su carril) ---
+  if (g.judg.phase == 2) {
+    for (int l = 0; l < 2; ++l) {
+      float xs[12], ys[12], al;
+      const int n = judgment_spokes(g, l, xs, ys, &al);
+      if (!n) continue;
+      const float R = dist(xs[0], ys[0], g.judg.cx, g.judg.cy) * 0.5f;
+      dot_ring(v.sx(g.judg.cx), v.sy(g.judg.cy), R, R, 1, rgbf(0xffd25e, 0.22f));
+      for (int i = 0; i < n; ++i) {
+        if (!cam.sees(xs[i], ys[i], 60)) continue;
+        const float x = v.sx(xs[i]), y = v.sy(ys[i] - 26), r = 20 * 0.5f + 2;
+        ellipse(x, v.sy(ys[i]), r, r * 0.4f, C2D_Color32(0, 0, 0, uint8_t(70 * al)));
+        C2D_DrawCircleSolid(x, y, 0, r, rgbf(0xaa7824, al));
+        C2D_DrawCircleSolid(x, y, 0, r - 2, rgbf(0xe8b84a, al));
+        const float rot = now * (l ? -9 : 9);
+        for (int k = 0; k < 6; ++k) {
+          const float a = rot + k * kTau / 6;
+          C2D_DrawLine(x, y, rgbf(0xfff0b0, al), x + std::cos(a) * (r - 2), y + std::sin(a) * (r - 2), rgbf(0xffe9a0, al), 2, 0);
+        }
+        C2D_DrawCircleSolid(x, y, 0, 3, rgbf(0xfff6d8, al));
+      }
+    }
+    if (g.judg.grav_t > 0) C2D_DrawRectSolid(0, 0, 0, TOP_W, TOP_H, rgbf(0x4a1f8a, 0.12f));
+  }
+
   // --- campos en el suelo ---
   for (const Field& f : g.fields) {
     if (!cam.sees(f.x, f.y, 60)) continue;
