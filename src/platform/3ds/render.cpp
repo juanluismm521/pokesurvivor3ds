@@ -1934,7 +1934,7 @@ void Renderer::draw_bottom(Game& g, bool autotest) {
             static const uint32_t RB[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
             const float bw = (MW - 4) * k;
             for (int s = 0; s < 6; ++s) C2D_DrawRectSolid(MX + 2 + bw * s / 6, ly + 2, 0, bw / 6 + 0.5f, 7, rgbf(RB[(s + int(g.time * 6)) % 6], 0.75f));
-            std::snprintf(b, sizeof(b), "%s · %d s", kMegas[p.mega].mon.name, int(std::ceil(p.mega_t)));
+            std::snprintf(b, sizeof(b), p.mega_plus_on ? "%s + · %d s" : "%s · %d s", kMegas[p.mega].mon.name, int(std::ceil(p.mega_t)));
             text(b, MX + MW / 2, ly + 1, 0.32f, rgb(0xffffff), 1);
           } else if (p.mega_cd > 0) {
             const float k = 1 - clamp(p.mega_cd / kMegaCooldown, 0.0f, 1.0f);

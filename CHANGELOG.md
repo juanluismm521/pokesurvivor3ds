@@ -19,9 +19,10 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   congelados: se mueven con su animación de andar.
 - **Menú principal renovado** (pantalla de abajo): tus números en tarjetas (runs, mejor tiempo,
   mejor nivel, Pokémon), monedas y tickets en cápsulas y botones con su icono y su color.
-- **Al vencer a Eternatus con tu megapiedra puesta** puedes quedártela (su megaevolución recarga
-  5 s antes) o cambiarla por otro poder. La Megaevolución de Eternatus sale si aún no la has
-  encontrado. Las megapiedras se siguen encontrando como siempre (con la mejora «Megapiedra»).
+- **Al vencer a Eternatus con tu megapiedra puesta** puedes elegir **Megaevolución +**: tu mega dura
+  10 s más, se recarga 5 s antes y pega un 10 % más (medido con el bot: vale lo mismo que llevar la
+  mega y además otro poder, que también se puede elegir). Sin la piedra, la Megaevolución de
+  Eternatus. Las megapiedras se siguen encontrando como siempre (con la mejora «Megapiedra»).
 - Abajo, junto al ataque elegido, su categoría: físico, especial o de estado.
 - **Arreglos:** la Tienda Kecleon volvía a enseñar las MT de hoy (con 92 MT se borraba la lista);
   la Pokédex enseña el número de verdad de las formas regionales y las ordena al final de su

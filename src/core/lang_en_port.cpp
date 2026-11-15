@@ -1082,9 +1082,10 @@ const Tr kLangEnPort[] = {
     {"Nv", "Lv"},   // (la insignia del nivel, abajo)
     {"Mejor tiempo", "Best time"}, {"Mejor nivel", "Best level"},
     {"Runs", "Runs"},
-    {"Quedarte tu megapiedra", "Keep your Mega Stone"},
-    {"Sigues con tu megapiedra y su megaevolución se recarga 5 s antes.", "You keep your Mega Stone and its Mega Evolution recharges 5 s sooner."},
-    {"Te quedas tu megapiedra: su megaevolución recarga 5 s antes", "You keep your Mega Stone: its Mega Evolution recharges 5 s sooner"},
+    {"Megaevolución +", "Mega Evolution +"},
+    {"Ya tienes tu megapiedra: su megaevolución dura 10 s más, se recarga 5 s antes y pega un 10 % más.", "You already have your Mega Stone: its Mega Evolution lasts 10 s longer, recharges 5 s sooner and hits 10% harder."},
+    {"¡Megaevolución +! Tu mega dura más, recarga antes y pega más", "Mega Evolution +! Your Mega lasts longer, recharges sooner and hits harder"},
+    {"%s + · %d s", "%s + · %d s"}, {"{x} + · {x} s", "{x} + · {x} s"},
     {"Arena de Eternatus", "Eternatus arena"}, {"Sala del Origen", "Hall of Origin"},
     {"Formas regionales", "Regional forms"},
     {"Alola", "Alola"}, {"Galar", "Galar"}, {"Hisui", "Hisui"}, {"Paldea", "Paldea"},

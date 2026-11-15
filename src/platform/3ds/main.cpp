@@ -389,6 +389,7 @@ int main(int argc, char** argv) {
       } else if (k == 5) {
         RunConfig c3; c3.dex = 6; c3.seed = 2; c3.judged = 1;
         g->start_run(c3);
+        player_equip(*g, g->players[0], IT_MEGA_A);   // (con su piedra: «Megaevolución +»)
         power_offer(*g, g->players[0]);
         r.card_cursor = 1;
       } else if (k >= 3) {

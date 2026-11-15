@@ -8,6 +8,7 @@
 
 #include "core/anim.h"
 #include "core/game.h"
+#include "core/power.h"
 
 namespace ps {
 
@@ -121,6 +122,9 @@ void mega_start(Game& g, Player& p) {
   set_form(p, &p.mega_buf, own ? d.sprite : p.dex, own ? p.scale : p.scale * 1.15f);
   // El empujón de la mega (se deshace igual al acabar).
   p.atk_mul *= mb.atk;
+  // Megaevolución + (Eternatus, con tu megapiedra): más tiempo y más fuerza
+  p.mega_plus_on = p.mega_plus && !p.power_mega;
+  if (p.mega_plus_on) { p.mega_t += g_mp_time; p.atk_mul *= g_mp_atk; }
   p.spd_mul *= mb.spd;
   p.cd_mul *= mb.cd;
   p.mega_regen = p.max_hp * mb.regen;
@@ -150,6 +154,7 @@ void mega_end(Game& g, Player& p) {
   if (!p.dead && p.hp < 1) p.hp = 1;   // (acabar la mega nunca te deja KO)
   set_form(p, base, p.dex, player_scale(p.dex));
   p.atk_mul /= mb.atk;
+  if (p.mega_plus_on) { p.atk_mul /= g_mp_atk; p.mega_plus_on = false; }
   p.spd_mul /= mb.spd;
   p.cd_mul /= mb.cd;
   p.regen_flat -= p.mega_regen;
@@ -158,7 +163,7 @@ void mega_end(Game& g, Player& p) {
   p.mega = -1;
   p.mega_t = p.mega_tf = 0;
   p.mega_dhp = 0;
-  p.mega_cd = std::fmax(5.0f, kMegaCooldown * p.power_cd_k - p.mega_cut);   // (carta «Poder rápido»; Eternatus: −5 s)
+  p.mega_cd = std::fmax(5.0f, kMegaCooldown * p.power_cd_k - (p.mega_plus ? g_mp_cd : 0.0f));   // (carta «Poder rápido»; Megaevolución +)
   g.fx.burst(p.x, p.y - p.body_h * 0.5f, 0xc47bff, 12, 120);
 }
 

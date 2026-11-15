@@ -14,8 +14,11 @@ const PowerInfo kPowerInfo[PWK_COUNT] = {
     {"Dinamax", "12 s gigante: doble de vida, +40 % de daño, cada golpe salpica a los de alrededor y aplastas lo que pisas. Recarga 80 s.", 12, 80, 0xff3a5a},
     {"Pulsera Z", "Onda expansiva al usarlo y, durante 15 s, una gran Z de tu tipo rueda hacia los enemigos. Al acabar, el movimiento Z arrasa la pantalla. Recarga 60 s.", 15, 60, 0xffd23f},
     {"Teracristal", "30 s con corona de cristal: tus ataques de tu tipo pegan un 80 % más. Recarga 75 s.", 30, 75, 0x7fe8ff},
-    {"Quedarte tu megapiedra", "Sigues con tu megapiedra y su megaevolución se recarga 5 s antes.", 0, 0, 0xc47bff},
+    {"Megaevolución +", "Ya tienes tu megapiedra: su megaevolución dura 10 s más, se recarga 5 s antes y pega un 10 % más.", 0, 0, 0xff8ad8},
 };
+// (medido con build-bal/ps_powers el 15-11-2026, 40 partidas por opción, daño por segundo con la piedra:
+// sólo la piedra 1,019; + Megaevolución + 1,145; + Dinamax 1,103; + Z 1,204; + Teracristal 1,157)
+float g_mp_time = 10, g_mp_cd = 5, g_mp_atk = 1.10f;
 
 namespace {
 void say_to(Game& g, const Player& p, const char* t, float s) { if (&p == &g.players[g.local]) g.say(t, s); }
@@ -98,9 +101,9 @@ void power_choose(Game& g, Player& p, int pick) {
   if (pick < 0 || pick >= p.npower_opts) pick = 0;
   char b[120];
   if (p.power_opts[pick] == PWK_KEEP) {
-    p.mega_cut += kKeepMegaCut;
-    p.mega_cd = std::fmax(0.0f, p.mega_cd - kKeepMegaCut);
-    say_to(g, p, "Te quedas tu megapiedra: su megaevolución recarga 5 s antes", 3.4f);
+    p.mega_plus = true;
+    p.mega_cd = std::fmax(0.0f, p.mega_cd - g_mp_cd);
+    say_to(g, p, "¡Megaevolución +! Tu mega dura más, recarga antes y pega más", 3.4f);
     p.choice = CH_NONE;
     if (g.state == ST_CHOICE && !g.anyone_choosing()) g.state = ST_PLAYING;
     return;

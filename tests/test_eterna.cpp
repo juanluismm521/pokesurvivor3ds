@@ -107,7 +107,7 @@ TEST_CASE("dificultad: más vida y daño de los enemigos; premio ×1,5 y desbloq
   CHECK(s->stats.eterna_wins == 1);
 }
 
-TEST_CASE("poder de Eternatus: con la megapiedra puesta, quedártela (−5 s de recarga) o cambiarla") {
+TEST_CASE("poder de Eternatus: con la megapiedra puesta, Megaevolución + (o cambiarla por otro poder)") {
   std::unique_ptr<Game> g(new Game());
   RunConfig c; c.dex = 6; c.seed = 3; c.judged = 1;
   g->start_run(c);
@@ -117,19 +117,23 @@ TEST_CASE("poder de Eternatus: con la megapiedra puesta, quedártela (−5 s de 
   CHECK(p.power_opts[0] == PWK_MEGA);
   p.choice = CH_NONE; g->state = ST_PLAYING;
   player_equip(*g, p, IT_MEGA_A);
-  power_offer(*g, p);   // con su piedra: quedártela
+  power_offer(*g, p);   // con su piedra: Megaevolución +
   REQUIRE(p.choice == CH_POWER);
   CHECK(p.power_opts[0] == PWK_KEEP);
   for (int i = 1; i < p.npower_opts; ++i) CHECK(p.power_opts[i] != PWK_MEGA);
   power_choose(*g, p, 0);
   CHECK(p.epower == PWK_NONE);
-  CHECK(p.mega_cut == doctest::Approx(kKeepMegaCut));
+  CHECK(p.mega_plus);
   CHECK(p.item == IT_MEGA_A);
+  const float atk0 = p.atk_mul;
   mega_start(*g, p);
   REQUIRE(p.mega >= 0);
+  CHECK(p.mega_t == doctest::Approx(kMegaTime + g_mp_time));
+  CHECK(p.atk_mul == doctest::Approx(atk0 * kMegaAtk * g_mp_atk));
   mega_end(*g, p);
-  CHECK(p.mega_cd == doctest::Approx(kMegaCooldown * p.power_cd_k - kKeepMegaCut));
-  // O cambiarla por otro poder (Dinamax)
+  CHECK(p.atk_mul == doctest::Approx(atk0));
+  CHECK(p.mega_cd == doctest::Approx(kMegaCooldown * p.power_cd_k - g_mp_cd));
+  // O cambiarla por otro poder (Dinamax): la mega de siempre y el poder, los dos con Y
   std::unique_ptr<Game> h(new Game());
   h->start_run(c);
   Player& q = h->pl();
@@ -137,5 +141,5 @@ TEST_CASE("poder de Eternatus: con la megapiedra puesta, quedártela (−5 s de 
   power_offer(*h, q);
   power_choose(*h, q, 1);
   CHECK(q.epower == PWK_DYNA);
-  CHECK(q.mega_cut == 0);
+  CHECK_FALSE(q.mega_plus);
 }
