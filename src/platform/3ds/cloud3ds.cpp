@@ -73,6 +73,7 @@ std::string g_run_id;            // el id de la partida en curso (begin_run), si
 cloud::PullReq g_pull;
 Json g_pull_results;
 std::string g_pull_code;
+int64_t g_claim_asked = 0, g_claim_paid = 0;
 void save_runq() {   // (con g_qlock cogido)
   const std::string t = g_runq.dump();
   const std::string p = g_dir + "/runq.json", tmp = p + ".tmp";
@@ -395,6 +396,7 @@ void worker(void*) {
         save_account();
         g_result = merged;
         g_remote = c.last_remote;
+        g_claim_asked = c.claim_asked; g_claim_paid = c.claim_paid;
         ok = true;
       } else {
         g_err = c.error.empty() ? "No se ha podido sincronizar." : c.error;
@@ -562,6 +564,7 @@ bool check_job() { return g_kind == 7; }
 bool run_job() { return g_kind == 8; }
 const Json& pull_results() { return g_pull_results; }
 const std::string& pull_code() { return g_pull_code; }
+void claim_cut(int64_t& asked, int64_t& paid) { asked = g_claim_asked; paid = g_claim_paid; g_claim_asked = g_claim_paid = 0; }
 
 JobState state() { return JobState(g_state); }
 const Json& result() { return g_result; }

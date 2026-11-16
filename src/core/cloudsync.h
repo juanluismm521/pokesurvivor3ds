@@ -70,6 +70,10 @@ struct Client {
   // Esperar (lo pone la plataforma; null = no se espera y se avisa). Para el
   // tope de pokesurvivor.com entre dos guardados de la misma partida.
   void (*sleep_ms)(int ms, void* ctx) = nullptr;
+  // Monedas de las partidas cobradas en la última sincronización: las que se pidieron y las
+  // que ha sumado pokesurvivor.com (tiene un tope de lo que se gana en poco tiempo: lo de más
+  // no lo paga, también en la web). La plataforma avisa si no cuadran.
+  int64_t claim_asked = 0, claim_paid = 0;
 };
 
 // Compañero de una partida como un número: dex·2 + shiny (-1 si no tiene).

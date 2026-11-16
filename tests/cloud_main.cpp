@@ -140,6 +140,7 @@ int main(int argc, char** argv) {
   if (!qpath.empty()) { const std::string q = runq.dump(); if (FILE* f = std::fopen(qpath.c_str(), "wb")) { std::fwrite(q.data(), 1, q.size(), f); std::fclose(f); } std::printf("cola: quedan %d\n", int(runq.size())); }
   const std::string out = merged.dump();
   if (argc > 5) { FILE* f = std::fopen(argv[5], "wb"); if (f) { std::fwrite(out.data(), 1, out.size(), f); std::fclose(f); } }
+  if (c.claim_asked) std::printf("partidas: pedidas %lld monedas, pagadas %lld\n", (long long)c.claim_asked, (long long)c.claim_paid);
   std::printf("ok uid=%s monedas=%g reloj=%lld\n", s.uid.c_str(), merged["coins"].as_num(), (long long)c.clock_delta);
   { const std::string ap = cloud::profile_name(c, s); if (!ap.empty()) std::printf("apodo: %s\n", ap.c_str()); }   // (el nombre que pone la consola)
   curl_global_cleanup();

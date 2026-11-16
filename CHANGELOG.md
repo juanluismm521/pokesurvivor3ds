@@ -14,6 +14,9 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   con tu cuenta enlazada el gacha tira en el servidor de pokesurvivor.com, como la web. Por eso,
   con cuenta, el gacha necesita conexión: al abrirlo la consola se conecta y, si no hay internet,
   lo explica (pokesurvivor.com limita el gacha sin conexión para evitar trampas).
+  Con una cuenta recién creada, las partidas esperan en la consola hasta su primer guardado en la
+  web (antes se perdían) y, si pokesurvivor.com no paga todo por su tope de lo que se gana en poco
+  tiempo, la consola te dice cuánto ha contado.
 - **Se sube de nivel como antes** (3 veces más despacio que en la web nueva): menos pantallas de
   cartas y cada una cuenta más. Para que la partida siga igual de dura, los enemigos, los jefes y
   Eternatus tienen menos vida (medido con el bot, en los dos modos).

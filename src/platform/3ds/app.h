@@ -126,6 +126,9 @@ class App {
   bool quit = false;
   bool autotest = false;
   bool no_gifts = false;
+  // Aviso si pokesurvivor.com no ha pagado todas las monedas de tus partidas (su tope)
+  void claim_notice(int64_t asked, int64_t paid);
+  void claim_demo() { news_checked_ = true; cloud_asked_ = true; claim_notice(21488, 12457); }   // (autotest «tope»)
   void open_gacha(bool force);   // abre el gacha (con cuenta, comprobando la conexión)
   static constexpr int kGenForms = 10;   // la sección «Formas regionales» de la colección (después de las 9 generaciones)     // (autotest: no abre los regalos del servidor)
   uint32_t start_ms = 0;   // lo que tardó en empezar la última partida

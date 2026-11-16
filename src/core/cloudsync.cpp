@@ -366,7 +366,10 @@ int send_claims(Client& c, Session& s, Json& runq, int64_t local_now_ms) {
     Json rest = Json::array();
     for (size_t i = 1; i < runq.size(); ++i) rest.push(runq[i]);
     runq = rest;
-    if (rs.status == 200) sent++;
+    if (rs.status == 200) {
+      sent++;
+      if (!j["again"].as_bool()) c.claim_asked += int64_t(e["claim"]["coins"].as_num(0));   // (repetida: ya se cobró)
+    }
   }
   return sent;
 }
@@ -418,7 +421,6 @@ bool pull(Client& c, Session& s, const Json& local_in, const std::string& dev, i
   const bool is_pull = req.n > 0;
   if (!refresh(c, s)) return false;
   // Primero, lo ganado en las partidas (el servidor lo suma a la partida de la nube).
-  if (runq) send_claims(c, s, *runq, local_now_ms);
   // Como db.js de la web (11-2026): se lee la partida y su versión (rev) de
   // la API y se sube con rev + 1. Si otro la ha guardado entre medias, la API
   // contesta 409 con la suya: se junta y se repite.
@@ -426,6 +428,19 @@ bool pull(Client& c, Session& s, const Json& local_in, const std::string& dev, i
   Json j;
   if (!api(c, s, "GET", "/save", nullptr, rs, j)) return false;
   if (rs.status != 200 && rs.status != 404) { c.error = api_error(j, rs.status); return false; }
+  // Lo ganado en las partidas (el servidor lo suma a la partida de la nube) y se vuelve a leer.
+  // Sólo si la cuenta ya tiene partida en la nube: a una cuenta nueva (antes de su primer
+  // guardado, que pide el «no soy un robot» en la web) el servidor le acepta el reclamo pero
+  // no le suma nada, y se perdería. Se queda en la cola hasta entonces.
+  c.claim_asked = c.claim_paid = 0;
+  if (runq && rs.status == 200 && runq->size() > 0) {
+    const double before = j["save"]["coins"].as_num(0);
+    if (send_claims(c, s, *runq, local_now_ms) > 0) {
+      if (!api(c, s, "GET", "/save", nullptr, rs, j)) return false;
+      if (rs.status != 200) { c.error = api_error(j, rs.status); return false; }
+      c.claim_paid = std::max<int64_t>(0, int64_t(j["save"]["coins"].as_num(0) - before + 0.5));
+    }
+  }
   if (rs.date_ms) c.clock_delta = rs.date_ms - local_now_ms;
   Json remote = rs.status == 200 ? j["save"] : Json();
   int64_t rev = rs.status == 200 ? int64_t(j["rev"].as_num(0)) : 0;

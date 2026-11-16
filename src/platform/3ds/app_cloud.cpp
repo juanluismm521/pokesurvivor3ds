@@ -176,6 +176,12 @@ void App::cloud_tick() {
   if (!pulling_ && scene == SC_RUN && g_->state != ST_OVER) return;   // (en plena partida, se espera)
   const bool was_pull = pulling_ && cloud3ds::pull_job();
   const bool ok = apply_cloud_save(cloud3ds::result());
+  // Lo que pokesurvivor.com no ha pagado de tus partidas (su tope): que no parezca que se pierde.
+  {
+    int64_t asked = 0, paid = 0;
+    cloud3ds::claim_cut(asked, paid);
+    if (ok) claim_notice(asked, paid);
+  }
   if (was_pull) {
     pulling_ = false;
     cloud_done = 0;   // (no es una sincronización: sin aviso)
@@ -205,6 +211,13 @@ void App::cloud_tick() {
     return;
   }
   cloud3ds::finish();
+}
+
+void App::claim_notice(int64_t asked, int64_t paid) {
+  if (asked - paid < 20) return;
+  char t[96];
+  std::snprintf(t, sizeof(t), "Han contado %lld de %lld monedas", (long long)paid, (long long)asked);
+  g_notices.push(t, "pokesurvivor.com limita lo que se gana en poco tiempo", -1);
 }
 
 bool App::apply_cloud_save(Json merged) {

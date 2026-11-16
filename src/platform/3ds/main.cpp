@@ -90,6 +90,7 @@ struct Autotest {
   int mode_demo = 0;          // "modo" / "medalla": capturas de la elección de modo y de la medalla
   bool win = false;
   int hw = -1;                // "… halloween" / "… nohalloween": forzar el evento (o quitarlo) en las pruebas
+  bool tope_demo = false;     // "tope": el aviso de las monedas que pokesurvivor.com no ha pagado (captura)
   bool gift_demo = false;     // "regalo": la pantalla de los regalos, cerrado y abierto (capturas)
   bool gacha_net = false;     // "gachared": abre el gacha comprobando la conexión (con cuenta)
   bool shop_demo = false;     // "tienda": la Tienda Kecleon, compra una MT y una Menta y enseña la Mochila (capturas)
@@ -140,6 +141,7 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "gachared")) a.gacha_net = true;
   else if (!std::strcmp(first, "ficha")) a.ficha_demo = true;
   else if (!std::strcmp(first, "regalo")) a.gift_demo = true;
+  else if (!std::strcmp(first, "tope")) a.tope_demo = true;
   else if (!std::strcmp(first, "novedades")) { a.news = true; a.dex = 6; if (std::fscanf(f, "%d", &a.dex) != 1) a.dex = 6; }
   else if (!std::strcmp(first, "fallo")) { char w[16] = ""; a.fallo = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "hilo")) ? 2 : 1; }
   else if (!std::strcmp(first, "programa")) { char w[16] = ""; a.programa = (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "volver")) ? 2 : 1; }
@@ -361,6 +363,7 @@ int main(int argc, char** argv) {
   if (at.gacha_net) { app.open_gacha(true); at.on = false; }
   if (at.ficha_demo) { app.start_ficha_demo(); at.on = false; }
   if (at.gift_demo) { app.start_gift_demo(); at.on = false; }
+  if (at.tope_demo) { app.claim_demo(); at.on = false; }
   if (at.update_demo) { app.start_update_demo(); at.on = false; }
   if (at.fallo) {
     if (at.log) { std::fprintf(at.log, "fallo a propósito (%s)\n", at.fallo == 2 ? "hilo" : "principal"); std::fclose(at.log); at.log = nullptr; }

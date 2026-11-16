@@ -69,6 +69,9 @@ bool start_check();
 bool check_job();
 bool run_job();                  // el trabajo es el id de una partida (begin_run)                 // el trabajo de ahora (o el que acaba de terminar) es una tirada
 const Json& pull_results();
+// Monedas de las partidas cobradas en la última sincronización (pedidas y pagadas: el servidor
+// tiene un tope). Se leen una vez (luego quedan a 0).
+void claim_cut(int64_t& asked, int64_t& paid);
 const std::string& pull_code();
 
 void shutdown();

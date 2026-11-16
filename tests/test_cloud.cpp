@@ -2,12 +2,14 @@
 // partidas. Con un Firestore falso (sin red) que hace lo mismo que el de verdad.
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cstring>
 #include <ctime>
 #include <memory>
 #include <string>
 
 #include "core/cloudsync.h"
+#include "core/runclaim.h"
 #include "core/save.h"
 #include "core/save_io.h"
 #include "core/websave.h"
@@ -31,6 +33,9 @@ struct FakeFs {
   Json eco;                  // lo que el servidor devuelve al guardar
   bool no_direct = false;    // la API directa no responde (red de la consola)
   int bridged = 0;           // peticiones que han ido por el puente
+  int claims = 0, lost = 0;  // reclamos de partida cobrados / aceptados sin partida (perdidos)
+  double cap = 1e18;         // tope de monedas ganadas (como el de pokesurvivor.com)
+  double earned = 0;
 };
 
 void fake_sleep(int ms, void* ctx) { FakeFs& fs = *static_cast<FakeFs*>(ctx); fs.now += ms; fs.waited_ms += ms; }
@@ -55,6 +60,17 @@ bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
   if (u.rfind(api, 0) != 0 || !bearer) { rs.status = 404; rs.body = "Not found"; return true; }
   if (fs.expired > 0) { fs.expired--; rs.status = 401; rs.body = "{\"error\":\"auth\"}"; return true; }
   const std::string path = u.substr(api.size());
+  // Como pokesurvivor.com (16-11-2026): sin partida en la nube acepta el reclamo pero no suma nada.
+  if (path == "/run/end" && rq.method == "POST") {
+    if (!fs.save.is_obj()) { fs.lost++; rs.body = "{\"ok\":true,\"mastery\":{\"dex\":4,\"pts\":33}}"; return true; }
+    Json b; b.parse(rq.body);
+    fs.claims++;
+    const double add = std::min(b["claim"]["coins"].as_num(), std::max(0.0, fs.cap - fs.earned));
+    fs.earned += add;
+    fs.save.set("coins", Json::num(fs.save["coins"].as_num() + add));
+    rs.body = "{\"ok\":true}";
+    return true;
+  }
   if (path == "/me" && rq.method == "GET") { rs.body = "{\"nick\":\"Ana\"}"; return true; }
   if (path == "/save" && rq.method == "GET") {
     if (!fs.save.is_obj()) { rs.status = 404; rs.body = "{\"error\":\"none\"}"; return true; }
@@ -440,5 +456,40 @@ TEST_CASE("sincronizar: si la consola no llega a la API, va por el puente de nue
   CHECK(fs.bridged >= 2);
   CHECK(c.cfg.api_base == "https://puente/webapi");
   CHECK(cloud::profile_name(c, ses) == "Ana");
+  save_raw() = Json();
+}
+
+TEST_CASE("sincronizar: con una cuenta nueva (sin partida en la nube) las partidas esperan en la cola") {
+  FakeFs fs;
+  fs.human = true;   // (cuenta recién creada: el primer guardado pide el «no soy un robot»)
+  cloud::Client c;
+  c.http = fake_http; c.ctx = &fs;
+  cloud::Session ses;
+  REQUIRE(cloud::login(c, "Ana", "x", ses));
+  Json q = Json::array(), cl = Json::object(), merged;
+  cl.set("coins", Json::num(247));
+  runq_push(q, cl, 1800000000000LL);
+  CHECK(!cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", 1800000002000LL, merged, &q));
+  CHECK(fs.lost == 0);
+  CHECK(q.size() == 1);   // (no se ha mandado: se habría perdido)
+  // Ya pasó el «no soy un robot» en la web y tiene partida: se cobra y se ve al sincronizar.
+  fs.human = false;
+  fs.save = web::new_save("Ana", 1);
+  fs.save.set("coins", Json::num(600));
+  fs.now += 60000;
+  REQUIRE_MESSAGE(cloud::sync(c, ses, web::new_save("Ana", 1), "ctrprueba", fs.now, merged, &q), c.error);
+  CHECK(fs.claims == 1);
+  CHECK(fs.lost == 0);
+  CHECK(q.size() == 0);
+  CHECK(merged["coins"].as_num() == 847);
+  CHECK(c.claim_asked == 247);
+  CHECK(c.claim_paid == 247);
+  // El tope del servidor: de 500 sólo paga 300, y la consola lo sabe (para avisar)
+  fs.cap = fs.earned + 300;
+  runq_push(q, cl, fs.now); runq_push(q, cl, fs.now + 1);
+  fs.now += 60000;
+  REQUIRE_MESSAGE(cloud::sync(c, ses, merged, "ctrprueba", fs.now, merged, &q), c.error);
+  CHECK(c.claim_asked == 494);
+  CHECK(c.claim_paid == 300);
   save_raw() = Json();
 }
