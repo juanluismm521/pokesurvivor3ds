@@ -48,6 +48,20 @@ const Json& last_remote();     // la partida de la nube antes de sincronizar (co
 const std::string& error();
 void finish();                   // vuelve a JOB_IDLE
 
+// Lo ganado en las partidas (core/runclaim.h): desde el 15-11-2026 pokesurvivor.com sólo lo suma si
+// le llega con su reclamo. Cada partida que acaba deja el suyo en runq.json (SD); se cobran al
+// sincronizar, antes de leer la partida (con la cuenta con la que se jugaron, o con la primera
+// con la que entres si se jugaron sin cuenta).
+void queue_claim(const Json& claim);
+int queued_claims();
+// El gacha con la cuenta de la web: se tira en el servidor (como la web). Al acabar bien, result()
+// es la partida resultante y pull_results() lo que ha salido; si falla, pull_code(): "tickets",
+// "closed" u otro (error()).
+bool start_pull(const Json& local, int n, int gen, bool t10);
+bool pull_job();                 // el trabajo de ahora (o el que acaba de terminar) es una tirada
+const Json& pull_results();
+const std::string& pull_code();
+
 void shutdown();
 // Red de la consola (socInit), compartida con el juego online. Una sola vez.
 bool soc_up();

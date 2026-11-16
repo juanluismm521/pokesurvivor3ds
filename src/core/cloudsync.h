@@ -102,7 +102,26 @@ bool refresh(Client& c, Session& s);
 // Sube y baja: `local` es la partida completa de la 3DS; `dev`, el nombre de
 // este aparato en la libreta; `local_now_ms`, la hora de la consola. Deja en
 // `merged` la partida fusionada (la que queda en la nube).
-bool sync(Client& c, Session& s, const Json& local, const std::string& dev, int64_t local_now_ms, Json& merged);
+//
+// Desde el 15-11-2026 el servidor de pokesurvivor.com sólo da por buenas las monedas, tickets y
+// Pokémon que ganas si le llegan por su API: lo ganado en una partida, con su «reclamo»
+// (POST /run/end, como db.js de la web), y lo del gacha, tirando en el servidor (/eco/pull).
+// Lo que la consola sume a mano en la partida lo quita al guardar. `runq` (si no es null) es la
+// cola de reclamos de esta consola ([{id, end, claim}], ver core/runclaim.h): se cobran antes de
+// leer la partida y se quitan de la cola los que el servidor ya ha contestado.
+bool sync(Client& c, Session& s, const Json& local, const std::string& dev, int64_t local_now_ms, Json& merged,
+          Json* runq = nullptr);
+// Cobra los reclamos de la cola (los que el servidor contesta salen de ella; con un corte de red
+// o el servidor ocupado se para y quedan para la próxima). Devuelve cuántos ha cobrado.
+int send_claims(Client& c, Session& s, Json& runq, int64_t local_now_ms);
+// Tirada del gacha en el servidor (como serverPull de db.js): n = 10 o 100 (o 1), gen = el banner
+// de la web, t10 = pagar con tickets ×10. Junta la partida local con la de la nube, tira, deja en
+// `merged` la partida resultante y en `results` lo que ha salido ([{dex, rarity, shiny, isNew,
+// refund}], dex con el número de la web). `code`: "tickets" (no te llega), "closed" (banner
+// cerrado) u "" si fue otra cosa (c.error).
+struct PullReq { int n = 10; int gen = 1; bool t10 = false; std::string op; };
+bool pull(Client& c, Session& s, const Json& local, const std::string& dev, int64_t local_now_ms, const PullReq& req,
+          Json& merged, Json& results, std::string& code, Json* runq = nullptr);
 // El apodo de jugador de la cuenta (GET /me: el que se ve en pokesurvivor.com).
 // Vacío si no tiene (o no se puede leer). Tras sync (usa su id_token).
 std::string profile_name(Client& c, const Session& s);

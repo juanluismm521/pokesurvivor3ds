@@ -161,6 +161,8 @@ void Game::start_run(const RunConfig& c, Save* s) {
   banner[0] = 0; banner_t = 0;
   sfx_queue.clear();
   ncaught = 0;
+  nrescued = 0;
+  bonus_coins = 0;
   over_ready = false;
   heal_shown = heal_acc = 0;
 
@@ -243,7 +245,7 @@ void Game::on_shiny_caught(int dex) {
   say(b, 4);
   // En grupo las monedas de la partida son del equipo (iguales en todas las
   // consolas): lo que depende de TU colección va directo a tu partida guardada.
-  if (!fresh) { if (nplayers > 1) { if (save) { save->coins += 300; dirty = true; } } else p.coins += 300; }
+  if (!fresh) { if (nplayers > 1) { if (save) { save->coins += 300; dirty = true; } bonus_coins += 300; } else p.coins += 300; }
   sfx(SFX_SHINYGET);
 }
 
@@ -252,7 +254,8 @@ void Game::on_rescue(int dex) {
   Player& p = pl();
   extern bool save_grant(Game & g, int dex);
   const bool fresh = save ? save_grant(*this, dex) : true;
-  if (!fresh) { if (nplayers > 1) { if (save) { save->coins += 150; dirty = true; } } else p.coins += 150; }
+  if (nrescued < 16) rescued_dex[nrescued++] = int16_t(dex);
+  if (!fresh) { if (nplayers > 1) { if (save) { save->coins += 150; dirty = true; } bonus_coins += 150; } else p.coins += 150; }
   const Mon* m = mon_by_dex(dex);
   char b[96];
   if (fresh) std::snprintf(b, sizeof(b), "¡%s se une a tu equipo!", m ? m->name : "");

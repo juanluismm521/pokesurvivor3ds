@@ -11,6 +11,7 @@
 #include "core/bot.h"
 #include "core/gacha.h"
 #include "core/game.h"
+#include "core/json.h"
 #include "core/lockstep.h"
 #include "core/save.h"
 #include "core/settings.h"
@@ -237,6 +238,11 @@ class App {
   int nspins() const { return npulls_ == 100 ? 10 : npulls_; }
   const PullResult& spin(int i) const;
   int npulls_ = 0, pull_i_ = 0;
+  bool pulling_ = false;          // tirada en el servidor de pokesurvivor.com, esperando su respuesta
+  bool pull_had_iris_ = false;
+  float pull_wait_t_ = 0;
+  void pull_show();
+  bool apply_cloud_save(Json merged);   // pone en la consola la partida que deja la nube
   float pull_t_ = 0;
   bool pull_fast_ = false, pull_done_ = false;
   int tab_ = 0;

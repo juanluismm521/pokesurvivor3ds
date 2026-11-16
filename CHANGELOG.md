@@ -7,6 +7,11 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 
 ## 1.0.0 — en preparación (sin publicar)
 **La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor): la 1.0.
+- **Arreglado: sincronizar ya no deshace lo ganado.** Desde el 15-11 pokesurvivor.com sólo da por
+  buenas las monedas, tickets y Pokémon que le llegan por su servidor, y al sincronizar quitaba lo
+  ganado en la consola (las monedas de las partidas, los Pokémon del gacha). Ahora cada partida
+  guarda en la SD lo que has ganado y se cobra al sincronizar (también si jugaste sin conexión), y
+  con tu cuenta enlazada el gacha tira en el servidor de pokesurvivor.com, como la web.
 - **Se sube de nivel como antes** (3 veces más despacio que en la web nueva): menos pantallas de
   cartas y cada una cuenta más. Para que la partida siga igual de dura, los enemigos, los jefes y
   Eternatus tienen menos vida (medido con el bot, en los dos modos).

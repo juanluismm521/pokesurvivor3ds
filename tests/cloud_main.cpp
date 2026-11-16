@@ -121,7 +121,23 @@ int main(int argc, char** argv) {
   } else if (!cloud::login(c, argv[1], argv[2], s)) { std::fprintf(stderr, "login: %s\n", c.error.c_str()); return 1; }
   const int64_t now = std::atoll(env("PS_NOW", "0")) ? std::atoll(env("PS_NOW", "0")) : int64_t(std::time(nullptr)) * 1000;
   Json merged;
-  if (!cloud::sync(c, s, local, argv[4], now, merged)) { std::fprintf(stderr, "sync: %s\n", c.error.c_str()); return 1; }
+  // PS_RUNQ=fichero: la cola de reclamos de partidas (se cobra y se reescribe con lo que queda)
+  Json runq = Json::array();
+  const std::string qpath = env("PS_RUNQ", "");
+  if (!qpath.empty()) { std::string t; if (FILE* f = std::fopen(qpath.c_str(), "rb")) { char b[8192]; size_t n; while ((n = std::fread(b, 1, sizeof(b), f)) > 0) t.append(b, n); std::fclose(f); } runq.parse(t); if (!runq.is_arr()) runq = Json::array(); }
+  // PS_PULL="n,gen,t10|t1": tirar en el gacha del servidor
+  const std::string pl = env("PS_PULL", "");
+  if (!pl.empty()) {
+    cloud::PullReq rq;
+    char use[8] = "t1";
+    std::sscanf(pl.c_str(), "%d,%d,%7s", &rq.n, &rq.gen, use);
+    rq.t10 = std::string(use) == "t10";
+    rq.op = "p" + std::to_string(now) + "ctr";
+    Json results; std::string code;
+    if (!cloud::pull(c, s, local, argv[4], now, rq, merged, results, code, qpath.empty() ? nullptr : &runq)) { std::fprintf(stderr, "pull: %s (%s)\n", c.error.c_str(), code.c_str()); return 1; }
+    std::printf("tirada: %s\n", results.dump().c_str());
+  } else if (!cloud::sync(c, s, local, argv[4], now, merged, qpath.empty() ? nullptr : &runq)) { std::fprintf(stderr, "sync: %s\n", c.error.c_str()); return 1; }
+  if (!qpath.empty()) { const std::string q = runq.dump(); if (FILE* f = std::fopen(qpath.c_str(), "wb")) { std::fwrite(q.data(), 1, q.size(), f); std::fclose(f); } std::printf("cola: quedan %d\n", int(runq.size())); }
   const std::string out = merged.dump();
   if (argc > 5) { FILE* f = std::fopen(argv[5], "wb"); if (f) { std::fwrite(out.data(), 1, out.size(), f); std::fclose(f); } }
   std::printf("ok uid=%s monedas=%g reloj=%lld\n", s.uid.c_str(), merged["coins"].as_num(), (long long)c.clock_delta);

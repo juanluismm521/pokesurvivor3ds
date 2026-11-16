@@ -10,8 +10,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <string>
+#include <vector>
 
 #include "core/dns_fallback.h"
+#include "core/runclaim.h"
 #include "core/update.h"
 #include "core/version.h"
 #include "gen/build.h"
@@ -63,6 +66,22 @@ const char kGoogleClientId[] = "";
 const char kGoogleClientSecret[] = "";
 std::string g_name, g_pass, g_err, g_curl_err;
 Json g_local, g_result, g_remote;
+// Cola de reclamos de partidas (runq.json) y la tirada del gacha en curso
+LightLock g_qlock;
+Json g_runq = Json::array();
+cloud::PullReq g_pull;
+Json g_pull_results;
+std::string g_pull_code;
+void save_runq() {   // (con g_qlock cogido)
+  const std::string t = g_runq.dump();
+  const std::string p = g_dir + "/runq.json", tmp = p + ".tmp";
+  if (FILE* f = std::fopen(tmp.c_str(), "wb")) {
+    std::fwrite(t.data(), 1, t.size(), f);
+    std::fclose(f);
+    std::remove(p.c_str());
+    std::rename(tmp.c_str(), p.c_str());
+  }
+}
 
 std::string path(const char* f) { return g_dir + "/" + f; }
 
@@ -244,7 +263,7 @@ void worker(void*) {
       c.sleep_ms = [](int ms, void*) { for (int k = 0; k < ms / 100 && !g_quit; ++k) svcSleepThread(100000000ll); };
       c.clock_delta = g_acc.delta;
       // Entrar (otra cuenta, o la misma de nuevo): como la primera vez.
-      c.base_partner = g_kind == 2 ? g_acc.synced_partner : -1;
+      c.base_partner = g_kind == 2 || g_kind == 6 ? g_acc.synced_partner : -1;
       cloud::Session s;
       s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
       bool in = true;
@@ -309,13 +328,43 @@ void worker(void*) {
         g_pass.clear();
       }
       Json merged;
-      if (in && cloud::sync(c, s, g_local, g_acc.dev, now_ms(), merged)) {
+      // Los reclamos de esta cuenta (o sin cuenta) se cobran al sincronizar; los que el servidor
+      // conteste salen de la cola (los que se apunten mientras, se quedan).
+      Json mine = Json::array();
+      std::vector<std::string> copied;
+      LightLock_Lock(&g_qlock);
+      for (const Json& e : g_runq.elems())
+        if (!e["uid"].is_str() || e["uid"].as_str().empty() || e["uid"].as_str() == s.uid) { mine.push(e); copied.push_back(e["k"].as_str()); }
+      LightLock_Unlock(&g_qlock);
+      bool done = false;
+      if (in && g_kind == 6) {
+        g_pull_results = Json();
+        done = cloud::pull(c, s, g_local, g_acc.dev, now_ms(), g_pull, merged, g_pull_results, g_pull_code, &mine);
+      } else if (in) {
+        done = cloud::sync(c, s, g_local, g_acc.dev, now_ms(), merged, &mine);
+      }
+      if (in && mine.size() != copied.size()) {
+        // (cobrados: los que se mandaron y ya no están en `mine`)
+        LightLock_Lock(&g_qlock);
+        Json keep = Json::array();
+        for (const Json& e : g_runq.elems()) {
+          const std::string k = e["k"].as_str();
+          bool was = false, left = false;
+          for (const std::string& q : copied) was = was || q == k;
+          for (const Json& m : mine.elems()) left = left || m["k"].as_str() == k;
+          if (!was || left) keep.push(e);
+        }
+        g_runq = keep;
+        save_runq();
+        LightLock_Unlock(&g_qlock);
+      }
+      if (done) {
         g_acc.on = true;
         // El nombre: tu apodo de jugador de pokesurvivor.com si lo tienes (con
         // Google, el de la cuenta de Google sería «Juan»); si no, el de la cuenta.
         const std::string apodo = cloud::profile_name(c, s);
         if (!apodo.empty()) s.name = apodo;
-        if (g_kind != 2) g_acc.google = g_kind == 3;
+        if (g_kind != 2 && g_kind != 6) g_acc.google = g_kind == 3;
         g_acc.name = s.name; g_acc.uid = s.uid; g_acc.refresh = s.refresh_token;
         g_acc.delta = c.clock_delta;
         g_acc.last_sync = now_ms();
@@ -334,7 +383,7 @@ void worker(void*) {
         if (g_curl_err.find("SSL") != std::string::npos || g_curl_err.find("certificate") != std::string::npos ||
             g_curl_err.find("CA ") != std::string::npos || g_curl_err.find("peer") != std::string::npos)
           g_err = "No se puede comprobar la conexión segura (" + g_curl_err + "). Prueba a actualizar el juego.";
-        if (g_kind == 2 && c.error.find("caducado") != std::string::npos) { g_acc.on = false; save_account(); }
+        if ((g_kind == 2 || g_kind == 6) && c.error.find("caducado") != std::string::npos) { g_acc.on = false; save_account(); }
       }
     }
     g_state = ok ? JOB_DONE : JOB_FAILED;
@@ -367,6 +416,12 @@ void init(const char* dir) {
   g_cfg.google_client_id = kGoogleClientId;
   g_cfg.google_client_secret = kGoogleClientSecret;
   LightLock_Init(&g_glock);
+  LightLock_Init(&g_qlock);
+  {   // la cola de reclamos de partidas
+    std::string q;
+    Json j;
+    if (read_file(path("runq.json"), q) && j.parse(q) && j.is_arr()) g_runq = j;
+  }
   // Pruebas: nube.json en la SD apunta a otro Firebase (el emulador del VPS).
   std::string t;
   Json o;
@@ -438,6 +493,39 @@ bool start_sync(const Json& local) {
   g_local = local;
   return start(2);
 }
+
+void queue_claim(const Json& claim) {
+  LightLock_Lock(&g_qlock);
+  runq_push(g_runq, claim, now_ms());
+  // (su cuenta, y una clave para saber cuál se ha cobrado)
+  Json& e = g_runq.elems().back();
+  e.set("uid", Json::str(g_acc.on ? g_acc.uid : ""));
+  char k[40];
+  std::snprintf(k, sizeof(k), "%llx%04x", (unsigned long long)osGetTime(), unsigned(svcGetSystemTick() & 0xffff));
+  e.set("k", Json::str(k));
+  save_runq();
+  LightLock_Unlock(&g_qlock);
+}
+int queued_claims() {
+  LightLock_Lock(&g_qlock);
+  const int n = int(g_runq.size());
+  LightLock_Unlock(&g_qlock);
+  return n;
+}
+bool start_pull(const Json& local, int n, int gen, bool t10) {
+  if (g_state == JOB_BUSY || !g_acc.on) return false;
+  g_local = local;
+  g_pull = cloud::PullReq();
+  g_pull.n = n; g_pull.gen = gen; g_pull.t10 = t10;
+  char op[40];
+  std::snprintf(op, sizeof(op), "p%llx%s", (unsigned long long)osGetTime(), g_acc.dev.c_str());
+  g_pull.op = op;
+  g_pull_code.clear();
+  return start(6);
+}
+bool pull_job() { return g_kind == 6; }
+const Json& pull_results() { return g_pull_results; }
+const std::string& pull_code() { return g_pull_code; }
 
 JobState state() { return JobState(g_state); }
 const Json& result() { return g_result; }

@@ -17,6 +17,7 @@
 #include "core/gacha.h"
 #include "core/i18n.h"
 #include "core/progress.h"
+#include "core/runclaim.h"
 #include "core/abilities.h"
 #include "core/mega.h"
 #include "core/power.h"
@@ -828,7 +829,12 @@ void App::in_run(const UiIn& in) {
     if (over_tab_ < 0 || over_tab_ >= g.nplayers) over_tab_ = g.local;
     if (g.nplayers > 1 && (in.down & (KEY_L | KEY_R))) { over_tab_step((in.down & KEY_R) ? 1 : -1); audio::play("hover"); }
     if (g.dirty) save_now();
-    if (!over_synced_) { over_synced_ = true; cloud_autostart(); }   // (a la nube, si hay cuenta)
+    if (!over_synced_) {
+      over_synced_ = true;
+      // Lo ganado, con su reclamo para pokesurvivor.com (sin él, el servidor lo quita al sincronizar)
+      if (g.save && (!autotest || auto_real)) cloud3ds::queue_claim(run_claim(g));
+      cloud_autostart();   // (a la nube, si hay cuenta)
+    }
     if (coop_) {
       // En grupo: un momento para que los demás reciban lo último; luego, al menú.
       if (coop_over_t_ > 1.5f && (in.down & (KEY_A | KEY_B))) { coop_leave(); go(SC_MENU); }
@@ -2007,6 +2013,7 @@ void App::in_gacha(const UiIn& in) {
   // L/R (o tocar las flechas del selector): región anterior / siguiente.
   // (L/R ya suenan en update(); al tocar suena el clic)
   const bool ev = hw3ds::on();
+  if (pulling_) return;   // (esperando la tirada del servidor)
   if (!gacha_open(bgen_, ev)) bgen_ = 1;   // (se acabó Halloween con el gacha abierto)
   if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) bgen_ = gacha_prev(bgen_, ev);
   if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) bgen_ = gacha_next(bgen_, ev);
@@ -2026,11 +2033,30 @@ void App::in_gacha(const UiIn& in) {
   const int n = pick < 2 ? 10 : 100;
   const bool t10 = pick == 1 || pick == 3;
   if (!gacha_open(bgen_, hw3ds::on())) return;
+  {
+    int c1 = 0, c10 = 0;
+    if (!gacha_cost(*s_, n, t10, c1, c10)) { audio::play("error"); g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
+  }
+  // Con la cuenta de pokesurvivor.com, se tira en su servidor (desde el 15-11-2026 sólo valen
+  // los Pokémon que salen ahí): sale cuando contesta (pull_tick).
+  if (cloud3ds::account().on && !autotest) {
+    if (bgen_ == kGachaAll) { audio::play("error"); g_notices.push("«Todas» es sólo de la 3DS", "Con tu cuenta de pokesurvivor.com, elige una región para tirar.", -1); return; }
+    if (cloud3ds::state() != cloud3ds::JOB_IDLE) { audio::play("error"); g_notices.push("Un momento: se está sincronizando", "Prueba otra vez en unos segundos.", -1); return; }
+    pull_had_iris_ = gacha_has_iris(*s_, bgen_);
+    cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
+    if (cloud3ds::start_pull(save_full_json(*s_), n, bgen_, t10)) { pulling_ = true; pull_wait_t_ = 0; audio::play("select"); }
+    return;
+  }
   const bool had_iris = gacha_has_iris(*s_, bgen_);
   Rng rr(uint32_t(osGetTime()) ^ 0x9e3779b9u);
   npulls_ = gacha_pull(*s_, n, bgen_, t10, rr, now_ms(), pulls_);
   if (!npulls_) { audio::play("error"); g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
   iris_gen_ = !had_iris && gacha_has_iris(*s_, bgen_) ? bgen_ : -1;
+  pull_show();
+}
+
+// Enseña la tirada que acaba de salir (del port o del servidor): el resumen de la ×100 y la tragaperras.
+void App::pull_show() {
   progress_check_ach(*s_, now_ms());
   save_now();
   // Resumen de la ×100: de mejor a peor (shiny, rareza, nuevo).
@@ -2156,6 +2182,16 @@ void App::bottom_gacha() {
     r_->text(L[i], 160, y + 4, 0.4f, ok ? C_TEXT : C2D_Color32(110, 120, 140, 255), 1);
   }
   r_->text(cur_ < 0 ? "Elige con arriba/abajo (o toca) · B: volver" : "Cada ×10 garantiza una Épica · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  if (pulling_) {   // tirando en el servidor de pokesurvivor.com
+    C2D_DrawRectSolid(0, 0, 0, 320, 240, C2D_Color32(6, 10, 20, 200));
+    rrect(40, 92, 240, 56, C2D_Color32(24, 34, 60, 250));
+    rframe(40, 92, 240, 56, rgb(0xffd23f));
+    const int dots = int(pull_wait_t_ * 3) % 4;
+    char w[64];
+    std::snprintf(w, sizeof(w), "%s%.*s", tr("Tirando en pokesurvivor.com"), dots, "...");
+    r_->text(w, 160, 102, 0.42f, C_GOLD, 1);
+    r_->text(tr("Con tu cuenta, el gacha va por su servidor"), 160, 124, 0.3f, C_MUTED, 1);
+  }
 }
 
 void App::top_pull() {

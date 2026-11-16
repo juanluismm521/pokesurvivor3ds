@@ -10,6 +10,9 @@
 #include <cstring>
 #include <string>
 
+#include "core/gacha.h"
+#include "core/gamedata.h"
+#include "core/progress.h"
 #include "core/save_io.h"
 #include "core/settings.h"
 #include "core/websave.h"
@@ -144,15 +147,59 @@ void App::cloud_tick() {
   // La que esperaba: en cuanto la otra acaba y no hay partida en marcha.
   if (cloud_want_ && cloud3ds::state() == cloud3ds::JOB_IDLE && !(scene == SC_RUN && g_->state != ST_OVER)) cloud_autostart();
   const cloud3ds::JobState st = cloud3ds::state();
+  if (pulling_) pull_wait_t_ += 1.0f / 60;
   if (st == cloud3ds::JOB_FAILED) {
     std::snprintf(cloud_msg_, sizeof(cloud_msg_), "%s", cloud3ds::error().c_str());
+    if (pulling_ && cloud3ds::pull_job()) {   // (la tirada no ha salido: no se ha gastado nada)
+      pulling_ = false;
+      audio::play("error");
+      const std::string& code = cloud3ds::pull_code();
+      if (code == "tickets") g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1);
+      else if (code == "closed") g_notices.push("Ese banner está cerrado", "", -1);
+      else g_notices.push("No se ha podido tirar", cloud3ds::error().c_str(), -1);
+      cloud3ds::finish();
+      return;
+    }
     cloud3ds::finish();
     cloud_done = -1;
     return;
   }
   if (st != cloud3ds::JOB_DONE) return;
-  if (scene == SC_RUN && g_->state != ST_OVER) return;   // (en plena partida, se espera)
-  Json merged = cloud3ds::result();
+  if (!pulling_ && scene == SC_RUN && g_->state != ST_OVER) return;   // (en plena partida, se espera)
+  const bool was_pull = pulling_ && cloud3ds::pull_job();
+  const bool ok = apply_cloud_save(cloud3ds::result());
+  if (was_pull) {
+    pulling_ = false;
+    cloud_done = 0;   // (no es una sincronización: sin aviso)
+    // Lo que ha salido en el servidor, como una tirada de la consola
+    const Json& rs = cloud3ds::pull_results();
+    npulls_ = 0;
+    for (const Json& r : rs.elems()) {
+      if (npulls_ >= 100) break;
+      PullResult& p = pulls_[npulls_];
+      const int d = form_from_web(int(r["dex"].as_num(0)));
+      if (d < 1 || d > kMaxDex) continue;
+      p.dex = int16_t(d);
+      p.rarity = int8_t(r["rarity"].as_num(1));
+      p.shiny = r["shiny"].as_bool();
+      p.is_new = r["isNew"].as_bool();
+      p.refund = int(r["refund"].as_num(0));
+      npulls_++;
+    }
+    cloud3ds::finish();
+    if (ok && npulls_ > 0) {
+      iris_gen_ = !pull_had_iris_ && gacha_has_iris(*s_, bgen_) ? bgen_ : -1;
+      pull_show();
+    } else {
+      audio::play("error");
+      g_notices.push("No se ha podido tirar", "", -1);
+    }
+    return;
+  }
+  cloud3ds::finish();
+}
+
+bool App::apply_cloud_save(Json merged) {
   // Si has cambiado algo mientras (una compra, o lo de la partida que acaba de
   // terminar y aún no se ha guardado), se junta otra vez.
   if (web::sync_changed_since(s_->updated, cloud_t0_updated_, g_->dirty)) {
@@ -184,11 +231,11 @@ void App::cloud_tick() {
     std::snprintf(cloud_msg_, sizeof(cloud_msg_), "Sincronizado: %d monedas · %d Pokémon", int(s_->coins), owned);
     if (!s_->partner || !s_->owns(s_->partner)) s_->partner = 0;
     cloud_done = 1;
-  } else {
-    std::snprintf(cloud_msg_, sizeof(cloud_msg_), "La partida de la nube no se ha podido leer");
-    cloud_done = -1;
+    return true;
   }
-  cloud3ds::finish();
+  std::snprintf(cloud_msg_, sizeof(cloud_msg_), "La partida de la nube no se ha podido leer");
+  cloud_done = -1;
+  return false;
 }
 
 void App::in_cloudask(const UiIn& in) {

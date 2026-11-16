@@ -555,7 +555,12 @@ struct Game {
   // noche; si no, los de siempre (que van turnándose con los de las arenas, como la web).
   int run_biome(int i) const { i = i < 0 ? 0 : i; return hw ? kBiomeHw + i % 3 : i % kBiomeHw; }
   int candy_dropped = 0;        // caramelos soltados (los que van con el tiempo: candy_take)
-  int rifts_won = 0;            // legendarios de grieta vencidos en esta partida (maestría)
+  int rifts_won = 0;
+  // Para el reclamo de la partida (core/runclaim.h): los rescatados y las monedas que fueron
+  // directas a la partida guardada (en grupo: shinies y rescatados repetidos)
+  int16_t rescued_dex[16] = {};
+  int nrescued = 0;
+  int bonus_coins = 0;            // legendarios de grieta vencidos en esta partida (maestría)
   int eterna_wins = 0;          // Eternatus vencido en esta partida (stats.eternaWins y la dificultad siguiente)
   int pending_levels = 0;
   Save* save = nullptr;

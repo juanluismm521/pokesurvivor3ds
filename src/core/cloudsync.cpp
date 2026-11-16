@@ -336,8 +336,78 @@ void apply_eco(Json& save, const Json& eco) {
 }
 }  // namespace
 
-bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, int64_t local_now_ms, Json& merged) {
+int send_claims(Client& c, Session& s, Json& runq, int64_t local_now_ms) {
+  if (!runq.is_arr()) return 0;
+  int sent = 0;
+  while (runq.size() > 0) {
+    const Json e = runq[0];
+    Json body = Json::object();
+    body.set("id", e["id"].is_str() ? e["id"] : Json());
+    body.set("claim", e["claim"]);
+    body.set("ago", Json::num(std::max(0.0, double(local_now_ms) - e["end"].as_num(double(local_now_ms)))));
+    const std::string b = body.dump();
+    HttpResp rs;
+    Json j;
+    const std::string keep = c.error;
+    if (!api(c, s, "POST", "/run/end", &b, rs, j)) { c.error = keep; break; }   // (sin red: la próxima vez)
+    if (rs.status >= 500 || rs.status == 429 || rs.status == 0) break;          // (ocupado: la próxima vez)
+    // Contestado (cobrado, o rechazado para siempre): fuera de la cola
+    Json rest = Json::array();
+    for (size_t i = 1; i < runq.size(); ++i) rest.push(runq[i]);
+    runq = rest;
+    if (rs.status == 200) sent++;
+  }
+  return sent;
+}
+
+namespace {
+// Lo que deja el servidor en la partida tras una tirada (patch de /eco/pull, como db.js).
+void apply_pull_patch(Json& save, const Json& resp) {
+  const Json& p = resp["patch"];
+  if (!p.is_obj()) return;
+  if (p["coins"].is_num()) save.set("coins", Json::num(std::max(0.0, std::floor(p["coins"].as_num()))));
+  if (p["tickets"].is_obj()) {
+    Json t = Json::object();
+    t.set("t1", Json::num(std::max(0.0, std::floor(p["tickets"]["t1"].as_num(0)))));
+    t.set("t10", Json::num(std::max(0.0, std::floor(p["tickets"]["t10"].as_num(0)))));
+    save.set("tickets", t);
+  }
+  if (p["led"].is_obj()) save.set("led", p["led"]);
+  for (const char* k : {"owned", "shiny", "pity"}) {
+    Json& dst = save.ref(k);
+    if (!dst.is_obj()) dst = Json::object();
+  }
+  if (resp["drop"].is_obj())
+    for (const char* k : {"owned", "shiny"})
+      if (resp["drop"][k].is_arr()) {
+        Json keep = Json::object();
+        for (const auto& kv : save[k].items()) {
+          bool drop = false;
+          for (const Json& d : resp["drop"][k].elems()) if ((d.is_str() ? d.as_str() : std::to_string(int64_t(d.as_num()))) == kv.first) drop = true;
+          if (!drop) keep.set(kv.first, kv.second);
+        }
+        save.set(k, keep);
+      }
+  for (const char* k : {"owned", "shiny", "pity"})
+    if (p[k].is_obj()) for (const auto& kv : p[k].items()) save.ref(k).set(kv.first, kv.second);
+  if (p["pulls"].is_num()) { Json& st = save.ref("stats"); if (!st.is_obj()) st = Json::object(); st.set("pulls", Json::num(std::floor(p["pulls"].as_num()))); }
+  for (const char* k : {"eggs", "eggGacha", "eggGachaGot"}) if (!p[k].is_null()) save.set(k, p[k]);
+}
+}  // namespace
+
+bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, int64_t local_now_ms, Json& merged, Json* runq) {
+  Json no_results;
+  std::string no_code;
+  return pull(c, s, local_in, dev, local_now_ms, PullReq{0, 0, false, ""}, merged, no_results, no_code, runq);
+}
+
+bool pull(Client& c, Session& s, const Json& local_in, const std::string& dev, int64_t local_now_ms, const PullReq& req,
+          Json& merged, Json& results, std::string& code, Json* runq) {
+  code.clear();
+  const bool is_pull = req.n > 0;
   if (!refresh(c, s)) return false;
+  // Primero, lo ganado en las partidas (el servidor lo suma a la partida de la nube).
+  if (runq) send_claims(c, s, *runq, local_now_ms);
   // Como db.js de la web (11-2026): se lee la partida y su versión (rev) de
   // la API y se sube con rev + 1. Si otro la ha guardado entre medias, la API
   // contesta 409 con la suya: se junta y se repite.
@@ -390,14 +460,36 @@ bool sync(Client& c, Session& s, const Json& local_in, const std::string& dev, i
       const std::string nick = profile_name(c, s);
       if (!nick.empty()) merged.set("name", Json::str(nick));
     }
-    // Subir
+    // Subir (o tirar en el gacha: la tirada lleva la partida, como serverPull de la web)
     Json body = Json::object();
+    if (is_pull) {
+      body.set("op", Json::str(req.op));
+      body.set("n", Json::num(req.n));
+      body.set("gen", Json::num(req.gen));
+      body.set("use", Json::str(req.t10 ? "t10" : "t1"));
+    }
     body.set("save", merged);
     body.set("rev", Json::num(double(rev + 1)));
     body.set("eco", Json::num(2));   // (como la web del 13-11-2026: versión del eco que entiende)
     const std::string b = body.dump();
-    if (!api(c, s, "PUT", "/save", &b, rs, j)) return false;
+    if (!api(c, s, is_pull ? "POST" : "PUT", is_pull ? "/eco/pull" : "/save", &b, rs, j)) return false;
+    if (rs.status == 200 && is_pull) {
+      apply_pull_patch(merged, j);
+      results = j["results"].is_arr() ? j["results"] : Json::array();
+      return true;
+    }
     if (rs.status == 200) { apply_eco(merged, j["eco"]); return true; }
+    if (is_pull && rs.status == 409 && j["error"].as_str() == "tickets") {
+      if (j["saldo"].is_obj()) {   // (lo que de verdad tienes)
+        if (j["saldo"]["coins"].is_num()) merged.set("coins", j["saldo"]["coins"]);
+        if (j["saldo"]["tickets"].is_obj()) merged.set("tickets", j["saldo"]["tickets"]);
+        if (j["saldo"]["led"].is_obj()) merged.set("led", j["saldo"]["led"]);
+      }
+      code = "tickets";
+      c.error = "No tienes tickets suficientes.";
+      return false;
+    }
+    if (is_pull && rs.status == 400 && j["error"].as_str() == "closed") { code = "closed"; c.error = "Ese banner está cerrado."; return false; }
     // Otro aparato ha guardado entre medias: se junta con la suya y se repite.
     if (rs.status == 409 && j["error"].as_str() == "rev") {
       if (j["save"].is_obj()) { remote = j["save"]; c.last_remote = remote; }
