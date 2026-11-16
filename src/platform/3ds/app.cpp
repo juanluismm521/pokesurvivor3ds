@@ -279,6 +279,7 @@ void App::start_run() {
   g_->now_ms = now_ms();
   r_->sprites.async = false;   // precarga: todo en el momento
   g_->start_run(cfg, autotest && !auto_real ? nullptr : s_);
+  if (!autotest || auto_real) cloud3ds::begin_run();   // (el id de la partida para su reclamo, si hay cuenta y conexión)
   g_->debug_immortal = autotest && auto_immortal_;
   if (autotest && auto_power >= 0) { Player& ap = g_->pl(); ap.epower = int8_t(auto_power); ap.power_cd = 0; }   // (capturas de los poderes)
   g_->debug_win = autotest && auto_win;   // (capturas y pruebas de la victoria: Game::debug_win)
@@ -953,6 +954,14 @@ void App::bottom_test() {
 static float menu_x(int i) { return 8 + (i % 3) * 104.0f; }
 static float menu_y(int i) { return 66 + (i / 3) * 52.0f; }
 
+// Con la cuenta de pokesurvivor.com, el gacha sólo con conexión: se comprueba al entrar.
+// (force: el autotest «gachared» también la comprueba)
+void App::open_gacha(bool force) {
+  gacha_net_ = cloud3ds::account().on && (!autotest || force) ? 1 : 0;
+  gacha_net_t_ = 0;
+  go(SC_GACHA);
+}
+
 void App::in_menu(const UiIn& in) {
   const int n = 9;
   if (in.rep & KEY_DUP) cur_ = (cur_ + n - 3) % n;
@@ -981,7 +990,7 @@ void App::in_menu(const UiIn& in) {
     case 4:
       // Halloween: la primera vez, en la Noche Espectral (como la web).
       if (hw3ds::on() && !spooky_seen_) { spooky_seen_ = true; bgen_ = kGachaSpooky; }
-      go(SC_GACHA);
+      open_gacha(false);
       break;
     case 5: go(SC_GOALS); break;
     case 6: go(SC_SETTINGS); break;
@@ -2014,6 +2023,24 @@ void App::in_gacha(const UiIn& in) {
   // (L/R ya suenan en update(); al tocar suena el clic)
   const bool ev = hw3ds::on();
   if (pulling_) return;   // (esperando la tirada del servidor)
+  // Comprobando la conexión (con cuenta): se espera a que acabe lo que haya en marcha y se prueba
+  if (gacha_net_ == 1) {
+    gacha_net_t_ += 1.0f / 60;
+    const cloud3ds::JobState st = cloud3ds::state();
+    if (cloud3ds::check_job() && (st == cloud3ds::JOB_DONE || st == cloud3ds::JOB_FAILED)) {
+      gacha_net_ = st == cloud3ds::JOB_DONE ? 0 : 2;
+      if (gacha_net_ == 2) audio::play("error");
+      cloud3ds::finish();
+    } else if (st == cloud3ds::JOB_IDLE) {
+      if (!cloud3ds::start_check()) gacha_net_ = 2;
+    }
+    if (in.down & KEY_B) { gacha_net_ = 0; go(SC_MENU); }
+    return;
+  }
+  if (gacha_net_ == 2) {   // sin conexión: sólo volver
+    if ((in.down & (KEY_B | KEY_A)) || in.tap) { gacha_net_ = 0; go(SC_MENU); }
+    return;
+  }
   if (!gacha_open(bgen_, ev)) bgen_ = 1;   // (se acabó Halloween con el gacha abierto)
   if ((in.down & KEY_L) || in_rect(&in, 10, 58, 90, 34)) bgen_ = gacha_prev(bgen_, ev);
   if ((in.down & KEY_R) || in_rect(&in, 220, 58, 90, 34)) bgen_ = gacha_next(bgen_, ev);
@@ -2182,6 +2209,27 @@ void App::bottom_gacha() {
     r_->text(L[i], 160, y + 4, 0.4f, ok ? C_TEXT : C2D_Color32(110, 120, 140, 255), 1);
   }
   r_->text(cur_ < 0 ? "Elige con arriba/abajo (o toca) · B: volver" : "Cada ×10 garantiza una Épica · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+  if (gacha_net_ != 0) {   // comprobando la conexión, o sin ella
+    C2D_DrawRectSolid(0, 0, 0, 320, 240, C2D_Color32(6, 10, 20, 225));
+    if (gacha_net_ == 1) {
+      rrect(40, 92, 240, 56, C2D_Color32(24, 34, 60, 250));
+      rframe(40, 92, 240, 56, rgb(0xffd23f));
+      const int dots = int(gacha_net_t_ * 3) % 4;
+      char w[80];
+      std::snprintf(w, sizeof(w), "%s%.*s", tr("Conectando con pokesurvivor.com"), dots, "...");
+      r_->text_fit(w, 160, 102, 228, 0.4f, C_GOLD, false, 1);
+      r_->text(tr("B: volver"), 160, 124, 0.3f, C_MUTED, 1);
+    } else {
+      rrect(14, 44, 292, 156, C2D_Color32(24, 34, 60, 250));
+      rframe(14, 44, 292, 156, rgb(0xff6b6b));
+      r_->text(tr("Hace falta conexión a internet"), 160, 54, 0.5f, rgb(0xff8a8a), 1, true);
+      r_->text_wrap(tr("pokesurvivor.com está limitando el gacha sin conexión para evitar a la gente que hace trampas. Estamos tratando de solucionarlo: disculpa las molestias."),
+                    160, 82, 0.42f, C_TEXT, 268, 1);
+      r_->text_wrap(tr("Conéctate a internet y vuelve a entrar en el gacha."), 160, 154, 0.36f, C_GOLD, 268, 1);
+      r_->text(tr("A o B: volver al menú"), 160, 182, 0.32f, C_MUTED, 1);
+    }
+    return;
+  }
   if (pulling_) {   // tirando en el servidor de pokesurvivor.com
     C2D_DrawRectSolid(0, 0, 0, 320, 240, C2D_Color32(6, 10, 20, 200));
     rrect(40, 92, 240, 56, C2D_Color32(24, 34, 60, 250));

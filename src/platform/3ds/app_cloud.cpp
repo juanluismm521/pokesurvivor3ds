@@ -146,6 +146,14 @@ bool App::cloud_test(const char* user, const char* pass) {
 void App::cloud_tick() {
   // La que esperaba: en cuanto la otra acaba y no hay partida en marcha.
   if (cloud_want_ && cloud3ds::state() == cloud3ds::JOB_IDLE && !(scene == SC_RUN && g_->state != ST_OVER)) cloud_autostart();
+  if (cloud3ds::run_job() && cloud3ds::state() != cloud3ds::JOB_IDLE) {   // (el id de la partida: nada que aplicar)
+    if (cloud3ds::state() != cloud3ds::JOB_BUSY) cloud3ds::finish();
+    return;
+  }
+  if (cloud3ds::check_job() && cloud3ds::state() != cloud3ds::JOB_IDLE) {   // (la comprobación del gacha: la recoge in_gacha)
+    if (scene != SC_GACHA && cloud3ds::state() != cloud3ds::JOB_BUSY) cloud3ds::finish();   // (se salió antes de que acabara)
+    return;
+  }
   const cloud3ds::JobState st = cloud3ds::state();
   if (pulling_) pull_wait_t_ += 1.0f / 60;
   if (st == cloud3ds::JOB_FAILED) {

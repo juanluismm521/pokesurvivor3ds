@@ -69,6 +69,7 @@ Json g_local, g_result, g_remote;
 // Cola de reclamos de partidas (runq.json) y la tirada del gacha en curso
 LightLock g_qlock;
 Json g_runq = Json::array();
+std::string g_run_id;            // el id de la partida en curso (begin_run), si ha llegado
 cloud::PullReq g_pull;
 Json g_pull_results;
 std::string g_pull_code;
@@ -252,6 +253,27 @@ void worker(void*) {
     g_curl_host.clear();
     if (!net_up()) {
       g_err = "No hay conexión a internet (¿wifi apagado?).";
+    } else if (g_kind == 8) {   // el id de la partida que empieza
+      cloud::Client c;
+      c.cfg = g_cfg;
+      c.http = http;
+      cloud::Session s;
+      s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
+      std::string id;
+      ok = cloud::run_start(c, s, id);
+      LightLock_Lock(&g_qlock);
+      if (ok) g_run_id = id;
+      LightLock_Unlock(&g_qlock);
+      if (!ok) g_err = c.error;
+    } else if (g_kind == 7) {   // sólo comprobar la conexión: renovar la sesión
+      cloud::Client c;
+      c.cfg = g_cfg;
+      c.http = http;
+      cloud::Session s;
+      s.name = g_acc.name; s.uid = g_acc.uid; s.refresh_token = g_acc.refresh;
+      ok = cloud::refresh(c, s);
+      if (ok && !s.refresh_token.empty() && s.refresh_token != g_acc.refresh) { g_acc.refresh = s.refresh_token; save_account(); }
+      if (!ok) g_err = c.error.empty() ? "Sin conexión a internet." : c.error;
     } else {
       cloud::Client c;
       c.cfg = g_cfg;
@@ -494,11 +516,19 @@ bool start_sync(const Json& local) {
   return start(2);
 }
 
+void begin_run() {
+  LightLock_Lock(&g_qlock);
+  g_run_id.clear();
+  LightLock_Unlock(&g_qlock);
+  if (g_state == JOB_IDLE && g_acc.on) start(8);
+}
 void queue_claim(const Json& claim) {
   LightLock_Lock(&g_qlock);
   runq_push(g_runq, claim, now_ms());
-  // (su cuenta, y una clave para saber cuál se ha cobrado)
+  // (su cuenta, su id si llegó, y una clave para saber cuál se ha cobrado)
   Json& e = g_runq.elems().back();
+  if (!g_run_id.empty()) e.set("id", Json::str(g_run_id));
+  g_run_id.clear();
   e.set("uid", Json::str(g_acc.on ? g_acc.uid : ""));
   char k[40];
   std::snprintf(k, sizeof(k), "%llx%04x", (unsigned long long)osGetTime(), unsigned(svcGetSystemTick() & 0xffff));
@@ -524,6 +554,12 @@ bool start_pull(const Json& local, int n, int gen, bool t10) {
   return start(6);
 }
 bool pull_job() { return g_kind == 6; }
+bool start_check() {
+  if (g_state == JOB_BUSY || !g_acc.on) return false;
+  return start(7);
+}
+bool check_job() { return g_kind == 7; }
+bool run_job() { return g_kind == 8; }
 const Json& pull_results() { return g_pull_results; }
 const std::string& pull_code() { return g_pull_code; }
 

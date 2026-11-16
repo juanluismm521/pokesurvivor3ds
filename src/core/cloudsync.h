@@ -114,6 +114,8 @@ bool sync(Client& c, Session& s, const Json& local, const std::string& dev, int6
 // Cobra los reclamos de la cola (los que el servidor contesta salen de ella; con un corte de red
 // o el servidor ocupado se para y quedan para la próxima). Devuelve cuántos ha cobrado.
 int send_claims(Client& c, Session& s, Json& runq, int64_t local_now_ms);
+// Al empezar una partida con conexión (como la web): el id con el que irá su reclamo.
+bool run_start(Client& c, Session& s, std::string& id);
 // Tirada del gacha en el servidor (como serverPull de db.js): n = 10 o 100 (o 1), gen = el banner
 // de la web, t10 = pagar con tickets ×10. Junta la partida local con la de la nube, tira, deja en
 // `merged` la partida resultante y en `results` lo que ha salido ([{dex, rarity, shiny, isNew,

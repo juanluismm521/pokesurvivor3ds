@@ -1104,6 +1104,13 @@ const Tr kLangEnPort[] = {
     {"No se ha podido tirar", "Couldn't pull"},
     {"No tienes tickets suficientes.", "You don't have enough tickets."},
     {"Ese banner está cerrado.", "That banner is closed."},
+    {"Conectando con pokesurvivor.com", "Connecting to pokesurvivor.com"},
+    {"Hace falta conexión a internet", "Internet connection required"},
+    {"pokesurvivor.com está limitando el gacha sin conexión para evitar a la gente que hace trampas. Estamos tratando de solucionarlo: disculpa las molestias.", "pokesurvivor.com is limiting the offline gacha to stop people who cheat. We're working on a solution: sorry for the inconvenience."},
+    {"Conéctate a internet y vuelve a entrar en el gacha.", "Connect to the internet and open the gacha again."},
+    {"A o B: volver al menú", "A or B: back to the menu"},
+    {"B: volver", "B: back"},
+    {"La nube ha rechazado la partida (permiso denegado", "The cloud rejected the save (permission denied"},
     // Novedades de la 1.0
     {"Subes de nivel como antes", "You level up like before"},
     {"Menos pantallas de cartas y cada una cuenta más. Los enemigos tienen menos vida: la partida es igual de dura.", "Fewer card screens and each one matters more. Enemies have less HP: runs are just as tough."},

@@ -11,7 +11,9 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
   buenas las monedas, tickets y Pokémon que le llegan por su servidor, y al sincronizar quitaba lo
   ganado en la consola (las monedas de las partidas, los Pokémon del gacha). Ahora cada partida
   guarda en la SD lo que has ganado y se cobra al sincronizar (también si jugaste sin conexión), y
-  con tu cuenta enlazada el gacha tira en el servidor de pokesurvivor.com, como la web.
+  con tu cuenta enlazada el gacha tira en el servidor de pokesurvivor.com, como la web. Por eso,
+  con cuenta, el gacha necesita conexión: al abrirlo la consola se conecta y, si no hay internet,
+  lo explica (pokesurvivor.com limita el gacha sin conexión para evitar trampas).
 - **Se sube de nivel como antes** (3 veces más despacio que en la web nueva): menos pantallas de
   cartas y cada una cuenta más. Para que la partida siga igual de dura, los enemigos, los jefes y
   Eternatus tienen menos vida (medido con el bot, en los dos modos).

@@ -53,12 +53,21 @@ void finish();                   // vuelve a JOB_IDLE
 // sincronizar, antes de leer la partida (con la cuenta con la que se jugaron, o con la primera
 // con la que entres si se jugaron sin cuenta).
 void queue_claim(const Json& claim);
+// Al empezar una partida (con cuenta y sin otro trabajo en marcha): pide su id a pokesurvivor.com
+// en segundo plano; queue_claim lo pone en el reclamo si ha llegado (si no, va sin id, como las
+// partidas sin conexión).
+void begin_run();
 int queued_claims();
 // El gacha con la cuenta de la web: se tira en el servidor (como la web). Al acabar bien, result()
 // es la partida resultante y pull_results() lo que ha salido; si falla, pull_code(): "tickets",
 // "closed" u otro (error()).
 bool start_pull(const Json& local, int n, int gen, bool t10);
-bool pull_job();                 // el trabajo de ahora (o el que acaba de terminar) es una tirada
+bool pull_job();
+// ¿Hay conexión con pokesurvivor.com? (renueva la sesión de la cuenta; no toca la partida). Al
+// abrir el gacha con cuenta: sin conexión no se entra (el servidor quitaría lo que saliera).
+bool start_check();
+bool check_job();
+bool run_job();                  // el trabajo es el id de una partida (begin_run)                 // el trabajo de ahora (o el que acaba de terminar) es una tirada
 const Json& pull_results();
 const std::string& pull_code();
 

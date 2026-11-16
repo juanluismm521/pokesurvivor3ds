@@ -126,6 +126,7 @@ class App {
   bool quit = false;
   bool autotest = false;
   bool no_gifts = false;
+  void open_gacha(bool force);   // abre el gacha (con cuenta, comprobando la conexión)
   static constexpr int kGenForms = 10;   // la sección «Formas regionales» de la colección (después de las 9 generaciones)     // (autotest: no abre los regalos del servidor)
   uint32_t start_ms = 0;   // lo que tardó en empezar la última partida
   Scene scene = SC_MENU;
@@ -238,7 +239,9 @@ class App {
   int nspins() const { return npulls_ == 100 ? 10 : npulls_; }
   const PullResult& spin(int i) const;
   int npulls_ = 0, pull_i_ = 0;
-  bool pulling_ = false;          // tirada en el servidor de pokesurvivor.com, esperando su respuesta
+  bool pulling_ = false;
+  int gacha_net_ = 0;             // gacha con cuenta: 0 se puede, 1 comprobando la conexión, 2 sin conexión
+  float gacha_net_t_ = 0;          // tirada en el servidor de pokesurvivor.com, esperando su respuesta
   bool pull_had_iris_ = false;
   float pull_wait_t_ = 0;
   void pull_show();

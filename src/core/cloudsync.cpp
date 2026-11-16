@@ -336,6 +336,17 @@ void apply_eco(Json& save, const Json& eco) {
 }
 }  // namespace
 
+bool run_start(Client& c, Session& s, std::string& id) {
+  id.clear();
+  if (!refresh(c, s)) return false;
+  HttpResp rs;
+  Json j;
+  const std::string b = "{}";
+  if (!api(c, s, "POST", "/run/start", &b, rs, j) || rs.status != 200 || !j["id"].is_str()) return false;
+  id = j["id"].as_str();
+  return true;
+}
+
 int send_claims(Client& c, Session& s, Json& runq, int64_t local_now_ms) {
   if (!runq.is_arr()) return 0;
   int sent = 0;
@@ -509,7 +520,8 @@ bool pull(Client& c, Session& s, const Json& local_in, const std::string& dev, i
       --attempt;   // (esperar no cuenta como intento)
       continue;
     }
-    c.error = rs.status == 403 && j["error"].as_str() != "human" ? "La nube ha rechazado la partida (permiso denegado)." : api_error(j, rs.status);
+    c.error = rs.status == 403 && j["error"].as_str() != "human" ? "La nube ha rechazado la partida (permiso denegado" + (j["error"].is_str() && !j["error"].as_str().empty() ? ": " + j["error"].as_str() : std::string()) + ")." : api_error(j, rs.status);
+    if (std::getenv("PS_DEBUG")) std::fprintf(stderr, "PUT %d %s\n", rs.status, rs.body.substr(0, 600).c_str());
     return false;
   }
   c.error = "La nube está ocupada; prueba otra vez.";
