@@ -97,6 +97,7 @@ struct Autotest {
   bool ficha_demo = false;    // "ficha": la ficha de tu compañero: naturaleza, habilidad y MT (capturas)
   char abil[40] = "", nature[16] = "";   // "… habilidad=static naturaleza=bold": las de la partida
   int weekly = -2;
+  float power_at = 0;
   int power = -1;             // "… poder=dinamax" (z, tera, mega): con ese poder de Eternatus desde el principio            // "… semanal" (el de esta semana) o "semanal=noche" (con esa condición: id de la web o «noche»)
   bool aura = false;          // "… aura": con el aura de maestro (maestría completa)
   bool skin = false;          // "… disfraz": el compañero con su disfraz de Halloween           // "… ganar": modo rápido, acelera la Sentencia hasta ganar a Arceus (capturas de la victoria)
@@ -198,6 +199,7 @@ void read_autotest(Autotest& a) {
         const char* id = w + 6;
         a.power = !std::strcmp(id, "dinamax") ? PWK_DYNA : !std::strcmp(id, "z") ? PWK_Z : !std::strcmp(id, "tera") ? PWK_TERA : !std::strcmp(id, "mega") ? PWK_MEGA : -1;
       }
+      else if (!std::strncmp(w, "poderen=", 8)) a.power_at = float(std::atof(w + 8));
       else if (!std::strcmp(w, "semanal")) a.weekly = -1;
       else if (!std::strncmp(w, "semanal=", 8)) {
         a.weekly = -1;
@@ -554,7 +556,7 @@ int main(int argc, char** argv) {
     app.auto_skin = at.skin;
     app.auto_aura = at.aura;
     app.auto_weekly = at.weekly;
-    app.auto_power = at.power;
+    app.auto_power = at.power; app.auto_power_at = at.power_at;
     app.set_coop_autotest(at.host, at.dex, at.immortal, at.online, at.die);
     app.auto_mega = at.coop_mega;
     app.auto_coop_time = int(at.warp);
@@ -583,7 +585,7 @@ int main(int argc, char** argv) {
     app.auto_skin = at.skin;
     app.auto_aura = at.aura;
     app.auto_weekly = at.weekly;
-    app.auto_power = at.power;
+    app.auto_power = at.power; app.auto_power_at = at.power_at;
     app.auto_mega_wait = at.mega_wait;
     app.set_autotest(at.dex, at.immortal, at.warp, at.move[0] && !mega ? move_index(at.move) : -1);
     at.next_log = at.warp + 10;

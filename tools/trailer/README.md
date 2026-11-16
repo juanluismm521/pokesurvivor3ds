@@ -29,3 +29,9 @@ Cómo se hizo `PokeSurvivor3DS_trailer.mp4` (carpeta de trabajo: `/root/docker/p
 Necesita: ffmpeg, Python con numpy, pillow, scipy (y librosa para medir), Azahar bajo Xvfb.
 
 7. v3 (1:08,6): las megas quietas mirando abajo (`quieto`: hasta 3 s después de megaevolucionar) y un compás más de Mega-Darkrai andando.
+
+8. **Tráiler de la 1.0** (39 s): `trailer_v1.py` (escaleta en `tiempos_v1.py`, banda en `audio_v1.py`), con las
+   grabaciones `v1_*`: Eternatus (`"1300 6 1 1188 nivel=45 marca"`), los poderes (`"95 94 1 60 nivel=35
+   poder=dinamax poderen=7 marca"`: el poder salta a los 7 s de partida, para que se vea; desde el minuto 1
+   para no caer en una grieta), `pesadilla`, `semanal`, `tienda` y `gacha100`. Salida
+   `PokeSurvivor3DS_trailer_v1.mp4` (vídeo + `banda_v1.wav` como en `unir.sh`).

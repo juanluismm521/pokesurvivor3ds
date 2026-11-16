@@ -281,7 +281,7 @@ void App::start_run() {
   g_->start_run(cfg, autotest && !auto_real ? nullptr : s_);
   if (!autotest || auto_real) cloud3ds::begin_run();   // (el id de la partida para su reclamo, si hay cuenta y conexión)
   g_->debug_immortal = autotest && auto_immortal_;
-  if (autotest && auto_power >= 0) { Player& ap = g_->pl(); ap.epower = int8_t(auto_power); ap.power_cd = 0; }   // (capturas de los poderes)
+  if (autotest && auto_power >= 0) { Player& ap = g_->pl(); ap.epower = int8_t(auto_power); ap.power_cd = auto_power_at; }   // (capturas de los poderes)
   g_->debug_win = autotest && auto_win;   // (capturas y pruebas de la victoria: Game::debug_win)
   apply_settings();
   r_->preload_run(*g_);
