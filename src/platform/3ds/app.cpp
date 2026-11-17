@@ -643,6 +643,17 @@ void App::update(const UiIn& in0, float dt) {
 
 // ---------------- partida ----------------
 
+// Al acabar la partida (una vez): se guarda, se apunta lo ganado con su reclamo para
+// pokesurvivor.com (sin él, el servidor lo quita al sincronizar) y se sincroniza si hay cuenta.
+void App::run_over_once() {
+  Game& g = *g_;
+  if (g.dirty) save_now();
+  if (over_synced_) return;
+  over_synced_ = true;
+  if (g.save && (!autotest || auto_real)) cloud3ds::queue_claim(run_claim(g));
+  cloud_autostart();
+}
+
 void App::in_run(const UiIn& in) {
   Game& g = *g_;
   const Player& me = g.me();
@@ -719,6 +730,8 @@ void App::in_run(const UiIn& in) {
       gi = Input();   // (el bot quitaría la pausa)
       if (float(osGetTime() % 100000000) - auto_pause_ > 6000) { gi.cmd = CMD_PAUSE; auto_pause_ = -1; }
     }
+    // (el final de la partida, por el MISMO camino que la del jugador: guardar, reclamo y nube)
+    if (g.state == ST_OVER && auto_real) run_over_once();
     if (g.state == ST_OVER && !coop_ && !auto_hold_over) start_run();
   } else if (g.state == ST_PLAYING || (g.state == ST_CHOICE && me.choice == CH_NONE) || (g.state == ST_LEVELUP && me.picked)) {
     // (en grupo: mientras otro elige, tú sigues moviendo el cursor de huecos)
@@ -829,13 +842,7 @@ void App::in_run(const UiIn& in) {
     // Resumen de arriba: en grupo, L/R cambia de jugador.
     if (over_tab_ < 0 || over_tab_ >= g.nplayers) over_tab_ = g.local;
     if (g.nplayers > 1 && (in.down & (KEY_L | KEY_R))) { over_tab_step((in.down & KEY_R) ? 1 : -1); audio::play("hover"); }
-    if (g.dirty) save_now();
-    if (!over_synced_) {
-      over_synced_ = true;
-      // Lo ganado, con su reclamo para pokesurvivor.com (sin él, el servidor lo quita al sincronizar)
-      if (g.save && (!autotest || auto_real)) cloud3ds::queue_claim(run_claim(g));
-      cloud_autostart();   // (a la nube, si hay cuenta)
-    }
+    run_over_once();
     if (coop_) {
       // En grupo: un momento para que los demás reciban lo último; luego, al menú.
       if (coop_over_t_ > 1.5f && (in.down & (KEY_A | KEY_B))) { coop_leave(); go(SC_MENU); }

@@ -128,7 +128,7 @@ void App::top_cloud_badge() {
 }
 
 void App::cloud_autostart() {
-  if (autotest || !cloud3ds::account().on) return;
+  if ((autotest && !auto_sync) || !cloud3ds::account().on) return;
   // Si hay otra en marcha (la del encendido...), ésta espera a que acabe:
   // al final de cada partida se sube SIEMPRE lo último.
   if (cloud3ds::state() != cloud3ds::JOB_IDLE) { cloud_want_ = true; return; }
@@ -180,6 +180,7 @@ void App::cloud_tick() {
   {
     int64_t asked = 0, paid = 0;
     cloud3ds::claim_cut(asked, paid);
+    claim_asked_last = asked; claim_paid_last = paid;
     if (ok) claim_notice(asked, paid);
   }
   if (was_pull) {

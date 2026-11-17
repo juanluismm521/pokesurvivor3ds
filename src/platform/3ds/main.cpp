@@ -76,6 +76,7 @@ struct Autotest {
   int diff = 0;               // "… dificil" / "pesadilla"
   bool orbs = false;          // "… esferas": te da esferas al empezar (el bot las usa)
   bool real = false;          // "… real": con la partida guardada de la SD (el premio se guarda de verdad)
+  bool sync = false;          // "… real fin sincro": al acabar, sincroniza con la cuenta como la consola de verdad y lo apunta
   bool to_menu = false;       // "… menu": tras el resumen, B (al menú) y 6 s en el menú
   bool end_screen = false;    // "… fin": al acabar el tiempo, termina la partida y enseña el resumen 8 s (captura)
   u64 end_at = 0;
@@ -184,6 +185,7 @@ void read_autotest(Autotest& a) {
       else if (!std::strcmp(w, "vinculo")) a.bond = true;
       else if (!std::strcmp(w, "fin")) a.end_screen = true;
       else if (!std::strcmp(w, "real")) a.real = true;
+      else if (!std::strcmp(w, "sincro")) a.sync = true;
       else if (!std::strcmp(w, "menu")) { a.to_menu = true; a.end_screen = true; }
       else if (!std::strcmp(w, "esferas")) a.orbs = true;
       else if (!std::strcmp(w, "tesoro")) a.treasure = true;
@@ -577,6 +579,7 @@ int main(int argc, char** argv) {
     app.auto_bond = at.bond;
     app.auto_hold_over = at.end_screen;
     app.auto_real = at.real;
+    app.auto_sync = at.sync;
     app.auto_orbs = at.orbs;
     app.auto_diff = at.diff;
     app.auto_treasure = at.treasure;
@@ -762,6 +765,15 @@ int main(int argc, char** argv) {
         // En grupo, a mitad de la espera, el resumen del compañero (como pulsar R).
         if (at.coop && osGetTime() - at.end_at > 4000 && !at.tab_moved) { app.over_tab_next(); at.tab_moved = true; }
         if (osGetTime() - at.end_at > 8000) {
+          // «sincro»: espera a que acabe la sincronización del final de la partida (como mucho 120 s)
+          if (at.sync && (app.cloud_done == 0 || cloud3ds::state() != cloud3ds::JOB_IDLE || app.cloud_want()) && osGetTime() - at.end_at < 120000) continue;
+          if (at.sync && at.log) {
+            std::fprintf(at.log, "sincro: %s · %s · monedas %d · tickets %d/%d · reclamos pedidos %lld, pagados %lld · en cola %d\n",
+                         app.cloud_done > 0 ? "BIEN" : app.cloud_done < 0 ? "MAL" : "SIN ACABAR", app.cloud_done < 0 ? cloud3ds::error().c_str() : cloud3ds::account().name.c_str(),
+                         int(save->coins), int(save->t1), int(save->t10), (long long)app.claim_asked_last, (long long)app.claim_paid_last, cloud3ds::queued_claims());
+            std::fflush(at.log);
+            at.sync = false;
+          }
           if (!at.to_menu) break;
           // «menu»: como pulsar B en el resumen; luego 6 s en el menú (la medalla, guardar...).
           if (app.scene == SC_RUN) { app.leave_to_menu(); at.end_at = osGetTime(); if (at.log) { std::fprintf(at.log, "resumen → menú\n"); std::fflush(at.log); } }

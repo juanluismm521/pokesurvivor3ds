@@ -314,6 +314,7 @@ class App {
   int64_t cloud_t0_updated_ = 0; // `updated` de la partida al empezar a sincronizar
   char cloud_msg_[256] = {};
   bool over_synced_ = false;
+  void run_over_once();
   uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
   void over_tab_step(int d);
@@ -346,6 +347,9 @@ class App {
   bool auto_still = false;      // "… quieto": quieto mirando abajo hasta 3 s después de megaevolucionar      // "… paz": sin enemigos (para ver la megaevolución)       // en grupo (anfitrión): "coop … desde=N nivel=N" (lo lleva la sala)           // 0: IT_MEGA_A · 1: IT_MEGA_B (Charizard Y, Absol Z…)
   bool auto_bond = false;
   bool auto_hold_over = false;
+  bool auto_sync = false;       // autotest "… sincro": sincroniza al acabar la partida, como sin autotest
+  int64_t claim_asked_last = 0, claim_paid_last = 0;   // (lo cobrado en la última sincronización, para el log)
+  bool cloud_want() const { return cloud_want_; }
   int auto_mode = 0;            // autotest "… rapido": modo rápido
   int auto_diff = 0;
   int auto_weekly = -2;
