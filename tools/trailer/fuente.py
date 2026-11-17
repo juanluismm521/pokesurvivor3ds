@@ -1,9 +1,17 @@
 # fuente.py — fotogramas de las grabaciones (400x480: arriba 0..240, abajo 240..480, abajo con 40 px de margen a cada lado)
-import subprocess, numpy as np
+import os, subprocess, numpy as np
 from PIL import Image
 
 RAW = '/root/trailer/raw/'
 _cache = {}
+# En inglés (TRAILER_LANG=en) se usa la toma «en_NOMBRE» si existe (grabada con idioma.txt en la SD).
+_EN = os.environ.get('TRAILER_LANG', 'es') == 'en'
+# Desfase de cada toma en inglés respecto a la española (s; medido comparando fotogramas).
+EN_DESFASE = {'v1_eterna': 0.233, 'v1_dinamax': 0.167, 'v1_tera': 0.167, 'v1_z': 0.100, 'v1_mega': 0.200,
+              'v1_pesadilla': 0.167, 'v1_semanal': 0.167, 'v1_tienda': 0.033, 'v1_gacha': 0.067}
+def _mkv(name):
+    if _EN and os.path.exists(RAW + 'en_' + name + '.mkv'): return RAW + 'en_' + name + '.mkv'
+    return RAW + name + '.mkv'
 
 def clip(name, start, dur, fps=60, speed=1.0):
     """Fotogramas [start, start+dur) de la grabación (a 60 fps), como arrays 480x400x3.
@@ -11,8 +19,9 @@ def clip(name, start, dur, fps=60, speed=1.0):
     k = (name, round(start, 3), round(dur, 3))
     if k in _cache: return _cache[k]
     n = int(round(dur * fps)) + 2
+    if _mkv(name) != RAW + name + '.mkv': start += EN_DESFASE.get(name, 0)
     vf = ['-vf', 'setpts=PTS/%.4f,fps=60' % speed] if speed != 1 else []
-    p = subprocess.run(['ffmpeg', '-v', 'error', '-ss', '%.3f' % start, '-i', RAW + name + '.mkv'] + vf + ['-frames:v', str(n),
+    p = subprocess.run(['ffmpeg', '-v', 'error', '-ss', '%.3f' % start, '-i', _mkv(name)] + vf + ['-frames:v', str(n),
                         '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], capture_output=True)
     a = np.frombuffer(p.stdout, np.uint8)
     fr = a.reshape(-1, 480, 400, 3)

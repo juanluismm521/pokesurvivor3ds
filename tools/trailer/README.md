@@ -35,3 +35,6 @@ Necesita: ffmpeg, Python con numpy, pillow, scipy (y librosa para medir), Azahar
    poder=dinamax poderen=7 marca"`: el poder salta a los 7 s de partida, para que se vea; desde el minuto 1
    para no caer en una grieta), `pesadilla`, `semanal`, `tienda` y `gacha100`. Salida
    `PokeSurvivor3DS_trailer_v1.mp4` (vídeo + `banda_v1.wav` como en `unir.sh`).
+   **En inglés:** `tanda_v1_en.sh` graba las mismas tomas con el juego en inglés (`idioma.txt` en la SD) como
+   `en_v1_*`; con `TRAILER_LANG=en`, `fuente.py` usa esas tomas (con su desfase, `EN_DESFASE`) y los rótulos
+   salen en inglés → `PokeSurvivor3DS_trailer_v1_en.mp4`.
