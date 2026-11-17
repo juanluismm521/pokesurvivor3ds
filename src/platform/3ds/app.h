@@ -315,6 +315,9 @@ class App {
   char cloud_msg_[256] = {};
   bool over_synced_ = false;
   void run_over_once();
+  bool gacha_locked() const;
+  float auto_press_t_ = -1;     // (autotest: desde los 6 s en el gacha, pulsa A en el primer botón cada 2,5 s)
+  void padlock(float x, float y, float s, u32 c);
   uint32_t choice_sig_ = 0;     // la elección que hay en pantalla (cartas, objeto, vínculo)
   int cloud_t0_partner_ = -1;   // compañero al empezar a sincronizar
   void over_tab_step(int d);
@@ -350,6 +353,7 @@ class App {
   bool auto_sync = false;       // autotest "… sincro": sincroniza al acabar la partida, como sin autotest
   int64_t claim_asked_last = 0, claim_paid_last = 0;   // (lo cobrado en la última sincronización, para el log)
   bool cloud_want() const { return cloud_want_; }
+  void auto_gacha_all() { bgen_ = 0; auto_press_t_ = 0; }   // (autotest "gachared todas")
   int auto_mode = 0;            // autotest "… rapido": modo rápido
   int auto_diff = 0;
   int auto_weekly = -2;

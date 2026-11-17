@@ -24,7 +24,8 @@ struct ProgEvent {
 };
 
 // Avisos para la interfaz ("Misión completada", "¡Logro!").
-struct Notice { char title[96]; char sub[64]; int16_t ach; };
+// (el texto entero: si se corta, el trozo ya no encuentra su traducción y sale en español a medias)
+struct Notice { char title[128]; char sub[160]; int16_t ach; };
 struct Notices {
   Notice q[8];
   int n = 0;

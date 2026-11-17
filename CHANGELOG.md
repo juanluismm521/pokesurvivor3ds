@@ -5,6 +5,13 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 1.0.2 — 2026-11-17
+- **Gacha: la región Todas, bloqueada a la vista con tu cuenta.** Si sincronizas con tu cuenta de
+  pokesurvivor.com, «Todas» sale con un candado y «Bloqueada» (arriba) y, en vez de los botones de
+  tirar, explica que no está disponible y que cambies de región con L / R.
+- **Arreglado: avisos cortados y a medias en español** con el juego en inglés (el de la región
+  Todas, por ejemplo). Los avisos ya no se cortan y se ajustan a su recuadro.
+
 ## 1.0.1 — 2026-11-17
 - **Arreglado: con conexión, las monedas y los tickets de las partidas no se guardaban** al
   sincronizar con tu cuenta de pokesurvivor.com (salía «Han contado 0 de …»). Ahora se cobran

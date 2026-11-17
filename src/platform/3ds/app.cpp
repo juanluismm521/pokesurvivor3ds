@@ -622,7 +622,15 @@ void App::update(const UiIn& in0, float dt) {
     case SC_ROOMSET: in_roomset(in); break;
     case SC_DEX: in_dex(in); break;
     case SC_UPGRADES: case SC_BIND: case SC_BAN: case SC_START: case SC_MOVE2: in_upgrades(in); break;
-    case SC_GACHA: in_gacha(in); break;
+    case SC_GACHA:
+      if (auto_press_t_ >= 0 && gacha_net_ == 0 && (auto_press_t_ += dt) > 6) {   // (autotest: como pulsar A)
+        auto_press_t_ = 3.5f; cur_ = 0;   // (y otra vez cada 2,5 s: el aviso siempre a la vista en las capturas)
+        UiIn fake = in; fake.down = KEY_A;
+        in_gacha(fake);
+        break;
+      }
+      in_gacha(in);
+      break;
     case SC_PULL: in_pull(in, dt); break;
     case SC_GOALS: in_goals(in); break;
     case SC_SETTINGS: in_settings(in); break;
@@ -2067,6 +2075,11 @@ void App::in_gacha(const UiIn& in) {
   const int n = pick < 2 ? 10 : 100;
   const bool t10 = pick == 1 || pick == 3;
   if (!gacha_open(bgen_, hw3ds::on())) return;
+  if (gacha_locked()) {
+    audio::play("error");
+    g_notices.push("Región Todas bloqueada", "No disponible si sincronizas con tu cuenta de pokesurvivor.com", -1);
+    return;
+  }
   {
     int c1 = 0, c10 = 0;
     if (!gacha_cost(*s_, n, t10, c1, c10)) { audio::play("error"); g_notices.push("No tienes tickets suficientes: consíguelos jugando", "", -1); return; }
@@ -2074,7 +2087,6 @@ void App::in_gacha(const UiIn& in) {
   // Con la cuenta de pokesurvivor.com, se tira en su servidor (desde el 15-11-2026 sólo valen
   // los Pokémon que salen ahí): sale cuando contesta (pull_tick).
   if (cloud3ds::account().on && !autotest) {
-    if (bgen_ == kGachaAll) { audio::play("error"); g_notices.push("«Todas» es sólo de la 3DS", "Con tu cuenta de pokesurvivor.com, elige una región para tirar.", -1); return; }
     if (cloud3ds::state() != cloud3ds::JOB_IDLE) { audio::play("error"); g_notices.push("Un momento: se está sincronizando", "Prueba otra vez en unos segundos.", -1); return; }
     pull_had_iris_ = gacha_has_iris(*s_, bgen_);
     cloud_t0_updated_ = s_->updated; cloud_t0_partner_ = s_->partner * 2 + (s_->partner_shiny ? 1 : 0);
@@ -2169,6 +2181,19 @@ void App::in_pull(const UiIn& in, float dt) {
   }
 }
 
+// «Todas» con la cuenta de pokesurvivor.com: no se puede tirar (la tirada va por su servidor).
+bool App::gacha_locked() const { return bgen_ == kGachaAll && cloud3ds::account().on; }
+
+// Candado (arriba a la izquierda en x, y; s = escala: 1 → 12×14)
+void App::padlock(float x, float y, float s, u32 c) {
+  x -= 6 * s;
+  C2D_DrawRectSolid(x + 2 * s, y, 0, 8 * s, 1.5f * s, c);                // arco
+  C2D_DrawRectSolid(x + 2 * s, y, 0, 1.5f * s, 6 * s, c);
+  C2D_DrawRectSolid(x + 8.5f * s, y, 0, 1.5f * s, 6 * s, c);
+  C2D_DrawRectSolid(x, y + 6 * s, 0, 12 * s, 8 * s, c);                  // cuerpo
+  C2D_DrawRectSolid(x + 5.25f * s, y + 8.5f * s, 0, 1.5f * s, 3 * s, C2D_Color32(40, 22, 32, 255));   // ojo
+}
+
 void App::bottom_gacha() {
   const BannerDef& bn = gacha_banner(bgen_);
   char b[128];
@@ -2207,6 +2232,19 @@ void App::bottom_gacha() {
     else C2D_DrawRectSolid(x - 2, 96, 0, 5, 5, C2D_Color32(90, 100, 125, 255));
   }
   static const char* const L[4] = {"Tirar ×10 (10 tickets)", "Tirar ×10 (1 ticket ×10)", "Tirar ×100 (100 tickets)", "Tirar ×100 (10 tickets ×10)"};
+  if (gacha_locked() && gacha_net_ == 0) {
+    // Con la cuenta de pokesurvivor.com se tira en su servidor y «Todas» es sólo de la 3DS:
+    // bloqueada, y que se vea (candado, sin botones de tirar).
+    const u32 red = rgb(0xff6b6b);
+    rrect(16, 114, 288, 106, C2D_Color32(40, 22, 32, 250));
+    rframe(16, 114, 288, 106, red);
+    padlock(160, 124, 1.6f, red);
+    r_->text_fit("Bloqueada con tu cuenta", 160, 150, 272, 0.5f, rgb(0xff8a8a), true, 1);
+    r_->text_wrap("Si sincronizas con tu cuenta de pokesurvivor.com, la región Todas no está disponible.", 160, 170, 0.36f, C_TEXT, 268, 1);
+    r_->text_fit("Cambia de región con L / R para tirar", 160, 204, 272, 0.36f, C_GOLD, false, 1);
+    r_->text("L / R: cambiar de región · B: volver", 160, 226, 0.32f, C_MUTED, 1);
+    return;
+  }
   for (int i = 0; i < 4; ++i) {
     int c1, c10;
     const bool ok = gacha_cost(*s_, i < 2 ? 10 : 100, i == 1 || i == 3, c1, c10);
@@ -2744,6 +2782,15 @@ void App::draw_top(float eye) {
         int16_t f[3];
         const int nf = gacha_featured(bgen_, f);
         for (int i = 0; i < nf; ++i) draw_mon(f[i], false, 90 + i * 110, 170, 2, 0, 1);
+        if (gacha_locked()) {   // (con la cuenta: bloqueada, bien a la vista)
+          C2D_DrawRectSolid(0, 76, 0, TW, 104, C2D_Color32(10, 12, 24, 170));
+          const u32 red = rgb(0xff6b6b);
+          rrect(110, 104, 180, 44, C2D_Color32(40, 22, 32, 240));
+          rframe(110, 104, 180, 44, red);
+          padlock(134, 113, 1.6f, red);
+          r_->text_fit("Bloqueada", 220, 109, 130, 0.6f, rgb(0xff8a8a), true, 1);
+          r_->text_fit("con tu cuenta de pokesurvivor.com", 200, 152, 300, 0.36f, C_TEXT, true, 1);
+        }
         for (int r = 5; r >= 1; --r) {
           static int16_t pool[1100];
           std::snprintf(b, sizeof(b), "%s %.1f%% · %d", kRarityName[r], double(kGachaRates[r - 1]), gacha_pool(r, bgen_, pool));
@@ -2770,8 +2817,8 @@ void App::draw_top(float eye) {
     const Notice& n = g_notices.q[0];
     C2D_DrawRectSolid(40, 190, 0, 320, n.sub[0] ? 40 : 26, C2D_Color32(20, 26, 44, 235));
     C2D_DrawRectSolid(40, 190, 0, 3, n.sub[0] ? 40 : 26, C_GOLD);
-    r_->text(n.title, 200, 194, 0.42f, C_TEXT, 1);
-    if (n.sub[0]) r_->text(n.sub, 200, 212, 0.34f, C_GOLD, 1);
+    r_->text_fit(n.title, 200, 194, 310, 0.42f, C_TEXT, false, 1);
+    if (n.sub[0]) r_->text_fit(n.sub, 200, 212, 310, 0.34f, C_GOLD, false, 1);
   }
 }
 

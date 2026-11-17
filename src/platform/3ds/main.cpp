@@ -140,7 +140,11 @@ void read_autotest(Autotest& a) {
   else if (!std::strcmp(first, "modo")) a.mode_demo = 1;
   else if (!std::strcmp(first, "medalla")) a.mode_demo = 2;
   else if (!std::strcmp(first, "tienda")) a.shop_demo = true;
-  else if (!std::strcmp(first, "gachared")) a.gacha_net = true;
+  else if (!std::strcmp(first, "gachared")) {   // "gachared todas": en «Todas» (bloqueada con la cuenta) y pulsa A
+    a.gacha_net = true;
+    char w[16] = "";
+    if (std::fscanf(f, "%15s", w) == 1 && !std::strcmp(w, "todas")) a.gacha_all = true;
+  }
   else if (!std::strcmp(first, "ficha")) a.ficha_demo = true;
   else if (!std::strcmp(first, "regalo")) a.gift_demo = true;
   else if (!std::strcmp(first, "tope")) a.tope_demo = true;
@@ -364,7 +368,7 @@ int main(int argc, char** argv) {
   for (int i = 0; i < kAbilCount; ++i) if (!std::strcmp(kAbils[i].id, at.abil)) app.auto_abil = i;
   for (int i = 0; i < kNatureCount; ++i) if (!std::strcmp(kNatures[i].id, at.nature)) app.auto_nature = i;
   if (at.shop_demo) { app.start_shop_demo(); at.on = false; }
-  if (at.gacha_net) { app.open_gacha(true); at.on = false; }
+  if (at.gacha_net) { app.open_gacha(true); if (at.gacha_all) app.auto_gacha_all(); at.on = false; }
   if (at.ficha_demo) { app.start_ficha_demo(); at.on = false; }
   if (at.gift_demo) { app.start_gift_demo(); at.on = false; }
   if (at.tope_demo) { app.claim_demo(); at.on = false; }
