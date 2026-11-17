@@ -8,7 +8,8 @@ Ajustes → Actualizaciones) es el número de commits de `main`.
 ## 1.0.2 — 2026-11-17
 - **Gacha: la región Todas, bloqueada a la vista con tu cuenta.** Si sincronizas con tu cuenta de
   pokesurvivor.com, «Todas» sale con un candado y «Bloqueada» (arriba) y, en vez de los botones de
-  tirar, explica que no está disponible y que cambies de región con L / R.
+  tirar, explica el motivo: pokesurvivor.com está dificultando la sincronización y, para evitar las
+  trampas de algunos jugadores, no está disponible con cuenta online. Cambia de región con L / R.
 - **Arreglado: avisos cortados y a medias en español** con el juego en inglés (el de la región
   Todas, por ejemplo). Los avisos ya no se cortan y se ajustan a su recuadro.
 

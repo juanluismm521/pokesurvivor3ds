@@ -2077,7 +2077,7 @@ void App::in_gacha(const UiIn& in) {
   if (!gacha_open(bgen_, hw3ds::on())) return;
   if (gacha_locked()) {
     audio::play("error");
-    g_notices.push("Región Todas bloqueada", "No disponible si sincronizas con tu cuenta de pokesurvivor.com", -1);
+    g_notices.push("Región Todas bloqueada", "No disponible con cuenta online, para evitar trampas", -1);
     return;
   }
   {
@@ -2238,10 +2238,11 @@ void App::bottom_gacha() {
     const u32 red = rgb(0xff6b6b);
     rrect(16, 114, 288, 106, C2D_Color32(40, 22, 32, 250));
     rframe(16, 114, 288, 106, red);
-    padlock(160, 124, 1.6f, red);
-    r_->text_fit("Bloqueada con tu cuenta", 160, 150, 272, 0.5f, rgb(0xff8a8a), true, 1);
-    r_->text_wrap("Si sincronizas con tu cuenta de pokesurvivor.com, la región Todas no está disponible.", 160, 170, 0.36f, C_TEXT, 268, 1);
-    r_->text_fit("Cambia de región con L / R para tirar", 160, 204, 272, 0.36f, C_GOLD, false, 1);
+    padlock(160, 119, 1.3f, red);
+    r_->text_fit("Bloqueada con tu cuenta", 160, 139, 272, 0.46f, rgb(0xff8a8a), true, 1);
+    r_->text_wrap("pokesurvivor.com está dificultando la sincronización y, para evitar las trampas de algunos jugadores, la región Todas no está disponible con cuenta online.",
+                  160, 157, 0.34f, C_TEXT, 272, 1);
+    r_->text_fit("Cambia de región con L / R para tirar", 160, 205, 272, 0.36f, C_GOLD, false, 1);
     r_->text("L / R: cambiar de región · B: volver", 160, 226, 0.32f, C_MUTED, 1);
     return;
   }
@@ -2789,7 +2790,7 @@ void App::draw_top(float eye) {
           rframe(110, 104, 180, 44, red);
           padlock(134, 113, 1.6f, red);
           r_->text_fit("Bloqueada", 220, 109, 130, 0.6f, rgb(0xff8a8a), true, 1);
-          r_->text_fit("con tu cuenta de pokesurvivor.com", 200, 152, 300, 0.36f, C_TEXT, true, 1);
+          r_->text_fit("con cuenta online, para evitar trampas", 200, 152, 300, 0.36f, C_TEXT, true, 1);
         }
         for (int r = 5; r >= 1; --r) {
           static int16_t pool[1100];
