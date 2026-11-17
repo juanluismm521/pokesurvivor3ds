@@ -715,7 +715,7 @@ struct Game {
     bool gengar = false;
     double dealt = 0;
     bool shielded = false;
-    // Modo rápido (del port, 2026-10-29): acuden 8 legendarios; tumbados todos,
+    // Modo rápido (del port, 2026-10-29): acuden kQuickLegends legendarios; tumbados todos,
     // Arceus baja la guardia (vida de verdad) y se le puede derrotar.
     bool can_win = false, open = false, won = false;
     float ahp = 0, ahp_max = 0, won_t = 0;
@@ -930,7 +930,7 @@ float judgment_dmg_k(const Game& g);
 inline bool judgment_shielded(const Game& g) { return g.judg.phase == 2 && g.judg.shielded; }
 void judgment_hit_arceus(Game& g, float d);
 // Modo rápido: cuántos legendarios acuden, y lo que da derrotar a Arceus.
-constexpr int kQuickLegends = 8;
+constexpr int kQuickLegends = 6;   // (8 hasta la 1.0.1: no se podía ganar)
 constexpr int kWinCoins = 2500, kWinT10 = 3;
 const char* plate_name(int type);
 // pathing.cpp

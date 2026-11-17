@@ -10,7 +10,8 @@
 //      más de daño que el anterior (antes el doble: no había forma de tumbarlos).
 //      El primero, según el daño que hacías a UN enemigo.
 //   (Del 23-10 no se porta, por ahora: el minuto 35 que rompe los objetos.)
-//   5. Modo rápido (del port, 2026-10-29): acuden sólo kQuickLegends legendarios.
+//   5. Modo rápido (del port, 2026-10-29): acuden sólo kQuickLegends legendarios (6 desde el 17-11-2026)
+//      y Arceus no te alcanza corriendo; su toque quita menos y no se encadena (QUICK_*).
 //      Tumbados todos, Arceus BAJA LA GUARDIA: tiene vida de verdad (ARCEUS_HP veces
 //      la del primer legendario), recibe el daño entero y se enfurece (ataca más a
 //      menudo y corre más). Si cae, la partida acaba en victoria (medalla y premio).
@@ -34,7 +35,11 @@ constexpr float TOUCH = 0.4f;
 // judgment_cap_spd), legendarios al menos al 80 % de vuestra velocidad, Arceus
 // acelera sin tope desde los 5 min de Sentencia y desde los 7 su toque quita
 // cada vez más, hasta el 100 % a los 10.
-float touch_pct(float arena_t) { return std::fmin(1.0f, TOUCH + std::fmax(0.0f, arena_t - 420) / 180 * (1 - TOUCH)); }
+float touch_pct(float arena_t, float base = TOUCH) { return std::fmin(1.0f, base + std::fmax(0.0f, arena_t - 420) / 180 * (1 - base)); }
+// Modo rápido (17-11-2026, el dueño: «debe ser pasable»): aquí se le puede ganar, así que Arceus
+// no es nunca más rápido que tú (antes llegaba al 122 %, ×1,15 enfurecido: no había forma de
+// escapar), su toque quita menos y no se encadena (retrocede y tarda más en volver a tocar).
+constexpr float QUICK_SPD_MAX = 0.95f, QUICK_TOUCH = 0.25f, QUICK_TOUCH_CD = 1.5f, QUICK_RECOIL = 120;
 constexpr int ARCEUS = 493;
 constexpr float SCALE = 1.5f;
 // Halloween: el gran Gengar bruja (su disfraz, kSkins «bruja-gengar»), el doble de grande.
@@ -403,7 +408,7 @@ void arceus_tick(Game& g, float dt) {
     // (mientras lanza la Sentencia, la Cruz, la Premonición o la Gravedad, te sigue persiguiendo)
     const int c = j.acast;
     if (tg && (c == JC_RAIN || c == JC_CROSS || c == JC_FUTURE || c == JC_GRAVITY)) {
-      const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) * (c == JC_GRAVITY ? 1.0f : 0.85f);
+      const float k = std::fmin(j.can_win ? QUICK_SPD_MAX : 1.22f, 0.74f + j.arena_t * 0.013f) * (c == JC_GRAVITY ? 1.0f : 0.85f);
       float dx, dy; norm(tg->x - j.ax, tg->y - j.ay, dx, dy);
       const float sp = std::fmax(70.0f, player_spd(g, *tg) * k / (j.grav_t > 0 ? 0.6f : 1.0f));
       j.ax += dx * sp * dt; j.ay += dy * sp * dt;
@@ -420,8 +425,9 @@ void arceus_tick(Game& g, float dt) {
     }
   if (!tg) { j.aanim.loop(A_IDLE); return; }
   // Más lento que tú al principio; a los ~35 s ya te alcanza.
-  const float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) + std::fmax(0.0f, j.arena_t - 300) * 0.0015f;
-  const float spd = std::fmax(70.0f, player_spd(g, *tg) * k) * (j.open ? RAGE_SPD : 1.0f);
+  float k = std::fmin(1.22f, 0.74f + j.arena_t * 0.013f) + std::fmax(0.0f, j.arena_t - 300) * 0.0015f;
+  if (j.can_win) k = std::fmin(k, QUICK_SPD_MAX);   // (rápido: enfurecido tampoco te alcanza corriendo)
+  const float spd = std::fmax(70.0f, player_spd(g, *tg) * k) * (j.open && !j.can_win ? RAGE_SPD : 1.0f);
   float dx, dy;
   norm(tg->x - j.ax, tg->y - j.ay, dx, dy);
   j.ax += dx * spd * dt; j.ay += dy * spd * dt;
@@ -529,9 +535,14 @@ void touch(Game& g, Player& pl) {
   if (!pl.active || pl.dead || j.touch_cd > 0) return;
   const float rr = j.ar + pl.r;
   if (dist2(j.ax, j.ay, pl.x, pl.y) > rr * rr) return;
-  j.touch_cd = 0.9f;
+  j.touch_cd = j.can_win ? QUICK_TOUCH_CD : 0.9f;
+  if (j.can_win) {   // (rápido) retrocede: los toques no se encadenan
+    float dx, dy;
+    norm(j.ax - pl.x, j.ay - pl.y, dx, dy);
+    j.ax += dx * QUICK_RECOIL; j.ay += dy * QUICK_RECOIL;
+  }
   pl.invuln = 0;
-  player_hurt(g, pl, pl.max_hp * touch_pct(j.arena_t), T_NONE, true);
+  player_hurt(g, pl, pl.max_hp * touch_pct(j.arena_t, j.can_win ? QUICK_TOUCH : TOUCH), T_NONE, true);
   g.camera.kick(0.6f);
   g.fx.ring(pl.x, pl.y, 6, 70, GOLD, 0.4f, 4);
   j.aanim.play(A_ATTACK, 1.4f);

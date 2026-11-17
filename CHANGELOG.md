@@ -6,6 +6,11 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
 ## 1.0.2 — 2026-11-17
+- **Arceus, más justo en el modo rápido** (con un Pokémon al máximo no se podía ganar): en la
+  Sentencia ya no corre más que tú (antes llegaba a ir un 22 % más rápido, y un 40 % enfurecido),
+  su toque quita el 25 % de la vida (antes el 40 %) y no se repite seguido (retrocede y tarda
+  1,5 s en volver a tocar). Basta con tumbar 6 legendarios (antes 8) para que baje la guardia.
+  El modo normal sigue como en la web.
 - **Gacha: la región Todas, bloqueada a la vista con tu cuenta.** Si sincronizas con tu cuenta de
   pokesurvivor.com, «Todas» sale con un candado y «Bloqueada» (arriba) y, en vez de los botones de
   tirar, explica el motivo: pokesurvivor.com está dificultando la sincronización y, para evitar las

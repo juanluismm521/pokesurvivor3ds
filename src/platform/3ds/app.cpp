@@ -1022,7 +1022,7 @@ const ModeInfo kModes[MODE_COUNT] = {
     {"Normal", "La Sentencia a los 30 minutos",
      "La partida de siempre: aguanta la horda, sube de nivel, cambia de mapa cada 4 minutos y, a los 30, Arceus desciende."},
     {"Rápido", "La Sentencia a los 20 minutos",
-     "Arceus llega a los 20 minutos y aquí SÍ se le puede derrotar: tumba a sus 8 legendarios y bajará la guardia. Difícil: ¡medalla si ganas!"},
+     "Arceus llega a los 20 minutos y aquí SÍ se le puede derrotar: tumba a sus 6 legendarios y bajará la guardia. Difícil: ¡medalla si ganas!"},
 };
 }  // namespace
 

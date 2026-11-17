@@ -38,6 +38,13 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 1.0.2 · ¡Arceus, a tu alcance!", 0, nullptr, nullptr},
+    {nullptr, NI_M_ARCEUS, "Arceus, más justo en Rápido",
+     "Ya no corre más que tú, su toque quita menos y no se repite seguido. Tumba a 6 legendarios (antes 8) y bajará la guardia."},
+    {nullptr, NI_TICKET, "Gacha: «Todas» con cuenta",
+     "Con cuenta online sale bloqueada y explica por qué: pokesurvivor.com dificulta la sincronización y así se evitan trampas."},
+    {nullptr, NI_WEB, "Avisos enteros",
+     "Los avisos ya no se cortan (con el juego en inglés salían a medias en español)."},
     {"Versión 1.0 · ¡Gran Actualización!", 0, nullptr, nullptr},
     {nullptr, NI_UP, "Subes de nivel como antes",
      "Menos pantallas de cartas y cada una cuenta más. Los enemigos tienen menos vida: la partida es igual de dura."},
@@ -187,7 +194,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "1.0.0";
+constexpr const char* kNewsVersion = "1.0.2";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 

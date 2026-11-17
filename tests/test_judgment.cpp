@@ -154,7 +154,7 @@ TEST_CASE("modo rápido: la Sentencia a los 20 minutos (y el modo va con la sala
   CHECK(d.mode == MODE_QUICK);
 }
 
-TEST_CASE("modo rápido: 8 legendarios, Arceus baja la guardia y se le puede derrotar (medalla y premio)") {
+TEST_CASE("modo rápido: sus legendarios, Arceus baja la guardia y se le puede derrotar (medalla y premio)") {
   std::unique_ptr<Save> sv(new Save());
   std::unique_ptr<Game> g(new Game());
   g->debug_immortal = true;
@@ -166,7 +166,7 @@ TEST_CASE("modo rápido: 8 legendarios, Arceus baja la guardia y se le puede der
   for (int i = 0; i < 60 * 40 && g->judg.phase != 2; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
   REQUIRE(g->judg.phase == 2);
   CHECK(g->judg.can_win);
-  // Acuden sólo 8 (aunque pase el tiempo) y mientras queden, no baja la guardia.
+  // Acuden sólo kQuickLegends (aunque pase el tiempo) y mientras queden, no baja la guardia.
   for (int i = 0; i < 60 * 60; ++i) { Input in{}; if (bot.decide(*g, in)) g->step(&in); }
   CHECK(g->judg.boss_n == kQuickLegends);
   // Tumbados todos: baja la guardia, con vida de verdad.
@@ -305,4 +305,47 @@ TEST_CASE("listas: quitar un índice que ya no está no hace nada (nunca n < 0)"
   l.remove_ordered(0);
   CHECK(l.n == 1);
   CHECK(l[0] == 8);
+}
+
+// Modo rápido (17-11-2026, «con Mewtwo al máximo no se puede ganar»): Arceus te alcanzaba
+// corriendo (hasta el 122 % de tu velocidad, ×1,15 enfurecido) y su toque del 40 % se repetía
+// cada 0,9 s: tres toques en tres segundos. Ahora no corre más que tú, toca el 25 % y retrocede.
+TEST_CASE("modo rápido: Arceus no te alcanza corriendo y su toque no se encadena") {
+  std::unique_ptr<Game> g(new Game());
+  RunConfig c; c.dex = 150; c.seed = 33; c.judged = 1; c.demo_time = 1195; c.mode = MODE_QUICK;
+  for (int u = 0; u < UP_COUNT; ++u) c.upgrades[u] = kUpgrades[u].max;
+  g->debug_immortal = true;
+  g->start_run(c);
+  for (int i = 0; i < 60 * 40 && g->judg.phase != 2; ++i) { Input in{}; g->step(&in); }
+  REQUIRE(g->judg.phase == 2);
+  REQUIRE(g->judg.can_win);
+  Player& p = g->players[0];
+  // Velocidad: el jugador quieto lejos; lo que avanza Arceus por segundo, nunca más que tú
+  // (a los 60 s de Sentencia y enfurecido, cuando más corría).
+  for (int pass = 0; pass < 2; ++pass) {
+    g->judg.arena_t = 60 + pass * 200;
+    g->judg.open = pass == 1;
+    g->judg.acast = -1; g->judg.acd = 99; g->judg.touch_cd = 99;
+    p.x = g->judg.cx + 300; p.y = g->judg.cy; g->judg.ax = g->judg.cx - 300; g->judg.ay = g->judg.cy;
+    const float x0 = g->judg.ax;
+    const float mine = player_spd(*g, p);
+    for (int i = 0; i < 30; ++i) { g->judg.acd = 99; g->judg.acast = -1; p.x = g->judg.cx + 300; p.y = g->judg.cy; Input in{}; g->step(&in); }
+    const float per_s = (g->judg.ax - x0) * 2;
+    CHECK(per_s <= mine * 0.96f);
+    CHECK(per_s > mine * 0.5f);   // (pero te persigue)
+  }
+  // Toque: el 25 % y no se repite enseguida (retrocede).
+  g->judg.open = false; g->judg.arena_t = 60; g->judg.touch_cd = 0; g->judg.acd = 99; g->judg.acast = -1;
+  g->debug_immortal = false;
+  p.hp = p.max_hp; p.invuln = 0; p.guard_t = 0;
+  g->judg.ax = p.x; g->judg.ay = p.y;
+  int touches = 0; float last = p.hp;
+  for (int i = 0; i < 60; ++i) {   // (1 s pegado a él: antes, dos toques)
+    g->judg.acd = 99; g->judg.acast = -1;
+    Input in{}; g->step(&in);
+    if (p.hp < last - p.max_hp * 0.2f) { touches++; CHECK((last - p.hp) / p.max_hp == doctest::Approx(0.25f).epsilon(0.05)); }
+    last = p.hp;
+    p.invuln = 0;
+  }
+  CHECK(touches == 1);
 }
