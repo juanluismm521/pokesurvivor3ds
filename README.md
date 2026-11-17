@@ -4,13 +4,12 @@
 
 A **homebrew** port for the **Nintendo 3DS** of [PokéSurvivor](https://pokesurvivor.com),
 the Pokémon *bullet-heaven* with *Pokémon Mystery Dungeon* sprites. It is the
-same game as the web version —all 966 Pokémon, the moves, rifts, Arceus'
-Judgment, the gacha, missions and achievements— tailored to the console: two
-screens, buttons, touch screen and 3D.
+same game as the web version —all 1025 Pokémon, the moves, rifts, Eternatus,
+Arceus' Judgment, the gacha, missions and achievements— tailored to the console:
+two screens, buttons, touch screen and 3D.
 
 <p align="center">
-  <img src="docs/img/mega-charizard.webp" alt="Mega Charizard on the 3DS" width="400">
-  <img src="docs/img/cooperativo.webp" alt="Online co-op on the 3DS" width="400">
+  <img src="docs/img/menu-1.0-en.webp" alt="The new main menu and the What's new screen of version 1.0" width="820">
 </p>
 
 **Website and downloads: [pokesurvivor3ds.com](https://www.pokesurvivor3ds.com)** ·
@@ -18,6 +17,35 @@ screens, buttons, touch screen and 3D.
 
 > A **non-profit** fan project, not affiliated with Nintendo, Game Freak or
 > The Pokémon Company. Always free: it may not be sold or carry ads.
+
+## New in 1.0 — the Big Update
+
+<p align="center">
+  <a href="https://www.pokesurvivor3ds.com/en/#v1"><b>▶ Watch the 1.0 trailer</b></a>
+</p>
+
+- **Eternamax Eternatus, the minute-20 boss** (minute 13 in quick mode): the sky turns
+  red and it takes you to its arena. Three phases, four cores linked by a laser
+  barrier, and the Eternabeam. If you fall, the run is over.
+- **Beat it and choose your power**, used with **Y** for the rest of the run:
+  **Dynamax**, **Terastal**, **Z-Ring** or **Mega Evolution** (Mega Evolution+ if
+  you already carry your Mega Stone).
+- **All 1025 Pokémon**, **57 regional forms** (Alola, Galar, Hisui and Paldea),
+  46 Megas with their own sprite, **73 new moves** and 39 **signature moves**.
+- **Rift legendaries fight for real**: three phases and five or six moves each.
+- **Kecleon Shop** (TMs, Mints, Ability Capsules), the **Weekly Challenge** and the
+  **Hard** and **Nightmare** difficulties.
+- **Redesigned main menu and touch screen**, with your passive cards at a glance.
+- **Gacha ×100** with nature and ability for every Pokémon.
+
+<p align="center">
+  <img src="docs/img/eternatus-en.webp" alt="Eternamax Eternatus: phase 1 and the Eternabeam" width="820">
+  <img src="docs/img/poderes-en.webp" alt="The four powers: Dynamax, Terastal, Z-Ring and Mega Evolution" width="820">
+  <img src="docs/img/tienda-gacha-en.webp" alt="Kecleon Shop and the ×100 gacha summary" width="820">
+</p>
+
+Every version is in [`CHANGELOG.md`](CHANGELOG.md) (in Spanish) and in the
+game's **What's new** screen (SELECT in the main menu).
 
 ## Install on the console
 You need a 3DS with custom firmware (Luma3DS). Both ways use the same save.
@@ -58,6 +86,12 @@ Downloads are on [pokesurvivor3ds.com](https://www.pokesurvivor3ds.com).
   shinies), per-Pokémon upgrades, **slot-machine gacha** with a region
   selector, missions, achievements, stats, settings and credits.
 - **Mega Evolutions** (a port extra): 91 Megas with their Mega Stones.
+
+<p align="center">
+  <img src="docs/img/mega-charizard.webp" alt="Mega Charizard on the 3DS" width="400">
+  <img src="docs/img/cooperativo.webp" alt="Online co-op on the 3DS" width="400">
+</p>
+
 - **Top screen**: the game at 400×240, pixel-perfect, with optional **3D**.
 - **Bottom screen**: health, level, timer, your moves (tap to switch) and a
   **minimap** with the real terrain, your teammates, enemies, bosses, chests,
@@ -84,9 +118,14 @@ everyone's inputs and adjusts the delay to each player's connection.
 ### The same save on the web and on the 3DS
 **Settings → pokesurvivor.com account → Log in** with your web username and
 password (or with Google by scanning a QR code). Both saves are **merged
-without losing anything** (Pokémon, shinies, coins, tickets, upgrades,
-achievements...) and then it syncs by itself on boot and after every run.
+without losing anything** (Pokémon, shinies, upgrades, achievements...) and
+then it syncs by itself on boot and after every run.
 
+- **What you earn is paid by pokesurvivor.com**, like on the web: each run is
+  saved on the SD card and claimed when you sync (also if you played offline).
+- **With an account, the gacha needs a connection**: the pulls are made on
+  pokesurvivor.com's server, as on the web, to stop cheating. Without an
+  account the game is 100 % local.
 - The password is **never stored**, only a session token.
 - **Safe against web updates**: anything the 3DS doesn't know is **never
   deleted**, the 3DS only writes what it changed, and if a merge would lose
@@ -109,7 +148,7 @@ Files in `sd:/3ds/pokesurvivor-3ds/`:
 | L / R (or X, ZL/ZR) | Switch move (or tap the slot below) |
 | START | Pause (SELECT while paused: quit the run) |
 | Up/down + A, or tap | Pick a level-up card, item or bond |
-| Y | Mega Evolve (with the Mega Stone equipped) · on level-up cards: reroll |
+| Y | Use your power (Mega Evolution, Dynamax, Terastal, Z-Ring) · on level-up cards: reroll |
 | Tap the minimap | Map legend |
 | START + SELECT | Exit the game |
 

@@ -4,13 +4,12 @@
 
 Port **homebrew** para **Nintendo 3DS** de [PokéSurvivor](https://pokesurvivor.com),
 el *bullet-heaven* con Pokémon y sprites de *Pokémon Mundo Misterioso*.
-Es el mismo juego que la web —los 966 Pokémon, los ataques, las grietas, la
-Sentencia de Arceus, el gacha, las misiones y logros— hecho a medida para la
-consola: dos pantallas, botones, pantalla táctil y 3D.
+Es el mismo juego que la web —los 1025 Pokémon, los ataques, las grietas,
+Eternatus, la Sentencia de Arceus, el gacha, las misiones y logros— hecho a
+medida para la consola: dos pantallas, botones, pantalla táctil y 3D.
 
 <p align="center">
-  <img src="docs/img/mega-charizard.webp" alt="Mega Charizard en la 3DS" width="400">
-  <img src="docs/img/cooperativo.webp" alt="Jugando en grupo por internet en la 3DS" width="400">
+  <img src="docs/img/menu-1.0.webp" alt="El menú principal nuevo y las novedades de la versión 1.0" width="820">
 </p>
 
 **Web y descargas: [pokesurvivor3ds.com](https://www.pokesurvivor3ds.com)** ·
@@ -18,6 +17,35 @@ consola: dos pantallas, botones, pantalla táctil y 3D.
 
 > Proyecto de fans **sin ánimo de lucro**, sin relación con Nintendo, Game Freak
 > ni The Pokémon Company. Gratis siempre: no se puede vender ni poner anuncios.
+
+## Lo nuevo de la 1.0: la Gran Actualización
+
+<p align="center">
+  <a href="https://www.pokesurvivor3ds.com/es/#v1"><b>▶ Mira el tráiler de la 1.0</b></a>
+</p>
+
+- **Eternatus Eternamax, el jefe del minuto 20** (del 13 en el modo rápido): el cielo
+  se tiñe de rojo y te lleva a su arena. Tres fases, cuatro núcleos unidos por una
+  barrera de láseres y el Rayo Eternamax. Si caes, se acaba la partida.
+- **Véncelo y elige tu poder**, que usas con **Y** el resto de la partida:
+  **Dinamax**, **Teracristal**, **Pulsera Z** o **Megaevolución** (Megaevolución +
+  si ya llevas tu megapiedra).
+- **Los 1025 Pokémon**, **57 formas regionales** (Alola, Galar, Hisui y Paldea),
+  46 megas con sprite propio, **73 ataques nuevos** y 39 **ataques exclusivos**.
+- **Los legendarios de la grieta pelean de verdad**: tres fases y cinco o seis ataques.
+- **Tienda Kecleon** (MT, mentas, cápsulas de habilidad), el **desafío semanal** y
+  las dificultades **Difícil** y **Pesadilla**.
+- **Menú principal y pantalla táctil renovados**, con tus pasivas a la vista.
+- **Gacha ×100** con naturaleza y habilidad en cada Pokémon.
+
+<p align="center">
+  <img src="docs/img/eternatus.webp" alt="Eternatus Eternamax: la fase 1 y el Rayo Eternamax" width="820">
+  <img src="docs/img/poderes.webp" alt="Los cuatro poderes: Dinamax, Teracristal, Pulsera Z y Megaevolución" width="820">
+  <img src="docs/img/tienda-gacha.webp" alt="La Tienda Kecleon y el resumen del gacha ×100" width="820">
+</p>
+
+Todas las versiones, en [`CHANGELOG.md`](CHANGELOG.md) y en la pantalla de
+**Novedades** del juego (SELECT en el menú principal).
 
 ## Qué tiene
 
@@ -28,6 +56,12 @@ consola: dos pantallas, botones, pantalla táctil y 3D.
 - **Menús completos**: test de personalidad, compañero, colección (Pokédex con
   shinies), mejoras por Pokémon con atajos y vetos, **gacha con tragaperras** y
   selector de región (L/R), misiones, logros, estadísticas, ajustes y créditos.
+- **Megaevoluciones** (del port): 91 megas con sus megapiedras.
+
+<p align="center">
+  <img src="docs/img/mega-charizard.webp" alt="Mega Charizard en la 3DS" width="400">
+  <img src="docs/img/cooperativo.webp" alt="Jugando en grupo por internet en la 3DS" width="400">
+</p>
 - **Pantalla de arriba**: la partida a 400×240, píxel exacto, con **3D**
   opcional (suelo al fondo, Pokémon delante).
 - **Pantalla de abajo**: vida, nivel, reloj, tus ataques (tócalos para
@@ -64,12 +98,17 @@ de los controles se ajusta solo según el ping.
 ### La misma partida en la web y en la 3DS
 **Ajustes → Cuenta de pokesurvivor.com → Entrar** con tu usuario y contraseña
 de la web. Las dos partidas **se juntan sin perder nada** (Pokémon, shinies,
-monedas, tickets, mejoras, logros...) igual que lo hace la web entre dos
+mejoras, logros...) igual que lo hace la web entre dos
 ordenadores, y después se sincroniza sola al encender y al acabar cada partida,
 o con «Sincronizar ahora». En la web, recarga la página para ver lo de la 3DS.
 
-- Sólo cuentas de **usuario y contraseña** (las de Google no se pueden usar en
-  la consola). La contraseña **no se guarda**: sólo un token de sesión.
+- Con **usuario y contraseña**, o con **Google** escaneando un QR. La
+  contraseña **no se guarda**: sólo un token de sesión.
+- **Lo que ganas lo paga pokesurvivor.com**, como en la web: cada partida queda
+  apuntada en la SD y se cobra al sincronizar (también si jugaste sin conexión).
+- **Con cuenta, el gacha necesita conexión**: las tiradas se hacen en el
+  servidor de pokesurvivor.com, como en la web, para evitar trampas. Sin
+  cuenta, el juego es 100 % local.
 - **A prueba de actualizaciones de la web**:
   - si la web cambia el formato de la partida, la 3DS no toca nada y pide
     actualizar el juego;
@@ -116,7 +155,7 @@ Archivos que el juego usa en `sd:/3ds/pokesurvivor-3ds/`:
 | L / R (o X, ZL/ZR) | Cambiar de ataque (o tocar el hueco abajo) |
 | START | Pausa (SELECT en la pausa: abandonar la partida) |
 | Arriba/abajo + A, o tocar | Elegir carta de nivel, objeto o vínculo |
-| Y | Megaevolucionar (con la megapiedra puesta) · en las cartas de nivel: cambiarlas |
+| Y | Usar tu poder (Megaevolución, Dinamax, Teracristal, Pulsera Z) · en las cartas de nivel: cambiarlas |
 | Tocar el minimapa | Leyenda del mapa |
 | START + SELECT | Salir del juego |
 
