@@ -110,6 +110,12 @@ if os.path.exists(TR + '/PokeSurvivor3DS_trailer_en_ligero.mp4'):
     shutil.copyfile(TR + '/PokeSurvivor3DS_trailer_en_ligero.mp4', OUT + '/trailer-en.mp4')
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', '17.0', '-i', OUT + '/trailer.mp4', '-frames:v', '1', '-vf', 'scale=540:960',
                 '-q:v', '3', OUT + '/trailer.jpg'], check=True)
+# El tráiler de la 1.0 (trailer_v1.py), en español y en inglés, con su portada (el logo con «VERSIÓN 1.0»).
+for sufijo, src in (('', 'PokeSurvivor3DS_trailer_v1_ligero.mp4'), ('-en', 'PokeSurvivor3DS_trailer_v1_en_ligero.mp4')):
+    if os.path.exists(TR + '/' + src):
+        shutil.copyfile(TR + '/' + src, OUT + '/trailer-1.0%s.mp4' % sufijo)
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', '6.4', '-i', OUT + '/trailer-1.0%s.mp4' % sufijo, '-frames:v', '1',
+                        '-vf', 'scale=540:960', '-q:v', '3', OUT + '/trailer-1.0%s.jpg' % sufijo], check=True)
 
 # favicon: una pokéball
 fv = Image.new('RGBA', (64, 64), (0, 0, 0, 0)); d = ImageDraw.Draw(fv)

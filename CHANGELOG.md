@@ -5,7 +5,7 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
-## 1.0.0 — en preparación (sin publicar)
+## 1.0.0 — 2026-11-17
 **La Gran Actualización de pokesurvivor.com llega a la 3DS** (con permiso de su autor): la 1.0.
 - **Arreglado: sincronizar ya no deshace lo ganado.** Desde el 15-11 pokesurvivor.com sólo da por
   buenas las monedas, tickets y Pokémon que le llegan por su servidor, y al sincronizar quitaba lo
