@@ -279,7 +279,7 @@ void App::start_run() {
   g_->now_ms = now_ms();
   r_->sprites.async = false;   // precarga: todo en el momento
   g_->start_run(cfg, autotest && !auto_real ? nullptr : s_);
-  if (!autotest || auto_real) cloud3ds::begin_run();   // (el id de la partida para su reclamo, si hay cuenta y conexión)
+  // (sin /run/start: con su id el servidor no paga el reclamo; ver cloud::send_claims)
   g_->debug_immortal = autotest && auto_immortal_;
   if (autotest && auto_power >= 0) { Player& ap = g_->pl(); ap.epower = int8_t(auto_power); ap.power_cd = auto_power_at; }   // (capturas de los poderes)
   g_->debug_win = autotest && auto_win;   // (capturas y pruebas de la victoria: Game::debug_win)

@@ -353,7 +353,9 @@ int send_claims(Client& c, Session& s, Json& runq, int64_t local_now_ms) {
   while (runq.size() > 0) {
     const Json e = runq[0];
     Json body = Json::object();
-    body.set("id", e["id"].is_str() ? e["id"] : Json());
+    // Siempre sin id: el servidor de pokesurvivor.com contesta «ok» a un reclamo con el id de
+    // /run/start pero no paga nada (probado el 17-11-2026: con id 0 de 92 monedas; sin id, todo).
+    body.set("id", Json());
     body.set("claim", e["claim"]);
     body.set("ago", Json::num(std::max(0.0, double(local_now_ms) - e["end"].as_num(double(local_now_ms)))));
     const std::string b = body.dump();

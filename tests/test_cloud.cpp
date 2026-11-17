@@ -65,6 +65,8 @@ bool fake_http(const cloud::HttpReq& rq, cloud::HttpResp& rs, void* ctx) {
     if (!fs.save.is_obj()) { fs.lost++; rs.body = "{\"ok\":true,\"mastery\":{\"dex\":4,\"pts\":33}}"; return true; }
     Json b; b.parse(rq.body);
     fs.claims++;
+    // (como el de verdad, 17-11-2026: con el id de /run/start contesta ok y no paga nada)
+    if (b["id"].is_str()) { rs.body = "{\"ok\":true}"; return true; }
     const double add = std::min(b["claim"]["coins"].as_num(), std::max(0.0, fs.cap - fs.earned));
     fs.earned += add;
     fs.save.set("coins", Json::num(fs.save["coins"].as_num() + add));
@@ -491,5 +493,14 @@ TEST_CASE("sincronizar: con una cuenta nueva (sin partida en la nube) las partid
   REQUIRE_MESSAGE(cloud::sync(c, ses, merged, "ctrprueba", fs.now, merged, &q), c.error);
   CHECK(c.claim_asked == 494);
   CHECK(c.claim_paid == 300);
+  // Una partida con el id de /run/start (versiones 1.0.0: así no pagaba): se manda sin id y se cobra.
+  fs.cap = 1e9;
+  runq_push(q, cl, fs.now);
+  q.elems().back().set("id", Json::str("04bdc958549b0c8dab90a9dce3849fdc"));
+  fs.now += 60000;
+  const double antes = merged["coins"].as_num();
+  REQUIRE_MESSAGE(cloud::sync(c, ses, merged, "ctrprueba", fs.now, merged, &q), c.error);
+  CHECK(c.claim_paid == 247);
+  CHECK(merged["coins"].as_num() == antes + 247);
   save_raw() = Json();
 }
