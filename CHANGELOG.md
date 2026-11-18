@@ -5,6 +5,12 @@ Cada commit con cambios para el jugador sube la versión (`src/core/version.h`):
 (1.0.0) sólo cuando lo decida el dueño. La build (número que sale en
 Ajustes → Actualizaciones) es el número de commits de `main`.
 
+## 1.0.3 — 2026-11-17
+- **Arceus, pasable con cualquier Pokémon en el modo rápido** (con todas las mejoras, un Pokémon
+  normal tardaba 6–9 minutos en ganar, y Mewtwo 3): en la Sentencia, sus legendarios y Arceus tienen
+  el 60 % de la vida mínima de antes y, si llegas por debajo de nivel 32, menos aún (como mucho, la
+  mitad). Sigue costando: hay que esquivar y tener daño. El modo normal sigue como en la web.
+
 ## 1.0.2 — 2026-11-17
 - **Arceus, más justo en el modo rápido** (con un Pokémon al máximo no se podía ganar): en la
   Sentencia ya no corre más que tú (antes llegaba a ir un 22 % más rápido, y un 40 % enfurecido),

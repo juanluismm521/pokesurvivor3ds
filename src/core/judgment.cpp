@@ -11,11 +11,13 @@
 //      El primero, según el daño que hacías a UN enemigo.
 //   (Del 23-10 no se porta, por ahora: el minuto 35 que rompe los objetos.)
 //   5. Modo rápido (del port, 2026-10-29): acuden sólo kQuickLegends legendarios (6 desde el 17-11-2026)
-//      y Arceus no te alcanza corriendo; su toque quita menos y no se encadena (QUICK_*).
+//      y Arceus no te alcanza corriendo; su toque quita menos y no se encadena, y la vida
+//      mínima de los legendarios y de Arceus es menor (QUICK_*).
 //      Tumbados todos, Arceus BAJA LA GUARDIA: tiene vida de verdad (ARCEUS_HP veces
 //      la del primer legendario), recibe el daño entero y se enfurece (ataca más a
 //      menudo y corre más). Si cae, la partida acaba en victoria (medalla y premio).
 //      En el modo normal todo sigue como en la web: invencible.
+#include <algorithm>
 #include <cmath>
 #include <initializer_list>
 #include <cstdio>
@@ -40,6 +42,9 @@ float touch_pct(float arena_t, float base = TOUCH) { return std::fmin(1.0f, base
 // no es nunca más rápido que tú (antes llegaba al 122 %, ×1,15 enfurecido: no había forma de
 // escapar), su toque quita menos y no se encadena (retrocede y tarda más en volver a tocar).
 constexpr float QUICK_SPD_MAX = 0.95f, QUICK_TOUCH = 0.25f, QUICK_TOUCH_CD = 1.5f, QUICK_RECOIL = 120;
+// …y el mínimo de vida de sus legendarios y de Arceus es menor (quick_floor_k): con el de la web,
+// que manda casi siempre, un Pokémon normal con todas las mejoras tardaba 6–9 min en ganar.
+constexpr float QUICK_HP_FLOOR = 0.6f, QUICK_LV_REF = 32, QUICK_LV_MIN = 0.5f;
 constexpr int ARCEUS = 493;
 constexpr float SCALE = 1.5f;
 // Halloween: el gran Gengar bruja (su disfraz, kSkins «bruja-gengar»), el doble de grande.
@@ -81,6 +86,13 @@ void sample_dps(Game& g, float dt) {
   j.nhit = 0; j.hit_t = 0;
 }
 
+// Modo rápido: el mínimo de vida de los legendarios (y de Arceus) — el 60 % del de la web, y
+// menos aún si llegas flojo (por debajo de nivel 32, en proporción; como mucho, la mitad).
+float quick_floor_k(const Game& g) {
+  int lv = 1;
+  for (int i = 0; i < g.nplayers; ++i) if (g.players[i].active && !g.players[i].dead) lv = std::max(lv, g.players[i].level);
+  return QUICK_HP_FLOOR * clamp(float(lv) / QUICK_LV_REF, QUICK_LV_MIN, 1.0f);
+}
 float single_dps(const Game& g) {
   const Game::JudgmentState& j = g.judg;
   float s[30];
@@ -186,7 +198,8 @@ void fight(Game& g) {
   // Vida del primer legendario: unos 3 s de vuestro daño a un enemigo (y un mínimo).
   const float t = float(g.time);
   const float floor_ = (3200 + t * 9) * 0.35f * coop_scale_hp(g.team_size());
-  j.base = std::fmax(floor_, single_dps(g) * 3);
+  // (modo rápido: con un mínimo más bajo, quick_floor_k)
+  j.base = std::fmax(floor_ * (g.cfg.mode == MODE_QUICK ? quick_floor_k(g) : 1.0f), single_dps(g) * 3);
   j.dealt = 0;
   j.can_win = g.cfg.mode == MODE_QUICK;
   j.open = j.won = j.wipe = false; j.won_t = 0;

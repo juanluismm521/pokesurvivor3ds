@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <memory>
+#include <utility>
 
 #include "core/game.h"
 #include "core/bot.h"
@@ -348,4 +349,27 @@ TEST_CASE("modo rápido: Arceus no te alcanza corriendo y su toque no se encaden
     p.invuln = 0;
   }
   CHECK(touches == 1);
+}
+
+TEST_CASE("modo rápido: legendarios y Arceus con menos vida mínima, y menos aún si llegas flojo") {
+  // La misma partida, en el modo normal y en el rápido, con el nivel fijo al empezar la Sentencia.
+  auto base_at = [](int mode, int level) {
+    std::unique_ptr<Game> g(new Game());
+    RunConfig c; c.dex = 25; c.seed = 8; c.judged = 1; c.mode = uint8_t(mode);
+    c.demo_time = mode == MODE_QUICK ? 1195 : 1795;
+    g->debug_immortal = true;
+    g->start_run(c);
+    Bot bot; bot.init(4);
+    for (int i = 0; i < 60 * 40 && g->judg.phase != 2; ++i) {
+      if (g->judg.phase == 1) g->players[0].level = level;
+      Input in{}; if (bot.decide(*g, in)) g->step(&in);
+    }
+    REQUIRE(g->judg.phase == 2);
+    const float floor_ = (3200 + float(g->time) * 9) * 0.35f;   // (el mínimo de la web)
+    return std::make_pair(g->judg.base, floor_);
+  };
+  const auto normal = base_at(0, 40), fuerte = base_at(MODE_QUICK, 40), flojo = base_at(MODE_QUICK, 12);
+  CHECK(normal.first >= normal.second * 0.999f);            // (normal: como en la web)
+  CHECK(fuerte.first == doctest::Approx(fuerte.second * 0.6f).epsilon(0.01));
+  CHECK(flojo.first == doctest::Approx(flojo.second * 0.3f).epsilon(0.01));   // (nivel 12: la mitad, el tope)
 }

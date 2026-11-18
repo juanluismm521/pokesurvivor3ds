@@ -38,6 +38,9 @@ struct NewsItem {
 };
 
 const NewsItem kNews[] = {
+    {"Versión 1.0.3 · ¡Arceus, con cualquiera!", 0, nullptr, nullptr},
+    {nullptr, NI_M_ARCEUS, "Arceus, para todos",
+     "Sus legendarios y Arceus tienen menos vida, y aún menos si llegas con poco nivel. Ya no hace falta Mewtwo: con mejoras, se gana."},
     {"Versión 1.0.2 · ¡Arceus, a tu alcance!", 0, nullptr, nullptr},
     {nullptr, NI_M_ARCEUS, "Arceus, más justo en Rápido",
      "Ya no corre más que tú, su toque quita menos y no se repite seguido. Tumba a 6 legendarios (antes 8) y bajará la guardia."},
@@ -194,7 +197,7 @@ int parade(int16_t* out) {
 }
 
 // Las novedades de ahora: si no se han visto, se abren solas una vez.
-constexpr const char* kNewsVersion = "1.0.2";
+constexpr const char* kNewsVersion = "1.0.3";
 
 const uint32_t kRainbow[6] = {0xff5f6d, 0xffd23f, 0x5fe08a, 0x5fc8ff, 0xc47bff, 0xff8ad8};
 
